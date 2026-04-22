@@ -1,13 +1,19 @@
+const {
+  UI_SCROLLBAR_THUMB_COLOR,
+  UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
+} = require("../ui/constants");
+
 function buildScrollbarScript(options = {}) {
   const width = Number.isFinite(options.widthPx) ? Math.max(2, Math.floor(options.widthPx)) : 6;
   const hideDelayMs = Number.isFinite(options.hideDelayMs)
     ? Math.max(100, Math.floor(options.hideDelayMs))
     : 700;
-  const thumb = typeof options.thumbColor === "string" ? options.thumbColor : "rgba(120, 150, 220, 0.58)";
+  const thumb =
+    typeof options.thumbColor === "string" ? options.thumbColor : UI_SCROLLBAR_THUMB_COLOR;
   const thumbActive =
     typeof options.thumbActiveColor === "string"
       ? options.thumbActiveColor
-      : "rgba(120, 150, 220, 0.9)";
+      : UI_SCROLLBAR_THUMB_ACTIVE_COLOR;
   const track = typeof options.trackColor === "string" ? options.trackColor : "transparent";
 
   return `

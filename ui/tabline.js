@@ -1,4 +1,11 @@
-const { UI_SHELL_TABLINE_HEIGHT } = require("./constants");
+const {
+  UI_SHELL_TABLINE_HEIGHT,
+  UI_MAIN_COLOR,
+  UI_MUTED_TEXT_COLOR,
+  UI_BORDER_COLOR,
+  UI_SURFACE_COLOR,
+  UI_FONT_FAMILY,
+} = require("./constants");
 
 function escapeHtml(value) {
   return String(value)
@@ -16,7 +23,7 @@ function renderTabline(webContents, snapshot) {
     .map((buffer) => {
       const title = escapeHtml(buffer.title || buffer.url || "[No title]");
       const classes = buffer.isActive ? "tab is-active" : "tab";
-      return `<span class="${classes}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${buffer.id}: ${title}</span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">x</button></span>`;
+      return `<span class="${classes}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${buffer.id}: ${title}</span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
     })
     .join("");
 
@@ -72,10 +79,10 @@ function renderTabline(webContents, snapshot) {
         overflowX: 'auto',
         whiteSpace: 'nowrap',
         zIndex: '999998',
-        background: '#171b22',
+        background: ${JSON.stringify(UI_SURFACE_COLOR)},
         color: '#c8d1e8',
-        borderBottom: '1px solid #2f3440',
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        borderBottom: ${JSON.stringify(`1px solid ${UI_BORDER_COLOR}`)},
+        fontFamily: ${JSON.stringify(UI_FONT_FAMILY)},
         fontSize: '12px',
         lineHeight: '1',
       });
@@ -88,7 +95,7 @@ function renderTabline(webContents, snapshot) {
           padding: '4px 8px',
           borderRadius: '4px',
           background: '#202633',
-          color: '#9eb1d9',
+          color: ${JSON.stringify(UI_MUTED_TEXT_COLOR)},
           maxWidth: '320px',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -109,7 +116,7 @@ function renderTabline(webContents, snapshot) {
         Object.assign(button.style, {
           border: 'none',
           background: 'transparent',
-          color: '#9eb1d9',
+          color: ${JSON.stringify(UI_MUTED_TEXT_COLOR)},
           fontFamily: 'inherit',
           fontSize: '12px',
           lineHeight: '1',
@@ -121,13 +128,12 @@ function renderTabline(webContents, snapshot) {
 
       root.querySelectorAll('.is-active').forEach((tab) => {
         Object.assign(tab.style, {
-          background: '#35518a',
-          color: '#f3f7ff',
+          color: ${JSON.stringify(UI_MAIN_COLOR)},
         });
       });
 
       root.querySelectorAll('.is-active .tab-close').forEach((button) => {
-        button.style.color = '#f3f7ff';
+        button.style.color = ${JSON.stringify(UI_MAIN_COLOR)};
       });
 
     })();

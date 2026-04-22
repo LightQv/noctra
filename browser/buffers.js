@@ -1,6 +1,10 @@
 const { BrowserView } = require("electron");
 const { EventEmitter } = require("events");
 const { applyScrollableUi } = require("./contentUi");
+const {
+  UI_SCROLLBAR_THUMB_COLOR,
+  UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
+} = require("../ui/constants");
 
 function getUrlDisplayTitle(rawUrl) {
   if (!rawUrl) return "Loading...";
@@ -38,8 +42,8 @@ class Buffer extends EventEmitter {
       widthPx: 6,
       hideDelayMs: 700,
       trackColor: "transparent",
-      thumbColor: "rgba(120, 150, 220, 0.58)",
-      thumbActiveColor: "rgba(120, 150, 220, 0.9)",
+      thumbColor: UI_SCROLLBAR_THUMB_COLOR,
+      thumbActiveColor: UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
     };
 
     this.webContents.on("did-finish-load", () => {

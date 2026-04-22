@@ -79,10 +79,6 @@ function getWhichKeyModel(path = [], numericBuffer = "") {
           key: "<Enter digits>",
           label: `Switch to buffer ${numericBuffer}`,
         },
-        {
-          key: "Backspace",
-          label: "Remove last digit",
-        },
       ],
     };
   }
@@ -105,8 +101,6 @@ function getWhichKeyModel(path = [], numericBuffer = "") {
   if (path.length === 0) {
     entries.push({ key: "0-9", label: "Switch buffer by number" });
   }
-
-  entries.push({ key: "Backspace", label: "Go back" });
 
   const prefix = path.length ? `<leader> ${path.join(" ")}` : "<leader>";
 

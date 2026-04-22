@@ -1,6 +1,14 @@
 const { BrowserView } = require("electron");
 const { renderTabline } = require("../tabline");
-const { UI_SHELL_TABLINE_HEIGHT, UI_SHELL_STATUSLINE_HEIGHT } = require("../constants");
+const {
+  UI_SHELL_TABLINE_HEIGHT,
+  UI_SHELL_STATUSLINE_HEIGHT,
+  UI_MAIN_COLOR,
+  UI_MUTED_TEXT_COLOR,
+  UI_PANEL_BG_COLOR,
+  UI_FONT_FAMILY,
+  UI_FONT_FACE_CSS,
+} = require("../constants");
 
 const SHELL_HTML = `
 <!doctype html>
@@ -8,6 +16,8 @@ const SHELL_HTML = `
   <head>
     <meta charset="UTF-8" />
     <style>
+      ${UI_FONT_FACE_CSS}
+
       html,
       body {
         margin: 0;
@@ -38,25 +48,49 @@ const COMMAND_OVERLAY_HTML = `
         pointer-events: none;
       }
 
+      ${UI_FONT_FACE_CSS}
+
+      #command-shell {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        min-width: 0;
+        padding: 0 12px;
+        border-radius: 8px;
+        border: 1px solid ${UI_MAIN_COLOR};
+        background: ${UI_PANEL_BG_COLOR};
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+      }
+
+      #command-title {
+        margin: 0 auto;
+        padding: 0 8px;
+        color: ${UI_MUTED_TEXT_COLOR};
+        font-family: ${UI_FONT_FAMILY};
+        font-size: 11px;
+        line-height: 1;
+      }
+
       #command-overlay {
         width: 100%;
         height: 100%;
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 0 14px;
-        border-radius: 8px;
-        border: 1px solid #2f3440;
-        background: #1e232d;
+        gap: 6px;
+        padding: 0;
         color: #f4f7ff;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 14px;
+        font-family: ${UI_FONT_FAMILY};
+        font-size: 12px;
         line-height: 1;
         box-sizing: border-box;
       }
 
       #command-prefix {
-        color: #9eb1d9;
+        color: ${UI_MAIN_COLOR};
+        font-size: 15px;
+        line-height: 1;
       }
 
       #command-text {
@@ -68,10 +102,13 @@ const COMMAND_OVERLAY_HTML = `
     </style>
   </head>
   <body>
-    <div id="command-overlay">
-      <span id="command-prefix">:</span>
-      <span id="command-text"></span>
-    </div>
+    <fieldset id="command-shell">
+      <legend id="command-title">Cmdline</legend>
+      <div id="command-overlay">
+        <span id="command-prefix"></span>
+        <span id="command-text"></span>
+      </div>
+    </fieldset>
   </body>
 </html>
 `;
@@ -92,56 +129,114 @@ const WHICHKEY_OVERLAY_HTML = `
         pointer-events: none;
       }
 
+      ${UI_FONT_FACE_CSS}
+
       #whichkey-overlay {
         width: 100%;
         height: 100%;
+        margin: 0;
+        min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        padding: 10px 12px;
+        gap: 6px;
+        padding: 2px 14px 8px;
         border-radius: 8px;
-        border: 1px solid #2f3440;
-        background: #161b24;
+        border: 1px solid ${UI_MAIN_COLOR};
+        background: ${UI_PANEL_BG_COLOR};
         color: #f2f6ff;
         box-sizing: border-box;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-family: ${UI_FONT_FAMILY};
+      }
+
+      #whichkey-title {
+        margin: 0 auto;
+        padding: 0 8px;
+        color: ${UI_MUTED_TEXT_COLOR};
+        font-size: 11px;
+        line-height: 1;
       }
 
       #whichkey-prefix {
-        color: #8da3d4;
-        font-size: 12px;
+        color: ${UI_MUTED_TEXT_COLOR};
+        font-size: 11px;
+        min-height: 14px;
       }
 
       #whichkey-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 6px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0 14px;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .whichkey-column {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
       }
 
       .whichkey-entry {
-        display: flex;
+        display: grid;
+        grid-template-columns: max-content max-content minmax(0, 1fr);
         align-items: center;
-        gap: 8px;
-        padding: 6px 8px;
-        border-radius: 6px;
-        background: #232a38;
+        column-gap: 4px;
+        min-width: 0;
+        font-size: 11px;
       }
 
       .whichkey-key {
-        color: #d8e5ff;
-        min-width: 70px;
+        color: ${UI_MAIN_COLOR};
+        white-space: nowrap;
+      }
+
+      .whichkey-arrow {
+        color: ${UI_MUTED_TEXT_COLOR};
       }
 
       .whichkey-label {
         color: #b6c7e8;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      #whichkey-hints {
+        display: flex;
+        justify-content: center;
+        gap: 18px;
+        color: ${UI_MUTED_TEXT_COLOR};
+        font-size: 10px;
+      }
+
+      .whichkey-hint {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .whichkey-hint-icon {
+        color: ${UI_MAIN_COLOR};
+        font-size: 15px;
+        line-height: 1;
+      }
+
+      .whichkey-hint-label {
+        color: ${UI_MUTED_TEXT_COLOR};
       }
     </style>
   </head>
   <body>
-    <div id="whichkey-overlay">
+    <fieldset id="whichkey-overlay">
+      <legend id="whichkey-title">whichkey</legend>
       <div id="whichkey-prefix"></div>
       <div id="whichkey-grid"></div>
-    </div>
+      <div id="whichkey-hints">
+        <span class="whichkey-hint"><span class="whichkey-hint-icon">󱊷</span><span class="whichkey-hint-label">close</span></span>
+        <span class="whichkey-hint"><span class="whichkey-hint-icon">󰁮</span><span class="whichkey-hint-label">back</span></span>
+      </div>
+    </fieldset>
   </body>
 </html>
 `;
@@ -162,6 +257,8 @@ const STATUSLINE_OVERLAY_HTML = `
         pointer-events: none;
       }
 
+      ${UI_FONT_FACE_CSS}
+
       #statusline {
         width: 100%;
         height: 100%;
@@ -173,12 +270,12 @@ const STATUSLINE_OVERLAY_HTML = `
         background: #151a22;
         border-top: 1px solid #2a3140;
         color: #d8e3f8;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-family: ${UI_FONT_FAMILY};
         font-size: 12px;
       }
 
       #statusline-mode {
-        color: #a8bde8;
+        color: ${UI_MAIN_COLOR};
         text-transform: uppercase;
         letter-spacing: 0.06em;
       }
@@ -190,7 +287,7 @@ const STATUSLINE_OVERLAY_HTML = `
   </head>
   <body>
     <div id="statusline">
-      <span id="statusline-mode">NORMAL</span>
+      <span id="statusline-mode"> NORMAL</span>
       <span id="statusline-scroll">0%</span>
     </div>
   </body>
@@ -344,8 +441,8 @@ class UiShellManager {
       return;
 
     const bounds = this.window.getContentBounds();
-    const width = this.commandVisible ? Math.min(560, Math.max(bounds.width - 40, 320)) : 1;
-    const height = this.commandVisible ? 52 : 1;
+    const width = this.commandVisible ? Math.min(500, Math.max(bounds.width - 160, 300)) : 1;
+    const height = this.commandVisible ? 42 : 1;
     const x = this.commandVisible ? Math.max(Math.floor((bounds.width - width) / 2), 0) : -10000;
     const y = this.commandVisible
       ? Math.max(Math.floor((bounds.height - height) / 2), UI_SHELL_TABLINE_HEIGHT + 10)
@@ -353,8 +450,8 @@ class UiShellManager {
 
     this.commandOverlayView.setBounds({ x, y, width, height });
 
-    const whichWidth = this.whichKeyVisible ? Math.min(760, Math.max(bounds.width - 40, 360)) : 1;
-    const whichHeight = this.whichKeyVisible ? 180 : 1;
+    const whichWidth = this.whichKeyVisible ? Math.min(980, Math.max(bounds.width - 28, 560)) : 1;
+    const whichHeight = this.whichKeyVisible ? 150 : 1;
     const whichX = this.whichKeyVisible
       ? Math.max(Math.floor((bounds.width - whichWidth) / 2), 0)
       : -10000;
@@ -479,12 +576,35 @@ class UiShellManager {
         const model = ${JSON.stringify(safeModel)};
         prefixNode.textContent = model.prefix || '<leader>';
 
-        const entries = Array.isArray(model.entries) ? model.entries : [];
-        gridNode.innerHTML = entries
-          .map((entry) => {
-            const key = String(entry.key || '');
-            const label = String(entry.label || '');
-            return '<div class="whichkey-entry"><span class="whichkey-key">' + key + '</span><span class="whichkey-label">' + label + '</span></div>';
+        const escapeHtml = (value) => String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+
+        const entries = (Array.isArray(model.entries) ? model.entries : []).filter((entry) => {
+          const key = String(entry && entry.key ? entry.key : '').toLowerCase();
+          return key !== 'backspace';
+        });
+
+        const columnCount = 3;
+        const maxRowsPerColumn = 6;
+        const columns = Array.from({ length: columnCount }, (_, index) =>
+          entries.slice(index * maxRowsPerColumn, (index + 1) * maxRowsPerColumn),
+        );
+
+        gridNode.innerHTML = columns
+          .map((columnEntries) => {
+            const rows = columnEntries
+              .map((entry) => {
+                const key = escapeHtml(String(entry.key || ''));
+                const label = escapeHtml(String(entry.label || ''));
+                return '<div class="whichkey-entry"><span class="whichkey-key">' + key + '</span><span class="whichkey-arrow">-&gt;</span><span class="whichkey-label">' + label + '</span></div>';
+              })
+              .join('');
+
+            return '<div class="whichkey-column">' + rows + '</div>';
           })
           .join('');
       })();
@@ -546,7 +666,7 @@ class UiShellManager {
       (function updateStatuslineMode() {
         const node = document.getElementById('statusline-mode');
         if (!node) return;
-        node.textContent = ${JSON.stringify(this.statuslineMode)};
+        node.textContent = ${JSON.stringify(` ${this.statuslineMode}`)};
       })();
     `);
   }

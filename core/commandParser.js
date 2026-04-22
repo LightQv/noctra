@@ -1,19 +1,104 @@
+const { INTENTS } = require("./intents");
+const { resolveInputTarget } = require("./resolver");
+
 function parseCommand(raw) {
-  const [cmd, ...args] = raw.trim().split(" ");
-  const arg = args.join(" ");
+  const normalized = raw.trim();
+  if (!normalized) {
+    return { type: INTENTS.NOOP };
+  }
+
+  const match = normalized.match(/^(\S+)\s*(.*)$/);
+  const cmd = match ? match[1] : normalized;
+  const arg = match ? match[2].trim() : "";
 
   switch (cmd) {
     case "open":
-      return { type: "OPEN_URL", url: arg };
+      if (!arg) {
+        return { type: INTENTS.UNKNOWN_COMMAND, raw };
+      }
+      {
+        const target = resolveInputTarget(arg, {
+          defaultSearchEngine: "duckduckgo",
+        });
+        if (target.kind === "invalid") {
+          return { type: INTENTS.UNKNOWN_COMMAND, raw };
+        }
+        return { type: INTENTS.OPEN_URL, url: target.url };
+      }
 
     case "tabnew":
-      return { type: "NEW_BUFFER" };
+      if (!arg) {
+        return { type: INTENTS.NEW_BUFFER, url: "about:blank" };
+      }
+      {
+        const target = resolveInputTarget(arg, {
+          defaultSearchEngine: "duckduckgo",
+        });
+        if (target.kind === "invalid") {
+          return { type: INTENTS.UNKNOWN_COMMAND, raw };
+        }
+        return { type: INTENTS.NEW_BUFFER, url: target.url };
+      }
+
+    case "bnext":
+      return { type: INTENTS.BUFFER_NEXT };
+
+    case "bprev":
+      return { type: INTENTS.BUFFER_PREV };
+
+    case "buffer": {
+      const bufferId = Number.parseInt(arg, 10);
+      if (!Number.isInteger(bufferId)) {
+        return { type: INTENTS.UNKNOWN_COMMAND, raw };
+      }
+      return { type: INTENTS.SWITCH_BUFFER, id: bufferId };
+    }
+
+    case "bdelete": {
+      const bufferId = arg ? Number.parseInt(arg, 10) : null;
+      if (arg && !Number.isInteger(bufferId)) {
+        return { type: INTENTS.UNKNOWN_COMMAND, raw };
+      }
+      return { type: INTENTS.CLOSE_BUFFER, id: bufferId };
+    }
+
+    case "bcloseleft":
+      return { type: INTENTS.CLOSE_LEFT_BUFFERS };
+
+    case "bcloseright":
+      return { type: INTENTS.CLOSE_RIGHT_BUFFERS };
+
+    case "split":
+      return { type: INTENTS.SPLIT_VERTICAL };
+
+    case "splitq":
+      return { type: INTENTS.SPLIT_CLOSE_RIGHT };
+
+    case "splitd":
+      return { type: INTENTS.SPLIT_DEVTOOLS };
+
+    case "config-reload":
+      return { type: INTENTS.CONFIG_RELOAD };
+
+    case "duck":
+      return {
+        type: INTENTS.SEARCH_WEB,
+        engine: "duckduckgo",
+        query: arg,
+      };
+
+    case "google":
+      return {
+        type: INTENTS.SEARCH_WEB,
+        engine: "google",
+        query: arg,
+      };
 
     case "quit":
-      return { type: "QUIT" };
+      return { type: INTENTS.QUIT };
 
     default:
-      return { type: "UNKNOWN_COMMAND", raw };
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
   }
 }
 

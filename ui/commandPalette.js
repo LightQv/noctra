@@ -1,5 +1,5 @@
-function injectCommandUI(win) {
-  win.webContents.executeJavaScript(`
+function injectCommandUI(webContents) {
+  webContents.executeJavaScript(`
     if (!window.__cmd_ui__) {
       const el = document.createElement('div');
       el.id = '__cmd_palette__';

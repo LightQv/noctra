@@ -1,30 +1,34 @@
+const { INTENTS } = require("../core/intents");
+
 module.exports = {
   j: (state, count) => ({
-    type: "SCROLL",
+    type: INTENTS.SCROLL,
     direction: "down",
     amount: 100 * count,
   }),
 
   k: (state, count) => ({
-    type: "SCROLL",
+    type: INTENTS.SCROLL,
     direction: "up",
     amount: 100 * count,
   }),
 
-  gg: () => ({ type: "SCROLL_TOP" }),
+  gg: () => ({ type: INTENTS.SCROLL_TOP }),
 
-  G: () => ({ type: "SCROLL_BOTTOM" }),
+  G: () => ({ type: INTENTS.SCROLL_BOTTOM }),
 
-  h: () => ({ type: "NAV_BACK" }),
+  h: () => ({ type: INTENTS.NAV_BACK }),
 
-  l: () => ({ type: "NAV_FORWARD" }),
+  l: () => ({ type: INTENTS.NAV_FORWARD }),
 
   i: (state) => {
     state.mode = "INSERT";
-    return { type: "ENTER_INSERT" };
+    return { type: INTENTS.ENTER_INSERT };
   },
 
-  o: () => ({ type: "OPEN_URL_PROMPT" }),
+  o: () => ({ type: INTENTS.OPEN_URL_PROMPT }),
 
-  b: () => ({ type: "NEW_BUFFER" }),
+  b: () => ({ type: INTENTS.NEW_BUFFER }),
+
+  "|": () => ({ type: INTENTS.SPLIT_VERTICAL }),
 };

@@ -1,27 +1,39 @@
+const { INTENTS } = require("../core/intents");
+
 function handleCtrl(state, key) {
   switch (key) {
     case "d":
       return {
-        type: "SCROLL",
+        type: INTENTS.SCROLL,
         amount: 300,
         direction: "down",
       };
 
     case "u":
       return {
-        type: "SCROLL",
+        type: INTENTS.SCROLL,
         amount: 300,
         direction: "up",
       };
 
     case "f":
       return {
-        type: "PAGE_DOWN",
+        type: INTENTS.PAGE_DOWN,
       };
 
     case "b":
       return {
-        type: "PAGE_UP",
+        type: INTENTS.PAGE_UP,
+      };
+
+    case "h":
+      return {
+        type: INTENTS.FOCUS_SPLIT_LEFT,
+      };
+
+    case "l":
+      return {
+        type: INTENTS.FOCUS_SPLIT_RIGHT,
       };
 
     default:

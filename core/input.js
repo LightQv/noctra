@@ -4,6 +4,24 @@ const { handleInsert } = require("../motions/insert");
 const { handleCommand } = require("../motions/command");
 const { dispatch } = require("./dispatcher");
 
+function shouldPreventDefault(input) {
+  if (input.type !== "keyDown") return false;
+
+  switch (state.mode) {
+    case "NORMAL":
+      return true;
+
+    case "COMMAND":
+      return true;
+
+    case "INSERT":
+      return input.key === "Escape";
+
+    default:
+      return false;
+  }
+}
+
 function handleInput(win, input) {
   if (input.type !== "keyDown") return;
 
@@ -28,4 +46,4 @@ function handleInput(win, input) {
   }
 }
 
-module.exports = { handleInput };
+module.exports = { handleInput, shouldPreventDefault };

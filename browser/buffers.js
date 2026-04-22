@@ -1,5 +1,6 @@
 const { BrowserView } = require("electron");
 const { EventEmitter } = require("events");
+const { applyScrollableUi } = require("./contentUi");
 
 function getUrlDisplayTitle(rawUrl) {
   if (!rawUrl) return "Loading...";
@@ -33,6 +34,17 @@ class Buffer extends EventEmitter {
     this.webContents = this.view.webContents;
     this.url = "about:blank";
     this.title = "[No title]";
+    this.contentUiOptions = {
+      widthPx: 6,
+      hideDelayMs: 700,
+      trackColor: "transparent",
+      thumbColor: "rgba(120, 150, 220, 0.58)",
+      thumbActiveColor: "rgba(120, 150, 220, 0.9)",
+    };
+
+    this.webContents.on("did-finish-load", () => {
+      this.applyContentUi();
+    });
 
     this.webContents.on("page-title-updated", (event, title) => {
       event.preventDefault();
@@ -58,6 +70,18 @@ class Buffer extends EventEmitter {
     this.title = getUrlDisplayTitle(url);
     this.webContents.loadURL(url);
     this.emit("updated", { kind: "metadata" });
+  }
+
+  setContentUiOptions(nextOptions = {}) {
+    this.contentUiOptions = {
+      ...this.contentUiOptions,
+      ...nextOptions,
+    };
+    this.applyContentUi();
+  }
+
+  applyContentUi() {
+    applyScrollableUi(this.webContents, this.contentUiOptions);
   }
 
   toJSON(isActive) {

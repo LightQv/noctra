@@ -118,7 +118,8 @@ function createWindow() {
     }
 
     activeBuffer.webContents
-      .executeJavaScript(`
+      .executeJavaScript(
+        `
         (function getScrollPercent() {
           const doc = document.documentElement;
           const body = document.body;
@@ -128,7 +129,8 @@ function createWindow() {
           const range = Math.max(scrollHeight - clientHeight, 1);
           return Math.max(0, Math.min(100, Math.round((top / range) * 100)));
         })();
-      `)
+      `,
+      )
       .then((percent) => {
         if (typeof percent === "number") {
           uiShell.updateStatuslineScroll(percent);
@@ -157,7 +159,6 @@ function createWindow() {
     } else if (uiShell.isCommandVisible()) {
       uiShell.keepCommandOverlayAboveContentViews();
     }
-
   });
 
   buffers.create("https://anime-sama.to/");

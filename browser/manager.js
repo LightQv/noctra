@@ -18,6 +18,7 @@ class BufferManager {
     this.focusedPane = "left";
     this.devtoolsView = null;
     this.devtoolsTarget = null;
+    this.contentUiOptions = {};
   }
 
   init(windowRef) {
@@ -37,6 +38,7 @@ class BufferManager {
 
     const activate = options.activate !== false;
     const buffer = new Buffer(0);
+    buffer.setContentUiOptions(this.contentUiOptions);
     buffer.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });
     });
@@ -371,6 +373,7 @@ class BufferManager {
     if (this.split.rightPaneBuffer || !this.window) return;
 
     const rightPane = new Buffer(0);
+    rightPane.setContentUiOptions(this.contentUiOptions);
     rightPane.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });
     });
@@ -570,6 +573,21 @@ class BufferManager {
     if (!this.window || !target) return;
     this.window.focus();
     target.focus();
+  }
+
+  setContentUiOptions(options = {}) {
+    this.contentUiOptions = {
+      ...this.contentUiOptions,
+      ...options,
+    };
+
+    for (const buffer of this.buffers) {
+      buffer.setContentUiOptions(this.contentUiOptions);
+    }
+
+    if (this.split.rightPaneBuffer) {
+      this.split.rightPaneBuffer.setContentUiOptions(this.contentUiOptions);
+    }
   }
 
   notify(change = { kind: "metadata", activeChanged: false }) {

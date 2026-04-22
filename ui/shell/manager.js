@@ -74,12 +74,14 @@ const COMMAND_OVERLAY_HTML = `
       }
 
       #command-overlay {
+        position: relative;
         width: 100%;
         height: 100%;
         display: flex;
         align-items: center;
         gap: 6px;
         padding: 0;
+        top: -1px;
         color: #f4f7ff;
         font-family: ${UI_FONT_FAMILY};
         font-size: 12px;
@@ -89,8 +91,11 @@ const COMMAND_OVERLAY_HTML = `
 
       #command-prefix {
         color: ${UI_MAIN_COLOR};
-        font-size: 15px;
+        font-size: 17px;
         line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        transform: translateY(-1px);
       }
 
       #command-text {
@@ -98,6 +103,7 @@ const COMMAND_OVERLAY_HTML = `
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        line-height: 1;
       }
     </style>
   </head>

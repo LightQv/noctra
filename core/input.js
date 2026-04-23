@@ -1,4 +1,5 @@
 const state = require("./state");
+const buffers = require("../browser/manager");
 const { handleNormal } = require("../motions/normal");
 const { handleInsert } = require("../motions/insert");
 const { handleCommand } = require("../motions/command");
@@ -6,6 +7,12 @@ const { dispatch } = require("./dispatcher");
 
 function shouldPreventDefault(input) {
   if (input.type !== "keyDown") return false;
+
+  const activeBuffer = buffers.getActive();
+
+  if (state.interactionContext === "EDITOR" && activeBuffer?.isEditable) {
+    return false;
+  }
 
   switch (state.mode) {
     case "NORMAL":
@@ -24,6 +31,12 @@ function shouldPreventDefault(input) {
 
 function handleInput(win, input) {
   if (input.type !== "keyDown") return;
+
+  const activeBuffer = buffers.getActive();
+
+  if (state.interactionContext === "EDITOR" && activeBuffer?.isEditable) {
+    return;
+  }
 
   let intent = null;
 

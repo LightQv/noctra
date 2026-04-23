@@ -80,6 +80,10 @@ function parseCommand(raw) {
     case "config-reload":
       return { type: INTENTS.CONFIG_RELOAD };
 
+    case "settings":
+    case "config":
+      return { type: INTENTS.OPEN_SETTINGS_BUFFER };
+
     case "duck":
       return {
         type: INTENTS.SEARCH_WEB,

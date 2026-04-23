@@ -1,6 +1,7 @@
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_MAIN_COLOR,
+  UI_SECONDARY_ACTIVE_TEXT_COLOR,
   UI_MUTED_TEXT_COLOR,
   UI_BORDER_COLOR,
   UI_SURFACE_COLOR,
@@ -18,7 +19,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function renderTabline(webContents, snapshot, chrome = {}) {
+function renderTabline(webContents, snapshot, chrome = {}, actions = {}) {
   if (!webContents || webContents.isDestroyed()) return;
 
   const platform = chrome.platform || process.platform;
@@ -29,18 +30,45 @@ function renderTabline(webContents, snapshot, chrome = {}) {
   const tabsMarkup = snapshot
     .map((buffer) => {
       const title = escapeHtml(buffer.title || buffer.url || "[No title]");
-      const classes = buffer.isActive ? "tab is-active" : "tab";
-      return `<span class="${classes}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${buffer.id}: ${title}</span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
+      const classes = ["tab"];
+      if (buffer.isFocusedPaneBuffer || buffer.isActive) {
+        classes.push("is-active");
+      }
+
+      if (buffer.isOtherPaneBuffer) {
+        classes.push("is-secondary-active");
+      }
+
+      return `<span class="${classes.join(" ")}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${buffer.id}: ${title}</span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
     })
     .join("");
 
   const showCustomControls = !useNativeControls && !isFullScreen;
   const maximizeLabel = isMaximized ? "Restore" : "Maximize";
   const maximizeIcon = isMaximized ? "[]" : "[ ]";
+  const settingsLabel =
+    typeof actions?.settings?.label === "string" && actions.settings.label.trim().length > 0
+      ? actions.settings.label
+      : "Settings";
+  const settingsIcon =
+    typeof actions?.settings?.icon === "string" && actions.settings.icon.trim().length > 0
+      ? actions.settings.icon
+      : "[S]";
+  const settingsShortcut =
+    typeof actions?.settings?.shortcutLabel === "string" &&
+    actions.settings.shortcutLabel.trim().length > 0
+      ? actions.settings.shortcutLabel
+      : "Cmd+, | Ctrl+,";
 
   const controlsMarkup = showCustomControls
     ? `<div class="window-controls"><button class="window-btn" data-window-action="minimize" type="button" aria-label="Minimize">-</button><button class="window-btn" data-window-action="toggleMaximize" type="button" aria-label="${maximizeLabel}">${maximizeIcon}</button><button class="window-btn is-close" data-window-action="close" type="button" aria-label="Close">X</button></div>`
     : `<div class="window-controls native-spacer" aria-hidden="true"></div>`;
+
+  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
+    `${settingsLabel} (${settingsShortcut})`,
+  )}" aria-label="Open settings"><span class="tabline-action-icon">${escapeHtml(
+    settingsIcon,
+  )}</span><span class="tabline-action-label">${escapeHtml(settingsLabel)}</span></button></div>`;
 
   webContents.executeJavaScript(`
     (function renderUiShellTabline() {
@@ -63,6 +91,15 @@ function renderTabline(webContents, snapshot, chrome = {}) {
             const action = actionButton.getAttribute('data-window-action');
             if (action && window.uiShell && window.uiShell.emit) {
               window.uiShell.emit('window:action', { action });
+            }
+            return;
+          }
+
+          const tablineActionButton = target.closest('[data-tabline-action]');
+          if (tablineActionButton) {
+            const tablineAction = tablineActionButton.getAttribute('data-tabline-action');
+            if (tablineAction === 'open-settings' && window.uiShell && window.uiShell.emit) {
+              window.uiShell.emit('tabline:open-settings');
             }
             return;
           }
@@ -93,7 +130,7 @@ function renderTabline(webContents, snapshot, chrome = {}) {
         `ui-shell-topbar platform-${platform} ${showCustomControls ? "controls-custom" : "controls-native"}`,
       )};
       root.innerHTML = ${JSON.stringify(
-        `${controlsMarkup}<div class="tabs-scroll">${tabsMarkup}</div>`,
+        `${controlsMarkup}<div class="tabs-scroll">${tabsMarkup}</div>${rightActionsMarkup}`,
       )};
 
       Object.assign(root.style, {
@@ -154,6 +191,47 @@ function renderTabline(webContents, snapshot, chrome = {}) {
           webkitAppRegion: 'drag',
         });
       }
+
+      const tablineActions = root.querySelector('.tabline-actions');
+      if (tablineActions) {
+        Object.assign(tablineActions.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          padding: '0 10px',
+          height: '100%',
+          flexShrink: '0',
+          webkitAppRegion: 'no-drag',
+        });
+      }
+
+      root.querySelectorAll('.tabline-action-btn').forEach((button) => {
+        Object.assign(button.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          border: '1px solid #2f3a4d',
+          background: '#1a2230',
+          color: '#d4def2',
+          borderRadius: '6px',
+          height: '24px',
+          padding: '0 9px',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          fontSize: '12px',
+          lineHeight: '1',
+          webkitAppRegion: 'no-drag',
+        });
+      });
+
+      root.querySelectorAll('.tabline-action-icon').forEach((icon) => {
+        Object.assign(icon.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          color: '#8ec5ff',
+          fontSize: '13px',
+          lineHeight: '1',
+        });
+      });
 
       root.querySelectorAll('.window-btn').forEach((button) => {
         Object.assign(button.style, {
@@ -226,8 +304,16 @@ function renderTabline(webContents, snapshot, chrome = {}) {
         });
       });
 
+      root.querySelectorAll('.is-secondary-active').forEach((tab) => {
+        tab.style.color = ${JSON.stringify(UI_SECONDARY_ACTIVE_TEXT_COLOR)};
+      });
+
       root.querySelectorAll('.is-active .tab-close').forEach((button) => {
         button.style.color = ${JSON.stringify(UI_MAIN_COLOR)};
+      });
+
+      root.querySelectorAll('.is-secondary-active .tab-close').forEach((button) => {
+        button.style.color = ${JSON.stringify(UI_SECONDARY_ACTIVE_TEXT_COLOR)};
       });
 
     })();

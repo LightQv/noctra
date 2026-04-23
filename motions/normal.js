@@ -1,4 +1,4 @@
-const keymap = require("./keymap");
+const { getNormalKeymap } = require("./keymap");
 const { handleCtrl } = require("./modifiers");
 const { INTENTS } = require("../core/intents");
 const { getLeaderNode, getWhichKeyModel } = require("./leaderMap");
@@ -192,6 +192,7 @@ function handleNormal(state, input) {
 
   state.keyBuffer += key;
 
+  const keymap = getNormalKeymap();
   const match = keymap[state.keyBuffer];
 
   if (match) {

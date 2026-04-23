@@ -1,34 +1,41 @@
-const { INTENTS } = require("../core/intents");
+const { getConfigValue } = require("../core/config/service");
+const { ACTION_BUILDERS } = require("./actionBuilders");
+
+function getBuilderFor(actionId) {
+  if (!actionId || typeof actionId !== "string") {
+    return null;
+  }
+
+  return ACTION_BUILDERS[actionId] || null;
+}
+
+function getNormalKeymap() {
+  const mappings = getConfigValue("keymap.normal", {});
+  const runtime = {};
+
+  if (!mappings || typeof mappings !== "object") {
+    return runtime;
+  }
+
+  for (const [keys, entry] of Object.entries(mappings)) {
+    const builder = getBuilderFor(entry?.action);
+    if (!builder) continue;
+    runtime[keys] = builder;
+  }
+
+  return runtime;
+}
+
+function getCtrlAction(key) {
+  if (!key) return null;
+
+  const ctrlMap = getConfigValue("keymap.ctrl", {});
+  const mapping = ctrlMap?.[String(key).toLowerCase()];
+  const builder = getBuilderFor(mapping?.action);
+  return builder || null;
+}
 
 module.exports = {
-  j: (state, count) => ({
-    type: INTENTS.SCROLL,
-    direction: "down",
-    amount: 100 * count,
-  }),
-
-  k: (state, count) => ({
-    type: INTENTS.SCROLL,
-    direction: "up",
-    amount: 100 * count,
-  }),
-
-  gg: () => ({ type: INTENTS.SCROLL_TOP }),
-
-  G: () => ({ type: INTENTS.SCROLL_BOTTOM }),
-
-  h: () => ({ type: INTENTS.NAV_BACK }),
-
-  l: () => ({ type: INTENTS.NAV_FORWARD }),
-
-  i: (state) => {
-    state.mode = "INSERT";
-    return { type: INTENTS.ENTER_INSERT };
-  },
-
-  o: () => ({ type: INTENTS.OPEN_URL_PROMPT }),
-
-  b: () => ({ type: INTENTS.NEW_BUFFER }),
-
-  "|": () => ({ type: INTENTS.SPLIT_VERTICAL }),
+  getNormalKeymap,
+  getCtrlAction,
 };

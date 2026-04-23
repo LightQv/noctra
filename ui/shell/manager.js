@@ -190,7 +190,7 @@ const WHICHKEY_OVERLAY_HTML = `
         align-items: center;
         column-gap: 4px;
         min-width: 0;
-        font-size: 11px;
+        font-size: 12px;
       }
 
       .whichkey-key {
@@ -214,7 +214,7 @@ const WHICHKEY_OVERLAY_HTML = `
         justify-content: center;
         gap: 18px;
         color: ${UI_MUTED_TEXT_COLOR};
-        font-size: 10px;
+        font-size: 12px;
       }
 
       .whichkey-hint {
@@ -225,12 +225,18 @@ const WHICHKEY_OVERLAY_HTML = `
 
       .whichkey-hint-icon {
         color: ${UI_MAIN_COLOR};
-        font-size: 15px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 18px;
         line-height: 1;
       }
 
       .whichkey-hint-label {
+        display: inline-flex;
+        align-items: center;
         color: ${UI_MUTED_TEXT_COLOR};
+        font-size: 12px;
+        line-height: 1;
       }
     </style>
   </head>
@@ -308,14 +314,14 @@ const STATUSLINE_OVERLAY_HTML = `
       #statusline-right {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
         padding-right: 12px;
       }
 
       #statusline-split {
         display: none;
         align-items: center;
-        gap: 4px;
+        gap: 0;
         line-height: 1;
       }
 
@@ -391,7 +397,9 @@ class UiShellManager {
   initializeShellHost() {
     if (!this.window) return;
 
-    this.window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(SHELL_HTML)}`);
+    this.window.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(SHELL_HTML)}`,
+    );
 
     this.window.webContents.on("did-finish-load", () => {
       this.shellHostReady = true;
@@ -485,7 +493,11 @@ class UiShellManager {
     this.tablineRenderTimer = setTimeout(() => {
       this.tablineRenderTimer = null;
       if (!this.window || this.window.isDestroyed()) return;
-      renderTabline(this.window.webContents, this.pendingTablineSnapshot, this.windowChrome);
+      renderTabline(
+        this.window.webContents,
+        this.pendingTablineSnapshot,
+        this.windowChrome,
+      );
     }, 16);
   }
 
@@ -502,20 +514,34 @@ class UiShellManager {
   }
 
   relayout() {
-    if (!this.window || !this.commandOverlayView || !this.whichKeyOverlayView || !this.statuslineView)
+    if (
+      !this.window ||
+      !this.commandOverlayView ||
+      !this.whichKeyOverlayView ||
+      !this.statuslineView
+    )
       return;
 
     const bounds = this.window.getContentBounds();
-    const width = this.commandVisible ? Math.min(500, Math.max(bounds.width - 160, 300)) : 1;
+    const width = this.commandVisible
+      ? Math.min(500, Math.max(bounds.width - 160, 300))
+      : 1;
     const height = this.commandVisible ? 42 : 1;
-    const x = this.commandVisible ? Math.max(Math.floor((bounds.width - width) / 2), 0) : -10000;
+    const x = this.commandVisible
+      ? Math.max(Math.floor((bounds.width - width) / 2), 0)
+      : -10000;
     const y = this.commandVisible
-      ? Math.max(Math.floor((bounds.height - height) / 2), UI_SHELL_TABLINE_HEIGHT + 10)
+      ? Math.max(
+          Math.floor((bounds.height - height) / 2),
+          UI_SHELL_TABLINE_HEIGHT + 10,
+        )
       : -10000;
 
     this.commandOverlayView.setBounds({ x, y, width, height });
 
-    const whichWidth = this.whichKeyVisible ? Math.min(980, Math.max(bounds.width - 28, 560)) : 1;
+    const whichWidth = this.whichKeyVisible
+      ? Math.min(980, Math.max(bounds.width - 28, 560))
+      : 1;
     const whichHeight = this.whichKeyVisible ? 150 : 1;
     const whichX = this.whichKeyVisible
       ? Math.max(Math.floor((bounds.width - whichWidth) / 2), 0)
@@ -536,7 +562,10 @@ class UiShellManager {
 
     this.statuslineView.setBounds({
       x: 0,
-      y: Math.max(bounds.height - UI_SHELL_STATUSLINE_HEIGHT, UI_SHELL_TABLINE_HEIGHT + 1),
+      y: Math.max(
+        bounds.height - UI_SHELL_STATUSLINE_HEIGHT,
+        UI_SHELL_TABLINE_HEIGHT + 1,
+      ),
       width: bounds.width,
       height: UI_SHELL_STATUSLINE_HEIGHT,
     });
@@ -552,7 +581,8 @@ class UiShellManager {
   }
 
   syncOverlayStack() {
-    if (!this.window || typeof this.window.setTopBrowserView !== "function") return;
+    if (!this.window || typeof this.window.setTopBrowserView !== "function")
+      return;
 
     if (this.statuslineView) {
       this.window.setTopBrowserView(this.statuslineView);
@@ -601,10 +631,17 @@ class UiShellManager {
     this.resetWhichKeyShowTimer(delayMs);
   }
 
-  updateWhichKey(model, timeoutMs = 1200, delayMs = 0, ensureVisible = true, forceImmediate = false) {
+  updateWhichKey(
+    model,
+    timeoutMs = 1200,
+    delayMs = 0,
+    ensureVisible = true,
+    forceImmediate = false,
+  ) {
     if (ensureVisible) {
       if (!this.whichKeyVisible && !forceImmediate && delayMs && delayMs > 0) {
-        this.whichKeyModel = model || this.whichKeyModel || { prefix: "<leader>", entries: [] };
+        this.whichKeyModel = model ||
+          this.whichKeyModel || { prefix: "<leader>", entries: [] };
         this.whichKeyPendingTimeoutMs = timeoutMs;
         this.clearWhichKeyHideTimer();
         this.resetWhichKeyShowTimer(delayMs);
@@ -615,7 +652,8 @@ class UiShellManager {
       this.clearWhichKeyShowTimer();
     }
 
-    this.whichKeyModel = model || this.whichKeyModel || { prefix: "<leader>", entries: [] };
+    this.whichKeyModel = model ||
+      this.whichKeyModel || { prefix: "<leader>", entries: [] };
 
     if (timeoutMs === null) {
       this.clearWhichKeyHideTimer();
@@ -629,7 +667,9 @@ class UiShellManager {
 
     const safeModel = {
       prefix: this.whichKeyModel.prefix || "<leader>",
-      entries: Array.isArray(this.whichKeyModel.entries) ? this.whichKeyModel.entries : [],
+      entries: Array.isArray(this.whichKeyModel.entries)
+        ? this.whichKeyModel.entries
+        : [],
     };
 
     this.whichKeyOverlayView.webContents.executeJavaScript(`
@@ -688,14 +728,26 @@ class UiShellManager {
 
     if (!delayMs || delayMs <= 0) {
       this.whichKeyVisible = true;
-      this.updateWhichKey(this.whichKeyModel, this.whichKeyPendingTimeoutMs, 0, true, true);
+      this.updateWhichKey(
+        this.whichKeyModel,
+        this.whichKeyPendingTimeoutMs,
+        0,
+        true,
+        true,
+      );
       return;
     }
 
     this.whichKeyShowTimer = setTimeout(() => {
       this.whichKeyShowTimer = null;
       this.whichKeyVisible = true;
-      this.updateWhichKey(this.whichKeyModel, this.whichKeyPendingTimeoutMs, 0, true, true);
+      this.updateWhichKey(
+        this.whichKeyModel,
+        this.whichKeyPendingTimeoutMs,
+        0,
+        true,
+        true,
+      );
     }, delayMs);
   }
 
@@ -737,7 +789,9 @@ class UiShellManager {
   }
 
   updateStatuslineScroll(percent) {
-    const normalized = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
+    const normalized = Number.isFinite(percent)
+      ? Math.max(0, Math.min(100, percent))
+      : 0;
     this.statuslineScroll = Math.round(normalized);
 
     if (!this.statuslineView || !this.statuslineReady) return;
@@ -752,7 +806,9 @@ class UiShellManager {
   }
 
   updateStatuslineSplitIndicator(splitStatus = {}) {
-    const enabledRegularSplit = Boolean(splitStatus.enabled && splitStatus.mode === "regular");
+    const enabledRegularSplit = Boolean(
+      splitStatus.enabled && splitStatus.mode === "regular",
+    );
     const focusedPane = splitStatus.focusedPane === "right" ? "right" : "left";
 
     this.statuslineSplitIndicator = {

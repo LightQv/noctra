@@ -111,13 +111,28 @@ function createWindow() {
   uiShell.updateStatuslineMode(state.mode);
   uiShell.updateStatuslineScroll(0);
 
+  let statusPollInFlight = false;
+
   const statusPoller = setInterval(() => {
     const activeBuffer = buffers.getActive();
     if (!activeBuffer || state.mode === "COMMAND") {
       return;
     }
 
-    activeBuffer.webContents
+    const activeWebContents = activeBuffer.webContents;
+    if (
+      !activeWebContents ||
+      activeWebContents.isDestroyed() ||
+      activeWebContents.isLoading() ||
+      activeWebContents.isLoadingMainFrame() ||
+      statusPollInFlight
+    ) {
+      return;
+    }
+
+    statusPollInFlight = true;
+
+    activeWebContents
       .executeJavaScript(
         `
         (function getScrollPercent() {
@@ -136,7 +151,10 @@ function createWindow() {
           uiShell.updateStatuslineScroll(percent);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        statusPollInFlight = false;
+      });
   }, 200);
 
   win.on("closed", () => {

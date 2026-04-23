@@ -37,12 +37,12 @@ class BufferManager {
     }
 
     const activate = options.activate !== false;
-    const buffer = new Buffer(0);
+    const buffer = new Buffer(0, options);
     buffer.setContentUiOptions(this.contentUiOptions);
     buffer.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });
     });
-    this.attachPaneTracking(buffer, () => "left");
+    this.attachPaneTracking(buffer, () => this.resolvePaneForBuffer(buffer));
 
     this.buffers.push(buffer);
     this.window.addBrowserView(buffer.view);
@@ -82,13 +82,19 @@ class BufferManager {
   }
 
   getActive() {
-    if (
-      this.split.enabled &&
-      this.split.mode === "regular" &&
-      this.focusedPane === "right" &&
-      this.split.rightPaneBuffer
-    ) {
-      return this.split.rightPaneBuffer;
+    if (this.split.enabled && this.split.mode === "regular" && this.focusedPane === "right") {
+      const left = this.getLeftBuffer();
+      if (this.split.rightPaneSourceBuffer && this.split.rightPaneSourceBuffer !== left) {
+        return this.split.rightPaneSourceBuffer;
+      }
+
+      if (this.split.rightPaneBuffer) {
+        return this.split.rightPaneBuffer;
+      }
+
+      if (this.split.rightPaneSourceBuffer) {
+        return this.split.rightPaneSourceBuffer;
+      }
     }
 
     return this.getLeftBuffer();
@@ -96,8 +102,19 @@ class BufferManager {
 
   getActiveWebContents() {
     if (this.split.enabled && this.focusedPane === "right") {
-      if (this.split.mode === "regular" && this.split.rightPaneBuffer) {
-        return this.split.rightPaneBuffer.webContents;
+      if (this.split.mode === "regular") {
+        const left = this.getLeftBuffer();
+        if (this.split.rightPaneSourceBuffer && this.split.rightPaneSourceBuffer !== left) {
+          return this.split.rightPaneSourceBuffer.webContents;
+        }
+
+        if (this.split.rightPaneBuffer) {
+          return this.split.rightPaneBuffer.webContents;
+        }
+
+        if (this.split.rightPaneSourceBuffer) {
+          return this.split.rightPaneSourceBuffer.webContents;
+        }
       }
 
       if (this.split.mode === "devtools" && this.devtoolsView) {
@@ -362,8 +379,29 @@ class BufferManager {
   }
 
   getSnapshot() {
-    const activeMainBuffer = this.getFocusedMainBuffer();
-    return this.buffers.map((buffer) => buffer.toJSON(buffer === activeMainBuffer));
+    const leftBuffer = this.getLeftBuffer();
+    const rightSource =
+      this.split.enabled && this.split.mode === "regular" ? this.split.rightPaneSourceBuffer : null;
+
+    const focusedSource =
+      this.focusedPane === "right" && rightSource ? rightSource : leftBuffer;
+    const otherSource =
+      this.focusedPane === "right" ? leftBuffer : rightSource;
+    const showSecondary =
+      Boolean(leftBuffer && rightSource) && leftBuffer !== rightSource;
+
+    return this.buffers.map((buffer) => {
+      const isFocusedPaneBuffer = buffer === focusedSource;
+      const isOtherPaneBuffer = showSecondary && buffer === otherSource;
+      return buffer.toJSON(isFocusedPaneBuffer, {
+        isFocusedPaneBuffer,
+        isOtherPaneBuffer,
+      });
+    });
+  }
+
+  findByKind(kind) {
+    return this.buffers.find((buffer) => buffer.kind === kind) || null;
   }
 
   subscribe(listener) {
@@ -396,9 +434,12 @@ class BufferManager {
 
     this.split.rightPaneSourceBuffer = sourceBuffer;
 
+    if (sourceBuffer !== this.getLeftBuffer()) {
+      return;
+    }
+
     const sourceUrl = sourceBuffer.url || "about:blank";
     const rightPaneUrl = this.split.rightPaneBuffer.url || "";
-
     if (rightPaneUrl !== sourceUrl) {
       this.split.rightPaneBuffer.load(sourceUrl);
     }
@@ -472,21 +513,38 @@ class BufferManager {
     );
 
     const left = this.getLeftBuffer();
+    const rightSource = this.split.mode === "regular" ? this.split.rightPaneSourceBuffer : null;
     const rightRegular = this.split.mode === "regular" ? this.split.rightPaneBuffer : null;
-    const showSplit = this.split.enabled && (rightRegular || this.split.mode === "devtools");
+    const showSplit = this.split.enabled && (rightSource || rightRegular || this.split.mode === "devtools");
+
+    const useMirroredRight =
+      showSplit &&
+      this.split.mode === "regular" &&
+      Boolean(left && rightSource && left === rightSource);
+
+    if (useMirroredRight && !this.split.rightPaneBuffer) {
+      this.ensureRightPaneBuffer();
+    }
+
+    const showSplitWithRegular =
+      this.split.enabled && (Boolean(rightSource) || Boolean(rightRegular));
+
+    const visibleRightMainBuffer =
+      this.split.mode === "regular" && rightSource && !useMirroredRight ? rightSource : null;
 
     const rightWidth = showSplit ? Math.max(Math.floor(bounds.width * this.split.ratio), 1) : 0;
     const leftWidth = showSplit ? Math.max(bounds.width - rightWidth, 1) : bounds.width;
 
     for (const buffer of this.buffers) {
-      if (buffer === left) {
+      if (buffer === left || buffer === visibleRightMainBuffer) {
+        const isRightBuffer = buffer === visibleRightMainBuffer;
         buffer.view.setBounds({
-          x: 0,
+          x: isRightBuffer ? leftWidth : 0,
           y: contentTop,
-          width: leftWidth,
+          width: isRightBuffer ? rightWidth : leftWidth,
           height: contentHeight,
         });
-        buffer.view.setAutoResize({ width: !showSplit, height: true });
+        buffer.view.setAutoResize({ width: !showSplitWithRegular, height: true });
       } else {
         buffer.view.setAutoResize({ width: false, height: false });
         buffer.view.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
@@ -494,7 +552,12 @@ class BufferManager {
     }
 
     if (rightRegular) {
-      if (showSplit && this.split.mode === "regular") {
+      if (showSplit && this.split.mode === "regular" && useMirroredRight) {
+        const sourceUrl = rightSource?.url || "about:blank";
+        if (rightRegular.url !== sourceUrl) {
+          rightRegular.load(sourceUrl);
+        }
+
         rightRegular.view.setBounds({
           x: leftWidth,
           y: contentTop,
@@ -525,8 +588,12 @@ class BufferManager {
 
     if (typeof this.window.setTopBrowserView === "function") {
       if (showSplit && this.focusedPane === "right") {
-        if (this.split.mode === "regular" && rightRegular) {
-          this.window.setTopBrowserView(rightRegular.view);
+        if (this.split.mode === "regular") {
+          if (useMirroredRight && rightRegular) {
+            this.window.setTopBrowserView(rightRegular.view);
+          } else if (visibleRightMainBuffer) {
+            this.window.setTopBrowserView(visibleRightMainBuffer.view);
+          }
         } else if (this.split.mode === "devtools" && this.devtoolsView) {
           this.window.setTopBrowserView(this.devtoolsView);
         }
@@ -552,13 +619,30 @@ class BufferManager {
     buffer.webContents.on("focus", onFocus);
   }
 
+  resolvePaneForBuffer(buffer) {
+    if (
+      this.split.enabled &&
+      this.split.mode === "regular" &&
+      buffer &&
+      buffer === this.split.rightPaneSourceBuffer &&
+      buffer !== this.getLeftBuffer()
+    ) {
+      return "right";
+    }
+
+    return "left";
+  }
+
   handlePaneInteraction(pane) {
     if (!this.split.enabled) {
       return;
     }
 
     if (pane === "right") {
-      if (this.split.mode === "regular" && this.split.rightPaneBuffer) {
+      if (
+        this.split.mode === "regular" &&
+        (this.split.rightPaneSourceBuffer || this.split.rightPaneBuffer)
+      ) {
         if (this.focusedPane === "right") return;
         this.focusedPane = "right";
         this.layoutViews();

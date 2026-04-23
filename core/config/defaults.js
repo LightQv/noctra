@@ -9,7 +9,91 @@ const defaultConfig = {
     timeout_ms: 1200,
   },
   keymap: {
+    normal: {
+      j: {
+        label: "Scroll down",
+        action: "scroll_down",
+      },
+      k: {
+        label: "Scroll up",
+        action: "scroll_up",
+      },
+      gg: {
+        label: "Scroll to top",
+        action: "scroll_top",
+      },
+      G: {
+        label: "Scroll to bottom",
+        action: "scroll_bottom",
+      },
+      h: {
+        label: "Navigate back",
+        action: "nav_back",
+      },
+      l: {
+        label: "Navigate forward",
+        action: "nav_forward",
+      },
+      H: {
+        label: "Previous buffer",
+        action: "buffer_prev",
+      },
+      L: {
+        label: "Next buffer",
+        action: "buffer_next",
+      },
+      i: {
+        label: "Enter insert mode",
+        action: "enter_insert",
+      },
+      o: {
+        label: "Open URL prompt",
+        action: "open_url_prompt",
+      },
+      b: {
+        label: "New buffer",
+        action: "new_buffer",
+      },
+      "|": {
+        label: "Vertical split",
+        action: "split_vertical",
+      },
+    },
+    ctrl: {
+      d: {
+        label: "Half-page down",
+        action: "scroll_half_down",
+      },
+      u: {
+        label: "Half-page up",
+        action: "scroll_half_up",
+      },
+      f: {
+        label: "Page down",
+        action: "page_down",
+      },
+      b: {
+        label: "Page up",
+        action: "page_up",
+      },
+      h: {
+        label: "Focus split left",
+        action: "focus_split_left",
+      },
+      l: {
+        label: "Focus split right",
+        action: "focus_split_right",
+      },
+    },
     leader: {
+      ",": {
+        label: "Open settings",
+        action: "open_settings",
+      },
+      tab: {
+        label: "Toggle focus context",
+        action: "toggle_focus_context",
+      },
       c: {
         label: "Buffers",
         children: {
@@ -41,6 +125,10 @@ const defaultConfig = {
         },
       },
     },
+  },
+  editor: {
+    enabled: true,
+    start_in_normal_mode: true,
   },
   ui: {
     tabline: {

@@ -1,9 +1,70 @@
 const { app } = require("electron");
+const path = require("path");
 const buffers = require("../browser/manager");
 const uiShell = require("../ui/shell/manager");
 const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
+const { buildSettingsPageHtml } = require("./settings/page");
+
+function computeStatuslineModeLabel(state) {
+  const active = buffers.getActive();
+  if (!active || !active.isEditable) {
+    return state.mode;
+  }
+
+  if (state.interactionContext === "EDITOR") {
+    return `EDITOR:${state.editorMode || "NORMAL"}`;
+  }
+
+  return `SHELL:${state.mode}`;
+}
+
+function focusEditableBufferSurface(buffer) {
+  if (!buffer || !buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+    return;
+  }
+
+  buffer.webContents.executeJavaScript(
+    `if (typeof window.__settingsEditorFocus__ === "function") { window.__settingsEditorFocus__(); }`,
+  ).catch(() => {});
+}
+
+function blurEditableBufferSurface(buffer) {
+  if (!buffer || !buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+    return;
+  }
+
+  buffer.webContents.executeJavaScript(
+    `if (typeof window.__settingsEditorBlur__ === "function") { window.__settingsEditorBlur__(); }`,
+  ).catch(() => {});
+}
+
+function openSettingsBuffer() {
+  const existing = buffers.findByKind("editable");
+  const configPath = configService.getConfigPath();
+
+  if (existing) {
+    buffers.switchTo(existing.id);
+    return existing;
+  }
+
+  const html = buildSettingsPageHtml(configPath);
+
+  const buffer = buffers.create(null, {
+    kind: "editable",
+    activate: true,
+    preloadPath: path.join(__dirname, "..", "ui", "shell", "preload.js"),
+  });
+
+  buffer.loadVirtualDocument({
+    url: "noctra://settings/config.yml",
+    title: "config.yml",
+    html,
+  });
+
+  return buffer;
+}
 
 function normalizeUrl(rawUrl) {
   const value = rawUrl.trim();
@@ -177,15 +238,11 @@ function dispatch(win, intent, state) {
     }
 
     case INTENTS.FOCUS_SPLIT_LEFT:
-      if (!buffers.focusSplitLeft()) {
-        buffers.switchByOffset(-1);
-      }
+      buffers.focusSplitLeft();
       break;
 
     case INTENTS.FOCUS_SPLIT_RIGHT:
-      if (!buffers.focusSplitRight()) {
-        buffers.switchByOffset(1);
-      }
+      buffers.focusSplitRight();
       break;
 
     case INTENTS.CONFIG_RELOAD: {
@@ -194,6 +251,29 @@ function dispatch(win, intent, state) {
         state.applyConfig(config);
       }
       console.info("Configuration reloaded from", configService.getConfigPath());
+      break;
+    }
+
+    case INTENTS.OPEN_SETTINGS_BUFFER:
+      focusEditableBufferSurface(openSettingsBuffer());
+      state.interactionContext = "EDITOR";
+      state.editorMode = "NORMAL";
+      break;
+
+    case INTENTS.TOGGLE_FOCUS_CONTEXT: {
+      const active = buffers.getActive();
+      if (!active || !active.isEditable) {
+        break;
+      }
+
+      state.interactionContext =
+        state.interactionContext === "EDITOR" ? "SHELL" : "EDITOR";
+      if (state.interactionContext === "EDITOR") {
+        state.editorMode = "NORMAL";
+        focusEditableBufferSurface(active);
+      } else {
+        blurEditableBufferSurface(active);
+      }
       break;
     }
 
@@ -206,7 +286,12 @@ function dispatch(win, intent, state) {
       break;
   }
 
-  uiShell.updateStatuslineMode(state.mode);
+  const activeAfterDispatch = buffers.getActive();
+  if (!activeAfterDispatch?.isEditable && state.interactionContext === "EDITOR") {
+    state.interactionContext = "SHELL";
+  }
+
+  uiShell.updateStatuslineMode(computeStatuslineModeLabel(state));
 
   if (intent.next) {
     dispatch(win, intent.next, state);

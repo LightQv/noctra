@@ -371,6 +371,7 @@ class UiShellManager {
     };
     this.pendingTablineSnapshot = [];
     this.tablineRenderTimer = null;
+    this.tablineActions = {};
     this.windowChrome = {
       platform: process.platform,
       useNativeControls: process.platform === "darwin",
@@ -497,8 +498,16 @@ class UiShellManager {
         this.window.webContents,
         this.pendingTablineSnapshot,
         this.windowChrome,
+        this.tablineActions,
       );
     }, 16);
+  }
+
+  setTablineActions(actions = {}) {
+    this.tablineActions = {
+      ...actions,
+    };
+    this.renderTabline(this.pendingTablineSnapshot);
   }
 
   setWindowChrome(chrome = {}) {

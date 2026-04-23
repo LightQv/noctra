@@ -37,6 +37,30 @@ function registerUiShellEvents() {
     if (!message || typeof message !== "object") return;
 
     const { type, payload } = message;
+
+    if (type === "window:action") {
+      const action = payload?.action;
+
+      if (action === "minimize") {
+        win.minimize();
+        return;
+      }
+
+      if (action === "toggleMaximize") {
+        if (win.isMaximized()) {
+          win.unmaximize();
+        } else {
+          win.maximize();
+        }
+        return;
+      }
+
+      if (action === "close") {
+        win.close();
+      }
+      return;
+    }
+
     const bufferId = Number.parseInt(payload?.id, 10);
 
     if (!Number.isInteger(bufferId)) return;
@@ -84,7 +108,9 @@ function createWindow() {
   const config = configService.initConfig();
   state.applyConfig(config);
 
-  win = new BrowserWindow({
+  const isMac = process.platform === "darwin";
+
+  const windowOptions = {
     width: 1200,
     height: 800,
     webPreferences: {
@@ -92,7 +118,15 @@ function createWindow() {
       nodeIntegration: false,
       preload: path.join(__dirname, "ui", "shell", "preload.js"),
     },
-  });
+  };
+
+  if (isMac) {
+    windowOptions.titleBarStyle = "hiddenInset";
+  } else {
+    windowOptions.frame = false;
+  }
+
+  win = new BrowserWindow(windowOptions);
 
   win.setMaxListeners(0);
 
@@ -108,8 +142,29 @@ function createWindow() {
 
   buffers.init(win);
   uiShell.init(win);
+  uiShell.setWindowChrome({
+    platform: process.platform,
+    useNativeControls: isMac,
+    isMaximized: win.isMaximized(),
+    isFullScreen: win.isFullScreen(),
+  });
   uiShell.updateStatuslineMode(state.mode);
   uiShell.updateStatuslineScroll(0);
+  uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
+
+  const syncWindowChrome = () => {
+    uiShell.setWindowChrome({
+      isMaximized: win.isMaximized(),
+      isFullScreen: win.isFullScreen(),
+    });
+  };
+
+  win.on("maximize", syncWindowChrome);
+  win.on("unmaximize", syncWindowChrome);
+  win.on("enter-full-screen", syncWindowChrome);
+  win.on("leave-full-screen", syncWindowChrome);
+
+  let statusPollInFlight = false;
 
   const statusPoller = setInterval(() => {
     const activeBuffer = buffers.getActive();
@@ -117,7 +172,20 @@ function createWindow() {
       return;
     }
 
-    activeBuffer.webContents
+    const activeWebContents = activeBuffer.webContents;
+    if (
+      !activeWebContents ||
+      activeWebContents.isDestroyed() ||
+      activeWebContents.isLoading() ||
+      activeWebContents.isLoadingMainFrame() ||
+      statusPollInFlight
+    ) {
+      return;
+    }
+
+    statusPollInFlight = true;
+
+    activeWebContents
       .executeJavaScript(
         `
         (function getScrollPercent() {
@@ -136,7 +204,10 @@ function createWindow() {
           uiShell.updateStatuslineScroll(percent);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        statusPollInFlight = false;
+      });
   }, 200);
 
   win.on("closed", () => {
@@ -148,6 +219,7 @@ function createWindow() {
 
     uiShell.renderTabline(snapshot);
     uiShell.updateStatuslineMode(state.mode);
+    uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
 
     const activeChanged = Boolean(change.activeChanged);
     if (activeChanged || activeInputWebContents !== active.webContents) {

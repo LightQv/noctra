@@ -6,6 +6,7 @@ const {
   UI_MAIN_COLOR,
   UI_MUTED_TEXT_COLOR,
   UI_PANEL_BG_COLOR,
+  UI_ACCENT_PILL_BG,
   UI_FONT_FAMILY,
   UI_FONT_FACE_CSS,
 } = require("../constants");
@@ -189,7 +190,7 @@ const WHICHKEY_OVERLAY_HTML = `
         align-items: center;
         column-gap: 4px;
         min-width: 0;
-        font-size: 11px;
+        font-size: 12px;
       }
 
       .whichkey-key {
@@ -213,7 +214,7 @@ const WHICHKEY_OVERLAY_HTML = `
         justify-content: center;
         gap: 18px;
         color: ${UI_MUTED_TEXT_COLOR};
-        font-size: 10px;
+        font-size: 12px;
       }
 
       .whichkey-hint {
@@ -224,12 +225,18 @@ const WHICHKEY_OVERLAY_HTML = `
 
       .whichkey-hint-icon {
         color: ${UI_MAIN_COLOR};
-        font-size: 15px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 18px;
         line-height: 1;
       }
 
       .whichkey-hint-label {
+        display: inline-flex;
+        align-items: center;
         color: ${UI_MUTED_TEXT_COLOR};
+        font-size: 12px;
+        line-height: 1;
       }
     </style>
   </head>
@@ -271,30 +278,69 @@ const STATUSLINE_OVERLAY_HTML = `
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 12px;
+        padding: 0;
         box-sizing: border-box;
         background: #151a22;
         border-top: 1px solid #2a3140;
         color: #d8e3f8;
         font-family: ${UI_FONT_FAMILY};
         font-size: 12px;
+        line-height: 1;
       }
 
       #statusline-mode {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 100%;
+        padding: 0 12px;
+        border-radius: 0;
+        background: ${UI_ACCENT_PILL_BG};
+      }
+
+      #statusline-mode-icon {
+        color: ${UI_MAIN_COLOR};
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      #statusline-mode-label {
         color: ${UI_MAIN_COLOR};
         text-transform: uppercase;
         letter-spacing: 0.06em;
+        line-height: 1;
+      }
+
+      #statusline-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding-right: 12px;
+      }
+
+      #statusline-split {
+        display: none;
+        align-items: center;
+        gap: 0;
+        line-height: 1;
+      }
+
+      #statusline-split-sep {
+        color: #7d8aa3;
       }
 
       #statusline-scroll {
         color: #d8e3f8;
+        display: inline-flex;
+        align-items: center;
+        line-height: 1;
       }
     </style>
   </head>
   <body>
     <div id="statusline">
-      <span id="statusline-mode"> NORMAL</span>
-      <span id="statusline-scroll">0%</span>
+      <span id="statusline-mode"><span id="statusline-mode-icon"></span><span id="statusline-mode-label">NORMAL</span></span>
+      <span id="statusline-right"><span id="statusline-split" aria-label="Split focus"><span id="statusline-split-left">L</span><span id="statusline-split-sep">/</span><span id="statusline-split-right">R</span></span><span id="statusline-scroll">0%</span></span>
     </div>
   </body>
 </html>
@@ -319,8 +365,18 @@ class UiShellManager {
     this.statuslineReady = false;
     this.statuslineMode = "NORMAL";
     this.statuslineScroll = 0;
+    this.statuslineSplitIndicator = {
+      visible: false,
+      focusedPane: "left",
+    };
     this.pendingTablineSnapshot = [];
     this.tablineRenderTimer = null;
+    this.windowChrome = {
+      platform: process.platform,
+      useNativeControls: process.platform === "darwin",
+      isMaximized: false,
+      isFullScreen: false,
+    };
   }
 
   init(windowRef) {
@@ -341,7 +397,9 @@ class UiShellManager {
   initializeShellHost() {
     if (!this.window) return;
 
-    this.window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(SHELL_HTML)}`);
+    this.window.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(SHELL_HTML)}`,
+    );
 
     this.window.webContents.on("did-finish-load", () => {
       this.shellHostReady = true;
@@ -416,6 +474,7 @@ class UiShellManager {
       this.statuslineReady = true;
       this.updateStatuslineMode(this.statuslineMode);
       this.updateStatuslineScroll(this.statuslineScroll);
+      this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
     });
 
     this.window.addBrowserView(this.statuslineView);
@@ -434,8 +493,20 @@ class UiShellManager {
     this.tablineRenderTimer = setTimeout(() => {
       this.tablineRenderTimer = null;
       if (!this.window || this.window.isDestroyed()) return;
-      renderTabline(this.window.webContents, this.pendingTablineSnapshot);
+      renderTabline(
+        this.window.webContents,
+        this.pendingTablineSnapshot,
+        this.windowChrome,
+      );
     }, 16);
+  }
+
+  setWindowChrome(chrome = {}) {
+    this.windowChrome = {
+      ...this.windowChrome,
+      ...chrome,
+    };
+    this.renderTabline(this.pendingTablineSnapshot);
   }
 
   getContentTopInset() {
@@ -443,20 +514,34 @@ class UiShellManager {
   }
 
   relayout() {
-    if (!this.window || !this.commandOverlayView || !this.whichKeyOverlayView || !this.statuslineView)
+    if (
+      !this.window ||
+      !this.commandOverlayView ||
+      !this.whichKeyOverlayView ||
+      !this.statuslineView
+    )
       return;
 
     const bounds = this.window.getContentBounds();
-    const width = this.commandVisible ? Math.min(500, Math.max(bounds.width - 160, 300)) : 1;
+    const width = this.commandVisible
+      ? Math.min(500, Math.max(bounds.width - 160, 300))
+      : 1;
     const height = this.commandVisible ? 42 : 1;
-    const x = this.commandVisible ? Math.max(Math.floor((bounds.width - width) / 2), 0) : -10000;
+    const x = this.commandVisible
+      ? Math.max(Math.floor((bounds.width - width) / 2), 0)
+      : -10000;
     const y = this.commandVisible
-      ? Math.max(Math.floor((bounds.height - height) / 2), UI_SHELL_TABLINE_HEIGHT + 10)
+      ? Math.max(
+          Math.floor((bounds.height - height) / 2),
+          UI_SHELL_TABLINE_HEIGHT + 10,
+        )
       : -10000;
 
     this.commandOverlayView.setBounds({ x, y, width, height });
 
-    const whichWidth = this.whichKeyVisible ? Math.min(980, Math.max(bounds.width - 28, 560)) : 1;
+    const whichWidth = this.whichKeyVisible
+      ? Math.min(980, Math.max(bounds.width - 28, 560))
+      : 1;
     const whichHeight = this.whichKeyVisible ? 150 : 1;
     const whichX = this.whichKeyVisible
       ? Math.max(Math.floor((bounds.width - whichWidth) / 2), 0)
@@ -477,7 +562,10 @@ class UiShellManager {
 
     this.statuslineView.setBounds({
       x: 0,
-      y: Math.max(bounds.height - UI_SHELL_STATUSLINE_HEIGHT, UI_SHELL_TABLINE_HEIGHT + 1),
+      y: Math.max(
+        bounds.height - UI_SHELL_STATUSLINE_HEIGHT,
+        UI_SHELL_TABLINE_HEIGHT + 1,
+      ),
       width: bounds.width,
       height: UI_SHELL_STATUSLINE_HEIGHT,
     });
@@ -493,7 +581,8 @@ class UiShellManager {
   }
 
   syncOverlayStack() {
-    if (!this.window || typeof this.window.setTopBrowserView !== "function") return;
+    if (!this.window || typeof this.window.setTopBrowserView !== "function")
+      return;
 
     if (this.statuslineView) {
       this.window.setTopBrowserView(this.statuslineView);
@@ -542,10 +631,17 @@ class UiShellManager {
     this.resetWhichKeyShowTimer(delayMs);
   }
 
-  updateWhichKey(model, timeoutMs = 1200, delayMs = 0, ensureVisible = true, forceImmediate = false) {
+  updateWhichKey(
+    model,
+    timeoutMs = 1200,
+    delayMs = 0,
+    ensureVisible = true,
+    forceImmediate = false,
+  ) {
     if (ensureVisible) {
       if (!this.whichKeyVisible && !forceImmediate && delayMs && delayMs > 0) {
-        this.whichKeyModel = model || this.whichKeyModel || { prefix: "<leader>", entries: [] };
+        this.whichKeyModel = model ||
+          this.whichKeyModel || { prefix: "<leader>", entries: [] };
         this.whichKeyPendingTimeoutMs = timeoutMs;
         this.clearWhichKeyHideTimer();
         this.resetWhichKeyShowTimer(delayMs);
@@ -556,7 +652,8 @@ class UiShellManager {
       this.clearWhichKeyShowTimer();
     }
 
-    this.whichKeyModel = model || this.whichKeyModel || { prefix: "<leader>", entries: [] };
+    this.whichKeyModel = model ||
+      this.whichKeyModel || { prefix: "<leader>", entries: [] };
 
     if (timeoutMs === null) {
       this.clearWhichKeyHideTimer();
@@ -570,7 +667,9 @@ class UiShellManager {
 
     const safeModel = {
       prefix: this.whichKeyModel.prefix || "<leader>",
-      entries: Array.isArray(this.whichKeyModel.entries) ? this.whichKeyModel.entries : [],
+      entries: Array.isArray(this.whichKeyModel.entries)
+        ? this.whichKeyModel.entries
+        : [],
     };
 
     this.whichKeyOverlayView.webContents.executeJavaScript(`
@@ -629,14 +728,26 @@ class UiShellManager {
 
     if (!delayMs || delayMs <= 0) {
       this.whichKeyVisible = true;
-      this.updateWhichKey(this.whichKeyModel, this.whichKeyPendingTimeoutMs, 0, true, true);
+      this.updateWhichKey(
+        this.whichKeyModel,
+        this.whichKeyPendingTimeoutMs,
+        0,
+        true,
+        true,
+      );
       return;
     }
 
     this.whichKeyShowTimer = setTimeout(() => {
       this.whichKeyShowTimer = null;
       this.whichKeyVisible = true;
-      this.updateWhichKey(this.whichKeyModel, this.whichKeyPendingTimeoutMs, 0, true, true);
+      this.updateWhichKey(
+        this.whichKeyModel,
+        this.whichKeyPendingTimeoutMs,
+        0,
+        true,
+        true,
+      );
     }, delayMs);
   }
 
@@ -670,15 +781,17 @@ class UiShellManager {
 
     this.statuslineView.webContents.executeJavaScript(`
       (function updateStatuslineMode() {
-        const node = document.getElementById('statusline-mode');
+        const node = document.getElementById('statusline-mode-label');
         if (!node) return;
-        node.textContent = ${JSON.stringify(` ${this.statuslineMode}`)};
+        node.textContent = ${JSON.stringify(this.statuslineMode)};
       })();
     `);
   }
 
   updateStatuslineScroll(percent) {
-    const normalized = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
+    const normalized = Number.isFinite(percent)
+      ? Math.max(0, Math.min(100, percent))
+      : 0;
     this.statuslineScroll = Math.round(normalized);
 
     if (!this.statuslineView || !this.statuslineReady) return;
@@ -688,6 +801,45 @@ class UiShellManager {
         const node = document.getElementById('statusline-scroll');
         if (!node) return;
         node.textContent = ${JSON.stringify(`${this.statuslineScroll}%`)};
+      })();
+    `);
+  }
+
+  updateStatuslineSplitIndicator(splitStatus = {}) {
+    const enabledRegularSplit = Boolean(
+      splitStatus.enabled && splitStatus.mode === "regular",
+    );
+    const focusedPane = splitStatus.focusedPane === "right" ? "right" : "left";
+
+    this.statuslineSplitIndicator = {
+      visible: enabledRegularSplit,
+      focusedPane,
+    };
+
+    if (!this.statuslineView || !this.statuslineReady) return;
+
+    this.statuslineView.webContents.executeJavaScript(`
+      (function updateStatuslineSplitIndicator() {
+        const root = document.getElementById('statusline-split');
+        const left = document.getElementById('statusline-split-left');
+        const right = document.getElementById('statusline-split-right');
+        if (!root || !left || !right) return;
+
+        const visible = ${JSON.stringify(this.statuslineSplitIndicator.visible)};
+        const focusedPane = ${JSON.stringify(this.statuslineSplitIndicator.focusedPane)};
+        const focusedColor = ${JSON.stringify(UI_MAIN_COLOR)};
+        const mutedColor = ${JSON.stringify(UI_MUTED_TEXT_COLOR)};
+
+        root.style.display = visible ? 'inline-flex' : 'none';
+
+        if (!visible) {
+          left.style.color = mutedColor;
+          right.style.color = mutedColor;
+          return;
+        }
+
+        left.style.color = focusedPane === 'left' ? focusedColor : mutedColor;
+        right.style.color = focusedPane === 'right' ? focusedColor : mutedColor;
       })();
     `);
   }

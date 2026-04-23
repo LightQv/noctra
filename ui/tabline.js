@@ -4,6 +4,8 @@ const {
   UI_MUTED_TEXT_COLOR,
   UI_BORDER_COLOR,
   UI_SURFACE_COLOR,
+  UI_ACCENT_PILL_BG,
+  UI_ACCENT_PILL_BORDER,
   UI_FONT_FAMILY,
 } = require("./constants");
 
@@ -16,8 +18,13 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function renderTabline(webContents, snapshot) {
+function renderTabline(webContents, snapshot, chrome = {}) {
   if (!webContents || webContents.isDestroyed()) return;
+
+  const platform = chrome.platform || process.platform;
+  const useNativeControls = Boolean(chrome.useNativeControls);
+  const isMaximized = Boolean(chrome.isMaximized);
+  const isFullScreen = Boolean(chrome.isFullScreen);
 
   const tabsMarkup = snapshot
     .map((buffer) => {
@@ -26,6 +33,14 @@ function renderTabline(webContents, snapshot) {
       return `<span class="${classes}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${buffer.id}: ${title}</span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
     })
     .join("");
+
+  const showCustomControls = !useNativeControls && !isFullScreen;
+  const maximizeLabel = isMaximized ? "Restore" : "Maximize";
+  const maximizeIcon = isMaximized ? "[]" : "[ ]";
+
+  const controlsMarkup = showCustomControls
+    ? `<div class="window-controls"><button class="window-btn" data-window-action="minimize" type="button" aria-label="Minimize">-</button><button class="window-btn" data-window-action="toggleMaximize" type="button" aria-label="${maximizeLabel}">${maximizeIcon}</button><button class="window-btn is-close" data-window-action="close" type="button" aria-label="Close">X</button></div>`
+    : `<div class="window-controls native-spacer" aria-hidden="true"></div>`;
 
   webContents.executeJavaScript(`
     (function renderUiShellTabline() {
@@ -41,6 +56,16 @@ function renderTabline(webContents, snapshot) {
         root.addEventListener('click', (event) => {
           const target = event.target;
           if (!(target instanceof Element)) return;
+
+          const actionButton = target.closest('[data-window-action]');
+
+          if (actionButton) {
+            const action = actionButton.getAttribute('data-window-action');
+            if (action && window.uiShell && window.uiShell.emit) {
+              window.uiShell.emit('window:action', { action });
+            }
+            return;
+          }
 
           const closeButton = target.closest('.tab-close');
 
@@ -64,7 +89,12 @@ function renderTabline(webContents, snapshot) {
         root.dataset.boundClick = 'true';
       }
 
-      root.innerHTML = ${JSON.stringify(tabsMarkup)};
+      root.className = ${JSON.stringify(
+        `ui-shell-topbar platform-${platform} ${showCustomControls ? "controls-custom" : "controls-native"}`,
+      )};
+      root.innerHTML = ${JSON.stringify(
+        `${controlsMarkup}<div class="tabs-scroll">${tabsMarkup}</div>`,
+      )};
 
       Object.assign(root.style, {
         position: 'fixed',
@@ -74,10 +104,9 @@ function renderTabline(webContents, snapshot) {
         height: '${UI_SHELL_TABLINE_HEIGHT}px',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        padding: '0 8px',
-        overflowX: 'auto',
-        whiteSpace: 'nowrap',
+        gap: '0',
+        padding: '0',
+        overflow: 'hidden',
         zIndex: '999998',
         background: ${JSON.stringify(UI_SURFACE_COLOR)},
         color: '#c8d1e8',
@@ -85,6 +114,67 @@ function renderTabline(webContents, snapshot) {
         fontFamily: ${JSON.stringify(UI_FONT_FAMILY)},
         fontSize: '12px',
         lineHeight: '1',
+        webkitAppRegion: 'drag',
+      });
+
+      const controls = root.querySelector('.window-controls');
+      if (controls) {
+        Object.assign(controls.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          height: '100%',
+          padding: '0 8px',
+          flexShrink: '0',
+          webkitAppRegion: 'no-drag',
+        });
+      }
+
+      if (controls && controls.classList.contains('native-spacer')) {
+        Object.assign(controls.style, {
+          width: ${JSON.stringify(platform === "darwin" ? "84px" : "12px")},
+          padding: '0',
+          pointerEvents: 'none',
+          webkitAppRegion: 'drag',
+        });
+      }
+
+      const tabsScroll = root.querySelector('.tabs-scroll');
+      if (tabsScroll) {
+        Object.assign(tabsScroll.style, {
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '0 8px',
+          overflowX: 'auto',
+          whiteSpace: 'nowrap',
+          minWidth: '0',
+          flex: '1',
+          height: '100%',
+          webkitAppRegion: 'drag',
+        });
+      }
+
+      root.querySelectorAll('.window-btn').forEach((button) => {
+        Object.assign(button.style, {
+          border: 'none',
+          background: '#212734',
+          color: '#d8e3f8',
+          borderRadius: '4px',
+          width: '28px',
+          height: '22px',
+          padding: '0',
+          margin: '0',
+          cursor: 'pointer',
+          lineHeight: '1',
+          fontSize: '12px',
+          webkitAppRegion: 'no-drag',
+        });
+      });
+
+      root.querySelectorAll('.window-btn.is-close').forEach((button) => {
+        button.style.background = '#3a1f27';
+        button.style.color = '#ffb4c2';
       });
 
       root.querySelectorAll('.tab').forEach((tab) => {
@@ -92,7 +182,7 @@ function renderTabline(webContents, snapshot) {
           display: 'inline-flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '4px 8px',
+          padding: '6px 8px',
           borderRadius: '4px',
           background: '#202633',
           color: ${JSON.stringify(UI_MUTED_TEXT_COLOR)},
@@ -100,6 +190,7 @@ function renderTabline(webContents, snapshot) {
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           cursor: 'pointer',
+          webkitAppRegion: 'no-drag',
         });
       });
 
@@ -123,11 +214,14 @@ function renderTabline(webContents, snapshot) {
           padding: '0',
           margin: '0',
           cursor: 'pointer',
+          webkitAppRegion: 'no-drag',
         });
       });
 
       root.querySelectorAll('.is-active').forEach((tab) => {
         Object.assign(tab.style, {
+          background: ${JSON.stringify(UI_ACCENT_PILL_BG)},
+          border: ${JSON.stringify(`1px solid ${UI_ACCENT_PILL_BORDER}`)},
           color: ${JSON.stringify(UI_MAIN_COLOR)},
         });
       });

@@ -64,9 +64,9 @@ const defaultConfig = {
     },
   },
   storage: {
-    history_file: "~/.config/vim-browser/history.yml",
-    favorites_file: "~/.config/vim-browser/favorites.yml",
-    sessions_file: "~/.config/vim-browser/sessions.yml",
+    history_file: "~/.config/noctra/history.yml",
+    favorites_file: "~/.config/noctra/favorites.yml",
+    sessions_file: "~/.config/noctra/sessions.yml",
   },
 };
 

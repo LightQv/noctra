@@ -353,6 +353,14 @@ class BufferManager {
     return this.split.enabled;
   }
 
+  getSplitStatus() {
+    return {
+      enabled: this.split.enabled,
+      mode: this.split.mode,
+      focusedPane: this.focusedPane,
+    };
+  }
+
   getSnapshot() {
     const activeMainBuffer = this.getFocusedMainBuffer();
     return this.buffers.map((buffer) => buffer.toJSON(buffer === activeMainBuffer));

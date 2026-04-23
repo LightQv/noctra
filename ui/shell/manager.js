@@ -6,6 +6,7 @@ const {
   UI_MAIN_COLOR,
   UI_MUTED_TEXT_COLOR,
   UI_PANEL_BG_COLOR,
+  UI_ACCENT_PILL_BG,
   UI_FONT_FAMILY,
   UI_FONT_FACE_CSS,
 } = require("../constants");
@@ -271,30 +272,69 @@ const STATUSLINE_OVERLAY_HTML = `
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 12px;
+        padding: 0;
         box-sizing: border-box;
         background: #151a22;
         border-top: 1px solid #2a3140;
         color: #d8e3f8;
         font-family: ${UI_FONT_FAMILY};
         font-size: 12px;
+        line-height: 1;
       }
 
       #statusline-mode {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 100%;
+        padding: 0 12px;
+        border-radius: 0;
+        background: ${UI_ACCENT_PILL_BG};
+      }
+
+      #statusline-mode-icon {
+        color: ${UI_MAIN_COLOR};
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      #statusline-mode-label {
         color: ${UI_MAIN_COLOR};
         text-transform: uppercase;
         letter-spacing: 0.06em;
+        line-height: 1;
+      }
+
+      #statusline-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding-right: 12px;
+      }
+
+      #statusline-split {
+        display: none;
+        align-items: center;
+        gap: 4px;
+        line-height: 1;
+      }
+
+      #statusline-split-sep {
+        color: #7d8aa3;
       }
 
       #statusline-scroll {
         color: #d8e3f8;
+        display: inline-flex;
+        align-items: center;
+        line-height: 1;
       }
     </style>
   </head>
   <body>
     <div id="statusline">
-      <span id="statusline-mode"> NORMAL</span>
-      <span id="statusline-scroll">0%</span>
+      <span id="statusline-mode"><span id="statusline-mode-icon"></span><span id="statusline-mode-label">NORMAL</span></span>
+      <span id="statusline-right"><span id="statusline-split" aria-label="Split focus"><span id="statusline-split-left">L</span><span id="statusline-split-sep">/</span><span id="statusline-split-right">R</span></span><span id="statusline-scroll">0%</span></span>
     </div>
   </body>
 </html>
@@ -319,8 +359,18 @@ class UiShellManager {
     this.statuslineReady = false;
     this.statuslineMode = "NORMAL";
     this.statuslineScroll = 0;
+    this.statuslineSplitIndicator = {
+      visible: false,
+      focusedPane: "left",
+    };
     this.pendingTablineSnapshot = [];
     this.tablineRenderTimer = null;
+    this.windowChrome = {
+      platform: process.platform,
+      useNativeControls: process.platform === "darwin",
+      isMaximized: false,
+      isFullScreen: false,
+    };
   }
 
   init(windowRef) {
@@ -416,6 +466,7 @@ class UiShellManager {
       this.statuslineReady = true;
       this.updateStatuslineMode(this.statuslineMode);
       this.updateStatuslineScroll(this.statuslineScroll);
+      this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
     });
 
     this.window.addBrowserView(this.statuslineView);
@@ -434,8 +485,16 @@ class UiShellManager {
     this.tablineRenderTimer = setTimeout(() => {
       this.tablineRenderTimer = null;
       if (!this.window || this.window.isDestroyed()) return;
-      renderTabline(this.window.webContents, this.pendingTablineSnapshot);
+      renderTabline(this.window.webContents, this.pendingTablineSnapshot, this.windowChrome);
     }, 16);
+  }
+
+  setWindowChrome(chrome = {}) {
+    this.windowChrome = {
+      ...this.windowChrome,
+      ...chrome,
+    };
+    this.renderTabline(this.pendingTablineSnapshot);
   }
 
   getContentTopInset() {
@@ -670,9 +729,9 @@ class UiShellManager {
 
     this.statuslineView.webContents.executeJavaScript(`
       (function updateStatuslineMode() {
-        const node = document.getElementById('statusline-mode');
+        const node = document.getElementById('statusline-mode-label');
         if (!node) return;
-        node.textContent = ${JSON.stringify(` ${this.statuslineMode}`)};
+        node.textContent = ${JSON.stringify(this.statuslineMode)};
       })();
     `);
   }
@@ -688,6 +747,43 @@ class UiShellManager {
         const node = document.getElementById('statusline-scroll');
         if (!node) return;
         node.textContent = ${JSON.stringify(`${this.statuslineScroll}%`)};
+      })();
+    `);
+  }
+
+  updateStatuslineSplitIndicator(splitStatus = {}) {
+    const enabledRegularSplit = Boolean(splitStatus.enabled && splitStatus.mode === "regular");
+    const focusedPane = splitStatus.focusedPane === "right" ? "right" : "left";
+
+    this.statuslineSplitIndicator = {
+      visible: enabledRegularSplit,
+      focusedPane,
+    };
+
+    if (!this.statuslineView || !this.statuslineReady) return;
+
+    this.statuslineView.webContents.executeJavaScript(`
+      (function updateStatuslineSplitIndicator() {
+        const root = document.getElementById('statusline-split');
+        const left = document.getElementById('statusline-split-left');
+        const right = document.getElementById('statusline-split-right');
+        if (!root || !left || !right) return;
+
+        const visible = ${JSON.stringify(this.statuslineSplitIndicator.visible)};
+        const focusedPane = ${JSON.stringify(this.statuslineSplitIndicator.focusedPane)};
+        const focusedColor = ${JSON.stringify(UI_MAIN_COLOR)};
+        const mutedColor = ${JSON.stringify(UI_MUTED_TEXT_COLOR)};
+
+        root.style.display = visible ? 'inline-flex' : 'none';
+
+        if (!visible) {
+          left.style.color = mutedColor;
+          right.style.color = mutedColor;
+          return;
+        }
+
+        left.style.color = focusedPane === 'left' ? focusedColor : mutedColor;
+        right.style.color = focusedPane === 'right' ? focusedColor : mutedColor;
       })();
     `);
   }

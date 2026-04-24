@@ -14,7 +14,7 @@ let activeInputWebContents = null;
 let inputListener = null;
 
 function resolveCurrentTheme() {
-  return resolveTheme(configService.getConfigValue("theme", {}));
+  return resolveTheme(configService.getConfigValue("global.theme", {}));
 }
 
 function buildThemePayload(theme) {
@@ -269,9 +269,12 @@ function registerUiShellEvents() {
         return {
           ok: true,
           content,
-          leaderKey: configService.getConfigValue("input.leader_key", "Space"),
-          relativeLineNumbers: configService.getConfigValue("editor.relative_line_numbers", true),
-          scrolloffLines: configService.getConfigValue("editor.scrolloff_lines", 3),
+          leaderKey: configService.getConfigValue("global.input.leader_key", "Space"),
+          relativeLineNumbers: configService.getConfigValue(
+            "global.editor.relative_line_numbers",
+            true,
+          ),
+          scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
           ...buildThemePayload(theme),
         };
       } catch (error) {
@@ -336,6 +339,7 @@ function bindInputToActiveBuffer() {
 function createWindow() {
   const config = configService.initConfig();
   state.applyConfig(config);
+  const chromiumPreferences = configService.getConfigValue("browser.chromium.web_preferences", {});
 
   const isMac = process.platform === "darwin";
 
@@ -343,8 +347,14 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
+      contextIsolation:
+        typeof chromiumPreferences.context_isolation === "boolean"
+          ? chromiumPreferences.context_isolation
+          : true,
+      nodeIntegration:
+        typeof chromiumPreferences.node_integration === "boolean"
+          ? chromiumPreferences.node_integration
+          : false,
       preload: path.join(__dirname, "ui", "shell", "preload.js"),
     },
   };

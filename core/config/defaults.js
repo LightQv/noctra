@@ -1,12 +1,46 @@
 const defaultConfig = {
-  input: {
-    leader_key: "Space",
-    sequence_timeout_ms: 500,
-  },
-  whichkey: {
-    enabled: true,
-    display_delay_ms: 180,
-    timeout_ms: 1200,
+  global: {
+    input: {
+      leader_key: "Space",
+      sequence_timeout_ms: 500,
+    },
+    whichkey: {
+      enabled: true,
+      display_delay_ms: 180,
+      timeout_ms: 1200,
+    },
+    editor: {
+      enabled: true,
+      start_in_normal_mode: true,
+      relative_line_numbers: true,
+      scrolloff_lines: 3,
+    },
+    ui: {
+      tabline: {
+        enabled: true,
+      },
+      statusline: {
+        enabled: true,
+      },
+    },
+    theme: {
+      name: "default",
+      overrides: {},
+    },
+    split: {
+      enabled: true,
+      regular_ratio: 0.5,
+      devtools_ratio: 0.25,
+      focus_keys: {
+        left: "Ctrl+h",
+        right: "Ctrl+l",
+      },
+    },
+    storage: {
+      history_file: "~/.config/noctra/history.yml",
+      favorites_file: "~/.config/noctra/favorites.yml",
+      sessions_file: "~/.config/noctra/sessions.yml",
+    },
   },
   keymap: {
     normal: {
@@ -27,12 +61,28 @@ const defaultConfig = {
         action: "scroll_bottom",
       },
       h: {
+        label: "Scroll left",
+        action: "scroll_left",
+      },
+      l: {
+        label: "Scroll right",
+        action: "scroll_right",
+      },
+      gh: {
         label: "Navigate back",
         action: "nav_back",
       },
-      l: {
+      gl: {
         label: "Navigate forward",
         action: "nav_forward",
+      },
+      r: {
+        label: "Reload page",
+        action: "reload_page",
+      },
+      ".": {
+        label: "Repeat last action",
+        action: "repeat_last_action",
       },
       H: {
         label: "Previous buffer",
@@ -84,6 +134,10 @@ const defaultConfig = {
         label: "Focus split right",
         action: "focus_split_right",
       },
+      q: {
+        label: "Close focused context",
+        action: "close_focused",
+      },
     },
     leader: {
       ",": {
@@ -126,35 +180,13 @@ const defaultConfig = {
       },
     },
   },
-  editor: {
-    enabled: true,
-    start_in_normal_mode: true,
-  },
-  ui: {
-    tabline: {
-      enabled: true,
+  browser: {
+    chromium: {
+      web_preferences: {
+        context_isolation: true,
+        node_integration: false,
+      },
     },
-    statusline: {
-      enabled: true,
-    },
-  },
-  theme: {
-    name: "default",
-    overrides: {},
-  },
-  split: {
-    enabled: true,
-    regular_ratio: 0.5,
-    devtools_ratio: 0.25,
-    focus_keys: {
-      left: "Ctrl+h",
-      right: "Ctrl+l",
-    },
-  },
-  storage: {
-    history_file: "~/.config/noctra/history.yml",
-    favorites_file: "~/.config/noctra/favorites.yml",
-    sessions_file: "~/.config/noctra/sessions.yml",
   },
 };
 

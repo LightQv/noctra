@@ -1,6 +1,7 @@
 const { BrowserView } = require("electron");
 const Buffer = require("./buffers");
 const { UI_SHELL_TABLINE_HEIGHT, UI_SHELL_STATUSLINE_HEIGHT } = require("../ui/constants");
+const { getConfigValue } = require("../core/config/service");
 
 class BufferManager {
   constructor() {
@@ -309,10 +310,17 @@ class BufferManager {
     this.focusedPane = "left";
 
     if (!this.devtoolsView) {
+      const chromiumPreferences = getConfigValue("browser.chromium.web_preferences", {});
       this.devtoolsView = new BrowserView({
         webPreferences: {
-          contextIsolation: true,
-          nodeIntegration: false,
+          contextIsolation:
+            typeof chromiumPreferences.context_isolation === "boolean"
+              ? chromiumPreferences.context_isolation
+              : true,
+          nodeIntegration:
+            typeof chromiumPreferences.node_integration === "boolean"
+              ? chromiumPreferences.node_integration
+              : false,
         },
       });
       this.window.addBrowserView(this.devtoolsView);
@@ -402,6 +410,30 @@ class BufferManager {
 
   findByKind(kind) {
     return this.buffers.find((buffer) => buffer.kind === kind) || null;
+  }
+
+  getAllWebContents() {
+    const items = [];
+
+    for (const buffer of this.buffers) {
+      if (buffer && buffer.webContents && !buffer.webContents.isDestroyed()) {
+        items.push(buffer.webContents);
+      }
+    }
+
+    if (
+      this.split.rightPaneBuffer &&
+      this.split.rightPaneBuffer.webContents &&
+      !this.split.rightPaneBuffer.webContents.isDestroyed()
+    ) {
+      items.push(this.split.rightPaneBuffer.webContents);
+    }
+
+    if (this.devtoolsView && this.devtoolsView.webContents && !this.devtoolsView.webContents.isDestroyed()) {
+      items.push(this.devtoolsView.webContents);
+    }
+
+    return items;
   }
 
   subscribe(listener) {

@@ -166,7 +166,7 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SHOW_COMMAND:
-      uiShell.showCommand(state.commandBuffer);
+      uiShell.showCommand(state.commandBuffer, state.commandCursorIndex);
       buffers.focusActive();
       break;
 
@@ -176,7 +176,7 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.COMMAND_INPUT:
-      uiShell.updateCommand(state.commandBuffer);
+      uiShell.updateCommand(state.commandBuffer, state.commandCursorIndex);
       break;
 
     case INTENTS.SHOW_WHICHKEY:
@@ -194,6 +194,7 @@ function dispatch(win, intent, state) {
     case INTENTS.OPEN_URL_PROMPT:
       state.mode = "COMMAND";
       state.commandBuffer = "open ";
+      state.commandCursorIndex = state.commandBuffer.length;
       dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
       dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
       break;

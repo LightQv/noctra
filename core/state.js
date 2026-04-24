@@ -5,6 +5,7 @@ const state = {
   keyBuffer: "",
   countBuffer: "",
   commandBuffer: "",
+  commandCursorIndex: 0,
   leaderKey: "Space",
   leaderActive: false,
   leaderPath: [],

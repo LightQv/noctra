@@ -57,8 +57,8 @@ const COMMAND_OVERLAY_HTML = `
         height: 100%;
         margin: 0;
         min-width: 0;
-        padding: 0 12px;
-        border-radius: 8px;
+        padding: 0 10px;
+        border-radius: 6px;
         border: 1px solid var(--ui-accent, #89dceb);
         background: var(--ui-bg-panel, #161b24);
         box-sizing: border-box;
@@ -69,9 +69,10 @@ const COMMAND_OVERLAY_HTML = `
       #command-title {
         margin: 0 auto;
         padding: 0 8px;
-        color: var(--ui-text-muted, #7d8aa3);
+        color: var(--ui-accent, #89dceb);
+        background: var(--ui-bg-panel, #161b24);
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
-        font-size: 11px;
+        font-size: 13px;
         line-height: 1;
       }
 
@@ -81,12 +82,12 @@ const COMMAND_OVERLAY_HTML = `
         height: 100%;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
         padding: 0;
-        top: -1px;
+        transform: translateY(-1px);
         color: var(--ui-text-bright, #f4f7ff);
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
-        font-size: 12px;
+        font-size: 13px;
         line-height: 1;
         box-sizing: border-box;
       }
@@ -95,17 +96,44 @@ const COMMAND_OVERLAY_HTML = `
         color: var(--ui-accent, #89dceb);
         font-size: 17px;
         line-height: 1;
-        display: inline-flex;
+        display: flex;
         align-items: center;
+        height: 100%;
+      }
+
+      #command-content {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 1px;
+        height: 100%;
+        overflow: hidden;
+        white-space: pre;
+      }
+
+      .command-text-segment {
+        min-width: 0;
+        overflow: hidden;
+        white-space: pre;
+        line-height: 1;
+      }
+
+      #command-cursor {
+        height: 1.22em;
+        background: var(--ui-accent, #89dceb);
+        border-radius: 1px;
+        flex: 0 0 auto;
         transform: translateY(-1px);
       }
 
-      #command-text {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        line-height: 1;
+      #command-cursor.cursor-block {
+        width: 0.54em;
+      }
+
+      #command-cursor.cursor-bar {
+        width: 1px;
       }
     </style>
   </head>
@@ -114,7 +142,7 @@ const COMMAND_OVERLAY_HTML = `
       <legend id="command-title">Cmdline</legend>
       <div id="command-overlay">
         <span id="command-prefix"></span>
-        <span id="command-text"></span>
+        <span id="command-content"><span id="command-text-before" class="command-text-segment"></span><span id="command-cursor" class="cursor-block" aria-hidden="true"></span><span id="command-text-after" class="command-text-segment"></span></span>
       </div>
     </fieldset>
   </body>
@@ -152,7 +180,7 @@ const WHICHKEY_OVERLAY_HTML = `
         flex-direction: column;
         gap: 6px;
         padding: 2px 14px 8px;
-        border-radius: 8px;
+        border-radius: 6px;
         border: 1px solid var(--ui-accent, #89dceb);
         background: var(--ui-bg-panel, #161b24);
         color: var(--ui-text-bright, #f2f6ff);
@@ -164,7 +192,8 @@ const WHICHKEY_OVERLAY_HTML = `
         margin: 0 auto;
         padding: 0 8px;
         color: var(--ui-text-muted, #7d8aa3);
-        font-size: 11px;
+        background: var(--ui-bg-panel, #161b24);
+        font-size: 13px;
         line-height: 1;
       }
 
@@ -363,6 +392,7 @@ class UiShellManager {
     this.commandOverlayReady = false;
     this.commandVisible = false;
     this.commandText = "";
+    this.commandCursorIndex = 0;
     this.whichKeyOverlayView = null;
     this.whichKeyOverlayReady = false;
     this.whichKeyVisible = false;
@@ -439,7 +469,7 @@ class UiShellManager {
     this.commandOverlayView.webContents.on("did-finish-load", () => {
       this.commandOverlayReady = true;
       this.applyThemeToWebContents(this.commandOverlayView.webContents);
-      this.updateCommand(this.commandText);
+      this.updateCommand(this.commandText, this.commandCursorIndex);
     });
 
     this.window.addBrowserView(this.commandOverlayView);
@@ -667,17 +697,21 @@ class UiShellManager {
     return this.commandVisible;
   }
 
-  showCommand(text = "") {
+  showCommand(text = "", cursorIndex = null) {
     this.commandVisible = true;
     this.commandText = text;
+    this.commandCursorIndex = Number.isFinite(cursorIndex)
+      ? Math.max(0, Math.min(Math.trunc(cursorIndex), String(text).length))
+      : String(text).length;
     this.keepCommandOverlayAboveContentViews();
-    this.updateCommand(text);
+    this.updateCommand(text, this.commandCursorIndex);
   }
 
   hideCommand() {
     this.commandVisible = false;
     this.commandText = "";
-    this.updateCommand("");
+    this.commandCursorIndex = 0;
+    this.updateCommand("", 0);
     this.relayout();
   }
 
@@ -908,16 +942,31 @@ class UiShellManager {
     `);
   }
 
-  updateCommand(text = "") {
-    this.commandText = text;
+  updateCommand(text = "", cursorIndex = null) {
+    const nextText = String(text);
+    const maxCursor = nextText.length;
+    const nextCursor = Number.isFinite(cursorIndex)
+      ? Math.max(0, Math.min(Math.trunc(cursorIndex), maxCursor))
+      : maxCursor;
+
+    this.commandText = nextText;
+    this.commandCursorIndex = nextCursor;
 
     if (!this.commandOverlayView || !this.commandOverlayReady) return;
 
+    const beforeText = nextText.slice(0, nextCursor);
+    const afterText = nextText.slice(nextCursor);
+    const cursorClass = nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
+
     this.commandOverlayView.webContents.executeJavaScript(`
       (function updateCommandOverlayText() {
-        const textNode = document.getElementById('command-text');
-        if (!textNode) return;
-        textNode.textContent = ${JSON.stringify(text)};
+        const beforeNode = document.getElementById('command-text-before');
+        const afterNode = document.getElementById('command-text-after');
+        const cursorNode = document.getElementById('command-cursor');
+        if (!beforeNode || !afterNode || !cursorNode) return;
+        beforeNode.textContent = ${JSON.stringify(beforeText)};
+        afterNode.textContent = ${JSON.stringify(afterText)};
+        cursorNode.className = ${JSON.stringify(cursorClass)};
       })();
     `);
   }

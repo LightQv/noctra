@@ -170,6 +170,7 @@ function handleNormal(state, input) {
   if (key === ":") {
     state.mode = "COMMAND";
     state.commandBuffer = "";
+    state.commandCursorIndex = 0;
     return { type: INTENTS.SHOW_COMMAND };
   }
 

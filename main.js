@@ -1,6 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
@@ -76,6 +76,22 @@ function normalizeInput(input) {
 
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
+
+  const isCommandPasteShortcut =
+    state.mode === "COMMAND" &&
+    normalized.type === "keyDown" &&
+    (normalized.key === "v" || normalized.key === "V") &&
+    ((process.platform === "darwin" && normalized.meta && !normalized.ctrl) ||
+      (process.platform !== "darwin" && normalized.ctrl && !normalized.meta));
+
+  if (isCommandPasteShortcut) {
+    event.preventDefault();
+    handleInput(win, {
+      ...normalized,
+      pasteText: clipboard.readText(),
+    });
+    return;
+  }
 
   const isOpenSettingsShortcut =
     normalized.type === "keyDown" &&

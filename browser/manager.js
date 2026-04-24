@@ -404,6 +404,30 @@ class BufferManager {
     return this.buffers.find((buffer) => buffer.kind === kind) || null;
   }
 
+  getAllWebContents() {
+    const items = [];
+
+    for (const buffer of this.buffers) {
+      if (buffer && buffer.webContents && !buffer.webContents.isDestroyed()) {
+        items.push(buffer.webContents);
+      }
+    }
+
+    if (
+      this.split.rightPaneBuffer &&
+      this.split.rightPaneBuffer.webContents &&
+      !this.split.rightPaneBuffer.webContents.isDestroyed()
+    ) {
+      items.push(this.split.rightPaneBuffer.webContents);
+    }
+
+    if (this.devtoolsView && this.devtoolsView.webContents && !this.devtoolsView.webContents.isDestroyed()) {
+      items.push(this.devtoolsView.webContents);
+    }
+
+    return items;
+  }
+
   subscribe(listener) {
     this.subscribers.add(listener);
     return () => this.subscribers.delete(listener);

@@ -242,6 +242,10 @@ function normalizeConfig(rawConfig) {
     if (typeof input.editor.start_in_normal_mode === "boolean") {
       normalized.editor.start_in_normal_mode = input.editor.start_in_normal_mode;
     }
+
+    if (typeof input.editor.relative_line_numbers === "boolean") {
+      normalized.editor.relative_line_numbers = input.editor.relative_line_numbers;
+    }
   }
 
   if (isPlainObject(input.storage)) {

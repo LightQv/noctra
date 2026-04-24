@@ -8,9 +8,60 @@ const configService = require("./core/config/service");
 const uiShell = require("./ui/shell/manager");
 const { dispatch } = require("./core/dispatcher");
 const { INTENTS } = require("./core/intents");
+const { resolveTheme, toCssVars } = require("./ui/theme");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
+
+function resolveCurrentTheme() {
+  return resolveTheme(configService.getConfigValue("theme", {}));
+}
+
+function buildThemePayload(theme) {
+  return {
+    theme,
+    themeVars: toCssVars(theme),
+  };
+}
+
+function broadcastUiShellPush(type, payload = {}) {
+  if (!win || typeof type !== "string" || !type.length) return;
+
+  const targets = new Map();
+  const addTarget = (webContents) => {
+    if (!webContents || webContents.isDestroyed()) return;
+    targets.set(webContents.id, webContents);
+  };
+
+  addTarget(win.webContents);
+  for (const webContents of buffers.getAllWebContents()) {
+    addTarget(webContents);
+  }
+
+  for (const webContents of targets.values()) {
+    webContents.send("ui-shell:push", { type, payload });
+  }
+}
+
+function focusActiveEditorSurface(options = {}) {
+  const forceNormal = Boolean(options.forceNormal);
+  const active = buffers.getActive();
+  if (!active || !active.isEditable || !active.webContents || active.webContents.isDestroyed()) {
+    return;
+  }
+
+  buffers.focusActive();
+  active.webContents.executeJavaScript(
+    `
+      if (${JSON.stringify(forceNormal)} && typeof window.__settingsEditorSetNormal__ === "function") {
+        window.__settingsEditorSetNormal__();
+      }
+      if (typeof window.__settingsEditorFocus__ === "function") {
+        window.__settingsEditorFocus__();
+      }
+    `,
+  ).catch(() => {});
+}
 
 function normalizeInput(input) {
   return {
@@ -82,8 +133,8 @@ function updateTablineActions() {
 
   uiShell.setTablineActions({
     settings: {
-      label: "Settings",
-      icon: "󰒓",
+      label: "Config",
+      icon: "󱁿",
       shortcutLabel: `${systemShortcut} | ${vimShortcut}`,
     },
   });
@@ -159,6 +210,15 @@ function registerUiShellEvents() {
 
     if (type === "editor:focus-request") {
       state.interactionContext = "EDITOR";
+      focusActiveEditorSurface();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
+    if (type === "editor:ready") {
+      state.interactionContext = "EDITOR";
+      state.editorMode = "NORMAL";
+      focusActiveEditorSurface({ forceNormal: true });
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       return;
     }
@@ -189,10 +249,13 @@ function registerUiShellEvents() {
       const configPath = configService.getConfigPath();
       try {
         const content = fs.readFileSync(configPath, "utf8");
+        const theme = resolveCurrentTheme();
         return {
           ok: true,
           content,
           leaderKey: configService.getConfigValue("input.leader_key", "Space"),
+          relativeLineNumbers: configService.getConfigValue("editor.relative_line_numbers", true),
+          ...buildThemePayload(theme),
         };
       } catch (error) {
         return { ok: false, error: error.message };
@@ -205,11 +268,19 @@ function registerUiShellEvents() {
         fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
         const config = configService.reloadConfig();
         state.applyConfig(config);
+        const theme = resolveCurrentTheme();
+        uiShell.setTheme(theme);
+        broadcastUiShellPush("theme:update", buildThemePayload(theme));
         updateTablineActions();
         return { ok: true };
       } catch (error) {
         return { ok: false, error: error.message };
       }
+    }
+
+    if (type === "settings:close") {
+      dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
+      return { ok: true };
     }
 
     return { ok: false };
@@ -283,6 +354,7 @@ function createWindow() {
 
   buffers.init(win);
   uiShell.init(win);
+  uiShell.setTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
     platform: process.platform,
     useNativeControls: isMac,
@@ -359,11 +431,12 @@ function createWindow() {
   buffers.subscribe((snapshot, active, change = {}) => {
     if (!active) return;
 
+    const activeChanged = Boolean(change.activeChanged);
+
     uiShell.renderTabline(snapshot);
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
 
-    const activeChanged = Boolean(change.activeChanged);
     if (activeChanged || activeInputWebContents !== active.webContents) {
       bindInputToActiveBuffer();
     }

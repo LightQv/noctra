@@ -6,6 +6,7 @@ const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
 const { buildSettingsPageHtml } = require("./settings/page");
+const { resolveTheme } = require("../ui/theme");
 
 function computeStatuslineModeLabel(state) {
   const active = buffers.getActive();
@@ -28,6 +29,15 @@ function focusEditableBufferSurface(buffer) {
   buffer.webContents.executeJavaScript(
     `if (typeof window.__settingsEditorFocus__ === "function") { window.__settingsEditorFocus__(); }`,
   ).catch(() => {});
+
+  if (buffer.webContents.isLoadingMainFrame()) {
+    buffer.webContents.once("did-finish-load", () => {
+      if (buffer.webContents.isDestroyed()) return;
+      buffer.webContents.executeJavaScript(
+        `if (typeof window.__settingsEditorFocus__ === "function") { window.__settingsEditorFocus__(); }`,
+      ).catch(() => {});
+    });
+  }
 }
 
 function blurEditableBufferSurface(buffer) {
@@ -49,7 +59,8 @@ function openSettingsBuffer() {
     return existing;
   }
 
-  const html = buildSettingsPageHtml(configPath);
+  const theme = resolveTheme(configService.getConfigValue("theme", {}));
+  const html = buildSettingsPageHtml(configPath, theme);
 
   const buffer = buffers.create(null, {
     kind: "editable",
@@ -256,6 +267,7 @@ function dispatch(win, intent, state) {
 
     case INTENTS.OPEN_SETTINGS_BUFFER:
       focusEditableBufferSurface(openSettingsBuffer());
+      buffers.focusActive();
       state.interactionContext = "EDITOR";
       state.editorMode = "NORMAL";
       break;

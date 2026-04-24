@@ -129,6 +129,7 @@ const defaultConfig = {
   editor: {
     enabled: true,
     start_in_normal_mode: true,
+    relative_line_numbers: true,
   },
   ui: {
     tabline: {

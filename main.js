@@ -134,7 +134,7 @@ function updateTablineActions() {
   uiShell.setTablineActions({
     settings: {
       label: "Config",
-      icon: "󱁿",
+      icon: "󰒓",
       shortcutLabel: `${systemShortcut} | ${vimShortcut}`,
     },
   });

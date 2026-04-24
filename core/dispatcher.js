@@ -105,9 +105,20 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SCROLL:
-      buf.webContents.executeJavaScript(
-        `window.scrollBy(0, ${intent.direction === "down" ? intent.amount : -intent.amount})`,
-      );
+      buf.webContents.executeJavaScript(`
+        (function applyScroll() {
+          const amount = ${Math.max(0, Number(intent.amount) || 0)};
+          if (${JSON.stringify(intent.direction)} === "left") {
+            window.scrollBy(-amount, 0);
+            return;
+          }
+          if (${JSON.stringify(intent.direction)} === "right") {
+            window.scrollBy(amount, 0);
+            return;
+          }
+          window.scrollBy(0, ${JSON.stringify(intent.direction)} === "down" ? amount : -amount);
+        })();
+      `);
       break;
 
     case INTENTS.SCROLL_TOP:
@@ -143,6 +154,10 @@ function dispatch(win, intent, state) {
 
     case INTENTS.NAV_FORWARD:
       buf.webContents.navigationHistory.goForward();
+      break;
+
+    case INTENTS.RELOAD_PAGE:
+      buf.webContents.reload();
       break;
 
     case INTENTS.ENTER_INSERT:
@@ -222,6 +237,14 @@ function dispatch(win, intent, state) {
 
     case INTENTS.CLOSE_BUFFER:
       buffers.close(intent.id ?? null);
+      break;
+
+    case INTENTS.CLOSE_FOCUSED:
+      if (buffers.isSplitEnabled()) {
+        buffers.closeRightSplit();
+      } else {
+        buffers.close();
+      }
       break;
 
     case INTENTS.CLOSE_LEFT_BUFFERS:

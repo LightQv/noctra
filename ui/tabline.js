@@ -224,7 +224,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           justifyContent: 'center',
           border: ${JSON.stringify(`1px solid ${palette.borderMutedColor}`)},
           background: ${JSON.stringify(palette.elevatedBackground)},
-          color: ${JSON.stringify(palette.softTextColor)},
+          color: ${JSON.stringify(palette.textColor)},
           borderRadius: '4px',
           width: '24px',
           height: '24px',
@@ -241,7 +241,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         Object.assign(icon.style, {
           display: 'inline-flex',
           alignItems: 'center',
-          color: ${JSON.stringify(palette.accentIconColor)},
+          color: 'inherit',
           fontSize: '16px',
           lineHeight: '1',
         });

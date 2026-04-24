@@ -15,6 +15,7 @@ const state = {
   whichKeyTimeout: 1200,
   lastKeyTime: 0,
   sequenceTimeout: 500,
+  lastRepeatableIntent: null,
 };
 
 function applyConfig(config) {

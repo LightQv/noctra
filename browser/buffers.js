@@ -5,6 +5,7 @@ const {
   UI_SCROLLBAR_THUMB_COLOR,
   UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
 } = require("../ui/constants");
+const { getConfigValue } = require("../core/config/service");
 
 function getUrlDisplayTitle(rawUrl) {
   if (!rawUrl) return "Loading...";
@@ -28,9 +29,16 @@ class Buffer extends EventEmitter {
     super();
 
     this.id = id;
+    const chromiumPreferences = getConfigValue("browser.chromium.web_preferences", {});
     const webPreferences = {
-      contextIsolation: true,
-      nodeIntegration: false,
+      contextIsolation:
+        typeof chromiumPreferences.context_isolation === "boolean"
+          ? chromiumPreferences.context_isolation
+          : true,
+      nodeIntegration:
+        typeof chromiumPreferences.node_integration === "boolean"
+          ? chromiumPreferences.node_integration
+          : false,
     };
 
     if (typeof options.preloadPath === "string" && options.preloadPath.length > 0) {

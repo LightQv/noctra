@@ -1,6 +1,7 @@
 const { BrowserView } = require("electron");
 const Buffer = require("./buffers");
 const { UI_SHELL_TABLINE_HEIGHT, UI_SHELL_STATUSLINE_HEIGHT } = require("../ui/constants");
+const { getConfigValue } = require("../core/config/service");
 
 class BufferManager {
   constructor() {
@@ -309,10 +310,17 @@ class BufferManager {
     this.focusedPane = "left";
 
     if (!this.devtoolsView) {
+      const chromiumPreferences = getConfigValue("browser.chromium.web_preferences", {});
       this.devtoolsView = new BrowserView({
         webPreferences: {
-          contextIsolation: true,
-          nodeIntegration: false,
+          contextIsolation:
+            typeof chromiumPreferences.context_isolation === "boolean"
+              ? chromiumPreferences.context_isolation
+              : true,
+          nodeIntegration:
+            typeof chromiumPreferences.node_integration === "boolean"
+              ? chromiumPreferences.node_integration
+              : false,
         },
       });
       this.window.addBrowserView(this.devtoolsView);

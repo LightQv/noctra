@@ -59,7 +59,7 @@ function openSettingsBuffer() {
     return existing;
   }
 
-  const theme = resolveTheme(configService.getConfigValue("theme", {}));
+  const theme = resolveTheme(configService.getConfigValue("global.theme", {}));
   const html = buildSettingsPageHtml(configPath, theme);
 
   const buffer = buffers.create(null, {
@@ -257,7 +257,7 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SPLIT_VERTICAL: {
-      const ratio = configService.getConfigValue("split.regular_ratio", 0.5);
+      const ratio = configService.getConfigValue("global.split.regular_ratio", 0.5);
       buffers.openVerticalSplit(ratio);
       break;
     }
@@ -267,7 +267,7 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SPLIT_DEVTOOLS: {
-      const ratio = configService.getConfigValue("split.devtools_ratio", 0.25);
+      const ratio = configService.getConfigValue("global.split.devtools_ratio", 0.25);
       buffers.openDevtoolsSplit(ratio);
       break;
     }

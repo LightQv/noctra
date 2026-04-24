@@ -5,6 +5,7 @@ const {
   UI_SCROLLBAR_THUMB_COLOR,
   UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
 } = require("../ui/constants");
+const { getConfigValue } = require("../core/config/service");
 
 function getUrlDisplayTitle(rawUrl) {
   if (!rawUrl) return "Loading...";
@@ -24,20 +25,35 @@ function getUrlDisplayTitle(rawUrl) {
 }
 
 class Buffer extends EventEmitter {
-  constructor(id) {
+  constructor(id, options = {}) {
     super();
 
     this.id = id;
+    const chromiumPreferences = getConfigValue("browser.chromium.web_preferences", {});
+    const webPreferences = {
+      contextIsolation:
+        typeof chromiumPreferences.context_isolation === "boolean"
+          ? chromiumPreferences.context_isolation
+          : true,
+      nodeIntegration:
+        typeof chromiumPreferences.node_integration === "boolean"
+          ? chromiumPreferences.node_integration
+          : false,
+    };
+
+    if (typeof options.preloadPath === "string" && options.preloadPath.length > 0) {
+      webPreferences.preload = options.preloadPath;
+    }
+
     this.view = new BrowserView({
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
+      webPreferences,
     });
 
     this.webContents = this.view.webContents;
     this.url = "about:blank";
     this.title = "[No title]";
+    this.kind = options.kind || "web";
+    this.isEditable = this.kind === "editable";
     this.contentUiOptions = {
       widthPx: 6,
       hideDelayMs: 700,
@@ -76,6 +92,19 @@ class Buffer extends EventEmitter {
     this.emit("updated", { kind: "metadata" });
   }
 
+  loadVirtualDocument(options = {}) {
+    const virtualUrl = options.url || "about:blank";
+    const title = options.title || "[No title]";
+    const html = typeof options.html === "string" ? options.html : "";
+
+    this.url = virtualUrl;
+    this.title = title;
+
+    const encoded = encodeURIComponent(html);
+    this.webContents.loadURL(`data:text/html;charset=utf-8,${encoded}`);
+    this.emit("updated", { kind: "metadata" });
+  }
+
   setContentUiOptions(nextOptions = {}) {
     this.contentUiOptions = {
       ...this.contentUiOptions,
@@ -88,12 +117,16 @@ class Buffer extends EventEmitter {
     applyScrollableUi(this.webContents, this.contentUiOptions);
   }
 
-  toJSON(isActive) {
+  toJSON(isActive, meta = {}) {
     return {
       id: this.id,
       title: this.title,
       url: this.url,
       isActive,
+      kind: this.kind,
+      isEditable: this.isEditable,
+      isFocusedPaneBuffer: Boolean(meta.isFocusedPaneBuffer),
+      isOtherPaneBuffer: Boolean(meta.isOtherPaneBuffer),
     };
   }
 

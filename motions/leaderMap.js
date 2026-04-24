@@ -1,13 +1,5 @@
-const { INTENTS } = require("../core/intents");
 const { getConfigValue } = require("../core/config/service");
-
-const ACTION_BUILDERS = {
-  close_buffer: () => ({ type: INTENTS.CLOSE_BUFFER }),
-  close_left_buffers: () => ({ type: INTENTS.CLOSE_LEFT_BUFFERS }),
-  close_right_buffers: () => ({ type: INTENTS.CLOSE_RIGHT_BUFFERS }),
-  split_close_right: () => ({ type: INTENTS.SPLIT_CLOSE_RIGHT }),
-  split_devtools: () => ({ type: INTENTS.SPLIT_DEVTOOLS }),
-};
+const { ACTION_BUILDERS } = require("./actionBuilders");
 
 function buildTreeNode(node) {
   if (!node || typeof node !== "object") {

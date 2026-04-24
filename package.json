@@ -1,14 +1,17 @@
 {
   "name": "noctra",
+  "productName": "Noctra",
   "version": "0.1.0",
+  "author": "LightQv",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
   },
   "devDependencies": {
-    "electron": "^41.2.2"
+    "electron": "41.2.2"
   },
   "dependencies": {
-    "yaml": "^2.8.3"
+    "codemirror": "5.65.16",
+    "yaml": "2.8.3"
   }
 }

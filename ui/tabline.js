@@ -1,11 +1,5 @@
 const {
   UI_SHELL_TABLINE_HEIGHT,
-  UI_MAIN_COLOR,
-  UI_MUTED_TEXT_COLOR,
-  UI_BORDER_COLOR,
-  UI_SURFACE_COLOR,
-  UI_ACCENT_PILL_BG,
-  UI_ACCENT_PILL_BORDER,
   UI_FONT_FAMILY,
 } = require("./constants");
 
@@ -18,8 +12,28 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function renderTabline(webContents, snapshot, chrome = {}) {
+function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme = {}) {
   if (!webContents || webContents.isDestroyed()) return;
+
+  const palette = {
+    surfaceBackground: theme.surfaceBackground || "#171b22",
+    borderColor: theme.borderColor || "#2f3440",
+    textColor: theme.textColor || "#d8e3f8",
+    mutedTextColor: theme.mutedTextColor || "#7d8aa3",
+    elevatedBackground: theme.elevatedBackground || "#1a2230",
+    borderMutedColor: theme.borderMutedColor || "#2f3a4d",
+    softTextColor: theme.softTextColor || "#d4def2",
+    accentIconColor: theme.accentIconColor || "#8ec5ff",
+    windowControlBackground: theme.windowControlBackground || "#212734",
+    dangerBackground: theme.dangerBackground || "#3a1f27",
+    dangerTextColor: theme.dangerTextColor || "#ffb4c2",
+    subtleBackground: theme.subtleBackground || "#202633",
+    accentPillBackground: theme.accentPillBackground || "#263846",
+    accentPillBorder: theme.accentPillBorder || "#5d90a2",
+    mainColor: theme.mainColor || "#89dceb",
+    secondaryActiveTextColor: theme.secondaryActiveTextColor || "#83abc6",
+    fontFamily: theme.fontFamily || UI_FONT_FAMILY,
+  };
 
   const platform = chrome.platform || process.platform;
   const useNativeControls = Boolean(chrome.useNativeControls);
@@ -29,18 +43,45 @@ function renderTabline(webContents, snapshot, chrome = {}) {
   const tabsMarkup = snapshot
     .map((buffer) => {
       const title = escapeHtml(buffer.title || buffer.url || "[No title]");
-      const classes = buffer.isActive ? "tab is-active" : "tab";
-      return `<span class="${classes}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${buffer.id}: ${title}</span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
+      const classes = ["tab"];
+      if (buffer.isFocusedPaneBuffer || buffer.isActive) {
+        classes.push("is-active");
+      }
+
+      if (buffer.isOtherPaneBuffer) {
+        classes.push("is-secondary-active");
+      }
+
+      return `<span class="${classes.join(" ")}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${buffer.id}: ${title}</span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
     })
     .join("");
 
   const showCustomControls = !useNativeControls && !isFullScreen;
   const maximizeLabel = isMaximized ? "Restore" : "Maximize";
   const maximizeIcon = isMaximized ? "[]" : "[ ]";
+  const configLabel =
+    typeof actions?.settings?.label === "string" && actions.settings.label.trim().length > 0
+      ? actions.settings.label
+      : "Config";
+  const configIcon =
+    typeof actions?.settings?.icon === "string" && actions.settings.icon.trim().length > 0
+      ? actions.settings.icon
+      : "󱁿";
+  const configShortcut =
+    typeof actions?.settings?.shortcutLabel === "string" &&
+    actions.settings.shortcutLabel.trim().length > 0
+      ? actions.settings.shortcutLabel
+      : "Cmd+, | Ctrl+,";
 
   const controlsMarkup = showCustomControls
     ? `<div class="window-controls"><button class="window-btn" data-window-action="minimize" type="button" aria-label="Minimize">-</button><button class="window-btn" data-window-action="toggleMaximize" type="button" aria-label="${maximizeLabel}">${maximizeIcon}</button><button class="window-btn is-close" data-window-action="close" type="button" aria-label="Close">X</button></div>`
     : `<div class="window-controls native-spacer" aria-hidden="true"></div>`;
+
+  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
+    `${configLabel} (${configShortcut})`,
+  )}" aria-label="Open config"><span class="tabline-action-icon">${escapeHtml(
+    configIcon,
+  )}</span></button></div>`;
 
   webContents.executeJavaScript(`
     (function renderUiShellTabline() {
@@ -63,6 +104,15 @@ function renderTabline(webContents, snapshot, chrome = {}) {
             const action = actionButton.getAttribute('data-window-action');
             if (action && window.uiShell && window.uiShell.emit) {
               window.uiShell.emit('window:action', { action });
+            }
+            return;
+          }
+
+          const tablineActionButton = target.closest('[data-tabline-action]');
+          if (tablineActionButton) {
+            const tablineAction = tablineActionButton.getAttribute('data-tabline-action');
+            if (tablineAction === 'open-settings' && window.uiShell && window.uiShell.emit) {
+              window.uiShell.emit('tabline:open-settings');
             }
             return;
           }
@@ -93,7 +143,7 @@ function renderTabline(webContents, snapshot, chrome = {}) {
         `ui-shell-topbar platform-${platform} ${showCustomControls ? "controls-custom" : "controls-native"}`,
       )};
       root.innerHTML = ${JSON.stringify(
-        `${controlsMarkup}<div class="tabs-scroll">${tabsMarkup}</div>`,
+        `${controlsMarkup}<div class="tabs-scroll">${tabsMarkup}</div>${rightActionsMarkup}`,
       )};
 
       Object.assign(root.style, {
@@ -108,10 +158,10 @@ function renderTabline(webContents, snapshot, chrome = {}) {
         padding: '0',
         overflow: 'hidden',
         zIndex: '999998',
-        background: ${JSON.stringify(UI_SURFACE_COLOR)},
-        color: '#c8d1e8',
-        borderBottom: ${JSON.stringify(`1px solid ${UI_BORDER_COLOR}`)},
-        fontFamily: ${JSON.stringify(UI_FONT_FAMILY)},
+        background: ${JSON.stringify(palette.surfaceBackground)},
+        color: ${JSON.stringify(palette.textColor)},
+        borderBottom: ${JSON.stringify(`1px solid ${palette.borderColor}`)},
+        fontFamily: ${JSON.stringify(palette.fontFamily)},
         fontSize: '12px',
         lineHeight: '1',
         webkitAppRegion: 'drag',
@@ -155,11 +205,53 @@ function renderTabline(webContents, snapshot, chrome = {}) {
         });
       }
 
+      const tablineActions = root.querySelector('.tabline-actions');
+      if (tablineActions) {
+        Object.assign(tablineActions.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          padding: '0 10px',
+          height: '100%',
+          flexShrink: '0',
+          webkitAppRegion: 'no-drag',
+        });
+      }
+
+      root.querySelectorAll('.tabline-action-btn').forEach((button) => {
+        Object.assign(button.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: ${JSON.stringify(`1px solid ${palette.borderMutedColor}`)},
+          background: ${JSON.stringify(palette.elevatedBackground)},
+          color: ${JSON.stringify(palette.textColor)},
+          borderRadius: '4px',
+          width: '24px',
+          height: '24px',
+          padding: '0',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          fontSize: '12px',
+          lineHeight: '1',
+          webkitAppRegion: 'no-drag',
+        });
+      });
+
+      root.querySelectorAll('.tabline-action-icon').forEach((icon) => {
+        Object.assign(icon.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          color: 'inherit',
+          fontSize: '16px',
+          lineHeight: '1',
+        });
+      });
+
       root.querySelectorAll('.window-btn').forEach((button) => {
         Object.assign(button.style, {
           border: 'none',
-          background: '#212734',
-          color: '#d8e3f8',
+          background: ${JSON.stringify(palette.windowControlBackground)},
+          color: ${JSON.stringify(palette.textColor)},
           borderRadius: '4px',
           width: '28px',
           height: '22px',
@@ -173,8 +265,8 @@ function renderTabline(webContents, snapshot, chrome = {}) {
       });
 
       root.querySelectorAll('.window-btn.is-close').forEach((button) => {
-        button.style.background = '#3a1f27';
-        button.style.color = '#ffb4c2';
+        button.style.background = ${JSON.stringify(palette.dangerBackground)};
+        button.style.color = ${JSON.stringify(palette.dangerTextColor)};
       });
 
       root.querySelectorAll('.tab').forEach((tab) => {
@@ -184,8 +276,8 @@ function renderTabline(webContents, snapshot, chrome = {}) {
           gap: '8px',
           padding: '6px 8px',
           borderRadius: '4px',
-          background: '#202633',
-          color: ${JSON.stringify(UI_MUTED_TEXT_COLOR)},
+          background: ${JSON.stringify(palette.subtleBackground)},
+          color: ${JSON.stringify(palette.mutedTextColor)},
           maxWidth: '320px',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -207,7 +299,7 @@ function renderTabline(webContents, snapshot, chrome = {}) {
         Object.assign(button.style, {
           border: 'none',
           background: 'transparent',
-          color: ${JSON.stringify(UI_MUTED_TEXT_COLOR)},
+          color: ${JSON.stringify(palette.mutedTextColor)},
           fontFamily: 'inherit',
           fontSize: '12px',
           lineHeight: '1',
@@ -220,14 +312,22 @@ function renderTabline(webContents, snapshot, chrome = {}) {
 
       root.querySelectorAll('.is-active').forEach((tab) => {
         Object.assign(tab.style, {
-          background: ${JSON.stringify(UI_ACCENT_PILL_BG)},
-          border: ${JSON.stringify(`1px solid ${UI_ACCENT_PILL_BORDER}`)},
-          color: ${JSON.stringify(UI_MAIN_COLOR)},
+          background: ${JSON.stringify(palette.accentPillBackground)},
+          border: ${JSON.stringify(`1px solid ${palette.accentPillBorder}`)},
+          color: ${JSON.stringify(palette.mainColor)},
         });
       });
 
+      root.querySelectorAll('.is-secondary-active').forEach((tab) => {
+        tab.style.color = ${JSON.stringify(palette.secondaryActiveTextColor)};
+      });
+
       root.querySelectorAll('.is-active .tab-close').forEach((button) => {
-        button.style.color = ${JSON.stringify(UI_MAIN_COLOR)};
+        button.style.color = ${JSON.stringify(palette.mainColor)};
+      });
+
+      root.querySelectorAll('.is-secondary-active .tab-close').forEach((button) => {
+        button.style.color = ${JSON.stringify(palette.secondaryActiveTextColor)};
       });
 
     })();

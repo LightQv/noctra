@@ -15,6 +15,93 @@ const CONFIG_FILE_PATH = path.join(CONFIG_DIR_PATH, "config.yml");
 
 let cachedConfig = normalizeConfig(defaultConfig);
 
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeWithDefaults(defaultsNode, inputNode) {
+  if (!isPlainObject(defaultsNode)) {
+    return inputNode === undefined ? defaultsNode : inputNode;
+  }
+
+  const merged = {};
+  const inputObject = isPlainObject(inputNode) ? inputNode : {};
+  const keys = new Set([...Object.keys(defaultsNode), ...Object.keys(inputObject)]);
+
+  for (const key of keys) {
+    merged[key] = mergeWithDefaults(defaultsNode[key], inputObject[key]);
+  }
+
+  return merged;
+}
+
+function mergeMissingIntoTarget(targetNode, sourceNode) {
+  if (!isPlainObject(targetNode)) {
+    return isPlainObject(sourceNode) ? { ...sourceNode } : {};
+  }
+
+  if (!isPlainObject(sourceNode)) {
+    return targetNode;
+  }
+
+  for (const [key, value] of Object.entries(sourceNode)) {
+    if (!(key in targetNode)) {
+      targetNode[key] = value;
+      continue;
+    }
+
+    if (isPlainObject(targetNode[key]) && isPlainObject(value)) {
+      mergeMissingIntoTarget(targetNode[key], value);
+    }
+  }
+
+  return targetNode;
+}
+
+function migrateLegacyConfig(rawConfig) {
+  if (!isPlainObject(rawConfig)) {
+    return {};
+  }
+
+  const migrated = JSON.parse(JSON.stringify(rawConfig));
+  const legacyGlobalKeys = ["input", "whichkey", "ui", "editor", "theme", "split", "storage"];
+
+  const globalSection = isPlainObject(migrated.global) ? migrated.global : {};
+
+  for (const legacyKey of legacyGlobalKeys) {
+    if (!isPlainObject(migrated[legacyKey])) {
+      continue;
+    }
+
+    const currentSection = isPlainObject(globalSection[legacyKey]) ? globalSection[legacyKey] : {};
+    globalSection[legacyKey] = mergeMissingIntoTarget(currentSection, migrated[legacyKey]);
+    delete migrated[legacyKey];
+  }
+
+  if (Object.keys(globalSection).length > 0 || isPlainObject(migrated.global)) {
+    migrated.global = globalSection;
+  }
+
+  return migrated;
+}
+
+function syncConfigFile(rawConfig) {
+  const migratedRaw = migrateLegacyConfig(rawConfig);
+  const merged = mergeWithDefaults(defaultConfig, migratedRaw);
+  const nextText = stringify(merged);
+
+  try {
+    const currentText = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
+    if (currentText === nextText) {
+      return;
+    }
+  } catch {
+    // fall through and write
+  }
+
+  fs.writeFileSync(CONFIG_FILE_PATH, nextText, "utf8");
+}
+
 function writeDefaultConfig() {
   fs.writeFileSync(CONFIG_FILE_PATH, stringify(defaultConfig), "utf8");
 }
@@ -82,7 +169,9 @@ function loadConfig() {
   try {
     const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
     const parsed = raw.trim() ? parse(raw) : {};
-    cachedConfig = normalizeConfig(parsed);
+    const migrated = migrateLegacyConfig(parsed);
+    syncConfigFile(migrated);
+    cachedConfig = normalizeConfig(migrated);
     console.info("Loaded config from", CONFIG_FILE_PATH);
   } catch (error) {
     const repaired = repairInvalidConfig(error);
@@ -91,7 +180,9 @@ function loadConfig() {
       try {
         const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
         const parsed = raw.trim() ? parse(raw) : {};
-        cachedConfig = normalizeConfig(parsed);
+        const migrated = migrateLegacyConfig(parsed);
+        syncConfigFile(migrated);
+        cachedConfig = normalizeConfig(migrated);
         console.info("Loaded repaired config from", CONFIG_FILE_PATH);
         return cachedConfig;
       } catch (reloadError) {

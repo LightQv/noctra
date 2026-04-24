@@ -1,7 +1,8 @@
-const keymap = require("./keymap");
+const { getNormalKeymap } = require("./keymap");
 const { handleCtrl } = require("./modifiers");
 const { INTENTS } = require("../core/intents");
 const { getLeaderNode, getWhichKeyModel } = require("./leaderMap");
+const { rememberRepeatableIntent } = require("./repeat");
 
 function isLeaderKey(key, leaderKey) {
   if (leaderKey === "Space") {
@@ -126,6 +127,7 @@ function handleLeaderSequence(state, input, now) {
 
   if (child.action) {
     const intent = child.action(state, 1);
+    rememberRepeatableIntent(state, intent, child.action.actionId);
     resetLeaderSession(state);
 
     return {
@@ -168,6 +170,7 @@ function handleNormal(state, input) {
   if (key === ":") {
     state.mode = "COMMAND";
     state.commandBuffer = "";
+    state.commandCursorIndex = 0;
     return { type: INTENTS.SHOW_COMMAND };
   }
 
@@ -192,6 +195,7 @@ function handleNormal(state, input) {
 
   state.keyBuffer += key;
 
+  const keymap = getNormalKeymap();
   const match = keymap[state.keyBuffer];
 
   if (match) {
@@ -199,7 +203,9 @@ function handleNormal(state, input) {
     state.countBuffer = "";
     state.keyBuffer = "";
 
-    return match(state, count);
+    const intent = match(state, count);
+    rememberRepeatableIntent(state, intent, match.actionId);
+    return intent;
   }
 
   if (state.keyBuffer.length > 3) {

@@ -1,14 +1,67 @@
 const path = require("path");
-const { app, BrowserWindow, ipcMain } = require("electron");
+const fs = require("fs");
+const { app, BrowserWindow, ipcMain, clipboard } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
 const configService = require("./core/config/service");
 const uiShell = require("./ui/shell/manager");
-
+const { dispatch } = require("./core/dispatcher");
+const { INTENTS } = require("./core/intents");
+const { resolveTheme, toCssVars } = require("./ui/theme");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
+
+function resolveCurrentTheme() {
+  return resolveTheme(configService.getConfigValue("global.theme", {}));
+}
+
+function buildThemePayload(theme) {
+  return {
+    theme,
+    themeVars: toCssVars(theme),
+  };
+}
+
+function broadcastUiShellPush(type, payload = {}) {
+  if (!win || typeof type !== "string" || !type.length) return;
+
+  const targets = new Map();
+  const addTarget = (webContents) => {
+    if (!webContents || webContents.isDestroyed()) return;
+    targets.set(webContents.id, webContents);
+  };
+
+  addTarget(win.webContents);
+  for (const webContents of buffers.getAllWebContents()) {
+    addTarget(webContents);
+  }
+
+  for (const webContents of targets.values()) {
+    webContents.send("ui-shell:push", { type, payload });
+  }
+}
+
+function focusActiveEditorSurface(options = {}) {
+  const forceNormal = Boolean(options.forceNormal);
+  const active = buffers.getActive();
+  if (!active || !active.isEditable || !active.webContents || active.webContents.isDestroyed()) {
+    return;
+  }
+
+  buffers.focusActive();
+  active.webContents.executeJavaScript(
+    `
+      if (${JSON.stringify(forceNormal)} && typeof window.__settingsEditorSetNormal__ === "function") {
+        window.__settingsEditorSetNormal__();
+      }
+      if (typeof window.__settingsEditorFocus__ === "function") {
+        window.__settingsEditorFocus__();
+      }
+    `,
+  ).catch(() => {});
+}
 
 function normalizeInput(input) {
   return {
@@ -24,6 +77,34 @@ function normalizeInput(input) {
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
 
+  const isCommandPasteShortcut =
+    state.mode === "COMMAND" &&
+    normalized.type === "keyDown" &&
+    (normalized.key === "v" || normalized.key === "V") &&
+    ((process.platform === "darwin" && normalized.meta && !normalized.ctrl) ||
+      (process.platform !== "darwin" && normalized.ctrl && !normalized.meta));
+
+  if (isCommandPasteShortcut) {
+    event.preventDefault();
+    handleInput(win, {
+      ...normalized,
+      pasteText: clipboard.readText(),
+    });
+    return;
+  }
+
+  const isOpenSettingsShortcut =
+    normalized.type === "keyDown" &&
+    (normalized.key === "," || normalized.key === "Comma") &&
+    ((process.platform === "darwin" && normalized.meta) ||
+      (process.platform !== "darwin" && normalized.ctrl));
+
+  if (isOpenSettingsShortcut) {
+    event.preventDefault();
+    dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
+    return;
+  }
+
   if (shouldPreventDefault(normalized)) {
     event.preventDefault();
   }
@@ -31,9 +112,70 @@ function handleRawInput(event, input) {
   handleInput(win, normalized);
 }
 
+function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
+  if (!leaderTree || typeof leaderTree !== "object") {
+    return [];
+  }
+
+  const results = [];
+
+  for (const [key, node] of Object.entries(leaderTree)) {
+    if (!node || typeof node !== "object") continue;
+    const nextPath = [...path, key];
+
+    if (node.action === targetAction) {
+      results.push(nextPath);
+    }
+
+    if (node.children && typeof node.children === "object") {
+      results.push(...findLeaderSequencesForAction(node.children, targetAction, nextPath));
+    }
+  }
+
+  return results;
+}
+
+function formatLeaderSequence(seq = []) {
+  if (!Array.isArray(seq) || seq.length === 0) return null;
+  const rendered = seq.map((part) => (part === "tab" ? "Tab" : part)).join(" ");
+  return `<leader> ${rendered}`;
+}
+
+function updateTablineActions() {
+  const leaderTree = configService.getConfigValue("keymap.leader", {});
+  const openSettingsSeqs = findLeaderSequencesForAction(leaderTree, "open_settings");
+  const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
+  const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
+
+  uiShell.setTablineActions({
+    settings: {
+      label: "Config",
+      icon: "󰒓",
+      shortcutLabel: `${systemShortcut} | ${vimShortcut}`,
+    },
+  });
+}
+
+function getStatuslineModeLabel() {
+  const active = buffers.getActive();
+  if (!active || !active.isEditable) {
+    return state.mode;
+  }
+
+  if (state.interactionContext === "EDITOR") {
+    return `EDITOR:${state.editorMode || "NORMAL"}`;
+  }
+
+  return `SHELL:${state.mode}`;
+}
+
 function registerUiShellEvents() {
   const onShellEvent = (event, message) => {
-    if (!win || event.sender !== win.webContents) return;
+    if (!win) return;
+    const sender = event.sender;
+    const fromShellHost = sender === win.webContents;
+    const fromActiveBuffer = sender === buffers.getActiveWebContents();
+    if (!fromShellHost && !fromActiveBuffer) return;
     if (!message || typeof message !== "object") return;
 
     const { type, payload } = message;
@@ -61,6 +203,42 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "tabline:open-settings") {
+      dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
+      return;
+    }
+
+    if (type === "editor:toggle-context") {
+      dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
+    if (type === "editor:mode-change") {
+      const nextMode =
+        payload?.mode === "INSERT" || payload?.mode === "NORMAL"
+          ? payload.mode
+          : "NORMAL";
+      state.editorMode = nextMode;
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
+    if (type === "editor:focus-request") {
+      state.interactionContext = "EDITOR";
+      focusActiveEditorSurface();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
+    if (type === "editor:ready") {
+      state.interactionContext = "EDITOR";
+      state.editorMode = "NORMAL";
+      focusActiveEditorSurface({ forceNormal: true });
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
     const bufferId = Number.parseInt(payload?.id, 10);
 
     if (!Number.isInteger(bufferId)) return;
@@ -77,8 +255,62 @@ function registerUiShellEvents() {
 
   ipcMain.on("ui-shell:event", onShellEvent);
 
+  const onShellRequest = async (event, message) => {
+    if (!win || event.sender !== buffers.getActiveWebContents()) return { ok: false };
+    if (!message || typeof message !== "object") return { ok: false };
+
+    const { type, payload } = message;
+
+    if (type === "settings:get") {
+      const configPath = configService.getConfigPath();
+      try {
+        const content = fs.readFileSync(configPath, "utf8");
+        const theme = resolveCurrentTheme();
+        return {
+          ok: true,
+          content,
+          leaderKey: configService.getConfigValue("global.input.leader_key", "Space"),
+          relativeLineNumbers: configService.getConfigValue(
+            "global.editor.relative_line_numbers",
+            true,
+          ),
+          scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
+          ...buildThemePayload(theme),
+        };
+      } catch (error) {
+        return { ok: false, error: error.message };
+      }
+    }
+
+    if (type === "settings:save") {
+      const configPath = configService.getConfigPath();
+      try {
+        fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
+        const config = configService.reloadConfig();
+        state.applyConfig(config);
+        const theme = resolveCurrentTheme();
+        uiShell.setTheme(theme);
+        broadcastUiShellPush("theme:update", buildThemePayload(theme));
+        updateTablineActions();
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, error: error.message };
+      }
+    }
+
+    if (type === "settings:close") {
+      dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
+      return { ok: true };
+    }
+
+    return { ok: false };
+  };
+
+  ipcMain.handle("ui-shell:request", onShellRequest);
+
   win.on("closed", () => {
     ipcMain.removeListener("ui-shell:event", onShellEvent);
+    ipcMain.removeHandler("ui-shell:request");
   });
 }
 
@@ -107,6 +339,7 @@ function bindInputToActiveBuffer() {
 function createWindow() {
   const config = configService.initConfig();
   state.applyConfig(config);
+  const chromiumPreferences = configService.getConfigValue("browser.chromium.web_preferences", {});
 
   const isMac = process.platform === "darwin";
 
@@ -114,8 +347,14 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
+      contextIsolation:
+        typeof chromiumPreferences.context_isolation === "boolean"
+          ? chromiumPreferences.context_isolation
+          : true,
+      nodeIntegration:
+        typeof chromiumPreferences.node_integration === "boolean"
+          ? chromiumPreferences.node_integration
+          : false,
       preload: path.join(__dirname, "ui", "shell", "preload.js"),
     },
   };
@@ -142,6 +381,7 @@ function createWindow() {
 
   buffers.init(win);
   uiShell.init(win);
+  uiShell.setTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
     platform: process.platform,
     useNativeControls: isMac,
@@ -151,6 +391,7 @@ function createWindow() {
   uiShell.updateStatuslineMode(state.mode);
   uiShell.updateStatuslineScroll(0);
   uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
+  updateTablineActions();
 
   const syncWindowChrome = () => {
     uiShell.setWindowChrome({
@@ -217,11 +458,12 @@ function createWindow() {
   buffers.subscribe((snapshot, active, change = {}) => {
     if (!active) return;
 
+    const activeChanged = Boolean(change.activeChanged);
+
     uiShell.renderTabline(snapshot);
-    uiShell.updateStatuslineMode(state.mode);
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
     uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
 
-    const activeChanged = Boolean(change.activeChanged);
     if (activeChanged || activeInputWebContents !== active.webContents) {
       bindInputToActiveBuffer();
     }

@@ -1,9 +1,81 @@
 const { app } = require("electron");
+const path = require("path");
 const buffers = require("../browser/manager");
 const uiShell = require("../ui/shell/manager");
 const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
+const { buildSettingsPageHtml } = require("./settings/page");
+const { resolveTheme } = require("../ui/theme");
+
+function computeStatuslineModeLabel(state) {
+  const active = buffers.getActive();
+  if (!active || !active.isEditable) {
+    return state.mode;
+  }
+
+  if (state.interactionContext === "EDITOR") {
+    return `EDITOR:${state.editorMode || "NORMAL"}`;
+  }
+
+  return `SHELL:${state.mode}`;
+}
+
+function focusEditableBufferSurface(buffer) {
+  if (!buffer || !buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+    return;
+  }
+
+  buffer.webContents.executeJavaScript(
+    `if (typeof window.__settingsEditorFocus__ === "function") { window.__settingsEditorFocus__(); }`,
+  ).catch(() => {});
+
+  if (buffer.webContents.isLoadingMainFrame()) {
+    buffer.webContents.once("did-finish-load", () => {
+      if (buffer.webContents.isDestroyed()) return;
+      buffer.webContents.executeJavaScript(
+        `if (typeof window.__settingsEditorFocus__ === "function") { window.__settingsEditorFocus__(); }`,
+      ).catch(() => {});
+    });
+  }
+}
+
+function blurEditableBufferSurface(buffer) {
+  if (!buffer || !buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+    return;
+  }
+
+  buffer.webContents.executeJavaScript(
+    `if (typeof window.__settingsEditorBlur__ === "function") { window.__settingsEditorBlur__(); }`,
+  ).catch(() => {});
+}
+
+function openSettingsBuffer() {
+  const existing = buffers.findByKind("editable");
+  const configPath = configService.getConfigPath();
+
+  if (existing) {
+    buffers.switchTo(existing.id);
+    return existing;
+  }
+
+  const theme = resolveTheme(configService.getConfigValue("global.theme", {}));
+  const html = buildSettingsPageHtml(configPath, theme);
+
+  const buffer = buffers.create(null, {
+    kind: "editable",
+    activate: true,
+    preloadPath: path.join(__dirname, "..", "ui", "shell", "preload.js"),
+  });
+
+  buffer.loadVirtualDocument({
+    url: "noctra://settings/config.yml",
+    title: "config.yml",
+    html,
+  });
+
+  return buffer;
+}
 
 function normalizeUrl(rawUrl) {
   const value = rawUrl.trim();
@@ -33,9 +105,20 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SCROLL:
-      buf.webContents.executeJavaScript(
-        `window.scrollBy(0, ${intent.direction === "down" ? intent.amount : -intent.amount})`,
-      );
+      buf.webContents.executeJavaScript(`
+        (function applyScroll() {
+          const amount = ${Math.max(0, Number(intent.amount) || 0)};
+          if (${JSON.stringify(intent.direction)} === "left") {
+            window.scrollBy(-amount, 0);
+            return;
+          }
+          if (${JSON.stringify(intent.direction)} === "right") {
+            window.scrollBy(amount, 0);
+            return;
+          }
+          window.scrollBy(0, ${JSON.stringify(intent.direction)} === "down" ? amount : -amount);
+        })();
+      `);
       break;
 
     case INTENTS.SCROLL_TOP:
@@ -73,13 +156,17 @@ function dispatch(win, intent, state) {
       buf.webContents.navigationHistory.goForward();
       break;
 
+    case INTENTS.RELOAD_PAGE:
+      buf.webContents.reload();
+      break;
+
     case INTENTS.ENTER_INSERT:
     case INTENTS.ENTER_NORMAL:
       // state already changed in motion layer
       break;
 
     case INTENTS.SHOW_COMMAND:
-      uiShell.showCommand(state.commandBuffer);
+      uiShell.showCommand(state.commandBuffer, state.commandCursorIndex);
       buffers.focusActive();
       break;
 
@@ -89,7 +176,7 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.COMMAND_INPUT:
-      uiShell.updateCommand(state.commandBuffer);
+      uiShell.updateCommand(state.commandBuffer, state.commandCursorIndex);
       break;
 
     case INTENTS.SHOW_WHICHKEY:
@@ -107,6 +194,7 @@ function dispatch(win, intent, state) {
     case INTENTS.OPEN_URL_PROMPT:
       state.mode = "COMMAND";
       state.commandBuffer = "open ";
+      state.commandCursorIndex = state.commandBuffer.length;
       dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
       dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
       break;
@@ -152,6 +240,14 @@ function dispatch(win, intent, state) {
       buffers.close(intent.id ?? null);
       break;
 
+    case INTENTS.CLOSE_FOCUSED:
+      if (buffers.isSplitEnabled()) {
+        buffers.closeRightSplit();
+      } else {
+        buffers.close();
+      }
+      break;
+
     case INTENTS.CLOSE_LEFT_BUFFERS:
       buffers.closeLeftOfActive();
       break;
@@ -161,7 +257,7 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SPLIT_VERTICAL: {
-      const ratio = configService.getConfigValue("split.regular_ratio", 0.5);
+      const ratio = configService.getConfigValue("global.split.regular_ratio", 0.5);
       buffers.openVerticalSplit(ratio);
       break;
     }
@@ -171,21 +267,17 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SPLIT_DEVTOOLS: {
-      const ratio = configService.getConfigValue("split.devtools_ratio", 0.25);
+      const ratio = configService.getConfigValue("global.split.devtools_ratio", 0.25);
       buffers.openDevtoolsSplit(ratio);
       break;
     }
 
     case INTENTS.FOCUS_SPLIT_LEFT:
-      if (!buffers.focusSplitLeft()) {
-        buffers.switchByOffset(-1);
-      }
+      buffers.focusSplitLeft();
       break;
 
     case INTENTS.FOCUS_SPLIT_RIGHT:
-      if (!buffers.focusSplitRight()) {
-        buffers.switchByOffset(1);
-      }
+      buffers.focusSplitRight();
       break;
 
     case INTENTS.CONFIG_RELOAD: {
@@ -194,6 +286,30 @@ function dispatch(win, intent, state) {
         state.applyConfig(config);
       }
       console.info("Configuration reloaded from", configService.getConfigPath());
+      break;
+    }
+
+    case INTENTS.OPEN_SETTINGS_BUFFER:
+      focusEditableBufferSurface(openSettingsBuffer());
+      buffers.focusActive();
+      state.interactionContext = "EDITOR";
+      state.editorMode = "NORMAL";
+      break;
+
+    case INTENTS.TOGGLE_FOCUS_CONTEXT: {
+      const active = buffers.getActive();
+      if (!active || !active.isEditable) {
+        break;
+      }
+
+      state.interactionContext =
+        state.interactionContext === "EDITOR" ? "SHELL" : "EDITOR";
+      if (state.interactionContext === "EDITOR") {
+        state.editorMode = "NORMAL";
+        focusEditableBufferSurface(active);
+      } else {
+        blurEditableBufferSurface(active);
+      }
       break;
     }
 
@@ -206,7 +322,12 @@ function dispatch(win, intent, state) {
       break;
   }
 
-  uiShell.updateStatuslineMode(state.mode);
+  const activeAfterDispatch = buffers.getActive();
+  if (!activeAfterDispatch?.isEditable && state.interactionContext === "EDITOR") {
+    state.interactionContext = "SHELL";
+  }
+
+  uiShell.updateStatuslineMode(computeStatuslineModeLabel(state));
 
   if (intent.next) {
     dispatch(win, intent.next, state);

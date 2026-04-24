@@ -1,44 +1,12 @@
-const { INTENTS } = require("../core/intents");
+const { getCtrlAction } = require("./keymap");
+const { rememberRepeatableIntent } = require("./repeat");
 
 function handleCtrl(state, key) {
-  switch (key) {
-    case "d":
-      return {
-        type: INTENTS.SCROLL,
-        amount: 300,
-        direction: "down",
-      };
-
-    case "u":
-      return {
-        type: INTENTS.SCROLL,
-        amount: 300,
-        direction: "up",
-      };
-
-    case "f":
-      return {
-        type: INTENTS.PAGE_DOWN,
-      };
-
-    case "b":
-      return {
-        type: INTENTS.PAGE_UP,
-      };
-
-    case "h":
-      return {
-        type: INTENTS.FOCUS_SPLIT_LEFT,
-      };
-
-    case "l":
-      return {
-        type: INTENTS.FOCUS_SPLIT_RIGHT,
-      };
-
-    default:
-      return null;
-  }
+  const builder = getCtrlAction(key);
+  if (!builder) return null;
+  const intent = builder(state, 1);
+  rememberRepeatableIntent(state, intent, builder.actionId);
+  return intent;
 }
 
 module.exports = { handleCtrl };

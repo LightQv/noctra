@@ -42,6 +42,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         margin: 0;
         width: 100%;
         height: 100%;
+        overflow: hidden;
         background: var(--ui-bg-app);
         color: var(--ui-text);
         font-family: var(--ui-font-family);
@@ -111,6 +112,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         width: 100%;
         height: 100%;
         min-height: 0;
+        overflow: hidden;
       }
 
       .CodeMirror {
@@ -123,7 +125,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         color: var(--ui-text);
         font-family: var(--ui-font-family);
         font-size: 13px;
-        line-height: 1.55;
+        line-height: 20px;
       }
 
       .CodeMirror-gutters {
@@ -240,6 +242,18 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         let leaderKey = "Space";
         let didNotifyReady = false;
         let useRelativeLineNumbers = true;
+        let scrolloffLines = 3;
+
+        const getLineHeight = () => Math.max(editor.defaultTextHeight() || 0, 1);
+
+        const getEffectiveScrolloffLines = () => {
+          const requested = Math.max(0, Number.parseInt(scrolloffLines, 10) || 0);
+          const scrollInfo = editor.getScrollInfo();
+          const lineHeight = getLineHeight();
+          const visibleLines = Math.max(Math.floor(scrollInfo.clientHeight / lineHeight), 1);
+          const maxAllowed = Math.max(Math.floor((visibleLines - 1) / 2), 0);
+          return Math.min(requested, maxAllowed);
+        };
 
         const notifyReady = () => {
           if (didNotifyReady) return;
@@ -274,6 +288,47 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         const applyLineNumbers = () => {
           editor.setOption("lineNumberFormatter", lineNumberFormatter);
           editor.refresh();
+        };
+
+        const snapEditorViewportToLineGrid = () => {
+          const topbar = document.getElementById("topbar");
+          const topbarHeight = topbar ? topbar.getBoundingClientRect().height : 0;
+          const availableHeight = Math.max(window.innerHeight - topbarHeight, getLineHeight());
+          const lineHeight = getLineHeight();
+          const rowCount = Math.max(Math.floor(availableHeight / lineHeight), 1);
+          const snappedHeight = rowCount * lineHeight;
+          editor.setSize(null, snappedHeight);
+        };
+
+        const applyScrolloff = () => {
+          const safeLines = getEffectiveScrolloffLines();
+          const lineHeight = getLineHeight();
+          const marginPx = safeLines * lineHeight;
+          editor.setOption("cursorScrollMargin", marginPx);
+        };
+
+        const ensureCursorVisibleWithScrolloff = () => {
+          const cursor = editor.getCursor();
+          if (!cursor) return;
+
+          const lineHeight = getLineHeight();
+          const safeLines = getEffectiveScrolloffLines();
+          const scrollInfo = editor.getScrollInfo();
+          const coords = editor.charCoords(cursor, "local");
+          const marginPx = safeLines * lineHeight;
+          const topLimit = scrollInfo.top + marginPx;
+          const bottomLimit = scrollInfo.top + scrollInfo.clientHeight - marginPx;
+
+          if (coords.top < topLimit) {
+            const targetTop = Math.max(0, coords.top - marginPx);
+            editor.scrollTo(null, targetTop);
+            return;
+          }
+
+          if (coords.bottom > bottomLimit) {
+            const targetTop = Math.max(0, coords.bottom + marginPx - scrollInfo.clientHeight);
+            editor.scrollTo(null, targetTop);
+          }
         };
 
         editor.on("vim-mode-change", (event) => {
@@ -312,7 +367,11 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
           editor.setValue(typeof result.content === "string" ? result.content : "");
           editor.execCommand("goDocStart");
           useRelativeLineNumbers = result.relativeLineNumbers !== false;
+          scrolloffLines = Math.max(0, Number.parseInt(result.scrolloffLines, 10) || 0);
+          snapEditorViewportToLineGrid();
           applyLineNumbers();
+          applyScrolloff();
+          ensureCursorVisibleWithScrolloff();
           leaderKey =
             typeof result.leaderKey === "string" && result.leaderKey.trim().length > 0
               ? result.leaderKey.trim()
@@ -388,8 +447,10 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 
         editor.getWrapperElement().addEventListener("keydown", onEditorKeyDown, true);
         editor.on("cursorActivity", () => {
-          if (!useRelativeLineNumbers) return;
-          editor.refresh();
+          if (useRelativeLineNumbers) {
+            editor.refresh();
+          }
+          ensureCursorVisibleWithScrolloff();
         });
         editor.getWrapperElement().addEventListener("mousedown", () => {
           enterEditorContext();
@@ -405,6 +466,12 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 
         window.addEventListener("focus", () => {
           focusEditorSurface();
+        });
+
+        window.addEventListener("resize", () => {
+          snapEditorViewportToLineGrid();
+          applyScrolloff();
+          ensureCursorVisibleWithScrolloff();
         });
 
         reloadContent().then(() => {

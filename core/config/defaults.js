@@ -150,6 +150,7 @@ const defaultConfig = {
     enabled: true,
     start_in_normal_mode: true,
     relative_line_numbers: true,
+    scrolloff_lines: 3,
   },
   ui: {
     tabline: {

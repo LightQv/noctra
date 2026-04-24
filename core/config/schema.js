@@ -251,6 +251,10 @@ function normalizeConfig(rawConfig) {
     if (typeof input.editor.relative_line_numbers === "boolean") {
       normalized.editor.relative_line_numbers = input.editor.relative_line_numbers;
     }
+
+    normalized.editor.scrolloff_lines = Math.floor(
+      normalizeNumber(input.editor.scrolloff_lines, defaults.editor.scrolloff_lines, 0),
+    );
   }
 
   if (isPlainObject(input.storage)) {

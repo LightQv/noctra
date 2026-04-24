@@ -255,6 +255,7 @@ function registerUiShellEvents() {
           content,
           leaderKey: configService.getConfigValue("input.leader_key", "Space"),
           relativeLineNumbers: configService.getConfigValue("editor.relative_line_numbers", true),
+          scrolloffLines: configService.getConfigValue("editor.scrolloff_lines", 3),
           ...buildThemePayload(theme),
         };
       } catch (error) {

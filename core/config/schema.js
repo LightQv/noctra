@@ -3,10 +3,14 @@ const { defaultConfig } = require("./defaults");
 const ACTION_IDS = new Set([
   "scroll_down",
   "scroll_up",
+  "scroll_left",
+  "scroll_right",
   "scroll_top",
   "scroll_bottom",
   "nav_back",
   "nav_forward",
+  "reload_page",
+  "repeat_last_action",
   "buffer_prev",
   "buffer_next",
   "enter_insert",
@@ -22,6 +26,7 @@ const ACTION_IDS = new Set([
   "open_settings",
   "toggle_focus_context",
   "close_buffer",
+  "close_focused",
   "close_left_buffers",
   "close_right_buffers",
   "split_close_right",
@@ -242,6 +247,14 @@ function normalizeConfig(rawConfig) {
     if (typeof input.editor.start_in_normal_mode === "boolean") {
       normalized.editor.start_in_normal_mode = input.editor.start_in_normal_mode;
     }
+
+    if (typeof input.editor.relative_line_numbers === "boolean") {
+      normalized.editor.relative_line_numbers = input.editor.relative_line_numbers;
+    }
+
+    normalized.editor.scrolloff_lines = Math.floor(
+      normalizeNumber(input.editor.scrolloff_lines, defaults.editor.scrolloff_lines, 0),
+    );
   }
 
   if (isPlainObject(input.storage)) {

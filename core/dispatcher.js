@@ -6,6 +6,7 @@ const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
 const { buildSettingsPageHtml } = require("./settings/page");
+const { resolveTheme } = require("../ui/theme");
 
 function computeStatuslineModeLabel(state) {
   const active = buffers.getActive();
@@ -28,6 +29,15 @@ function focusEditableBufferSurface(buffer) {
   buffer.webContents.executeJavaScript(
     `if (typeof window.__settingsEditorFocus__ === "function") { window.__settingsEditorFocus__(); }`,
   ).catch(() => {});
+
+  if (buffer.webContents.isLoadingMainFrame()) {
+    buffer.webContents.once("did-finish-load", () => {
+      if (buffer.webContents.isDestroyed()) return;
+      buffer.webContents.executeJavaScript(
+        `if (typeof window.__settingsEditorFocus__ === "function") { window.__settingsEditorFocus__(); }`,
+      ).catch(() => {});
+    });
+  }
 }
 
 function blurEditableBufferSurface(buffer) {
@@ -49,7 +59,8 @@ function openSettingsBuffer() {
     return existing;
   }
 
-  const html = buildSettingsPageHtml(configPath);
+  const theme = resolveTheme(configService.getConfigValue("theme", {}));
+  const html = buildSettingsPageHtml(configPath, theme);
 
   const buffer = buffers.create(null, {
     kind: "editable",
@@ -94,9 +105,20 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SCROLL:
-      buf.webContents.executeJavaScript(
-        `window.scrollBy(0, ${intent.direction === "down" ? intent.amount : -intent.amount})`,
-      );
+      buf.webContents.executeJavaScript(`
+        (function applyScroll() {
+          const amount = ${Math.max(0, Number(intent.amount) || 0)};
+          if (${JSON.stringify(intent.direction)} === "left") {
+            window.scrollBy(-amount, 0);
+            return;
+          }
+          if (${JSON.stringify(intent.direction)} === "right") {
+            window.scrollBy(amount, 0);
+            return;
+          }
+          window.scrollBy(0, ${JSON.stringify(intent.direction)} === "down" ? amount : -amount);
+        })();
+      `);
       break;
 
     case INTENTS.SCROLL_TOP:
@@ -134,13 +156,17 @@ function dispatch(win, intent, state) {
       buf.webContents.navigationHistory.goForward();
       break;
 
+    case INTENTS.RELOAD_PAGE:
+      buf.webContents.reload();
+      break;
+
     case INTENTS.ENTER_INSERT:
     case INTENTS.ENTER_NORMAL:
       // state already changed in motion layer
       break;
 
     case INTENTS.SHOW_COMMAND:
-      uiShell.showCommand(state.commandBuffer);
+      uiShell.showCommand(state.commandBuffer, state.commandCursorIndex);
       buffers.focusActive();
       break;
 
@@ -150,7 +176,7 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.COMMAND_INPUT:
-      uiShell.updateCommand(state.commandBuffer);
+      uiShell.updateCommand(state.commandBuffer, state.commandCursorIndex);
       break;
 
     case INTENTS.SHOW_WHICHKEY:
@@ -168,6 +194,7 @@ function dispatch(win, intent, state) {
     case INTENTS.OPEN_URL_PROMPT:
       state.mode = "COMMAND";
       state.commandBuffer = "open ";
+      state.commandCursorIndex = state.commandBuffer.length;
       dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
       dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
       break;
@@ -213,6 +240,14 @@ function dispatch(win, intent, state) {
       buffers.close(intent.id ?? null);
       break;
 
+    case INTENTS.CLOSE_FOCUSED:
+      if (buffers.isSplitEnabled()) {
+        buffers.closeRightSplit();
+      } else {
+        buffers.close();
+      }
+      break;
+
     case INTENTS.CLOSE_LEFT_BUFFERS:
       buffers.closeLeftOfActive();
       break;
@@ -256,6 +291,7 @@ function dispatch(win, intent, state) {
 
     case INTENTS.OPEN_SETTINGS_BUFFER:
       focusEditableBufferSurface(openSettingsBuffer());
+      buffers.focusActive();
       state.interactionContext = "EDITOR";
       state.editorMode = "NORMAL";
       break;

@@ -3,13 +3,10 @@ const { renderTabline } = require("../tabline");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
-  UI_MAIN_COLOR,
-  UI_MUTED_TEXT_COLOR,
-  UI_PANEL_BG_COLOR,
-  UI_ACCENT_PILL_BG,
   UI_FONT_FAMILY,
   UI_FONT_FACE_CSS,
 } = require("../constants");
+const { DEFAULT_THEME, toCssVars } = require("../theme");
 
 const SHELL_HTML = `
 <!doctype html>
@@ -24,8 +21,12 @@ const SHELL_HTML = `
         margin: 0;
         width: 100%;
         height: 100%;
-        background: #0f131a;
+        background: var(--ui-bg-app, #0f131a);
         overflow: hidden;
+      }
+
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
       }
     </style>
   </head>
@@ -56,10 +57,10 @@ const COMMAND_OVERLAY_HTML = `
         height: 100%;
         margin: 0;
         min-width: 0;
-        padding: 0 12px;
-        border-radius: 8px;
-        border: 1px solid ${UI_MAIN_COLOR};
-        background: ${UI_PANEL_BG_COLOR};
+        padding: 0 10px;
+        border-radius: 6px;
+        border: 1px solid var(--ui-accent, #89dceb);
+        background: var(--ui-bg-panel, #161b24);
         box-sizing: border-box;
         display: flex;
         align-items: center;
@@ -68,9 +69,10 @@ const COMMAND_OVERLAY_HTML = `
       #command-title {
         margin: 0 auto;
         padding: 0 8px;
-        color: ${UI_MUTED_TEXT_COLOR};
-        font-family: ${UI_FONT_FAMILY};
-        font-size: 11px;
+        color: var(--ui-accent, #89dceb);
+        background: var(--ui-bg-panel, #161b24);
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+        font-size: 13px;
         line-height: 1;
       }
 
@@ -80,31 +82,58 @@ const COMMAND_OVERLAY_HTML = `
         height: 100%;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
         padding: 0;
-        top: -1px;
-        color: #f4f7ff;
-        font-family: ${UI_FONT_FAMILY};
-        font-size: 12px;
+        transform: translateY(-1px);
+        color: var(--ui-text-bright, #f4f7ff);
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+        font-size: 13px;
         line-height: 1;
         box-sizing: border-box;
       }
 
       #command-prefix {
-        color: ${UI_MAIN_COLOR};
+        color: var(--ui-accent, #89dceb);
         font-size: 17px;
         line-height: 1;
-        display: inline-flex;
+        display: flex;
         align-items: center;
+        height: 100%;
+      }
+
+      #command-content {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 1px;
+        height: 100%;
+        overflow: hidden;
+        white-space: pre;
+      }
+
+      .command-text-segment {
+        min-width: 0;
+        overflow: hidden;
+        white-space: pre;
+        line-height: 1;
+      }
+
+      #command-cursor {
+        height: 1.22em;
+        background: var(--ui-accent, #89dceb);
+        border-radius: 1px;
+        flex: 0 0 auto;
         transform: translateY(-1px);
       }
 
-      #command-text {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        line-height: 1;
+      #command-cursor.cursor-block {
+        width: 0.54em;
+      }
+
+      #command-cursor.cursor-bar {
+        width: 1px;
       }
     </style>
   </head>
@@ -113,7 +142,7 @@ const COMMAND_OVERLAY_HTML = `
       <legend id="command-title">Cmdline</legend>
       <div id="command-overlay">
         <span id="command-prefix"></span>
-        <span id="command-text"></span>
+        <span id="command-content"><span id="command-text-before" class="command-text-segment"></span><span id="command-cursor" class="cursor-block" aria-hidden="true"></span><span id="command-text-after" class="command-text-segment"></span></span>
       </div>
     </fieldset>
   </body>
@@ -138,6 +167,10 @@ const WHICHKEY_OVERLAY_HTML = `
 
       ${UI_FONT_FACE_CSS}
 
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
+      }
+
       #whichkey-overlay {
         width: 100%;
         height: 100%;
@@ -147,24 +180,25 @@ const WHICHKEY_OVERLAY_HTML = `
         flex-direction: column;
         gap: 6px;
         padding: 2px 14px 8px;
-        border-radius: 8px;
-        border: 1px solid ${UI_MAIN_COLOR};
-        background: ${UI_PANEL_BG_COLOR};
-        color: #f2f6ff;
+        border-radius: 6px;
+        border: 1px solid var(--ui-accent, #89dceb);
+        background: var(--ui-bg-panel, #161b24);
+        color: var(--ui-text-bright, #f2f6ff);
         box-sizing: border-box;
-        font-family: ${UI_FONT_FAMILY};
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
       }
 
       #whichkey-title {
         margin: 0 auto;
         padding: 0 8px;
-        color: ${UI_MUTED_TEXT_COLOR};
-        font-size: 11px;
+        color: var(--ui-text-muted, #7d8aa3);
+        background: var(--ui-bg-panel, #161b24);
+        font-size: 13px;
         line-height: 1;
       }
 
       #whichkey-prefix {
-        color: ${UI_MUTED_TEXT_COLOR};
+        color: var(--ui-text-muted, #7d8aa3);
         font-size: 11px;
         min-height: 14px;
       }
@@ -194,16 +228,16 @@ const WHICHKEY_OVERLAY_HTML = `
       }
 
       .whichkey-key {
-        color: ${UI_MAIN_COLOR};
+        color: var(--ui-accent, #89dceb);
         white-space: nowrap;
       }
 
       .whichkey-arrow {
-        color: ${UI_MUTED_TEXT_COLOR};
+        color: var(--ui-text-muted, #7d8aa3);
       }
 
       .whichkey-label {
-        color: #b6c7e8;
+        color: var(--ui-text-soft, #b6c7e8);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -213,7 +247,7 @@ const WHICHKEY_OVERLAY_HTML = `
         display: flex;
         justify-content: center;
         gap: 18px;
-        color: ${UI_MUTED_TEXT_COLOR};
+        color: var(--ui-text-muted, #7d8aa3);
         font-size: 12px;
       }
 
@@ -224,7 +258,7 @@ const WHICHKEY_OVERLAY_HTML = `
       }
 
       .whichkey-hint-icon {
-        color: ${UI_MAIN_COLOR};
+        color: var(--ui-accent, #89dceb);
         display: inline-flex;
         align-items: center;
         font-size: 18px;
@@ -234,7 +268,7 @@ const WHICHKEY_OVERLAY_HTML = `
       .whichkey-hint-label {
         display: inline-flex;
         align-items: center;
-        color: ${UI_MUTED_TEXT_COLOR};
+        color: var(--ui-text-muted, #7d8aa3);
         font-size: 12px;
         line-height: 1;
       }
@@ -272,6 +306,10 @@ const STATUSLINE_OVERLAY_HTML = `
 
       ${UI_FONT_FACE_CSS}
 
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
+      }
+
       #statusline {
         width: 100%;
         height: 100%;
@@ -280,10 +318,10 @@ const STATUSLINE_OVERLAY_HTML = `
         justify-content: space-between;
         padding: 0;
         box-sizing: border-box;
-        background: #151a22;
-        border-top: 1px solid #2a3140;
-        color: #d8e3f8;
-        font-family: ${UI_FONT_FAMILY};
+        background: var(--ui-bg-statusline, #151a22);
+        border-top: 1px solid var(--ui-border-strong, #2a3140);
+        color: var(--ui-text, #d8e3f8);
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
         font-size: 12px;
         line-height: 1;
       }
@@ -295,17 +333,17 @@ const STATUSLINE_OVERLAY_HTML = `
         height: 100%;
         padding: 0 12px;
         border-radius: 0;
-        background: ${UI_ACCENT_PILL_BG};
+        background: var(--ui-accent-pill-bg, #263846);
       }
 
       #statusline-mode-icon {
-        color: ${UI_MAIN_COLOR};
+        color: var(--ui-accent, #89dceb);
         font-size: 16px;
         line-height: 1;
       }
 
       #statusline-mode-label {
-        color: ${UI_MAIN_COLOR};
+        color: var(--ui-accent, #89dceb);
         text-transform: uppercase;
         letter-spacing: 0.06em;
         line-height: 1;
@@ -326,11 +364,11 @@ const STATUSLINE_OVERLAY_HTML = `
       }
 
       #statusline-split-sep {
-        color: #7d8aa3;
+        color: var(--ui-text-muted, #7d8aa3);
       }
 
       #statusline-scroll {
-        color: #d8e3f8;
+        color: var(--ui-text, #d8e3f8);
         display: inline-flex;
         align-items: center;
         line-height: 1;
@@ -354,6 +392,7 @@ class UiShellManager {
     this.commandOverlayReady = false;
     this.commandVisible = false;
     this.commandText = "";
+    this.commandCursorIndex = 0;
     this.whichKeyOverlayView = null;
     this.whichKeyOverlayReady = false;
     this.whichKeyVisible = false;
@@ -377,6 +416,9 @@ class UiShellManager {
       useNativeControls: process.platform === "darwin",
       isMaximized: false,
       isFullScreen: false,
+    };
+    this.currentTheme = {
+      ...DEFAULT_THEME,
     };
   }
 
@@ -404,6 +446,7 @@ class UiShellManager {
 
     this.window.webContents.on("did-finish-load", () => {
       this.shellHostReady = true;
+      this.applyThemeToWebContents(this.window.webContents);
       this.renderTabline(this.pendingTablineSnapshot);
     });
   }
@@ -425,7 +468,8 @@ class UiShellManager {
 
     this.commandOverlayView.webContents.on("did-finish-load", () => {
       this.commandOverlayReady = true;
-      this.updateCommand(this.commandText);
+      this.applyThemeToWebContents(this.commandOverlayView.webContents);
+      this.updateCommand(this.commandText, this.commandCursorIndex);
     });
 
     this.window.addBrowserView(this.commandOverlayView);
@@ -449,6 +493,7 @@ class UiShellManager {
 
     this.whichKeyOverlayView.webContents.on("did-finish-load", () => {
       this.whichKeyOverlayReady = true;
+      this.applyThemeToWebContents(this.whichKeyOverlayView.webContents);
       this.updateWhichKey(this.whichKeyModel, null, 0, false, true);
     });
 
@@ -473,6 +518,7 @@ class UiShellManager {
 
     this.statuslineView.webContents.on("did-finish-load", () => {
       this.statuslineReady = true;
+      this.applyThemeToWebContents(this.statuslineView.webContents);
       this.updateStatuslineMode(this.statuslineMode);
       this.updateStatuslineScroll(this.statuslineScroll);
       this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
@@ -499,8 +545,47 @@ class UiShellManager {
         this.pendingTablineSnapshot,
         this.windowChrome,
         this.tablineActions,
+        this.currentTheme,
       );
     }, 16);
+  }
+
+  setTheme(nextTheme = {}) {
+    this.currentTheme = {
+      ...DEFAULT_THEME,
+      ...(nextTheme && typeof nextTheme === "object" ? nextTheme : {}),
+    };
+
+    this.applyThemeToWebContents(this.window && this.window.webContents);
+    this.applyThemeToWebContents(this.commandOverlayView && this.commandOverlayView.webContents);
+    this.applyThemeToWebContents(this.whichKeyOverlayView && this.whichKeyOverlayView.webContents);
+    this.applyThemeToWebContents(this.statuslineView && this.statuslineView.webContents);
+    this.renderTabline(this.pendingTablineSnapshot);
+    this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
+  }
+
+  applyThemeToWebContents(webContents) {
+    if (!webContents || webContents.isDestroyed()) return;
+
+    const cssVars = {
+      ...toCssVars(this.currentTheme),
+      "--ui-font-family": this.currentTheme.fontFamily,
+    };
+
+    webContents
+      .executeJavaScript(`
+      (function applyNoctraThemeVars() {
+        const vars = ${JSON.stringify(cssVars)};
+        const style = document.documentElement && document.documentElement.style;
+        if (!style) return;
+
+        for (const [name, value] of Object.entries(vars)) {
+          if (typeof name !== 'string' || typeof value !== 'string') continue;
+          style.setProperty(name, value);
+        }
+      })();
+    `)
+      .catch(() => {});
   }
 
   setTablineActions(actions = {}) {
@@ -612,17 +697,21 @@ class UiShellManager {
     return this.commandVisible;
   }
 
-  showCommand(text = "") {
+  showCommand(text = "", cursorIndex = null) {
     this.commandVisible = true;
     this.commandText = text;
+    this.commandCursorIndex = Number.isFinite(cursorIndex)
+      ? Math.max(0, Math.min(Math.trunc(cursorIndex), String(text).length))
+      : String(text).length;
     this.keepCommandOverlayAboveContentViews();
-    this.updateCommand(text);
+    this.updateCommand(text, this.commandCursorIndex);
   }
 
   hideCommand() {
     this.commandVisible = false;
     this.commandText = "";
-    this.updateCommand("");
+    this.commandCursorIndex = 0;
+    this.updateCommand("", 0);
     this.relayout();
   }
 
@@ -836,8 +925,8 @@ class UiShellManager {
 
         const visible = ${JSON.stringify(this.statuslineSplitIndicator.visible)};
         const focusedPane = ${JSON.stringify(this.statuslineSplitIndicator.focusedPane)};
-        const focusedColor = ${JSON.stringify(UI_MAIN_COLOR)};
-        const mutedColor = ${JSON.stringify(UI_MUTED_TEXT_COLOR)};
+        const focusedColor = ${JSON.stringify(this.currentTheme.mainColor)};
+        const mutedColor = ${JSON.stringify(this.currentTheme.mutedTextColor)};
 
         root.style.display = visible ? 'inline-flex' : 'none';
 
@@ -853,16 +942,31 @@ class UiShellManager {
     `);
   }
 
-  updateCommand(text = "") {
-    this.commandText = text;
+  updateCommand(text = "", cursorIndex = null) {
+    const nextText = String(text);
+    const maxCursor = nextText.length;
+    const nextCursor = Number.isFinite(cursorIndex)
+      ? Math.max(0, Math.min(Math.trunc(cursorIndex), maxCursor))
+      : maxCursor;
+
+    this.commandText = nextText;
+    this.commandCursorIndex = nextCursor;
 
     if (!this.commandOverlayView || !this.commandOverlayReady) return;
 
+    const beforeText = nextText.slice(0, nextCursor);
+    const afterText = nextText.slice(nextCursor);
+    const cursorClass = nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
+
     this.commandOverlayView.webContents.executeJavaScript(`
       (function updateCommandOverlayText() {
-        const textNode = document.getElementById('command-text');
-        if (!textNode) return;
-        textNode.textContent = ${JSON.stringify(text)};
+        const beforeNode = document.getElementById('command-text-before');
+        const afterNode = document.getElementById('command-text-after');
+        const cursorNode = document.getElementById('command-cursor');
+        if (!beforeNode || !afterNode || !cursorNode) return;
+        beforeNode.textContent = ${JSON.stringify(beforeText)};
+        afterNode.textContent = ${JSON.stringify(afterText)};
+        cursorNode.className = ${JSON.stringify(cursorClass)};
       })();
     `);
   }

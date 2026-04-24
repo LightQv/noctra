@@ -5,6 +5,7 @@ const state = {
   keyBuffer: "",
   countBuffer: "",
   commandBuffer: "",
+  commandCursorIndex: 0,
   leaderKey: "Space",
   leaderActive: false,
   leaderPath: [],
@@ -15,6 +16,7 @@ const state = {
   whichKeyTimeout: 1200,
   lastKeyTime: 0,
   sequenceTimeout: 500,
+  lastRepeatableIntent: null,
 };
 
 function applyConfig(config) {

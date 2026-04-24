@@ -27,12 +27,28 @@ const defaultConfig = {
         action: "scroll_bottom",
       },
       h: {
+        label: "Scroll left",
+        action: "scroll_left",
+      },
+      l: {
+        label: "Scroll right",
+        action: "scroll_right",
+      },
+      gh: {
         label: "Navigate back",
         action: "nav_back",
       },
-      l: {
+      gl: {
         label: "Navigate forward",
         action: "nav_forward",
+      },
+      r: {
+        label: "Reload page",
+        action: "reload_page",
+      },
+      ".": {
+        label: "Repeat last action",
+        action: "repeat_last_action",
       },
       H: {
         label: "Previous buffer",
@@ -84,6 +100,10 @@ const defaultConfig = {
         label: "Focus split right",
         action: "focus_split_right",
       },
+      q: {
+        label: "Close focused context",
+        action: "close_focused",
+      },
     },
     leader: {
       ",": {
@@ -129,6 +149,8 @@ const defaultConfig = {
   editor: {
     enabled: true,
     start_in_normal_mode: true,
+    relative_line_numbers: true,
+    scrolloff_lines: 3,
   },
   ui: {
     tabline: {

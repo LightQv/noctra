@@ -360,12 +360,17 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
           await window.uiShell.invoke("settings:save", { content: editor.getValue() });
         };
 
+        const loadBaselineContent = (content) => {
+          editor.setValue(typeof content === "string" ? content : "");
+          editor.clearHistory();
+          editor.execCommand("goDocStart");
+        };
+
         const reloadContent = async () => {
           const result = await window.uiShell.invoke("settings:get");
           if (!result || !result.ok) return;
           applyThemeVars(result.themeVars);
-          editor.setValue(typeof result.content === "string" ? result.content : "");
-          editor.execCommand("goDocStart");
+          loadBaselineContent(result.content);
           useRelativeLineNumbers = result.relativeLineNumbers !== false;
           scrolloffLines = Math.max(0, Number.parseInt(result.scrolloffLines, 10) || 0);
           snapEditorViewportToLineGrid();

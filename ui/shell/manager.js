@@ -333,7 +333,7 @@ const STATUSLINE_OVERLAY_HTML = `
         justify-content: space-between;
         padding: 0;
         box-sizing: border-box;
-        background: var(--ui-bg-statusline, #151a22);
+        background: var(--ui-bg-shell, #151a22);
         border-top: 1px solid var(--ui-border-strong, #2a3140);
         color: var(--ui-text, #d8e3f8);
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});

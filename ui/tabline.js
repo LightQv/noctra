@@ -1,6 +1,11 @@
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_FONT_FAMILY,
+  UI_CHROME_ICON_BUTTON_SIZE,
+  UI_CHROME_TAB_CHIP_HEIGHT,
+  UI_CHROME_BORDER_RADIUS,
+  UI_CHROME_HORIZONTAL_PADDING,
+  UI_CHROME_ICON_GLYPH_SIZE,
 } = require("./constants");
 const { DEFAULT_THEME } = require("./theme");
 
@@ -19,14 +24,13 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
   const showFavicon = Boolean(options.showFavicon);
 
   const palette = {
-    surfaceBackground: theme.surfaceBackground || DEFAULT_THEME.surfaceBackground,
+    shellBackground: theme.shellBackground || DEFAULT_THEME.shellBackground,
     borderColor: theme.borderColor || DEFAULT_THEME.borderColor,
     textColor: theme.textColor || DEFAULT_THEME.textColor,
     mutedTextColor: theme.mutedTextColor || DEFAULT_THEME.mutedTextColor,
     elevatedBackground: theme.elevatedBackground || DEFAULT_THEME.elevatedBackground,
     borderMutedColor: theme.borderMutedColor || DEFAULT_THEME.borderMutedColor,
     softTextColor: theme.softTextColor || DEFAULT_THEME.softTextColor,
-    accentIconColor: theme.accentIconColor || DEFAULT_THEME.accentIconColor,
     windowControlBackground: theme.windowControlBackground || DEFAULT_THEME.windowControlBackground,
     dangerBackground: theme.dangerBackground || DEFAULT_THEME.dangerBackground,
     dangerTextColor: theme.dangerTextColor || DEFAULT_THEME.dangerTextColor,
@@ -83,10 +87,27 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
     actions.settings.shortcutLabel.trim().length > 0
       ? actions.settings.shortcutLabel
       : "Cmd+, | Ctrl+,";
+  const newTabLabel =
+    typeof actions?.newTab?.label === "string" && actions.newTab.label.trim().length > 0
+      ? actions.newTab.label
+      : "New buffer";
+  const newTabIcon =
+    typeof actions?.newTab?.icon === "string" && actions.newTab.icon.trim().length > 0
+      ? actions.newTab.icon
+      : "+";
+  const newTabShortcut =
+    typeof actions?.newTab?.shortcutLabel === "string" &&
+    actions.newTab.shortcutLabel.trim().length > 0
+      ? actions.newTab.shortcutLabel
+      : "b | :tab | :tabnew";
 
   const controlsMarkup = showCustomControls
     ? `<div class="window-controls"><button class="window-btn" data-window-action="minimize" type="button" aria-label="Minimize">-</button><button class="window-btn" data-window-action="toggleMaximize" type="button" aria-label="${maximizeLabel}">${maximizeIcon}</button><button class="window-btn is-close" data-window-action="close" type="button" aria-label="Close">X</button></div>`
     : `<div class="window-controls native-spacer" aria-hidden="true"></div>`;
+
+  const newTabMarkup = `<button class="tab tab-new" type="button" data-tabline-action="new-tab" title="${escapeHtml(
+    `${newTabLabel} (${newTabShortcut})`,
+  )}" aria-label="${escapeHtml(newTabLabel)}"><span class="tab-new-icon">${escapeHtml(newTabIcon)}</span></button>`;
 
   const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
     `${configLabel} (${configShortcut})`,
@@ -122,6 +143,10 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           const tablineActionButton = target.closest('[data-tabline-action]');
           if (tablineActionButton) {
             const tablineAction = tablineActionButton.getAttribute('data-tabline-action');
+            if (tablineAction === 'new-tab' && window.uiShell && window.uiShell.emit) {
+              window.uiShell.emit('tabline:new-tab');
+              return;
+            }
             if (tablineAction === 'open-settings' && window.uiShell && window.uiShell.emit) {
               window.uiShell.emit('tabline:open-settings');
             }
@@ -154,7 +179,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         `ui-shell-topbar platform-${platform} ${showCustomControls ? "controls-custom" : "controls-native"}`,
       )};
       root.innerHTML = ${JSON.stringify(
-        `${controlsMarkup}<div class="tabs-scroll">${tabsMarkup}</div>${rightActionsMarkup}`,
+        `${controlsMarkup}<div class="tabs-scroll">${tabsMarkup}${newTabMarkup}</div>${rightActionsMarkup}`,
       )};
 
       Object.assign(root.style, {
@@ -169,7 +194,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         padding: '0',
         overflow: 'hidden',
         zIndex: '999998',
-        background: ${JSON.stringify(palette.surfaceBackground)},
+        background: ${JSON.stringify(palette.shellBackground)},
         color: ${JSON.stringify(palette.textColor)},
         borderBottom: ${JSON.stringify(`1px solid ${palette.borderColor}`)},
         fontFamily: ${JSON.stringify(palette.fontFamily)},
@@ -185,7 +210,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           alignItems: 'center',
           gap: '6px',
           height: '100%',
-          padding: '0 8px',
+          padding: '0 ${UI_CHROME_HORIZONTAL_PADDING}px',
           flexShrink: '0',
           webkitAppRegion: 'no-drag',
         });
@@ -206,7 +231,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '0 8px',
+          padding: '0 ${UI_CHROME_HORIZONTAL_PADDING}px',
           overflowX: 'auto',
           whiteSpace: 'nowrap',
           minWidth: '0',
@@ -221,7 +246,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         Object.assign(tablineActions.style, {
           display: 'inline-flex',
           alignItems: 'center',
-          padding: '0 10px',
+          padding: '0 ${UI_CHROME_HORIZONTAL_PADDING}px',
           height: '100%',
           flexShrink: '0',
           webkitAppRegion: 'no-drag',
@@ -236,9 +261,9 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           border: ${JSON.stringify(`1px solid ${palette.borderMutedColor}`)},
           background: ${JSON.stringify(palette.elevatedBackground)},
           color: ${JSON.stringify(palette.textColor)},
-          borderRadius: '4px',
-          width: '24px',
-          height: '24px',
+          borderRadius: '${UI_CHROME_BORDER_RADIUS}px',
+          width: '${UI_CHROME_ICON_BUTTON_SIZE}px',
+          height: '${UI_CHROME_ICON_BUTTON_SIZE}px',
           padding: '0',
           cursor: 'pointer',
           fontFamily: 'inherit',
@@ -253,7 +278,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           display: 'inline-flex',
           alignItems: 'center',
           color: 'inherit',
-          fontSize: '16px',
+          fontSize: '${UI_CHROME_ICON_GLYPH_SIZE}px',
           lineHeight: '1',
         });
       });
@@ -263,7 +288,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           border: 'none',
           background: ${JSON.stringify(palette.windowControlBackground)},
           color: ${JSON.stringify(palette.textColor)},
-          borderRadius: '4px',
+          borderRadius: '${UI_CHROME_BORDER_RADIUS}px',
           width: '28px',
           height: '22px',
           padding: '0',
@@ -285,8 +310,11 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           display: 'inline-flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '6px 8px',
-          borderRadius: '4px',
+          boxSizing: 'border-box',
+          height: '${UI_CHROME_TAB_CHIP_HEIGHT}px',
+          padding: '0 8px',
+          border: '1px solid transparent',
+          borderRadius: '${UI_CHROME_BORDER_RADIUS}px',
           background: ${JSON.stringify(palette.subtleBackground)},
           color: ${JSON.stringify(palette.mutedTextColor)},
           maxWidth: '320px',
@@ -294,6 +322,29 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           textOverflow: 'ellipsis',
           cursor: 'pointer',
           webkitAppRegion: 'no-drag',
+        });
+      });
+
+      root.querySelectorAll('.tab-new').forEach((tab) => {
+        Object.assign(tab.style, {
+          border: ${JSON.stringify(`1px dashed ${palette.borderMutedColor}`)},
+          justifyContent: 'center',
+          width: '${UI_CHROME_TAB_CHIP_HEIGHT}px',
+          minWidth: '${UI_CHROME_TAB_CHIP_HEIGHT}px',
+          maxWidth: '${UI_CHROME_TAB_CHIP_HEIGHT}px',
+          padding: '0',
+          color: ${JSON.stringify(palette.softTextColor)},
+          fontWeight: '600',
+        });
+      });
+
+      root.querySelectorAll('.tab-new-icon').forEach((icon) => {
+        Object.assign(icon.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '${UI_CHROME_ICON_GLYPH_SIZE}px',
+          lineHeight: '1',
         });
       });
 

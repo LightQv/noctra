@@ -14,7 +14,7 @@ const DEFAULT_THEME = Object.freeze({
   appBackground: "#0f131a",
   surfaceBackground: UI_SURFACE_COLOR,
   panelBackground: UI_PANEL_BG_COLOR,
-  statuslineBackground: "#151a22",
+  shellBackground: "#151a22",
   elevatedBackground: "#1a2230",
   subtleBackground: "#202633",
   windowControlBackground: "#212734",
@@ -58,6 +58,14 @@ function pickOverrides(overrides = {}) {
     }
   }
 
+  if (
+    !Object.prototype.hasOwnProperty.call(next, "shellBackground") &&
+    typeof overrides.statuslineBackground === "string" &&
+    overrides.statuslineBackground.trim().length > 0
+  ) {
+    next.shellBackground = overrides.statuslineBackground.trim();
+  }
+
   return next;
 }
 
@@ -92,11 +100,13 @@ function resolveTheme(themeConfig = {}) {
 }
 
 function toCssVars(theme = {}) {
+  const shellBackground = theme.shellBackground || DEFAULT_THEME.shellBackground;
   return {
     "--ui-bg-app": theme.appBackground,
     "--ui-bg-surface": theme.surfaceBackground,
     "--ui-bg-panel": theme.panelBackground,
-    "--ui-bg-statusline": theme.statuslineBackground,
+    "--ui-bg-shell": shellBackground,
+    "--ui-bg-statusline": shellBackground,
     "--ui-bg-elevated": theme.elevatedBackground,
     "--ui-bg-subtle": theme.subtleBackground,
     "--ui-border": theme.borderColor,

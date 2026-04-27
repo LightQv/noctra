@@ -224,8 +224,17 @@ function updateTablineActions() {
   const openSettingsSeqs = findLeaderSequencesForAction(leaderTree, "open_settings");
   const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
   const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
+  const newBufferShortcut = findShortcutLabelForAction("new_buffer");
+  const newTabShortcut = [newBufferShortcut, ":tab", ":tabnew", ":tabe"]
+    .filter((value, index, list) => value && list.indexOf(value) === index)
+    .join(" | ");
 
   uiShell.setTablineActions({
+    newTab: {
+      label: "New buffer",
+      icon: "+",
+      shortcutLabel: newTabShortcut,
+    },
     settings: {
       label: "Config",
       icon: "󰒓",
@@ -491,6 +500,11 @@ function registerUiShellEvents() {
 
     if (type === "tabline:open-settings") {
       dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
+      return;
+    }
+
+    if (type === "tabline:new-tab") {
+      dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
       return;
     }
 

@@ -1,4 +1,5 @@
 const { BrowserView } = require("electron");
+const path = require("path");
 const Buffer = require("./buffers");
 const {
   UI_SHELL_TABLINE_HEIGHT,
@@ -309,10 +310,7 @@ class BufferManager {
 
     this.closeDevtoolsSplit();
     this.ensureRightPaneBuffer();
-
-    if (!this.split.enabled || this.split.mode !== "regular" || !this.split.rightPaneSourceBuffer) {
-      this.assignRightPaneSource(left);
-    }
+    this.assignRightPaneSource(left);
 
     this.split.enabled = true;
     this.split.mode = "regular";
@@ -602,7 +600,9 @@ class BufferManager {
   ensureRightPaneBuffer() {
     if (this.split.rightPaneBuffer || !this.window) return;
 
-    const rightPane = new Buffer(0);
+    const rightPane = new Buffer(0, {
+      preloadPath: path.join(__dirname, "..", "ui", "shell", "preload.js"),
+    });
     rightPane.setContentUiOptions(this.contentUiOptions);
     rightPane.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });
@@ -613,16 +613,35 @@ class BufferManager {
     this.window.addBrowserView(rightPane.view);
   }
 
+  resolveBufferMirrorUrl(buffer) {
+    if (!buffer) {
+      return "about:blank";
+    }
+
+    const liveUrl =
+      buffer.webContents && !buffer.webContents.isDestroyed()
+        ? String(buffer.webContents.getURL() || "").trim()
+        : "";
+    if (liveUrl.length > 0) {
+      return liveUrl;
+    }
+
+    const trackedUrl = typeof buffer.url === "string" ? buffer.url.trim() : "";
+    return trackedUrl.length > 0 ? trackedUrl : "about:blank";
+  }
+
   assignRightPaneSource(sourceBuffer) {
     if (!sourceBuffer || !this.split.rightPaneBuffer) return;
 
     this.split.rightPaneSourceBuffer = sourceBuffer;
+    this.split.rightPaneBuffer.kind = sourceBuffer.kind || "web";
+    this.split.rightPaneBuffer.isEditable = Boolean(sourceBuffer.isEditable);
 
     if (sourceBuffer !== this.getLeftBuffer()) {
       return;
     }
 
-    const sourceUrl = sourceBuffer.url || "about:blank";
+    const sourceUrl = this.resolveBufferMirrorUrl(sourceBuffer);
     const rightPaneUrl = this.split.rightPaneBuffer.url || "";
     if (rightPaneUrl !== sourceUrl) {
       this.split.rightPaneBuffer.load(sourceUrl);
@@ -780,7 +799,7 @@ class BufferManager {
 
     if (rightRegular) {
       if (showSplit && this.split.mode === "regular" && useMirroredRight) {
-        const sourceUrl = rightSource?.url || "about:blank";
+        const sourceUrl = this.resolveBufferMirrorUrl(rightSource);
         if (rightRegular.url !== sourceUrl) {
           rightRegular.load(sourceUrl);
         }

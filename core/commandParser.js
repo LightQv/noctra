@@ -26,6 +26,8 @@ function parseCommand(raw) {
         return { type: INTENTS.OPEN_URL, url: target.url };
       }
 
+    case "tab":
+    case "tabe":
     case "tabnew":
       if (!arg) {
         return { type: INTENTS.NEW_BUFFER };

@@ -1,4 +1,11 @@
-const { UI_SHELL_URLLINE_HEIGHT, UI_FONT_FAMILY } = require("./constants");
+const {
+  UI_SHELL_URLLINE_HEIGHT,
+  UI_FONT_FAMILY,
+  UI_CHROME_ICON_BUTTON_SIZE,
+  UI_CHROME_BORDER_RADIUS,
+  UI_CHROME_HORIZONTAL_PADDING,
+  UI_CHROME_ICON_GLYPH_SIZE,
+} = require("./constants");
 const { DEFAULT_THEME } = require("./theme");
 
 function escapeHtml(value) {
@@ -17,13 +24,20 @@ function renderShortcut(label) {
   return ` (${label.trim()})`;
 }
 
-function buildActionButtonMarkup(actionId, pane, actionConfig, disabled = false) {
+function buildActionButtonMarkup(
+  actionId,
+  pane,
+  actionConfig,
+  disabled = false,
+) {
   const label =
-    typeof actionConfig?.label === "string" && actionConfig.label.trim().length > 0
+    typeof actionConfig?.label === "string" &&
+    actionConfig.label.trim().length > 0
       ? actionConfig.label.trim()
       : actionId;
   const icon =
-    typeof actionConfig?.icon === "string" && actionConfig.icon.trim().length > 0
+    typeof actionConfig?.icon === "string" &&
+    actionConfig.icon.trim().length > 0
       ? actionConfig.icon.trim()
       : "?";
   const shortcut = renderShortcut(actionConfig?.shortcutLabel);
@@ -38,13 +52,31 @@ function buildPaneMarkup(paneModel, actions, editingModel) {
   const pane = paneModel?.pane === "right" ? "right" : "left";
   const canGoBack = Boolean(paneModel?.canGoBack);
   const canGoForward = Boolean(paneModel?.canGoForward);
-  const rawUrl = typeof paneModel?.url === "string" && paneModel.url.trim() ? paneModel.url : "about:blank";
+  const rawUrl =
+    typeof paneModel?.url === "string" && paneModel.url.trim()
+      ? paneModel.url
+      : "about:blank";
   const escapedUrl = escapeHtml(rawUrl);
   const isEditing = Boolean(editingModel?.active && editingModel.pane === pane);
 
-  const backBtn = buildActionButtonMarkup("back", pane, actions?.back, !canGoBack);
-  const forwardBtn = buildActionButtonMarkup("forward", pane, actions?.forward, !canGoForward);
-  const reloadBtn = buildActionButtonMarkup("reload", pane, actions?.reload, false);
+  const backBtn = buildActionButtonMarkup(
+    "back",
+    pane,
+    actions?.back,
+    !canGoBack,
+  );
+  const forwardBtn = buildActionButtonMarkup(
+    "forward",
+    pane,
+    actions?.forward,
+    !canGoForward,
+  );
+  const reloadBtn = buildActionButtonMarkup(
+    "reload",
+    pane,
+    actions?.reload,
+    false,
+  );
 
   let urlMarkup = `<button class="urlline-url" type="button" data-urlline-action="start-edit" data-pane="${escapeHtml(
     pane,
@@ -65,9 +97,15 @@ function buildPaneMarkup(paneModel, actions, editingModel) {
     )}" title="${escapedUrl}" aria-label="Editing URL"><span class="urlline-edit-content"><span class="urlline-text-before">${before}</span><span class="urlline-cursor ${cursorClass}" aria-hidden="true"></span><span class="urlline-text-after">${after}</span></span></button>`;
   }
 
-  const x = Number.isFinite(paneModel?.x) ? Math.max(0, Math.floor(paneModel.x)) : 0;
-  const width = Number.isFinite(paneModel?.width) ? Math.max(1, Math.floor(paneModel.width)) : 1;
-  const top = Number.isFinite(paneModel?.top) ? Math.max(0, Math.floor(paneModel.top)) : 0;
+  const x = Number.isFinite(paneModel?.x)
+    ? Math.max(0, Math.floor(paneModel.x))
+    : 0;
+  const width = Number.isFinite(paneModel?.width)
+    ? Math.max(1, Math.floor(paneModel.width))
+    : 1;
+  const top = Number.isFinite(paneModel?.top)
+    ? Math.max(0, Math.floor(paneModel.top))
+    : 0;
 
   return `<div class="ui-shell-urlline-pane" data-pane="${escapeHtml(pane)}" style="left:${x}px;top:${top}px;width:${width}px;height:${UI_SHELL_URLLINE_HEIGHT}px;"><div class="urlline-inner">${backBtn}${forwardBtn}${reloadBtn}${urlMarkup}</div></div>`;
 }
@@ -76,10 +114,12 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
   if (!webContents || webContents.isDestroyed()) return;
 
   const palette = {
-    panelBackground: theme.panelBackground || DEFAULT_THEME.panelBackground,
+    shellBackground: theme.shellBackground || DEFAULT_THEME.shellBackground,
     borderColor: theme.borderColor || DEFAULT_THEME.borderColor,
-    borderStrongColor: theme.borderStrongColor || DEFAULT_THEME.borderStrongColor,
-    elevatedBackground: theme.elevatedBackground || DEFAULT_THEME.elevatedBackground,
+    borderStrongColor:
+      theme.borderStrongColor || DEFAULT_THEME.borderStrongColor,
+    elevatedBackground:
+      theme.elevatedBackground || DEFAULT_THEME.elevatedBackground,
     textColor: theme.textColor || DEFAULT_THEME.textColor,
     mutedTextColor: theme.mutedTextColor || DEFAULT_THEME.mutedTextColor,
     mainColor: theme.mainColor || DEFAULT_THEME.mainColor,
@@ -87,13 +127,15 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
   };
 
   const paneModels = Array.isArray(model?.panes) ? model.panes : [];
-  const editingModel = model?.editing && typeof model.editing === "object" ? model.editing : null;
+  const editingModel =
+    model?.editing && typeof model.editing === "object" ? model.editing : null;
   const panesMarkup = paneModels
     .map((paneModel) => buildPaneMarkup(paneModel, actions, editingModel))
     .join("");
 
   webContents
-    .executeJavaScript(`
+    .executeJavaScript(
+      `
       (function renderUiShellUrlline() {
         let root = document.getElementById('__ui_shell_urlline__');
 
@@ -158,10 +200,10 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
             alignItems: 'center',
             gap: '8px',
             height: '100%',
-            padding: '8px 12px',
+            padding: '5px ${UI_CHROME_HORIZONTAL_PADDING}px',
             boxSizing: 'border-box',
             borderBottom: ${JSON.stringify(`1px solid ${palette.borderStrongColor}`)},
-            background: ${JSON.stringify(palette.panelBackground)},
+            background: ${JSON.stringify(palette.shellBackground)},
             pointerEvents: 'auto',
           });
         });
@@ -171,9 +213,9 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '24px',
-            height: '24px',
-            borderRadius: '4px',
+            width: '${UI_CHROME_ICON_BUTTON_SIZE}px',
+            height: '${UI_CHROME_ICON_BUTTON_SIZE}px',
+            borderRadius: '${UI_CHROME_BORDER_RADIUS}px',
             border: ${JSON.stringify(`1px solid ${palette.borderColor}`)},
             background: ${JSON.stringify(palette.elevatedBackground)},
             color: ${JSON.stringify(palette.textColor)},
@@ -195,7 +237,7 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '15px',
+            fontSize: '${UI_CHROME_ICON_GLYPH_SIZE}px',
             lineHeight: '1',
           });
         });
@@ -204,9 +246,9 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
           Object.assign(node.style, {
             flex: '1',
             minWidth: '0',
-            height: '24px',
+            height: '${UI_CHROME_ICON_BUTTON_SIZE}px',
             border: ${JSON.stringify(`1px solid ${palette.borderColor}`)},
-            borderRadius: '4px',
+            borderRadius: '${UI_CHROME_BORDER_RADIUS}px',
             background: ${JSON.stringify(palette.elevatedBackground)},
             color: ${JSON.stringify(palette.textColor)},
             textAlign: 'left',
@@ -275,7 +317,8 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
           }
         });
       })();
-    `)
+    `,
+    )
     .catch(() => {});
 }
 

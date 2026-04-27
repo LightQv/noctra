@@ -259,6 +259,10 @@ function normalizeConfig(rawConfig) {
       normalizedGlobal.ui.tabline.enabled = uiSection.tabline.enabled;
     }
 
+    if (isPlainObject(uiSection.tabline) && typeof uiSection.tabline.show_favicon === "boolean") {
+      normalizedGlobal.ui.tabline.show_favicon = uiSection.tabline.show_favicon;
+    }
+
     if (isPlainObject(uiSection.urlline) && typeof uiSection.urlline.enabled === "boolean") {
       normalizedGlobal.ui.urlline.enabled = uiSection.urlline.enabled;
     }

@@ -430,6 +430,9 @@ class UiShellManager {
       offsetPx: 0,
     };
     this.tablineActions = {};
+    this.tablineOptions = {
+      showFavicon: false,
+    };
     this.urllineActions = {};
     this.urllineModel = { panes: [] };
     this.windowChrome = {
@@ -569,6 +572,7 @@ class UiShellManager {
         this.windowChrome,
         this.tablineActions,
         this.currentTheme,
+        this.tablineOptions,
       );
     }, 16);
   }
@@ -642,6 +646,14 @@ class UiShellManager {
   setTablineActions(actions = {}) {
     this.tablineActions = {
       ...actions,
+    };
+    this.renderTabline(this.pendingTablineSnapshot);
+  }
+
+  setTablineOptions(options = {}) {
+    this.tablineOptions = {
+      ...this.tablineOptions,
+      ...(options && typeof options === "object" ? options : {}),
     };
     this.renderTabline(this.pendingTablineSnapshot);
   }

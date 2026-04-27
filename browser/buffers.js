@@ -52,6 +52,7 @@ class Buffer extends EventEmitter {
     this.webContents = this.view.webContents;
     this.url = "about:blank";
     this.title = "[No title]";
+    this.faviconUrl = "";
     this.kind = options.kind || "web";
     this.isEditable = this.kind === "editable";
     this.contentUiOptions = {
@@ -79,6 +80,16 @@ class Buffer extends EventEmitter {
       this.emit("updated", { kind: "metadata" });
     });
 
+    this.webContents.on("page-favicon-updated", (_, favicons) => {
+      const nextFavicon =
+        Array.isArray(favicons) && typeof favicons[0] === "string" ? favicons[0] : "";
+      if (this.faviconUrl === nextFavicon) {
+        return;
+      }
+      this.faviconUrl = nextFavicon;
+      this.emit("updated", { kind: "metadata" });
+    });
+
     this.webContents.on("did-navigate-in-page", (_, url) => {
       this.url = url;
       this.emit("updated", { kind: "metadata" });
@@ -88,6 +99,7 @@ class Buffer extends EventEmitter {
   load(url) {
     this.url = url;
     this.title = getUrlDisplayTitle(url);
+    this.faviconUrl = "";
     this.webContents.loadURL(url);
     this.emit("updated", { kind: "metadata" });
   }
@@ -99,6 +111,7 @@ class Buffer extends EventEmitter {
 
     this.url = virtualUrl;
     this.title = title;
+    this.faviconUrl = "";
 
     const encoded = encodeURIComponent(html);
     this.webContents.loadURL(`data:text/html;charset=utf-8,${encoded}`);
@@ -122,6 +135,7 @@ class Buffer extends EventEmitter {
       id: this.id,
       title: this.title,
       url: this.url,
+      faviconUrl: this.faviconUrl,
       isActive,
       kind: this.kind,
       isEditable: this.isEditable,

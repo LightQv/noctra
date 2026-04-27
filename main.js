@@ -234,6 +234,12 @@ function updateTablineActions() {
   });
 }
 
+function updateTablineOptions() {
+  uiShell.setTablineOptions({
+    showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
+  });
+}
+
 function buildUrllineModel() {
   const model = buffers.getUrllineRenderModel();
   if (!state.urllineEditing) {
@@ -612,6 +618,7 @@ function registerUiShellEvents() {
         uiShell.updateSplitDivider(buffers.getSplitStatus());
         broadcastUiShellPush("theme:update", buildThemePayload(theme));
         updateTablineActions();
+        updateTablineOptions();
         updateUrllineActions();
         updateUrllineRender();
         return { ok: true };
@@ -716,6 +723,7 @@ function createWindow() {
   uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
   uiShell.updateSplitDivider(buffers.getSplitStatus());
   updateTablineActions();
+  updateTablineOptions();
   updateUrllineActions();
   updateUrllineRender();
 

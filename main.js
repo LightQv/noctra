@@ -1,6 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain, clipboard } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard, nativeTheme } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
@@ -8,21 +8,77 @@ const configService = require("./core/config/service");
 const uiShell = require("./ui/shell/manager");
 const { dispatch } = require("./core/dispatcher");
 const { INTENTS } = require("./core/intents");
-const { resolveTheme, toCssVars } = require("./ui/theme");
+const {
+  normalizeThemeMode,
+  normalizeContentThemeMode,
+  resolveTheme,
+  resolveThemeMode,
+  resolveContentColorScheme,
+  toCssVars,
+} = require("./ui/theme");
 const { resolveInputTarget } = require("./core/resolver");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
 
 function resolveCurrentTheme() {
-  return resolveTheme(configService.getConfigValue("global.theme", {}));
+  const themeConfig = configService.getConfigValue("global.theme", {});
+  const systemPrefersDark = nativeTheme.shouldUseDarkColors;
+  const configuredMode = normalizeThemeMode(
+    typeof themeConfig?.mode === "string" ? themeConfig.mode : themeConfig?.name,
+    "dark",
+  );
+  const resolvedMode = resolveThemeMode(themeConfig, { systemPrefersDark });
+  const contentMode = normalizeContentThemeMode(themeConfig?.content_mode, "dark");
+  const contentColorScheme = resolveContentColorScheme(themeConfig, { systemPrefersDark });
+  const theme = resolveTheme(themeConfig, { systemPrefersDark });
+
+  return {
+    theme,
+    configuredMode,
+    resolvedMode,
+    contentMode,
+    contentColorScheme,
+  };
 }
 
-function buildThemePayload(theme) {
+function buildThemePayload(themeContext) {
+  const theme = themeContext && themeContext.theme ? themeContext.theme : themeContext || {};
+  const resolvedMode =
+    themeContext && typeof themeContext.resolvedMode === "string"
+      ? themeContext.resolvedMode
+      : "dark";
+
   return {
     theme,
     themeVars: toCssVars(theme),
+    colorScheme: resolvedMode === "light" ? "light" : "dark",
+    resolvedMode,
   };
+}
+
+function syncContentUiTheme(theme) {
+  const contentColorScheme = theme.contentColorScheme === "light" ? "light" : "dark";
+  buffers.setContentUiOptions({
+    thumbColor: theme.scrollbarThumbColor,
+    thumbActiveColor: theme.scrollbarThumbActiveColor,
+    contentColorScheme,
+  });
+}
+
+function applyTheme(themeContext, options = {}) {
+  const shouldBroadcast = Boolean(options.broadcast);
+  const payload = buildThemePayload(themeContext);
+  uiShell.setTheme(payload.theme);
+  syncContentUiTheme({
+    ...payload.theme,
+    contentColorScheme:
+      themeContext && themeContext.contentColorScheme === "light" ? "light" : "dark",
+  });
+  buffers.refreshDashboardBuffers();
+  if (shouldBroadcast) {
+    broadcastUiShellPush("theme:update", payload);
+  }
 }
 
 function broadcastUiShellPush(type, payload = {}) {
@@ -531,6 +587,18 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "editor:open-command") {
+      const initialText =
+        typeof payload?.initialText === "string" ? payload.initialText : "";
+      state.mode = "COMMAND";
+      state.commandTarget = "EDITOR";
+      state.commandBuffer = initialText;
+      state.commandCursorIndex = initialText.length;
+      dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
+      dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
+      return;
+    }
+
     if (type === "editor:ready") {
       state.interactionContext = "EDITOR";
       state.editorMode = "NORMAL";
@@ -602,7 +670,7 @@ function registerUiShellEvents() {
       const configPath = configService.getConfigPath();
       try {
         const content = fs.readFileSync(configPath, "utf8");
-        const theme = resolveCurrentTheme();
+        const themeContext = resolveCurrentTheme();
         return {
           ok: true,
           content,
@@ -612,7 +680,7 @@ function registerUiShellEvents() {
             true,
           ),
           scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
-          ...buildThemePayload(theme),
+          ...buildThemePayload(themeContext),
         };
       } catch (error) {
         return { ok: false, error: error.message };
@@ -627,10 +695,9 @@ function registerUiShellEvents() {
         state.applyConfig(config);
         buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
         buffers.layoutViews();
-        const theme = resolveCurrentTheme();
-        uiShell.setTheme(theme);
+        const themeContext = resolveCurrentTheme();
+        applyTheme(themeContext, { broadcast: true });
         uiShell.updateSplitDivider(buffers.getSplitStatus());
-        broadcastUiShellPush("theme:update", buildThemePayload(theme));
         updateTablineActions();
         updateTablineOptions();
         updateUrllineActions();
@@ -725,7 +792,7 @@ function createWindow() {
   buffers.init(win);
   buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
   uiShell.init(win);
-  uiShell.setTheme(resolveCurrentTheme());
+  applyTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
     platform: process.platform,
     useNativeControls: isMac,
@@ -842,6 +909,29 @@ function createWindow() {
 
   buffers.openConfiguredBuffer();
   bindInputToActiveBuffer();
+
+  const onNativeThemeUpdated = () => {
+    const themeContext = resolveCurrentTheme();
+    const shouldApplyFromSystem =
+      themeContext.configuredMode === "auto" ||
+      themeContext.contentMode === "auto" ||
+      (themeContext.contentMode === "match" && themeContext.configuredMode === "custom");
+    if (!shouldApplyFromSystem) {
+      return;
+    }
+
+    applyTheme(themeContext, { broadcast: true });
+    updateTablineActions();
+    updateTablineOptions();
+    updateUrllineActions();
+    updateUrllineRender();
+  };
+
+  nativeTheme.on("updated", onNativeThemeUpdated);
+
+  win.on("closed", () => {
+    nativeTheme.removeListener("updated", onNativeThemeUpdated);
+  });
 }
 
 app.whenReady().then(createWindow);

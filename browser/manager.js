@@ -1,4 +1,4 @@
-const { BrowserView } = require("electron");
+const { BrowserView, nativeTheme } = require("electron");
 const path = require("path");
 const Buffer = require("./buffers");
 const {
@@ -8,6 +8,7 @@ const {
 } = require("../ui/constants");
 const { getConfigValue } = require("../core/config/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
+const { resolveTheme, resolveThemeMode } = require("../ui/theme");
 
 class BufferManager {
   constructor() {
@@ -77,7 +78,10 @@ class BufferManager {
 
   openConfiguredBuffer(options = {}) {
     const openingBufferConfig = getConfigValue("global.opening_buffer", {});
-    const openingBufferSpec = buildOpeningBufferSpec(openingBufferConfig);
+    const openingBufferSpec = buildOpeningBufferSpec(
+      openingBufferConfig,
+      this.resolveOpeningBufferThemeContext(),
+    );
 
     if (openingBufferSpec.warning) {
       console.warn(openingBufferSpec.warning);
@@ -90,6 +94,47 @@ class BufferManager {
     }
 
     return this.create(openingBufferSpec.url, options);
+  }
+
+  resolveOpeningBufferThemeContext() {
+    const themeConfig = getConfigValue("global.theme", {});
+    const resolvedMode = resolveThemeMode(themeConfig, {
+      systemPrefersDark: nativeTheme.shouldUseDarkColors,
+    });
+    return {
+      colorScheme: resolvedMode === "light" ? "light" : "dark",
+      theme: resolveTheme(themeConfig, {
+        systemPrefersDark: nativeTheme.shouldUseDarkColors,
+      }),
+    };
+  }
+
+  refreshDashboardBuffers() {
+    const dashboardBuffers = this.buffers.filter(
+      (buffer) =>
+        buffer &&
+        (buffer.virtualUrl === "noctra://dashboard" || buffer.url === "noctra://dashboard"),
+    );
+    if (dashboardBuffers.length === 0) {
+      return;
+    }
+
+    const openingBufferConfig = getConfigValue("global.opening_buffer", {});
+    const dashboardSpec = buildOpeningBufferSpec(
+      {
+        ...openingBufferConfig,
+        mode: "dashboard",
+      },
+      this.resolveOpeningBufferThemeContext(),
+    );
+
+    if (!dashboardSpec || dashboardSpec.kind !== "virtual" || !dashboardSpec.document) {
+      return;
+    }
+
+    for (const buffer of dashboardBuffers) {
+      buffer.loadVirtualDocument(dashboardSpec.document);
+    }
   }
 
   getLeftBuffer() {

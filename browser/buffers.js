@@ -1,6 +1,6 @@
 const { BrowserView } = require("electron");
 const { EventEmitter } = require("events");
-const { applyScrollableUi } = require("./contentUi");
+const { applyScrollableUi, releaseChromiumPreferredColorScheme } = require("./contentUi");
 const {
   UI_SCROLLBAR_THUMB_COLOR,
   UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
@@ -51,6 +51,7 @@ class Buffer extends EventEmitter {
 
     this.webContents = this.view.webContents;
     this.url = "about:blank";
+    this.virtualUrl = "";
     this.title = "[No title]";
     this.faviconUrl = "";
     this.kind = options.kind || "web";
@@ -59,6 +60,7 @@ class Buffer extends EventEmitter {
       widthPx: 6,
       hideDelayMs: 700,
       trackColor: "transparent",
+      contentColorScheme: "dark",
       thumbColor: UI_SCROLLBAR_THUMB_COLOR,
       thumbActiveColor: UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
     };
@@ -76,7 +78,7 @@ class Buffer extends EventEmitter {
     });
 
     this.webContents.on("did-navigate", (_, url) => {
-      this.url = url;
+      this.url = this.virtualUrl || url;
       this.emit("updated", { kind: "metadata" });
     });
 
@@ -91,13 +93,14 @@ class Buffer extends EventEmitter {
     });
 
     this.webContents.on("did-navigate-in-page", (_, url) => {
-      this.url = url;
+      this.url = this.virtualUrl || url;
       this.emit("updated", { kind: "metadata" });
     });
   }
 
   load(url) {
     this.url = url;
+    this.virtualUrl = "";
     this.title = getUrlDisplayTitle(url);
     this.faviconUrl = "";
     this.webContents.loadURL(url);
@@ -110,6 +113,7 @@ class Buffer extends EventEmitter {
     const html = typeof options.html === "string" ? options.html : "";
 
     this.url = virtualUrl;
+    this.virtualUrl = virtualUrl;
     this.title = title;
     this.faviconUrl = "";
 
@@ -146,6 +150,7 @@ class Buffer extends EventEmitter {
 
   destroy() {
     this.removeAllListeners();
+    releaseChromiumPreferredColorScheme(this.webContents);
     if (!this.webContents.isDestroyed()) {
       this.webContents.destroy();
     }

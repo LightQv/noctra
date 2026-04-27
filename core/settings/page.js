@@ -10,20 +10,28 @@ const {
 const { resolveTheme, toCssVars } = require("../../ui/theme");
 
 const CODEMIRROR_CSS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css";
-const CODEMIRROR_DIALOG_CSS_URL =
-  "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/dialog/dialog.css";
 const CODEMIRROR_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js";
 const CODEMIRROR_SEARCH_CURSOR_JS_URL =
   "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/search/searchcursor.js";
-const CODEMIRROR_DIALOG_JS_URL =
-  "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/dialog/dialog.js";
 const CODEMIRROR_VIM_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/keymap/vim.js";
 const CODEMIRROR_YAML_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/yaml/yaml.js";
 
 function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "") {
-  const theme = resolveTheme({ overrides: themeInput || {} });
+  const sourceTheme =
+    themeInput && typeof themeInput === "object" && themeInput.theme
+      ? themeInput.theme
+      : themeInput;
+  const sourceColorScheme =
+    themeInput && typeof themeInput === "object" && themeInput.colorScheme === "light"
+      ? "light"
+      : "dark";
+  const theme = resolveTheme({
+    mode: sourceColorScheme,
+    overrides: sourceTheme || {},
+  });
   const themeVars = toCssVars(theme);
   const initialThemeVars = JSON.stringify(themeVars);
+  const initialColorScheme = JSON.stringify(sourceColorScheme);
   const initialContentJson = JSON.stringify(String(initialContent || ""));
   const initialThemeCss = Object.entries(themeVars)
     .map(([name, value]) => `${name}: ${value};`)
@@ -36,12 +44,12 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
     <meta charset="UTF-8" />
     <title>Settings</title>
     <link rel="stylesheet" href="${CODEMIRROR_CSS_URL}" />
-    <link rel="stylesheet" href="${CODEMIRROR_DIALOG_CSS_URL}" />
     <style>
       ${UI_FONT_FACE_CSS}
 
       :root {
-        color-scheme: dark;
+        color-scheme: var(--ui-color-scheme, ${sourceColorScheme});
+        --ui-color-scheme: ${sourceColorScheme};
         --ui-font-family: ${UI_FONT_FAMILY};
         ${initialThemeCss}
       }
@@ -142,22 +150,123 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
       }
 
       .CodeMirror-cursor {
-        border-left: 1px solid var(--ui-accent);
+        border-left: 1px solid var(--ui-editor-cursor);
+      }
+
+      .CodeMirror div.CodeMirror-cursor {
+        border-left: 1px solid var(--ui-editor-cursor) !important;
+      }
+
+      .CodeMirror.cm-fat-cursor div.CodeMirror-cursor {
+        background: var(--ui-editor-cursor) !important;
+        border: 0 !important;
+        box-shadow: inset 0 0 0 1px var(--ui-editor-cursor-text);
+      }
+
+      .CodeMirror.cm-fat-cursor .CodeMirror-line::selection,
+      .CodeMirror.cm-fat-cursor .CodeMirror-line > span::selection,
+      .CodeMirror.cm-fat-cursor .CodeMirror-line > span > span::selection {
+        background: var(--ui-editor-selection);
       }
 
       .CodeMirror-selected {
         background: var(--ui-editor-selection);
       }
 
-      .CodeMirror-dialog {
-        background: var(--ui-editor-dialog-bg);
-        border-bottom: 1px solid var(--ui-editor-dialog-border);
-        color: var(--ui-text);
+      .CodeMirror-activeline-background {
+        background: var(--ui-editor-active-line);
       }
 
-      .CodeMirror-dialog input {
-        color: var(--ui-text);
+      .CodeMirror-matchingbracket {
+        background: var(--ui-editor-matching-bracket-bg);
+        color: var(--ui-editor-matching-bracket-color) !important;
       }
+
+      .CodeMirror-dialog {
+        display: none !important;
+      }
+
+      .cm-s-default .cm-keyword {
+        color: var(--ui-editor-token-keyword);
+      }
+
+      .cm-s-default .cm-atom {
+        color: var(--ui-editor-token-atom);
+      }
+
+      .cm-s-default .cm-number {
+        color: var(--ui-editor-token-number);
+      }
+
+      .cm-s-default .cm-def {
+        color: var(--ui-editor-token-def);
+      }
+
+      .cm-s-default .cm-variable {
+        color: var(--ui-editor-token-variable);
+      }
+
+      .cm-s-default .cm-variable-2 {
+        color: var(--ui-editor-token-variable2);
+      }
+
+      .cm-s-default .cm-variable-3,
+      .cm-s-default .cm-type {
+        color: var(--ui-editor-token-variable3);
+      }
+
+      .cm-s-default .cm-property {
+        color: var(--ui-editor-token-property);
+      }
+
+      .cm-s-default .cm-operator {
+        color: var(--ui-editor-token-operator);
+      }
+
+      .cm-s-default .cm-comment {
+        color: var(--ui-editor-token-comment);
+      }
+
+      .cm-s-default .cm-string {
+        color: var(--ui-editor-token-string);
+      }
+
+      .cm-s-default .cm-string-2 {
+        color: var(--ui-editor-token-string2);
+      }
+
+      .cm-s-default .cm-meta {
+        color: var(--ui-editor-token-meta);
+      }
+
+      .cm-s-default .cm-qualifier {
+        color: var(--ui-editor-token-qualifier);
+      }
+
+      .cm-s-default .cm-builtin {
+        color: var(--ui-editor-token-builtin);
+      }
+
+      .cm-s-default .cm-tag {
+        color: var(--ui-editor-token-tag);
+      }
+
+      .cm-s-default .cm-attribute {
+        color: var(--ui-editor-token-attribute);
+      }
+
+      .cm-s-default .cm-header {
+        color: var(--ui-editor-token-header);
+      }
+
+      .cm-s-default .cm-quote {
+        color: var(--ui-editor-token-quote);
+      }
+
+      .cm-s-default .cm-link {
+        color: var(--ui-editor-token-link);
+      }
+
     </style>
   </head>
   <body>
@@ -173,12 +282,12 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
     <div id="editor-root"></div>
     <script src="${CODEMIRROR_JS_URL}"></script>
     <script src="${CODEMIRROR_SEARCH_CURSOR_JS_URL}"></script>
-    <script src="${CODEMIRROR_DIALOG_JS_URL}"></script>
     <script src="${CODEMIRROR_VIM_JS_URL}"></script>
     <script src="${CODEMIRROR_YAML_JS_URL}"></script>
     <script>
       (function settingsEditorBoot() {
         const initialThemeVars = ${initialThemeVars};
+        const initialColorScheme = ${initialColorScheme};
         const root = document.getElementById("editor-root");
         const saveBtn = document.getElementById("save-btn");
         const reloadBtn = document.getElementById("reload-btn");
@@ -210,7 +319,22 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
           }
         };
 
+        const applyColorScheme = (colorScheme) => {
+          const next = colorScheme === "light" ? "light" : "dark";
+          document.documentElement.style.setProperty("--ui-color-scheme", next);
+          document.documentElement.style.colorScheme = next;
+        };
+
+        const applyThemePayload = (payload) => {
+          if (!payload || typeof payload !== "object") return;
+          if (payload.themeVars && typeof payload.themeVars === "object") {
+            applyThemeVars(payload.themeVars);
+          }
+          applyColorScheme(payload.colorScheme);
+        };
+
         applyThemeVars(initialThemeVars);
+        applyColorScheme(initialColorScheme);
 
         const editor = window.CodeMirror(root, {
           value: ${initialContentJson},
@@ -379,6 +503,45 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
           await invokeShell("settings:save", { content: editor.getValue() });
         };
 
+        const runEditorCommand = (rawCommand) => {
+          const text = String(rawCommand || "").trim().replace(/^:/, "").trim();
+          if (!text) {
+            return Promise.resolve();
+          }
+
+          if (
+            window.CodeMirror &&
+            window.CodeMirror.Vim &&
+            typeof window.CodeMirror.Vim.handleEx === "function"
+          ) {
+            try {
+              window.CodeMirror.Vim.handleEx(editor, text);
+              return Promise.resolve();
+            } catch {
+              // fall back to local command handlers below
+            }
+          }
+
+          const lowered = text.toLowerCase();
+          if (lowered === "w" || lowered === "write") {
+            return saveContent();
+          }
+
+          if (lowered === "e" || lowered === "edit") {
+            return reloadContent();
+          }
+
+          if (lowered === "q" || lowered === "quit") {
+            return invokeShell("settings:close");
+          }
+
+          if (lowered === "wq" || lowered === "x" || lowered === "xit") {
+            return saveContent().then(() => invokeShell("settings:close"));
+          }
+
+          return Promise.resolve();
+        };
+
         const loadBaselineContent = (content) => {
           editor.setValue(typeof content === "string" ? content : "");
           editor.clearHistory();
@@ -388,7 +551,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
         const reloadContent = async () => {
           const result = await invokeShell("settings:get");
           if (!result || !result.ok) return;
-          applyThemeVars(result.themeVars);
+          applyThemePayload(result);
           loadBaselineContent(result.content);
           useRelativeLineNumbers = result.relativeLineNumbers !== false;
           scrolloffLines = Math.max(0, Number.parseInt(result.scrolloffLines, 10) || 0);
@@ -403,7 +566,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
         };
 
         onShell("theme:update", (payload) => {
-          applyThemeVars(payload && payload.themeVars);
+          applyThemePayload(payload);
         });
 
         const focusEditorSurface = () => {
@@ -433,6 +596,10 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
           editor.getInputField().blur();
         };
 
+        window.__settingsEditorRunCommand__ = (commandText) => {
+          runEditorCommand(commandText).catch(() => {});
+        };
+
         const onEditorKeyDown = (event) => {
           if (mode === "INSERT") {
             return;
@@ -458,6 +625,18 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
 
           if (event.key === "Escape") {
             clearLeaderPending();
+          }
+
+          if (
+            event.key === ":" &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.altKey
+          ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            emitShell("editor:open-command", { initialText: "" });
+            return;
           }
 
           if (event.key === "s" && (event.metaKey || event.ctrlKey)) {

@@ -9,6 +9,7 @@ const uiShell = require("./ui/shell/manager");
 const { dispatch } = require("./core/dispatcher");
 const { INTENTS } = require("./core/intents");
 const { resolveTheme, toCssVars } = require("./ui/theme");
+const { resolveInputTarget } = require("./core/resolver");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
@@ -77,6 +78,28 @@ function normalizeInput(input) {
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
 
+  const isUrllinePasteShortcut =
+    state.urllineEditing &&
+    normalized.type === "keyDown" &&
+    (normalized.key === "v" || normalized.key === "V") &&
+    ((process.platform === "darwin" && normalized.meta && !normalized.ctrl) ||
+      (process.platform !== "darwin" && normalized.ctrl && !normalized.meta));
+
+  if (isUrllinePasteShortcut) {
+    event.preventDefault();
+    handleUrllineInput(event, {
+      ...normalized,
+      pasteText: clipboard.readText(),
+    });
+    return;
+  }
+
+  if (state.urllineEditing) {
+    event.preventDefault();
+    handleUrllineInput(event, normalized);
+    return;
+  }
+
   const isCommandPasteShortcut =
     state.mode === "COMMAND" &&
     normalized.type === "keyDown" &&
@@ -135,10 +158,65 @@ function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
   return results;
 }
 
+function findNormalMappingsForAction(normalMap, targetAction) {
+  if (!normalMap || typeof normalMap !== "object") {
+    return [];
+  }
+
+  const hits = [];
+  for (const [keys, node] of Object.entries(normalMap)) {
+    if (node && node.action === targetAction) {
+      hits.push(keys);
+    }
+  }
+  return hits;
+}
+
+function findCtrlMappingsForAction(ctrlMap, targetAction) {
+  if (!ctrlMap || typeof ctrlMap !== "object") {
+    return [];
+  }
+
+  const hits = [];
+  for (const [key, node] of Object.entries(ctrlMap)) {
+    if (node && node.action === targetAction) {
+      hits.push(`Ctrl+${String(key).toUpperCase()}`);
+    }
+  }
+  return hits;
+}
+
 function formatLeaderSequence(seq = []) {
   if (!Array.isArray(seq) || seq.length === 0) return null;
   const rendered = seq.map((part) => (part === "tab" ? "Tab" : part)).join(" ");
   return `<leader> ${rendered}`;
+}
+
+function findShortcutLabelForAction(actionId) {
+  const normal = configService.getConfigValue("keymap.normal", {});
+  const ctrl = configService.getConfigValue("keymap.ctrl", {});
+  const leader = configService.getConfigValue("keymap.leader", {});
+
+  const labels = [];
+  const normalHits = findNormalMappingsForAction(normal, actionId);
+  if (normalHits.length > 0) {
+    labels.push(normalHits[0]);
+  }
+
+  const ctrlHits = findCtrlMappingsForAction(ctrl, actionId);
+  if (ctrlHits.length > 0) {
+    labels.push(ctrlHits[0]);
+  }
+
+  const leaderHits = findLeaderSequencesForAction(leader, actionId);
+  if (leaderHits.length > 0) {
+    const leaderLabel = formatLeaderSequence(leaderHits[0]);
+    if (leaderLabel) {
+      labels.push(leaderLabel);
+    }
+  }
+
+  return labels.length > 0 ? labels.join(" | ") : "";
 }
 
 function updateTablineActions() {
@@ -156,6 +234,47 @@ function updateTablineActions() {
   });
 }
 
+function buildUrllineModel() {
+  const model = buffers.getUrllineRenderModel();
+  if (!state.urllineEditing) {
+    return model;
+  }
+
+  return {
+    ...model,
+    editing: {
+      active: true,
+      pane: state.urllinePane === "right" ? "right" : "left",
+      text: state.urllineBuffer,
+      cursorIndex: state.urllineCursorIndex,
+    },
+  };
+}
+
+function updateUrllineRender() {
+  uiShell.renderUrlline(buildUrllineModel());
+}
+
+function updateUrllineActions() {
+  uiShell.setUrllineActions({
+    back: {
+      label: "Previous page",
+      icon: "󰁍",
+      shortcutLabel: findShortcutLabelForAction("nav_back"),
+    },
+    forward: {
+      label: "Next page",
+      icon: "󰁔",
+      shortcutLabel: findShortcutLabelForAction("nav_forward"),
+    },
+    reload: {
+      label: "Reload page",
+      icon: "󰑐",
+      shortcutLabel: findShortcutLabelForAction("reload_page"),
+    },
+  });
+}
+
 function getStatuslineModeLabel() {
   const active = buffers.getActive();
   if (!active || !active.isEditable) {
@@ -167,6 +286,167 @@ function getStatuslineModeLabel() {
   }
 
   return `SHELL:${state.mode}`;
+}
+
+function clampUrllineCursor() {
+  const max = state.urllineBuffer.length;
+  const index = Number.isFinite(state.urllineCursorIndex)
+    ? Math.trunc(state.urllineCursorIndex)
+    : max;
+  state.urllineCursorIndex = Math.max(0, Math.min(index, max));
+}
+
+function startUrllineEdit(pane, initialUrl) {
+  state.urllineEditing = true;
+  state.urllinePane = pane === "right" ? "right" : "left";
+  state.urllineBuffer = String(initialUrl || "");
+  state.urllineCursorIndex = state.urllineBuffer.length;
+  state.mode = "INSERT";
+  uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  updateUrllineRender();
+}
+
+function stopUrllineEdit() {
+  state.urllineEditing = false;
+  state.urllinePane = "left";
+  state.urllineBuffer = "";
+  state.urllineCursorIndex = 0;
+  state.mode = "NORMAL";
+  uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  updateUrllineRender();
+}
+
+function normalizeUrllineText(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.replace(/\r\n|\r|\n/g, " ");
+}
+
+function insertUrllineText(text) {
+  const chunk = normalizeUrllineText(text);
+  if (!chunk) {
+    return;
+  }
+  clampUrllineCursor();
+  const cursor = state.urllineCursorIndex;
+  state.urllineBuffer =
+    state.urllineBuffer.slice(0, cursor) +
+    chunk +
+    state.urllineBuffer.slice(cursor);
+  state.urllineCursorIndex = cursor + chunk.length;
+}
+
+function submitUrlline() {
+  const targetPane = state.urllinePane === "right" ? "right" : "left";
+  const rawInput = String(state.urllineBuffer || "").trim();
+  stopUrllineEdit();
+
+  if (!rawInput) {
+    return;
+  }
+
+  const target = resolveInputTarget(rawInput, {
+    defaultSearchEngine: "duckduckgo",
+  });
+
+  if (target.kind === "invalid") {
+    return;
+  }
+
+  buffers.focusPane(targetPane);
+  const paneBuffer = buffers.getPaneBuffer(targetPane);
+  if (!paneBuffer || paneBuffer.isEditable) {
+    return;
+  }
+
+  paneBuffer.load(target.url);
+}
+
+function handleUrllineInput(event, input) {
+  if (typeof input.pasteText === "string" && input.pasteText.length > 0) {
+    insertUrllineText(input.pasteText);
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Escape") {
+    stopUrllineEdit();
+    return;
+  }
+
+  if (input.key === "Enter") {
+    submitUrlline();
+    return;
+  }
+
+  if (input.key === "Left" || input.key === "ArrowLeft") {
+    clampUrllineCursor();
+    state.urllineCursorIndex = Math.max(0, state.urllineCursorIndex - 1);
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Right" || input.key === "ArrowRight") {
+    clampUrllineCursor();
+    state.urllineCursorIndex = Math.min(state.urllineBuffer.length, state.urllineCursorIndex + 1);
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Home") {
+    state.urllineCursorIndex = 0;
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "End") {
+    state.urllineCursorIndex = state.urllineBuffer.length;
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Backspace") {
+    clampUrllineCursor();
+    if (state.urllineCursorIndex <= 0) {
+      return;
+    }
+
+    const cursor = state.urllineCursorIndex;
+    state.urllineBuffer =
+      state.urllineBuffer.slice(0, cursor - 1) +
+      state.urllineBuffer.slice(cursor);
+    state.urllineCursorIndex = cursor - 1;
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Delete") {
+    clampUrllineCursor();
+    const cursor = state.urllineCursorIndex;
+    if (cursor >= state.urllineBuffer.length) {
+      return;
+    }
+
+    state.urllineBuffer =
+      state.urllineBuffer.slice(0, cursor) +
+      state.urllineBuffer.slice(cursor + 1);
+    updateUrllineRender();
+    return;
+  }
+
+  if (!input.ctrl && !input.meta && !input.alt) {
+    if (input.key === "Space") {
+      insertUrllineText(" ");
+      updateUrllineRender();
+      return;
+    }
+
+    if (typeof input.key === "string" && input.key.length === 1) {
+      insertUrllineText(input.key);
+      updateUrllineRender();
+    }
+  }
 }
 
 function registerUiShellEvents() {
@@ -239,6 +519,43 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "urlline:start-edit") {
+      const pane = payload?.pane === "right" ? "right" : "left";
+      buffers.focusPane(pane);
+      const paneBuffer = buffers.getPaneBuffer(pane);
+      if (!paneBuffer || paneBuffer.isEditable) {
+        return;
+      }
+      startUrllineEdit(pane, paneBuffer.url || "about:blank");
+      return;
+    }
+
+    if (type === "urlline:action") {
+      const pane = payload?.pane === "right" ? "right" : "left";
+      const action = payload?.action;
+      const paneBuffer = buffers.getPaneBuffer(pane);
+      if (!paneBuffer || paneBuffer.isEditable) {
+        return;
+      }
+
+      buffers.focusPane(pane);
+
+      if (action === "back") {
+        paneBuffer.webContents.navigationHistory.goBack();
+        return;
+      }
+
+      if (action === "forward") {
+        paneBuffer.webContents.navigationHistory.goForward();
+        return;
+      }
+
+      if (action === "reload") {
+        paneBuffer.webContents.reload();
+      }
+      return;
+    }
+
     const bufferId = Number.parseInt(payload?.id, 10);
 
     if (!Number.isInteger(bufferId)) return;
@@ -288,12 +605,15 @@ function registerUiShellEvents() {
         fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
         const config = configService.reloadConfig();
         state.applyConfig(config);
+        buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
         buffers.layoutViews();
         const theme = resolveCurrentTheme();
         uiShell.setTheme(theme);
         uiShell.updateSplitDivider(buffers.getSplitStatus());
         broadcastUiShellPush("theme:update", buildThemePayload(theme));
         updateTablineActions();
+        updateUrllineActions();
+        updateUrllineRender();
         return { ok: true };
       } catch (error) {
         return { ok: false, error: error.message };
@@ -382,6 +702,7 @@ function createWindow() {
   registerUiShellEvents();
 
   buffers.init(win);
+  buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
   uiShell.init(win);
   uiShell.setTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
@@ -395,12 +716,15 @@ function createWindow() {
   uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
   uiShell.updateSplitDivider(buffers.getSplitStatus());
   updateTablineActions();
+  updateUrllineActions();
+  updateUrllineRender();
 
   const syncWindowChrome = () => {
     uiShell.setWindowChrome({
       isMaximized: win.isMaximized(),
       isFullScreen: win.isFullScreen(),
     });
+    updateUrllineRender();
   };
 
   win.on("maximize", syncWindowChrome);
@@ -409,6 +733,7 @@ function createWindow() {
   win.on("leave-full-screen", syncWindowChrome);
   win.on("resize", () => {
     uiShell.updateSplitDivider(buffers.getSplitStatus());
+    updateUrllineRender();
   });
 
   let statusPollInFlight = false;
@@ -467,6 +792,17 @@ function createWindow() {
     const activeChanged = Boolean(change.activeChanged);
 
     uiShell.renderTabline(snapshot);
+    const urllineModel = buffers.getUrllineRenderModel();
+    if (state.urllineEditing) {
+      const editingPane = state.urllinePane === "right" ? "right" : "left";
+      const paneStillVisible = Array.isArray(urllineModel.panes)
+        ? urllineModel.panes.some((pane) => pane && pane.pane === editingPane)
+        : false;
+      if (!paneStillVisible) {
+        stopUrllineEdit();
+      }
+    }
+    updateUrllineRender();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
     uiShell.updateSplitDivider(buffers.getSplitStatus());

@@ -80,9 +80,30 @@ function parseCommand(raw) {
     case "config-reload":
       return { type: INTENTS.CONFIG_RELOAD };
 
+    case "urlline": {
+      const option = arg.toLowerCase();
+      if (!option || option === "toggle") {
+        return { type: INTENTS.TOGGLE_URLLINE };
+      }
+
+      if (["on", "enable", "enabled", "true", "1"].includes(option)) {
+        return { type: INTENTS.SET_URLLINE_VISIBILITY, enabled: true };
+      }
+
+      if (["off", "disable", "disabled", "false", "0"].includes(option)) {
+        return { type: INTENTS.SET_URLLINE_VISIBILITY, enabled: false };
+      }
+
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
     case "settings":
     case "config":
       return { type: INTENTS.OPEN_SETTINGS_BUFFER };
+
+    case "focus-context":
+    case "context":
+      return { type: INTENTS.TOGGLE_FOCUS_CONTEXT };
 
     case "duck":
       return {

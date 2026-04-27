@@ -289,6 +289,7 @@ function dispatch(win, intent, state) {
       if (typeof state.applyConfig === "function") {
         state.applyConfig(config);
       }
+      buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
       buffers.layoutViews();
       uiShell.updateSplitDivider(buffers.getSplitStatus());
       console.info("Configuration reloaded from", configService.getConfigPath());
@@ -316,6 +317,17 @@ function dispatch(win, intent, state) {
       } else {
         blurEditableBufferSurface(active);
       }
+      break;
+    }
+
+    case INTENTS.TOGGLE_URLLINE: {
+      const nextVisible = !buffers.isUrllineVisible();
+      buffers.setUrllineVisible(nextVisible);
+      break;
+    }
+
+    case INTENTS.SET_URLLINE_VISIBILITY: {
+      buffers.setUrllineVisible(Boolean(intent.enabled));
       break;
     }
 

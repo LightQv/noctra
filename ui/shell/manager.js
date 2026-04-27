@@ -1,5 +1,6 @@
 const { BrowserView } = require("electron");
 const { renderTabline } = require("../tabline");
+const { renderUrlline: renderShellUrlline } = require("../urlline");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
@@ -429,6 +430,8 @@ class UiShellManager {
       offsetPx: 0,
     };
     this.tablineActions = {};
+    this.urllineActions = {};
+    this.urllineModel = { panes: [] };
     this.windowChrome = {
       platform: process.platform,
       useNativeControls: process.platform === "darwin",
@@ -466,6 +469,7 @@ class UiShellManager {
       this.shellHostReady = true;
       this.applyThemeToWebContents(this.window.webContents);
       this.renderTabline(this.pendingTablineSnapshot);
+      this.renderUrlline(this.urllineModel);
       this.updateSplitDivider(this.splitDividerState);
     });
   }
@@ -580,6 +584,7 @@ class UiShellManager {
     this.applyThemeToWebContents(this.whichKeyOverlayView && this.whichKeyOverlayView.webContents);
     this.applyThemeToWebContents(this.statuslineView && this.statuslineView.webContents);
     this.renderTabline(this.pendingTablineSnapshot);
+    this.renderUrlline(this.urllineModel);
     this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
     this.updateSplitDivider(this.splitDividerState);
   }
@@ -639,6 +644,26 @@ class UiShellManager {
       ...actions,
     };
     this.renderTabline(this.pendingTablineSnapshot);
+  }
+
+  renderUrlline(model = { panes: [] }) {
+    this.urllineModel = model && typeof model === "object" ? model : { panes: [] };
+
+    if (!this.window || !this.shellHostReady) return;
+
+    renderShellUrlline(
+      this.window.webContents,
+      this.urllineModel,
+      this.urllineActions,
+      this.currentTheme,
+    );
+  }
+
+  setUrllineActions(actions = {}) {
+    this.urllineActions = {
+      ...actions,
+    };
+    this.renderUrlline(this.urllineModel);
   }
 
   setWindowChrome(chrome = {}) {
@@ -838,7 +863,7 @@ class UiShellManager {
         });
 
         const columnCount = 3;
-        const maxRowsPerColumn = 6;
+        const maxRowsPerColumn = 5;
         const columns = Array.from({ length: columnCount }, (_, index) =>
           entries.slice(index * maxRowsPerColumn, (index + 1) * maxRowsPerColumn),
         );

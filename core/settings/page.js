@@ -71,13 +71,6 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         min-width: 0;
       }
 
-      #title {
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--ui-text-muted);
-      }
-
       #path {
         font-size: 12px;
         color: var(--ui-text-soft);
@@ -159,7 +152,6 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
   <body>
       <div id="topbar">
         <div id="meta">
-          <span id="title">FILEPATH</span>
           <span id="path">${String(configPath || "")}</span>
         </div>
         <div id="actions">

@@ -62,6 +62,7 @@ const ACTION_BUILDERS = {
   focus_split_right: createActionBuilder("focus_split_right", () => ({ type: INTENTS.FOCUS_SPLIT_RIGHT })),
   open_settings: createActionBuilder("open_settings", () => ({ type: INTENTS.OPEN_SETTINGS_BUFFER })),
   toggle_focus_context: createActionBuilder("toggle_focus_context", () => ({ type: INTENTS.TOGGLE_FOCUS_CONTEXT })),
+  toggle_urlline: createActionBuilder("toggle_urlline", () => ({ type: INTENTS.TOGGLE_URLLINE })),
   close_buffer: createActionBuilder("close_buffer", () => ({ type: INTENTS.CLOSE_BUFFER })),
   close_focused: createActionBuilder("close_focused", () => ({ type: INTENTS.CLOSE_FOCUSED })),
   close_left_buffers: createActionBuilder("close_left_buffers", () => ({ type: INTENTS.CLOSE_LEFT_BUFFERS })),

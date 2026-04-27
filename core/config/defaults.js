@@ -29,6 +29,7 @@ const defaultConfig = {
     },
     theme: {
       mode: "dark",
+      content_mode: "dark",
       overrides: {},
     },
     split: {

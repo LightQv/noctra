@@ -87,6 +87,24 @@ function normalizeThemeMode(value, fallback = "dark") {
   return fallback;
 }
 
+function normalizeContentThemeMode(value, fallback = "dark") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === "dark" ||
+    normalized === "light" ||
+    normalized === "auto" ||
+    normalized === "match"
+  ) {
+    return normalized;
+  }
+
+  return fallback;
+}
+
 function mergeWithFallback(primaryNode, fallbackNode) {
   if (!isPlainObject(primaryNode)) {
     return isPlainObject(fallbackNode) ? fallbackNode : {};
@@ -300,6 +318,11 @@ function normalizeConfig(rawConfig) {
       defaults.global.theme.mode,
     );
     normalizedGlobal.theme.mode = normalizedThemeMode;
+
+    normalizedGlobal.theme.content_mode = normalizeContentThemeMode(
+      themeSection.content_mode,
+      defaults.global.theme.content_mode,
+    );
 
     if (isPlainObject(themeSection.overrides)) {
       normalizedGlobal.theme.overrides = themeSection.overrides;

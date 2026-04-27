@@ -1,6 +1,6 @@
 const { BrowserView } = require("electron");
 const { EventEmitter } = require("events");
-const { applyScrollableUi } = require("./contentUi");
+const { applyScrollableUi, releaseChromiumPreferredColorScheme } = require("./contentUi");
 const {
   UI_SCROLLBAR_THUMB_COLOR,
   UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
@@ -60,6 +60,7 @@ class Buffer extends EventEmitter {
       widthPx: 6,
       hideDelayMs: 700,
       trackColor: "transparent",
+      contentColorScheme: "dark",
       thumbColor: UI_SCROLLBAR_THUMB_COLOR,
       thumbActiveColor: UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
     };
@@ -149,6 +150,7 @@ class Buffer extends EventEmitter {
 
   destroy() {
     this.removeAllListeners();
+    releaseChromiumPreferredColorScheme(this.webContents);
     if (!this.webContents.isDestroyed()) {
       this.webContents.destroy();
     }

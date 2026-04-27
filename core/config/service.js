@@ -112,10 +112,43 @@ function readRawConfig() {
   return migrateLegacyConfig(parsed);
 }
 
+function addThemeComments(yamlText) {
+  const lines = String(yamlText || "").split("\n");
+  const output = [];
+
+  for (const line of lines) {
+    if (/^  theme:\s*$/.test(line)) {
+      output.push("  # Theme controls for Noctra shell and surfaces");
+    }
+
+    if (/^    mode:\s*/.test(line)) {
+      output.push("    # App theme mode: dark | light | auto | custom");
+      output.push("    # custom uses global.theme.overrides");
+    }
+
+    if (/^    content_mode:\s*/.test(line)) {
+      output.push("    # Browser content mode: dark | light | auto | match");
+      output.push("    # match follows app theme, but custom falls back to auto(system)");
+    }
+
+    if (/^    overrides:\s*$/.test(line)) {
+      output.push("    # Overrides are applied only when mode is custom");
+    }
+
+    output.push(line);
+  }
+
+  return output.join("\n");
+}
+
+function serializeConfig(configObject) {
+  return addThemeComments(stringify(configObject));
+}
+
 function syncConfigFile(rawConfig) {
   const migratedRaw = migrateLegacyConfig(rawConfig);
   const merged = mergeWithDefaults(defaultConfig, migratedRaw);
-  const nextText = stringify(merged);
+  const nextText = serializeConfig(merged);
 
   try {
     const currentText = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
@@ -130,7 +163,7 @@ function syncConfigFile(rawConfig) {
 }
 
 function writeDefaultConfig() {
-  fs.writeFileSync(CONFIG_FILE_PATH, stringify(defaultConfig), "utf8");
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(defaultConfig), "utf8");
 }
 
 function getBackupPath() {
@@ -288,7 +321,7 @@ function updateThemeMode(nextMode) {
     delete rawConfig.global.theme.name;
   }
 
-  fs.writeFileSync(CONFIG_FILE_PATH, stringify(rawConfig), "utf8");
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
   return loadConfig();
 }
 

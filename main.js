@@ -8,7 +8,14 @@ const configService = require("./core/config/service");
 const uiShell = require("./ui/shell/manager");
 const { dispatch } = require("./core/dispatcher");
 const { INTENTS } = require("./core/intents");
-const { normalizeThemeMode, resolveTheme, resolveThemeMode, toCssVars } = require("./ui/theme");
+const {
+  normalizeThemeMode,
+  normalizeContentThemeMode,
+  resolveTheme,
+  resolveThemeMode,
+  resolveContentColorScheme,
+  toCssVars,
+} = require("./ui/theme");
 const { resolveInputTarget } = require("./core/resolver");
 let win;
 let activeInputWebContents = null;
@@ -22,12 +29,16 @@ function resolveCurrentTheme() {
     "dark",
   );
   const resolvedMode = resolveThemeMode(themeConfig, { systemPrefersDark });
+  const contentMode = normalizeContentThemeMode(themeConfig?.content_mode, "dark");
+  const contentColorScheme = resolveContentColorScheme(themeConfig, { systemPrefersDark });
   const theme = resolveTheme(themeConfig, { systemPrefersDark });
 
   return {
     theme,
     configuredMode,
     resolvedMode,
+    contentMode,
+    contentColorScheme,
   };
 }
 
@@ -47,9 +58,11 @@ function buildThemePayload(themeContext) {
 }
 
 function syncContentUiTheme(theme) {
+  const contentColorScheme = theme.contentColorScheme === "light" ? "light" : "dark";
   buffers.setContentUiOptions({
     thumbColor: theme.scrollbarThumbColor,
     thumbActiveColor: theme.scrollbarThumbActiveColor,
+    contentColorScheme,
   });
 }
 
@@ -57,7 +70,11 @@ function applyTheme(themeContext, options = {}) {
   const shouldBroadcast = Boolean(options.broadcast);
   const payload = buildThemePayload(themeContext);
   uiShell.setTheme(payload.theme);
-  syncContentUiTheme(payload.theme);
+  syncContentUiTheme({
+    ...payload.theme,
+    contentColorScheme:
+      themeContext && themeContext.contentColorScheme === "light" ? "light" : "dark",
+  });
   buffers.refreshDashboardBuffers();
   if (shouldBroadcast) {
     broadcastUiShellPush("theme:update", payload);
@@ -883,7 +900,11 @@ function createWindow() {
 
   const onNativeThemeUpdated = () => {
     const themeContext = resolveCurrentTheme();
-    if (themeContext.configuredMode !== "auto") {
+    const shouldApplyFromSystem =
+      themeContext.configuredMode === "auto" ||
+      themeContext.contentMode === "auto" ||
+      (themeContext.contentMode === "match" && themeContext.configuredMode === "custom");
+    if (!shouldApplyFromSystem) {
       return;
     }
 

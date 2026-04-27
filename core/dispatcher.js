@@ -7,7 +7,12 @@ const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
 const { buildSettingsPageHtml } = require("./settings/page");
-const { resolveTheme, resolveThemeMode, toCssVars } = require("../ui/theme");
+const {
+  resolveTheme,
+  resolveThemeMode,
+  resolveContentColorScheme,
+  toCssVars,
+} = require("../ui/theme");
 
 function computeStatuslineModeLabel(state) {
   const active = buffers.getActive();
@@ -116,10 +121,14 @@ function resolveCurrentThemeContext() {
   const theme = resolveTheme(themeConfig, {
     systemPrefersDark: nativeTheme.shouldUseDarkColors,
   });
+  const contentColorScheme = resolveContentColorScheme(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
 
   return {
     theme,
     resolvedMode,
+    contentColorScheme,
   };
 }
 
@@ -160,6 +169,7 @@ function applyThemeEverywhere(win) {
   buffers.setContentUiOptions({
     thumbColor: payload.theme.scrollbarThumbColor,
     thumbActiveColor: payload.theme.scrollbarThumbActiveColor,
+    contentColorScheme: themeContext.contentColorScheme === "light" ? "light" : "dark",
   });
   buffers.refreshDashboardBuffers();
   broadcastUiShellPush(win, "theme:update", payload);

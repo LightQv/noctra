@@ -81,6 +81,7 @@ const LIGHT_THEME = Object.freeze({
 });
 
 const THEME_MODES = new Set(["dark", "light", "auto", "custom"]);
+const CONTENT_THEME_MODES = new Set(["dark", "light", "auto", "match"]);
 
 function readConfiguredThemeMode(themeConfig = {}) {
   if (typeof themeConfig?.mode === "string") {
@@ -121,6 +122,37 @@ function resolveThemeMode(themeConfig = {}, options = {}) {
 
   if (configuredMode !== "auto") {
     return configuredMode;
+  }
+
+  return options.systemPrefersDark === false ? "light" : "dark";
+}
+
+function normalizeContentThemeMode(input, fallback = "dark") {
+  if (typeof input !== "string") {
+    return CONTENT_THEME_MODES.has(fallback) ? fallback : "dark";
+  }
+
+  const normalized = input.trim().toLowerCase();
+  if (CONTENT_THEME_MODES.has(normalized)) {
+    return normalized;
+  }
+
+  return CONTENT_THEME_MODES.has(fallback) ? fallback : "dark";
+}
+
+function resolveContentColorScheme(themeConfig = {}, options = {}) {
+  const contentMode = normalizeContentThemeMode(themeConfig?.content_mode, "dark");
+  if (contentMode === "dark" || contentMode === "light") {
+    return contentMode;
+  }
+
+  if (contentMode === "auto") {
+    return options.systemPrefersDark === false ? "light" : "dark";
+  }
+
+  const appResolvedMode = resolveThemeMode(themeConfig, options);
+  if (appResolvedMode === "dark" || appResolvedMode === "light") {
+    return appResolvedMode;
   }
 
   return options.systemPrefersDark === false ? "light" : "dark";
@@ -217,7 +249,9 @@ module.exports = {
   DEFAULT_THEME,
   LIGHT_THEME,
   normalizeThemeMode,
+  normalizeContentThemeMode,
   resolveThemeMode,
+  resolveContentColorScheme,
   resolveTheme,
   toCssVars,
 };

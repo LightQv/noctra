@@ -587,6 +587,18 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "editor:open-command") {
+      const initialText =
+        typeof payload?.initialText === "string" ? payload.initialText : "";
+      state.mode = "COMMAND";
+      state.commandTarget = "EDITOR";
+      state.commandBuffer = initialText;
+      state.commandCursorIndex = initialText.length;
+      dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
+      dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
+      return;
+    }
+
     if (type === "editor:ready") {
       state.interactionContext = "EDITOR";
       state.editorMode = "NORMAL";

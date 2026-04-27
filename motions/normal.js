@@ -171,6 +171,7 @@ function handleNormal(state, input) {
     state.mode = "COMMAND";
     state.commandBuffer = "";
     state.commandCursorIndex = 0;
+    state.commandTarget = "SHELL";
     return { type: INTENTS.SHOW_COMMAND };
   }
 

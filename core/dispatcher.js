@@ -56,6 +56,20 @@ function blurEditableBufferSurface(buffer) {
   ).catch(() => {});
 }
 
+function runEditableExCommand(buffer, commandText) {
+  if (!buffer || !buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+    return;
+  }
+
+  buffer.webContents.executeJavaScript(
+    `
+      if (typeof window.__settingsEditorRunCommand__ === "function") {
+        window.__settingsEditorRunCommand__(${JSON.stringify(String(commandText || ""))});
+      }
+    `,
+  ).catch(() => {});
+}
+
 function openSettingsBuffer() {
   const existing = buffers.findByKind("editable");
   const configPath = configService.getConfigPath();
@@ -253,18 +267,36 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SHOW_COMMAND:
-      uiShell.showCommand(state.commandBuffer, state.commandCursorIndex);
+      uiShell.showCommand(
+        state.commandBuffer,
+        state.commandCursorIndex,
+        state.commandTarget === "EDITOR" ? "editor" : "shell",
+      );
       buffers.focusActive();
       break;
 
     case INTENTS.HIDE_COMMAND:
+      state.commandTarget = "SHELL";
       uiShell.hideCommand();
       buffers.focusActive();
+      if (state.interactionContext === "EDITOR") {
+        focusEditableBufferSurface(buffers.getActive());
+      }
       break;
 
     case INTENTS.COMMAND_INPUT:
-      uiShell.updateCommand(state.commandBuffer, state.commandCursorIndex);
+      uiShell.updateCommand(
+        state.commandBuffer,
+        state.commandCursorIndex,
+        state.commandTarget === "EDITOR" ? "editor" : "shell",
+      );
       break;
+
+    case INTENTS.SUBMIT_EDITOR_COMMAND: {
+      const activeEditableBuffer = buffers.getActive();
+      runEditableExCommand(activeEditableBuffer, intent.command);
+      break;
+    }
 
     case INTENTS.SHOW_WHICHKEY:
       uiShell.showWhichKey(intent.model || null, intent.timeoutMs, intent.delayMs);
@@ -282,6 +314,7 @@ function dispatch(win, intent, state) {
       state.mode = "COMMAND";
       state.commandBuffer = "open ";
       state.commandCursorIndex = state.commandBuffer.length;
+      state.commandTarget = "SHELL";
       dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
       dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
       break;

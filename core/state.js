@@ -6,6 +6,7 @@ const state = {
   countBuffer: "",
   commandBuffer: "",
   commandCursorIndex: 0,
+  commandTarget: "SHELL",
   leaderKey: "Space",
   leaderActive: false,
   leaderPath: [],

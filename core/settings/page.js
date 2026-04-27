@@ -1,4 +1,12 @@
-const { UI_FONT_FAMILY, UI_FONT_FACE_CSS } = require("../../ui/constants");
+const {
+  UI_FONT_FAMILY,
+  UI_FONT_FACE_CSS,
+  UI_SHELL_TABLINE_HEIGHT,
+  UI_CHROME_ICON_BUTTON_SIZE,
+  UI_CHROME_BORDER_RADIUS,
+  UI_CHROME_HORIZONTAL_PADDING,
+  UI_CHROME_ICON_GLYPH_SIZE,
+} = require("../../ui/constants");
 const { resolveTheme, toCssVars } = require("../../ui/theme");
 
 const CODEMIRROR_CSS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css";
@@ -12,10 +20,11 @@ const CODEMIRROR_DIALOG_JS_URL =
 const CODEMIRROR_VIM_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/keymap/vim.js";
 const CODEMIRROR_YAML_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/yaml/yaml.js";
 
-function buildSettingsPageHtml(configPath, themeInput = null) {
+function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "") {
   const theme = resolveTheme({ overrides: themeInput || {} });
   const themeVars = toCssVars(theme);
   const initialThemeVars = JSON.stringify(themeVars);
+  const initialContentJson = JSON.stringify(String(initialContent || ""));
   const initialThemeCss = Object.entries(themeVars)
     .map(([name, value]) => `${name}: ${value};`)
     .join("\n        ");
@@ -59,9 +68,11 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 8px 12px;
+        height: ${UI_SHELL_TABLINE_HEIGHT}px;
+        padding: 0 ${UI_CHROME_HORIZONTAL_PADDING}px;
+        box-sizing: border-box;
         border-bottom: 1px solid var(--ui-border-strong);
-        background: var(--ui-bg-panel);
+        background: var(--ui-bg-shell);
       }
 
       #meta {
@@ -81,21 +92,21 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 
       #actions {
         display: inline-flex;
-        gap: 8px;
+        gap: 6px;
       }
 
       .action-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 24px;
-        height: 24px;
+        width: ${UI_CHROME_ICON_BUTTON_SIZE}px;
+        height: ${UI_CHROME_ICON_BUTTON_SIZE}px;
         border: 1px solid var(--ui-border);
-        border-radius: 4px;
+        border-radius: ${UI_CHROME_BORDER_RADIUS}px;
         background: var(--ui-bg-elevated);
         color: var(--ui-text);
         font-family: inherit;
-        font-size: 16px;
+        font-size: ${UI_CHROME_ICON_GLYPH_SIZE}px;
         line-height: 1;
         padding: 0;
         cursor: pointer;
@@ -172,7 +183,23 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         const saveBtn = document.getElementById("save-btn");
         const reloadBtn = document.getElementById("reload-btn");
 
-        if (!root || !window.uiShell || typeof window.CodeMirror === "undefined") return;
+        if (!root || typeof window.CodeMirror === "undefined") return;
+
+        const shell = window.uiShell && typeof window.uiShell === "object" ? window.uiShell : null;
+        const invokeShell = (type, payload) => {
+          if (!shell || typeof shell.invoke !== "function") {
+            return Promise.resolve({ ok: false });
+          }
+          return shell.invoke(type, payload);
+        };
+        const emitShell = (type, payload) => {
+          if (!shell || typeof shell.emit !== "function") return;
+          shell.emit(type, payload);
+        };
+        const onShell = (type, handler) => {
+          if (!shell || typeof shell.on !== "function") return;
+          shell.on(type, handler);
+        };
 
         const applyThemeVars = (vars) => {
           if (!vars || typeof vars !== "object") return;
@@ -186,7 +213,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         applyThemeVars(initialThemeVars);
 
         const editor = window.CodeMirror(root, {
-          value: "",
+          value: ${initialContentJson},
           mode: "yaml",
           keyMap: "vim",
           lineNumbers: true,
@@ -213,16 +240,16 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
             reloadContent().catch(() => {});
           });
           defineVimExCommand("quit", "q", () => {
-            window.uiShell.invoke("settings:close").catch(() => {});
+            invokeShell("settings:close").catch(() => {});
           });
           defineVimExCommand("wq", "wq", () => {
             saveContent()
-              .then(() => window.uiShell.invoke("settings:close"))
+              .then(() => invokeShell("settings:close"))
               .catch(() => {});
           });
           defineVimExCommand("xit", "x", () => {
             saveContent()
-              .then(() => window.uiShell.invoke("settings:close"))
+              .then(() => invokeShell("settings:close"))
               .catch(() => {});
           });
           window.__settingsEditorExDefined__ = true;
@@ -250,7 +277,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         const notifyReady = () => {
           if (didNotifyReady) return;
           didNotifyReady = true;
-          window.uiShell.emit("editor:ready");
+          emitShell("editor:ready");
         };
 
         const isLeaderStroke = (event) => {
@@ -263,7 +290,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 
         const setMode = (next) => {
           mode = next;
-          window.uiShell.emit("editor:mode-change", { mode });
+          emitShell("editor:mode-change", { mode });
         };
 
         const lineNumberFormatter = (line) => {
@@ -349,7 +376,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         };
 
         const saveContent = async () => {
-          await window.uiShell.invoke("settings:save", { content: editor.getValue() });
+          await invokeShell("settings:save", { content: editor.getValue() });
         };
 
         const loadBaselineContent = (content) => {
@@ -359,7 +386,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         };
 
         const reloadContent = async () => {
-          const result = await window.uiShell.invoke("settings:get");
+          const result = await invokeShell("settings:get");
           if (!result || !result.ok) return;
           applyThemeVars(result.themeVars);
           loadBaselineContent(result.content);
@@ -375,11 +402,9 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
               : "Space";
         };
 
-        if (typeof window.uiShell.on === "function") {
-          window.uiShell.on("theme:update", (payload) => {
-            applyThemeVars(payload && payload.themeVars);
-          });
-        }
+        onShell("theme:update", (payload) => {
+          applyThemeVars(payload && payload.themeVars);
+        });
 
         const focusEditorSurface = () => {
           editor.focus();
@@ -387,7 +412,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 
         const enterEditorContext = () => {
           focusEditorSurface();
-          window.uiShell.emit("editor:focus-request");
+          emitShell("editor:focus-request");
         };
 
         window.__settingsEditorFocus__ = () => {
@@ -419,7 +444,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
             if (isTab) {
               event.preventDefault();
               event.stopImmediatePropagation();
-              window.uiShell.emit("editor:toggle-context");
+              emitShell("editor:toggle-context");
             }
             return;
           }
@@ -471,13 +496,23 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
           ensureCursorVisibleWithScrolloff();
         });
 
-        reloadContent().then(() => {
+        if (shell && typeof shell.invoke === "function") {
+          reloadContent().then(() => {
+            focusEditorSurface();
+            notifyReady();
+          }).catch(() => {
+            focusEditorSurface();
+            notifyReady();
+          });
+        } else {
+          loadBaselineContent(${initialContentJson});
+          snapEditorViewportToLineGrid();
+          applyLineNumbers();
+          applyScrolloff();
+          ensureCursorVisibleWithScrolloff();
           focusEditorSurface();
           notifyReady();
-        }).catch(() => {
-          focusEditorSurface();
-          notifyReady();
-        });
+        }
       })();
     </script>
   </body>

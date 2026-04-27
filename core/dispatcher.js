@@ -1,4 +1,5 @@
 const { app } = require("electron");
+const fs = require("fs");
 const path = require("path");
 const buffers = require("../browser/manager");
 const uiShell = require("../ui/shell/manager");
@@ -60,7 +61,13 @@ function openSettingsBuffer() {
   }
 
   const theme = resolveTheme(configService.getConfigValue("global.theme", {}));
-  const html = buildSettingsPageHtml(configPath, theme);
+  let initialContent = "";
+  try {
+    initialContent = fs.readFileSync(configPath, "utf8");
+  } catch {
+    initialContent = "";
+  }
+  const html = buildSettingsPageHtml(configPath, theme, initialContent);
 
   const buffer = buffers.create(null, {
     kind: "editable",

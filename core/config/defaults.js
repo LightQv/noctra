@@ -33,7 +33,7 @@ const defaultConfig = {
         appBackground: "#0f131a",
         surfaceBackground: "#171b22",
         panelBackground: "#161b24",
-        statuslineBackground: "#151a22",
+        shellBackground: "#151a22",
         elevatedBackground: "#1a2230",
         subtleBackground: "#202633",
         windowControlBackground: "#212734",

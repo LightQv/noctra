@@ -25,12 +25,26 @@ const SHELL_HTML = `
         overflow: hidden;
       }
 
+      #split-divider {
+        position: fixed;
+        top: ${UI_SHELL_TABLINE_HEIGHT}px;
+        bottom: ${UI_SHELL_STATUSLINE_HEIGHT}px;
+        width: 1px;
+        left: 0;
+        display: none;
+        pointer-events: none;
+        background: var(--ui-split-divider, #283140);
+        z-index: 1;
+      }
+
       :root {
         --ui-font-family: ${UI_FONT_FAMILY};
       }
     </style>
   </head>
-  <body></body>
+  <body>
+    <div id="split-divider" aria-hidden="true"></div>
+  </body>
 </html>
 `;
 
@@ -410,6 +424,10 @@ class UiShellManager {
     };
     this.pendingTablineSnapshot = [];
     this.tablineRenderTimer = null;
+    this.splitDividerState = {
+      visible: false,
+      offsetPx: 0,
+    };
     this.tablineActions = {};
     this.windowChrome = {
       platform: process.platform,
@@ -448,6 +466,7 @@ class UiShellManager {
       this.shellHostReady = true;
       this.applyThemeToWebContents(this.window.webContents);
       this.renderTabline(this.pendingTablineSnapshot);
+      this.updateSplitDivider(this.splitDividerState);
     });
   }
 
@@ -562,6 +581,33 @@ class UiShellManager {
     this.applyThemeToWebContents(this.statuslineView && this.statuslineView.webContents);
     this.renderTabline(this.pendingTablineSnapshot);
     this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
+    this.updateSplitDivider(this.splitDividerState);
+  }
+
+  updateSplitDivider(splitStatus = {}) {
+    const divider = splitStatus.divider && typeof splitStatus.divider === "object"
+      ? splitStatus.divider
+      : {};
+    const visible = Boolean(divider.visible);
+    const offsetPx = Number.isFinite(divider.offsetPx) ? Math.max(0, Math.floor(divider.offsetPx)) : 0;
+
+    this.splitDividerState = {
+      visible,
+      offsetPx,
+    };
+
+    if (!this.window || !this.shellHostReady) return;
+
+    this.window.webContents.executeJavaScript(`
+      (function updateSplitDivider() {
+        const divider = document.getElementById('split-divider');
+        if (!divider) return;
+        const visible = ${JSON.stringify(visible)};
+        const offsetPx = ${JSON.stringify(offsetPx)};
+        divider.style.display = visible ? 'block' : 'none';
+        divider.style.left = visible ? offsetPx + 'px' : '0px';
+      })();
+    `).catch(() => {});
   }
 
   applyThemeToWebContents(webContents) {

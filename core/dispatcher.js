@@ -285,6 +285,8 @@ function dispatch(win, intent, state) {
       if (typeof state.applyConfig === "function") {
         state.applyConfig(config);
       }
+      buffers.layoutViews();
+      uiShell.updateSplitDivider(buffers.getSplitStatus());
       console.info("Configuration reloaded from", configService.getConfigPath());
       break;
     }

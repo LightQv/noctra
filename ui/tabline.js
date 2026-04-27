@@ -13,8 +13,10 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme = {}) {
+function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme = {}, options = {}) {
   if (!webContents || webContents.isDestroyed()) return;
+
+  const showFavicon = Boolean(options.showFavicon);
 
   const palette = {
     surfaceBackground: theme.surfaceBackground || DEFAULT_THEME.surfaceBackground,
@@ -44,6 +46,14 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
   const tabsMarkup = snapshot
     .map((buffer) => {
       const title = escapeHtml(buffer.title || buffer.url || "[No title]");
+      const faviconUrl =
+        typeof buffer.faviconUrl === "string" && buffer.faviconUrl.trim().length > 0
+          ? buffer.faviconUrl.trim()
+          : "";
+      const faviconMarkup =
+        showFavicon && faviconUrl
+          ? `<span class="tab-favicon"><img class="tab-favicon-img" src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" onerror="if (this.parentElement) this.parentElement.style.display='none'; this.remove();"></span>`
+          : "";
       const classes = ["tab"];
       if (buffer.isFocusedPaneBuffer || buffer.isActive) {
         classes.push("is-active");
@@ -53,7 +63,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         classes.push("is-secondary-active");
       }
 
-      return `<span class="${classes.join(" ")}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${buffer.id}: ${title}</span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
+      return `<span class="${classes.join(" ")}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${faviconMarkup}<span class="tab-label-text">${buffer.id}: ${title}</span></span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
     })
     .join("");
 
@@ -289,10 +299,40 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
 
       root.querySelectorAll('.tab-label').forEach((label) => {
         Object.assign(label.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          minWidth: '0',
+          overflow: 'hidden',
+          maxWidth: '260px',
+        });
+      });
+
+      root.querySelectorAll('.tab-label-text').forEach((text) => {
+        Object.assign(text.style, {
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          maxWidth: '260px',
+        });
+      });
+
+      root.querySelectorAll('.tab-favicon').forEach((icon) => {
+        Object.assign(icon.style, {
+          width: '14px',
+          height: '14px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: '0',
+        });
+      });
+
+      root.querySelectorAll('.tab-favicon-img').forEach((image) => {
+        Object.assign(image.style, {
+          width: '14px',
+          height: '14px',
+          display: 'block',
+          borderRadius: '2px',
         });
       });
 

@@ -18,6 +18,7 @@ const defaultConfig = {
     ui: {
       tabline: {
         enabled: true,
+        show_favicon: false,
       },
       urlline: {
         enabled: false,

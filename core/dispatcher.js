@@ -289,6 +289,9 @@ function dispatch(win, intent, state) {
       if (typeof state.applyConfig === "function") {
         state.applyConfig(config);
       }
+      uiShell.setTablineOptions({
+        showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
+      });
       buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
       buffers.layoutViews();
       uiShell.updateSplitDivider(buffers.getSplitStatus());

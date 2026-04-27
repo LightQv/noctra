@@ -288,8 +288,10 @@ function registerUiShellEvents() {
         fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
         const config = configService.reloadConfig();
         state.applyConfig(config);
+        buffers.layoutViews();
         const theme = resolveCurrentTheme();
         uiShell.setTheme(theme);
+        uiShell.updateSplitDivider(buffers.getSplitStatus());
         broadcastUiShellPush("theme:update", buildThemePayload(theme));
         updateTablineActions();
         return { ok: true };
@@ -391,6 +393,7 @@ function createWindow() {
   uiShell.updateStatuslineMode(state.mode);
   uiShell.updateStatuslineScroll(0);
   uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
+  uiShell.updateSplitDivider(buffers.getSplitStatus());
   updateTablineActions();
 
   const syncWindowChrome = () => {
@@ -404,6 +407,9 @@ function createWindow() {
   win.on("unmaximize", syncWindowChrome);
   win.on("enter-full-screen", syncWindowChrome);
   win.on("leave-full-screen", syncWindowChrome);
+  win.on("resize", () => {
+    uiShell.updateSplitDivider(buffers.getSplitStatus());
+  });
 
   let statusPollInFlight = false;
 
@@ -463,6 +469,7 @@ function createWindow() {
     uiShell.renderTabline(snapshot);
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
+    uiShell.updateSplitDivider(buffers.getSplitStatus());
 
     if (activeChanged || activeInputWebContents !== active.webContents) {
       bindInputToActiveBuffer();

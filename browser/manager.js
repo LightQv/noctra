@@ -20,6 +20,10 @@ class BufferManager {
     this.devtoolsView = null;
     this.devtoolsTarget = null;
     this.contentUiOptions = {};
+    this.splitDivider = {
+      visible: false,
+      offsetPx: 0,
+    };
   }
 
   init(windowRef) {
@@ -383,6 +387,10 @@ class BufferManager {
       enabled: this.split.enabled,
       mode: this.split.mode,
       focusedPane: this.focusedPane,
+      divider: {
+        visible: this.splitDivider.visible,
+        offsetPx: this.splitDivider.offsetPx,
+      },
     };
   }
 
@@ -564,14 +572,25 @@ class BufferManager {
     const visibleRightMainBuffer =
       this.split.mode === "regular" && rightSource && !useMirroredRight ? rightSource : null;
 
-    const rightWidth = showSplit ? Math.max(Math.floor(bounds.width * this.split.ratio), 1) : 0;
-    const leftWidth = showSplit ? Math.max(bounds.width - rightWidth, 1) : bounds.width;
+    const splitDividerEnabled = getConfigValue("global.split.divider.enabled", true);
+    const dividerWidth = showSplit && splitDividerEnabled ? 1 : 0;
+    const availableSplitWidth = Math.max(bounds.width - dividerWidth, 2);
+    const rightWidth = showSplit
+      ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
+      : 0;
+    const leftWidth = showSplit
+      ? Math.max(availableSplitWidth - rightWidth, 1)
+      : bounds.width;
+    const rightX = leftWidth + dividerWidth;
+
+    this.splitDivider.visible = showSplit && dividerWidth > 0;
+    this.splitDivider.offsetPx = this.splitDivider.visible ? leftWidth : 0;
 
     for (const buffer of this.buffers) {
       if (buffer === left || buffer === visibleRightMainBuffer) {
         const isRightBuffer = buffer === visibleRightMainBuffer;
         buffer.view.setBounds({
-          x: isRightBuffer ? leftWidth : 0,
+          x: isRightBuffer ? rightX : 0,
           y: contentTop,
           width: isRightBuffer ? rightWidth : leftWidth,
           height: contentHeight,
@@ -591,7 +610,7 @@ class BufferManager {
         }
 
         rightRegular.view.setBounds({
-          x: leftWidth,
+          x: rightX,
           y: contentTop,
           width: rightWidth,
           height: contentHeight,
@@ -606,7 +625,7 @@ class BufferManager {
     if (this.devtoolsView) {
       if (showSplit && this.split.mode === "devtools") {
         this.devtoolsView.setBounds({
-          x: leftWidth,
+          x: rightX,
           y: contentTop,
           width: rightWidth,
           height: contentHeight,

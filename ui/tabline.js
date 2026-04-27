@@ -2,6 +2,7 @@ const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_FONT_FAMILY,
 } = require("./constants");
+const { DEFAULT_THEME } = require("./theme");
 
 function escapeHtml(value) {
   return String(value)
@@ -16,23 +17,23 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
   if (!webContents || webContents.isDestroyed()) return;
 
   const palette = {
-    surfaceBackground: theme.surfaceBackground || "#171b22",
-    borderColor: theme.borderColor || "#2f3440",
-    textColor: theme.textColor || "#d8e3f8",
-    mutedTextColor: theme.mutedTextColor || "#7d8aa3",
-    elevatedBackground: theme.elevatedBackground || "#1a2230",
-    borderMutedColor: theme.borderMutedColor || "#2f3a4d",
-    softTextColor: theme.softTextColor || "#d4def2",
-    accentIconColor: theme.accentIconColor || "#8ec5ff",
-    windowControlBackground: theme.windowControlBackground || "#212734",
-    dangerBackground: theme.dangerBackground || "#3a1f27",
-    dangerTextColor: theme.dangerTextColor || "#ffb4c2",
-    subtleBackground: theme.subtleBackground || "#202633",
-    accentPillBackground: theme.accentPillBackground || "#263846",
-    accentPillBorder: theme.accentPillBorder || "#5d90a2",
-    mainColor: theme.mainColor || "#89dceb",
-    secondaryActiveTextColor: theme.secondaryActiveTextColor || "#83abc6",
-    fontFamily: theme.fontFamily || UI_FONT_FAMILY,
+    surfaceBackground: theme.surfaceBackground || DEFAULT_THEME.surfaceBackground,
+    borderColor: theme.borderColor || DEFAULT_THEME.borderColor,
+    textColor: theme.textColor || DEFAULT_THEME.textColor,
+    mutedTextColor: theme.mutedTextColor || DEFAULT_THEME.mutedTextColor,
+    elevatedBackground: theme.elevatedBackground || DEFAULT_THEME.elevatedBackground,
+    borderMutedColor: theme.borderMutedColor || DEFAULT_THEME.borderMutedColor,
+    softTextColor: theme.softTextColor || DEFAULT_THEME.softTextColor,
+    accentIconColor: theme.accentIconColor || DEFAULT_THEME.accentIconColor,
+    windowControlBackground: theme.windowControlBackground || DEFAULT_THEME.windowControlBackground,
+    dangerBackground: theme.dangerBackground || DEFAULT_THEME.dangerBackground,
+    dangerTextColor: theme.dangerTextColor || DEFAULT_THEME.dangerTextColor,
+    subtleBackground: theme.subtleBackground || DEFAULT_THEME.subtleBackground,
+    accentPillBackground: theme.accentPillBackground || DEFAULT_THEME.accentPillBackground,
+    accentPillBorder: theme.accentPillBorder || DEFAULT_THEME.accentPillBorder,
+    mainColor: theme.mainColor || DEFAULT_THEME.mainColor,
+    secondaryActiveTextColor: theme.secondaryActiveTextColor || DEFAULT_THEME.secondaryActiveTextColor,
+    fontFamily: theme.fontFamily || DEFAULT_THEME.fontFamily || UI_FONT_FAMILY,
   };
 
   const platform = chrome.platform || process.platform;

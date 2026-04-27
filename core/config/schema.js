@@ -281,6 +281,10 @@ function normalizeConfig(rawConfig) {
       0.1,
     );
 
+    if (isPlainObject(splitSection.divider) && typeof splitSection.divider.enabled === "boolean") {
+      normalizedGlobal.split.divider.enabled = splitSection.divider.enabled;
+    }
+
     if (isPlainObject(splitSection.focus_keys)) {
       if (
         typeof splitSection.focus_keys.left === "string" &&

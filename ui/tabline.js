@@ -31,7 +31,6 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
     elevatedBackground: theme.elevatedBackground || DEFAULT_THEME.elevatedBackground,
     borderMutedColor: theme.borderMutedColor || DEFAULT_THEME.borderMutedColor,
     softTextColor: theme.softTextColor || DEFAULT_THEME.softTextColor,
-    accentIconColor: theme.accentIconColor || DEFAULT_THEME.accentIconColor,
     windowControlBackground: theme.windowControlBackground || DEFAULT_THEME.windowControlBackground,
     dangerBackground: theme.dangerBackground || DEFAULT_THEME.dangerBackground,
     dangerTextColor: theme.dangerTextColor || DEFAULT_THEME.dangerTextColor,

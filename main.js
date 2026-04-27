@@ -1,6 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain, clipboard } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard, nativeTheme } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
@@ -8,21 +8,60 @@ const configService = require("./core/config/service");
 const uiShell = require("./ui/shell/manager");
 const { dispatch } = require("./core/dispatcher");
 const { INTENTS } = require("./core/intents");
-const { resolveTheme, toCssVars } = require("./ui/theme");
+const { normalizeThemeMode, resolveTheme, resolveThemeMode, toCssVars } = require("./ui/theme");
 const { resolveInputTarget } = require("./core/resolver");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
 
 function resolveCurrentTheme() {
-  return resolveTheme(configService.getConfigValue("global.theme", {}));
+  const themeConfig = configService.getConfigValue("global.theme", {});
+  const systemPrefersDark = nativeTheme.shouldUseDarkColors;
+  const configuredMode = normalizeThemeMode(
+    typeof themeConfig?.mode === "string" ? themeConfig.mode : themeConfig?.name,
+    "dark",
+  );
+  const resolvedMode = resolveThemeMode(themeConfig, { systemPrefersDark });
+  const theme = resolveTheme(themeConfig, { systemPrefersDark });
+
+  return {
+    theme,
+    configuredMode,
+    resolvedMode,
+  };
 }
 
-function buildThemePayload(theme) {
+function buildThemePayload(themeContext) {
+  const theme = themeContext && themeContext.theme ? themeContext.theme : themeContext || {};
+  const resolvedMode =
+    themeContext && typeof themeContext.resolvedMode === "string"
+      ? themeContext.resolvedMode
+      : "dark";
+
   return {
     theme,
     themeVars: toCssVars(theme),
+    colorScheme: resolvedMode === "light" ? "light" : "dark",
+    resolvedMode,
   };
+}
+
+function syncContentUiTheme(theme) {
+  buffers.setContentUiOptions({
+    thumbColor: theme.scrollbarThumbColor,
+    thumbActiveColor: theme.scrollbarThumbActiveColor,
+  });
+}
+
+function applyTheme(themeContext, options = {}) {
+  const shouldBroadcast = Boolean(options.broadcast);
+  const payload = buildThemePayload(themeContext);
+  uiShell.setTheme(payload.theme);
+  syncContentUiTheme(payload.theme);
+  buffers.refreshDashboardBuffers();
+  if (shouldBroadcast) {
+    broadcastUiShellPush("theme:update", payload);
+  }
 }
 
 function broadcastUiShellPush(type, payload = {}) {
@@ -602,7 +641,7 @@ function registerUiShellEvents() {
       const configPath = configService.getConfigPath();
       try {
         const content = fs.readFileSync(configPath, "utf8");
-        const theme = resolveCurrentTheme();
+        const themeContext = resolveCurrentTheme();
         return {
           ok: true,
           content,
@@ -612,7 +651,7 @@ function registerUiShellEvents() {
             true,
           ),
           scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
-          ...buildThemePayload(theme),
+          ...buildThemePayload(themeContext),
         };
       } catch (error) {
         return { ok: false, error: error.message };
@@ -627,10 +666,9 @@ function registerUiShellEvents() {
         state.applyConfig(config);
         buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
         buffers.layoutViews();
-        const theme = resolveCurrentTheme();
-        uiShell.setTheme(theme);
+        const themeContext = resolveCurrentTheme();
+        applyTheme(themeContext, { broadcast: true });
         uiShell.updateSplitDivider(buffers.getSplitStatus());
-        broadcastUiShellPush("theme:update", buildThemePayload(theme));
         updateTablineActions();
         updateTablineOptions();
         updateUrllineActions();
@@ -725,7 +763,7 @@ function createWindow() {
   buffers.init(win);
   buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
   uiShell.init(win);
-  uiShell.setTheme(resolveCurrentTheme());
+  applyTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
     platform: process.platform,
     useNativeControls: isMac,
@@ -842,6 +880,25 @@ function createWindow() {
 
   buffers.openConfiguredBuffer();
   bindInputToActiveBuffer();
+
+  const onNativeThemeUpdated = () => {
+    const themeContext = resolveCurrentTheme();
+    if (themeContext.configuredMode !== "auto") {
+      return;
+    }
+
+    applyTheme(themeContext, { broadcast: true });
+    updateTablineActions();
+    updateTablineOptions();
+    updateUrllineActions();
+    updateUrllineRender();
+  };
+
+  nativeTheme.on("updated", onNativeThemeUpdated);
+
+  win.on("closed", () => {
+    nativeTheme.removeListener("updated", onNativeThemeUpdated);
+  });
 }
 
 app.whenReady().then(createWindow);

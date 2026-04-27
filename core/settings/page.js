@@ -21,9 +21,21 @@ const CODEMIRROR_VIM_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/k
 const CODEMIRROR_YAML_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/yaml/yaml.js";
 
 function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "") {
-  const theme = resolveTheme({ overrides: themeInput || {} });
+  const sourceTheme =
+    themeInput && typeof themeInput === "object" && themeInput.theme
+      ? themeInput.theme
+      : themeInput;
+  const sourceColorScheme =
+    themeInput && typeof themeInput === "object" && themeInput.colorScheme === "light"
+      ? "light"
+      : "dark";
+  const theme = resolveTheme({
+    mode: sourceColorScheme,
+    overrides: sourceTheme || {},
+  });
   const themeVars = toCssVars(theme);
   const initialThemeVars = JSON.stringify(themeVars);
+  const initialColorScheme = JSON.stringify(sourceColorScheme);
   const initialContentJson = JSON.stringify(String(initialContent || ""));
   const initialThemeCss = Object.entries(themeVars)
     .map(([name, value]) => `${name}: ${value};`)
@@ -41,7 +53,8 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
       ${UI_FONT_FACE_CSS}
 
       :root {
-        color-scheme: dark;
+        color-scheme: var(--ui-color-scheme, ${sourceColorScheme});
+        --ui-color-scheme: ${sourceColorScheme};
         --ui-font-family: ${UI_FONT_FAMILY};
         ${initialThemeCss}
       }
@@ -179,6 +192,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
     <script>
       (function settingsEditorBoot() {
         const initialThemeVars = ${initialThemeVars};
+        const initialColorScheme = ${initialColorScheme};
         const root = document.getElementById("editor-root");
         const saveBtn = document.getElementById("save-btn");
         const reloadBtn = document.getElementById("reload-btn");
@@ -210,7 +224,22 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
           }
         };
 
+        const applyColorScheme = (colorScheme) => {
+          const next = colorScheme === "light" ? "light" : "dark";
+          document.documentElement.style.setProperty("--ui-color-scheme", next);
+          document.documentElement.style.colorScheme = next;
+        };
+
+        const applyThemePayload = (payload) => {
+          if (!payload || typeof payload !== "object") return;
+          if (payload.themeVars && typeof payload.themeVars === "object") {
+            applyThemeVars(payload.themeVars);
+          }
+          applyColorScheme(payload.colorScheme);
+        };
+
         applyThemeVars(initialThemeVars);
+        applyColorScheme(initialColorScheme);
 
         const editor = window.CodeMirror(root, {
           value: ${initialContentJson},
@@ -388,7 +417,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
         const reloadContent = async () => {
           const result = await invokeShell("settings:get");
           if (!result || !result.ok) return;
-          applyThemeVars(result.themeVars);
+          applyThemePayload(result);
           loadBaselineContent(result.content);
           useRelativeLineNumbers = result.relativeLineNumbers !== false;
           scrolloffLines = Math.max(0, Number.parseInt(result.scrolloffLines, 10) || 0);
@@ -403,7 +432,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
         };
 
         onShell("theme:update", (payload) => {
-          applyThemeVars(payload && payload.themeVars);
+          applyThemePayload(payload);
         });
 
         const focusEditorSurface = () => {

@@ -103,6 +103,14 @@ function parseCommand(raw) {
     case "config":
       return { type: INTENTS.OPEN_SETTINGS_BUFFER };
 
+    case "theme": {
+      const mode = arg.toLowerCase();
+      if (!["dark", "light", "auto", "custom"].includes(mode)) {
+        return { type: INTENTS.UNKNOWN_COMMAND, raw };
+      }
+      return { type: INTENTS.SET_THEME_MODE, mode };
+    }
+
     case "focus-context":
     case "context":
       return { type: INTENTS.TOGGLE_FOCUS_CONTEXT };

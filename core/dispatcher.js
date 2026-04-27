@@ -1,4 +1,4 @@
-const { app } = require("electron");
+const { app, nativeTheme } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const buffers = require("../browser/manager");
@@ -7,7 +7,7 @@ const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
 const { buildSettingsPageHtml } = require("./settings/page");
-const { resolveTheme } = require("../ui/theme");
+const { resolveTheme, resolveThemeMode, toCssVars } = require("../ui/theme");
 
 function computeStatuslineModeLabel(state) {
   const active = buffers.getActive();
@@ -60,14 +60,27 @@ function openSettingsBuffer() {
     return existing;
   }
 
-  const theme = resolveTheme(configService.getConfigValue("global.theme", {}));
+  const themeConfig = configService.getConfigValue("global.theme", {});
+  const resolvedMode = resolveThemeMode(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
+  const theme = resolveTheme(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
   let initialContent = "";
   try {
     initialContent = fs.readFileSync(configPath, "utf8");
   } catch {
     initialContent = "";
   }
-  const html = buildSettingsPageHtml(configPath, theme, initialContent);
+  const html = buildSettingsPageHtml(
+    configPath,
+    {
+      theme,
+      colorScheme: resolvedMode,
+    },
+    initialContent,
+  );
 
   const buffer = buffers.create(null, {
     kind: "editable",
@@ -93,6 +106,63 @@ function normalizeUrl(rawUrl) {
   }
 
   return `https://${value}`;
+}
+
+function resolveCurrentThemeContext() {
+  const themeConfig = configService.getConfigValue("global.theme", {});
+  const resolvedMode = resolveThemeMode(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
+  const theme = resolveTheme(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
+
+  return {
+    theme,
+    resolvedMode,
+  };
+}
+
+function buildThemePayload(themeContext = {}) {
+  const theme = themeContext.theme || {};
+  const resolvedMode = themeContext.resolvedMode || "dark";
+  return {
+    theme,
+    themeVars: toCssVars(theme),
+    colorScheme: resolvedMode === "light" ? "light" : "dark",
+    resolvedMode,
+  };
+}
+
+function broadcastUiShellPush(win, type, payload = {}) {
+  if (!win || typeof type !== "string" || !type.length) return;
+
+  const targets = new Map();
+  const addTarget = (webContents) => {
+    if (!webContents || webContents.isDestroyed()) return;
+    targets.set(webContents.id, webContents);
+  };
+
+  addTarget(win.webContents);
+  for (const webContents of buffers.getAllWebContents()) {
+    addTarget(webContents);
+  }
+
+  for (const webContents of targets.values()) {
+    webContents.send("ui-shell:push", { type, payload });
+  }
+}
+
+function applyThemeEverywhere(win) {
+  const themeContext = resolveCurrentThemeContext();
+  const payload = buildThemePayload(themeContext);
+  uiShell.setTheme(payload.theme);
+  buffers.setContentUiOptions({
+    thumbColor: payload.theme.scrollbarThumbColor,
+    thumbActiveColor: payload.theme.scrollbarThumbActiveColor,
+  });
+  buffers.refreshDashboardBuffers();
+  broadcastUiShellPush(win, "theme:update", payload);
 }
 
 function dispatch(win, intent, state) {
@@ -296,6 +366,7 @@ function dispatch(win, intent, state) {
       if (typeof state.applyConfig === "function") {
         state.applyConfig(config);
       }
+      applyThemeEverywhere(win);
       uiShell.setTablineOptions({
         showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
       });
@@ -303,6 +374,23 @@ function dispatch(win, intent, state) {
       buffers.layoutViews();
       uiShell.updateSplitDivider(buffers.getSplitStatus());
       console.info("Configuration reloaded from", configService.getConfigPath());
+      break;
+    }
+
+    case INTENTS.SET_THEME_MODE: {
+      const mode = typeof intent.mode === "string" ? intent.mode : "";
+      if (!["dark", "light", "auto", "custom"].includes(mode)) {
+        console.warn("Unknown theme mode:", intent.mode);
+        break;
+      }
+
+      const config = configService.updateThemeMode(mode);
+      if (typeof state.applyConfig === "function") {
+        state.applyConfig(config);
+      }
+
+      applyThemeEverywhere(win);
+      console.info(`Theme mode set to ${mode}`);
       break;
     }
 

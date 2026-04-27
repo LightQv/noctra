@@ -45,6 +45,87 @@ const DEFAULT_THEME = Object.freeze({
   scrollbarThumbActiveColor: UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
 });
 
+const LIGHT_THEME = Object.freeze({
+  appBackground: "#efe4d2",
+  surfaceBackground: "#f5ebdc",
+  panelBackground: "#f2e6d5",
+  shellBackground: "#e9ddcc",
+  elevatedBackground: "#f9f0e3",
+  subtleBackground: "#eadfce",
+  windowControlBackground: "#e0d3c0",
+  dangerBackground: "#f4dcd4",
+  borderColor: "#b8aa95",
+  borderStrongColor: "#9f8f79",
+  borderMutedColor: "#c5b8a4",
+  splitDividerColor: "#b7aa95",
+  textColor: "#1d2b1f",
+  brightTextColor: "#0f1b12",
+  softTextColor: "#304736",
+  mutedTextColor: "#55695a",
+  secondaryActiveTextColor: "#2f5a3e",
+  accentIconColor: "#2e6b45",
+  mainColor: "#2f6f46",
+  accentPillBackground: "#d8e4d8",
+  accentPillBorder: "#7d9e83",
+  dangerTextColor: "#7f342e",
+  editorBackground: "#f6eddf",
+  editorGutterBackground: "#efe3d1",
+  editorGutterBorderColor: "#c9b9a4",
+  editorLineNumberColor: "#6a7a6c",
+  editorSelectionBackground: "rgba(47, 111, 70, 0.2)",
+  editorDialogBackground: "#f0e4d2",
+  editorDialogBorderColor: "#ac9d88",
+  fontFamily: UI_FONT_FAMILY,
+  scrollbarThumbColor: "rgba(47, 111, 70, 0.5)",
+  scrollbarThumbActiveColor: "rgba(47, 111, 70, 0.8)",
+});
+
+const THEME_MODES = new Set(["dark", "light", "auto", "custom"]);
+
+function readConfiguredThemeMode(themeConfig = {}) {
+  if (typeof themeConfig?.mode === "string") {
+    return themeConfig.mode;
+  }
+
+  if (typeof themeConfig?.name === "string") {
+    return themeConfig.name;
+  }
+
+  return "dark";
+}
+
+function normalizeThemeMode(input, fallback = "dark") {
+  if (typeof input !== "string") {
+    return THEME_MODES.has(fallback) ? fallback : "dark";
+  }
+
+  const normalized = input.trim().toLowerCase();
+  if (normalized === "default") {
+    return "dark";
+  }
+
+  if (THEME_MODES.has(normalized)) {
+    return normalized;
+  }
+
+  return THEME_MODES.has(fallback) ? fallback : "dark";
+}
+
+function resolveThemeMode(themeConfig = {}, options = {}) {
+  const rawMode = readConfiguredThemeMode(themeConfig);
+  const configuredMode = normalizeThemeMode(rawMode, "dark");
+
+  if (configuredMode === "custom") {
+    return "custom";
+  }
+
+  if (configuredMode !== "auto") {
+    return configuredMode;
+  }
+
+  return options.systemPrefersDark === false ? "light" : "dark";
+}
+
 function pickOverrides(overrides = {}) {
   if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) {
     return {};
@@ -69,10 +150,13 @@ function pickOverrides(overrides = {}) {
   return next;
 }
 
-function resolveTheme(themeConfig = {}) {
-  const overrides = pickOverrides(themeConfig.overrides);
+function resolveTheme(themeConfig = {}, options = {}) {
+  const configuredMode = normalizeThemeMode(readConfiguredThemeMode(themeConfig), "dark");
+  const effectiveMode = resolveThemeMode(themeConfig, options);
+  const baseTheme = effectiveMode === "light" ? LIGHT_THEME : DEFAULT_THEME;
+  const overrides = configuredMode === "custom" ? pickOverrides(themeConfig.overrides) : {};
   const theme = {
-    ...DEFAULT_THEME,
+    ...baseTheme,
     ...overrides,
   };
 
@@ -131,6 +215,9 @@ function toCssVars(theme = {}) {
 
 module.exports = {
   DEFAULT_THEME,
+  LIGHT_THEME,
+  normalizeThemeMode,
+  resolveThemeMode,
   resolveTheme,
   toCssVars,
 };

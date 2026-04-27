@@ -1,7 +1,6 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { isDeepStrictEqual } = require("util");
 const { parse, stringify } = require("yaml");
 const { defaultConfig } = require("./defaults");
 const { normalizeConfig } = require("./schema");
@@ -92,7 +91,25 @@ function migrateLegacyConfig(rawConfig) {
     migrated.global = globalSection;
   }
 
+  const themeNode =
+    migrated.global && isPlainObject(migrated.global.theme) ? migrated.global.theme : null;
+  if (themeNode) {
+    if (typeof themeNode.mode !== "string" && typeof themeNode.name === "string") {
+      themeNode.mode = themeNode.name;
+    }
+    if (Object.prototype.hasOwnProperty.call(themeNode, "name")) {
+      delete themeNode.name;
+    }
+  }
+
   return migrated;
+}
+
+function readRawConfig() {
+  ensureConfigFile();
+  const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
+  const parsed = raw.trim() ? parse(raw) : {};
+  return migrateLegacyConfig(parsed);
 }
 
 function syncConfigFile(rawConfig) {
@@ -103,12 +120,6 @@ function syncConfigFile(rawConfig) {
   try {
     const currentText = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
     if (currentText === nextText) {
-      return;
-    }
-
-    const currentParsed = currentText.trim() ? parse(currentText) : {};
-    const currentMigrated = migrateLegacyConfig(currentParsed);
-    if (isDeepStrictEqual(currentMigrated, merged)) {
       return;
     }
   } catch {
@@ -252,10 +263,40 @@ function getConfigValue(pathKey, fallbackValue = undefined) {
   return cursor;
 }
 
+function updateThemeMode(nextMode) {
+  const allowedModes = new Set(["dark", "light", "auto", "custom"]);
+  if (typeof nextMode !== "string") {
+    return cachedConfig;
+  }
+
+  const normalizedMode = nextMode.trim().toLowerCase();
+  if (!allowedModes.has(normalizedMode)) {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.global)) {
+    rawConfig.global = {};
+  }
+
+  if (!isPlainObject(rawConfig.global.theme)) {
+    rawConfig.global.theme = {};
+  }
+
+  rawConfig.global.theme.mode = normalizedMode;
+  if (Object.prototype.hasOwnProperty.call(rawConfig.global.theme, "name")) {
+    delete rawConfig.global.theme.name;
+  }
+
+  fs.writeFileSync(CONFIG_FILE_PATH, stringify(rawConfig), "utf8");
+  return loadConfig();
+}
+
 module.exports = {
   initConfig,
   reloadConfig,
   getConfig,
   getConfigPath,
   getConfigValue,
+  updateThemeMode,
 };

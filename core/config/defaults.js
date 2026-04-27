@@ -78,6 +78,15 @@ const defaultConfig = {
       favorites_file: "~/.config/noctra/favorites.yml",
       sessions_file: "~/.config/noctra/sessions.yml",
     },
+    opening_buffer: {
+      mode: "blank",
+      url: "",
+      dashboard: {
+        header: "",
+        buttons: [],
+        footer: "",
+      },
+    },
   },
   keymap: {
     normal: {

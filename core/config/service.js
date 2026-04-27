@@ -1,6 +1,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { isDeepStrictEqual } = require("util");
 const { parse, stringify } = require("yaml");
 const { defaultConfig } = require("./defaults");
 const { normalizeConfig } = require("./schema");
@@ -64,7 +65,16 @@ function migrateLegacyConfig(rawConfig) {
   }
 
   const migrated = JSON.parse(JSON.stringify(rawConfig));
-  const legacyGlobalKeys = ["input", "whichkey", "ui", "editor", "theme", "split", "storage"];
+  const legacyGlobalKeys = [
+    "input",
+    "whichkey",
+    "ui",
+    "editor",
+    "theme",
+    "split",
+    "storage",
+    "opening_buffer",
+  ];
 
   const globalSection = isPlainObject(migrated.global) ? migrated.global : {};
 
@@ -93,6 +103,12 @@ function syncConfigFile(rawConfig) {
   try {
     const currentText = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
     if (currentText === nextText) {
+      return;
+    }
+
+    const currentParsed = currentText.trim() ? parse(currentText) : {};
+    const currentMigrated = migrateLegacyConfig(currentParsed);
+    if (isDeepStrictEqual(currentMigrated, merged)) {
       return;
     }
   } catch {

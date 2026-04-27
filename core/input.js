@@ -8,6 +8,10 @@ const { dispatch } = require("./dispatcher");
 function shouldPreventDefault(input) {
   if (input.type !== "keyDown") return false;
 
+  if (state.mode === "COMMAND") {
+    return true;
+  }
+
   const activeBuffer = buffers.getActive();
 
   if (state.interactionContext === "EDITOR" && activeBuffer?.isEditable) {
@@ -34,7 +38,11 @@ function handleInput(win, input) {
 
   const activeBuffer = buffers.getActive();
 
-  if (state.interactionContext === "EDITOR" && activeBuffer?.isEditable) {
+  if (
+    state.mode !== "COMMAND" &&
+    state.interactionContext === "EDITOR" &&
+    activeBuffer?.isEditable
+  ) {
     return;
   }
 

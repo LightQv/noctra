@@ -64,14 +64,27 @@ function handleCommand(state, input) {
     state.mode = "NORMAL";
     state.commandBuffer = "";
     state.commandCursorIndex = 0;
+    state.commandTarget = "SHELL";
     return { type: INTENTS.HIDE_COMMAND };
   }
 
   if (input.key === "Enter") {
     const cmd = state.commandBuffer;
+    const target = state.commandTarget === "EDITOR" ? "EDITOR" : "SHELL";
     state.mode = "NORMAL";
     state.commandBuffer = "";
     state.commandCursorIndex = 0;
+    state.commandTarget = "SHELL";
+
+    if (target === "EDITOR") {
+      return {
+        type: INTENTS.HIDE_COMMAND,
+        next: {
+          type: INTENTS.SUBMIT_EDITOR_COMMAND,
+          command: cmd,
+        },
+      };
+    }
 
     return {
       type: INTENTS.HIDE_COMMAND,

@@ -1,7 +1,14 @@
-const { BrowserView } = require("electron");
+const { BrowserView, nativeTheme } = require("electron");
+const path = require("path");
 const Buffer = require("./buffers");
-const { UI_SHELL_TABLINE_HEIGHT, UI_SHELL_STATUSLINE_HEIGHT } = require("../ui/constants");
+const {
+  UI_SHELL_TABLINE_HEIGHT,
+  UI_SHELL_URLLINE_HEIGHT,
+  UI_SHELL_STATUSLINE_HEIGHT,
+} = require("../ui/constants");
 const { getConfigValue } = require("../core/config/service");
+const { buildOpeningBufferSpec } = require("../core/opening/buffer");
+const { resolveTheme, resolveThemeMode } = require("../ui/theme");
 
 class BufferManager {
   constructor() {
@@ -20,6 +27,11 @@ class BufferManager {
     this.devtoolsView = null;
     this.devtoolsTarget = null;
     this.contentUiOptions = {};
+    this.splitDivider = {
+      visible: false,
+      offsetPx: 0,
+    };
+    this.urllineVisible = false;
   }
 
   init(windowRef) {
@@ -62,6 +74,67 @@ class BufferManager {
 
     this.notify({ kind: "structure", activeChanged: activate });
     return buffer;
+  }
+
+  openConfiguredBuffer(options = {}) {
+    const openingBufferConfig = getConfigValue("global.opening_buffer", {});
+    const openingBufferSpec = buildOpeningBufferSpec(
+      openingBufferConfig,
+      this.resolveOpeningBufferThemeContext(),
+    );
+
+    if (openingBufferSpec.warning) {
+      console.warn(openingBufferSpec.warning);
+    }
+
+    if (openingBufferSpec.kind === "virtual") {
+      const buffer = this.create(null, options);
+      buffer.loadVirtualDocument(openingBufferSpec.document);
+      return buffer;
+    }
+
+    return this.create(openingBufferSpec.url, options);
+  }
+
+  resolveOpeningBufferThemeContext() {
+    const themeConfig = getConfigValue("global.theme", {});
+    const resolvedMode = resolveThemeMode(themeConfig, {
+      systemPrefersDark: nativeTheme.shouldUseDarkColors,
+    });
+    return {
+      colorScheme: resolvedMode === "light" ? "light" : "dark",
+      theme: resolveTheme(themeConfig, {
+        systemPrefersDark: nativeTheme.shouldUseDarkColors,
+      }),
+    };
+  }
+
+  refreshDashboardBuffers() {
+    const dashboardBuffers = this.buffers.filter(
+      (buffer) =>
+        buffer &&
+        (buffer.virtualUrl === "noctra://dashboard" || buffer.url === "noctra://dashboard"),
+    );
+    if (dashboardBuffers.length === 0) {
+      return;
+    }
+
+    const openingBufferConfig = getConfigValue("global.opening_buffer", {});
+    const dashboardSpec = buildOpeningBufferSpec(
+      {
+        ...openingBufferConfig,
+        mode: "dashboard",
+      },
+      this.resolveOpeningBufferThemeContext(),
+    );
+
+    if (!dashboardSpec || dashboardSpec.kind !== "virtual" || !dashboardSpec.document) {
+      return;
+    }
+
+    for (const buffer of dashboardBuffers) {
+      buffer.loadVirtualDocument(dashboardSpec.document);
+    }
   }
 
   getLeftBuffer() {
@@ -207,7 +280,7 @@ class BufferManager {
 
     if (this.buffers.length === 0) {
       this.activeIndex = -1;
-      this.create("about:blank");
+      this.openConfiguredBuffer();
       return this.getActive();
     }
 
@@ -282,10 +355,7 @@ class BufferManager {
 
     this.closeDevtoolsSplit();
     this.ensureRightPaneBuffer();
-
-    if (!this.split.enabled || this.split.mode !== "regular" || !this.split.rightPaneSourceBuffer) {
-      this.assignRightPaneSource(left);
-    }
+    this.assignRightPaneSource(left);
 
     this.split.enabled = true;
     this.split.mode = "regular";
@@ -374,6 +444,22 @@ class BufferManager {
     return true;
   }
 
+  focusPane(pane = "left") {
+    if (pane === "right") {
+      return this.focusSplitRight();
+    }
+
+    if (this.split.enabled) {
+      return this.focusSplitLeft();
+    }
+
+    this.focusedPane = "left";
+    this.layoutViews();
+    this.focusActive();
+    this.notify({ kind: "structure", activeChanged: true });
+    return true;
+  }
+
   isSplitEnabled() {
     return this.split.enabled;
   }
@@ -383,7 +469,51 @@ class BufferManager {
       enabled: this.split.enabled,
       mode: this.split.mode,
       focusedPane: this.focusedPane,
+      divider: {
+        visible: this.splitDivider.visible,
+        offsetPx: this.splitDivider.offsetPx,
+      },
     };
+  }
+
+  setUrllineVisible(visible) {
+    const next = Boolean(visible);
+    if (this.urllineVisible === next) {
+      return;
+    }
+
+    this.urllineVisible = next;
+    this.layoutViews();
+    this.notify({ kind: "layout", activeChanged: false });
+  }
+
+  isUrllineVisible() {
+    return this.urllineVisible;
+  }
+
+  getRightPaneBuffer() {
+    if (!this.split.enabled || this.split.mode !== "regular") {
+      return null;
+    }
+
+    const left = this.getLeftBuffer();
+    if (this.split.rightPaneSourceBuffer && this.split.rightPaneSourceBuffer !== left) {
+      return this.split.rightPaneSourceBuffer;
+    }
+
+    if (this.split.rightPaneBuffer) {
+      return this.split.rightPaneBuffer;
+    }
+
+    return this.split.rightPaneSourceBuffer || null;
+  }
+
+  getPaneBuffer(pane = "left") {
+    if (pane === "right") {
+      return this.getRightPaneBuffer();
+    }
+
+    return this.getLeftBuffer();
   }
 
   getSnapshot() {
@@ -406,6 +536,71 @@ class BufferManager {
         isOtherPaneBuffer,
       });
     });
+  }
+
+  canShowUrllineForBuffer(buffer) {
+    return Boolean(this.urllineVisible && buffer && !buffer.isEditable);
+  }
+
+  getUrllineRenderModel() {
+    if (!this.window) {
+      return { panes: [] };
+    }
+
+    const bounds = this.window.getContentBounds();
+    const left = this.getLeftBuffer();
+    const rightSource = this.split.mode === "regular" ? this.split.rightPaneSourceBuffer : null;
+    const rightRegular = this.split.mode === "regular" ? this.split.rightPaneBuffer : null;
+    const showSplit = this.split.enabled && (rightSource || rightRegular || this.split.mode === "devtools");
+    const dividerWidth = showSplit && getConfigValue("global.split.divider.enabled", true) ? 1 : 0;
+    const availableSplitWidth = Math.max(bounds.width - dividerWidth, 2);
+    const rightWidth = showSplit
+      ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
+      : 0;
+    const leftWidth = showSplit
+      ? Math.max(availableSplitWidth - rightWidth, 1)
+      : bounds.width;
+    const rightX = leftWidth + dividerWidth;
+
+    const useMirroredRight =
+      showSplit &&
+      this.split.mode === "regular" &&
+      Boolean(left && rightSource && left === rightSource);
+
+    const rightPaneBuffer =
+      this.split.mode === "regular"
+        ? useMirroredRight
+          ? rightRegular
+          : rightSource
+        : null;
+
+    const panes = [];
+
+    if (this.canShowUrllineForBuffer(left)) {
+      panes.push({
+        pane: "left",
+        x: 0,
+        top: UI_SHELL_TABLINE_HEIGHT,
+        width: leftWidth,
+        url: left.url || "about:blank",
+        canGoBack: Boolean(left.webContents?.navigationHistory?.canGoBack?.()),
+        canGoForward: Boolean(left.webContents?.navigationHistory?.canGoForward?.()),
+      });
+    }
+
+    if (showSplit && this.canShowUrllineForBuffer(rightPaneBuffer)) {
+      panes.push({
+        pane: "right",
+        x: rightX,
+        top: UI_SHELL_TABLINE_HEIGHT,
+        width: rightWidth,
+        url: rightPaneBuffer.url || "about:blank",
+        canGoBack: Boolean(rightPaneBuffer.webContents?.navigationHistory?.canGoBack?.()),
+        canGoForward: Boolean(rightPaneBuffer.webContents?.navigationHistory?.canGoForward?.()),
+      });
+    }
+
+    return { panes };
   }
 
   findByKind(kind) {
@@ -450,7 +645,9 @@ class BufferManager {
   ensureRightPaneBuffer() {
     if (this.split.rightPaneBuffer || !this.window) return;
 
-    const rightPane = new Buffer(0);
+    const rightPane = new Buffer(0, {
+      preloadPath: path.join(__dirname, "..", "ui", "shell", "preload.js"),
+    });
     rightPane.setContentUiOptions(this.contentUiOptions);
     rightPane.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });
@@ -461,16 +658,35 @@ class BufferManager {
     this.window.addBrowserView(rightPane.view);
   }
 
+  resolveBufferMirrorUrl(buffer) {
+    if (!buffer) {
+      return "about:blank";
+    }
+
+    const liveUrl =
+      buffer.webContents && !buffer.webContents.isDestroyed()
+        ? String(buffer.webContents.getURL() || "").trim()
+        : "";
+    if (liveUrl.length > 0) {
+      return liveUrl;
+    }
+
+    const trackedUrl = typeof buffer.url === "string" ? buffer.url.trim() : "";
+    return trackedUrl.length > 0 ? trackedUrl : "about:blank";
+  }
+
   assignRightPaneSource(sourceBuffer) {
     if (!sourceBuffer || !this.split.rightPaneBuffer) return;
 
     this.split.rightPaneSourceBuffer = sourceBuffer;
+    this.split.rightPaneBuffer.kind = sourceBuffer.kind || "web";
+    this.split.rightPaneBuffer.isEditable = Boolean(sourceBuffer.isEditable);
 
     if (sourceBuffer !== this.getLeftBuffer()) {
       return;
     }
 
-    const sourceUrl = sourceBuffer.url || "about:blank";
+    const sourceUrl = this.resolveBufferMirrorUrl(sourceBuffer);
     const rightPaneUrl = this.split.rightPaneBuffer.url || "";
     if (rightPaneUrl !== sourceUrl) {
       this.split.rightPaneBuffer.load(sourceUrl);
@@ -538,11 +754,8 @@ class BufferManager {
     if (!this.window) return;
 
     const bounds = this.window.getContentBounds();
-    const contentTop = UI_SHELL_TABLINE_HEIGHT;
-    const contentHeight = Math.max(
-      bounds.height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT,
-      1,
-    );
+    const shellTop = UI_SHELL_TABLINE_HEIGHT;
+    const shellBottomInset = UI_SHELL_STATUSLINE_HEIGHT;
 
     const left = this.getLeftBuffer();
     const rightSource = this.split.mode === "regular" ? this.split.rightPaneSourceBuffer : null;
@@ -564,18 +777,64 @@ class BufferManager {
     const visibleRightMainBuffer =
       this.split.mode === "regular" && rightSource && !useMirroredRight ? rightSource : null;
 
-    const rightWidth = showSplit ? Math.max(Math.floor(bounds.width * this.split.ratio), 1) : 0;
-    const leftWidth = showSplit ? Math.max(bounds.width - rightWidth, 1) : bounds.width;
+    const rightVisibleBuffer =
+      this.split.mode === "regular" && useMirroredRight
+        ? rightRegular
+        : visibleRightMainBuffer;
+
+    const leftHasUrlline = this.canShowUrllineForBuffer(left);
+    const rightHasUrlline = this.canShowUrllineForBuffer(rightVisibleBuffer);
+
+    const getPaneInset = (isRightPane) => {
+      if (!showSplit) {
+        return leftHasUrlline ? UI_SHELL_URLLINE_HEIGHT : 0;
+      }
+
+      return isRightPane
+        ? rightHasUrlline
+          ? UI_SHELL_URLLINE_HEIGHT
+          : 0
+        : leftHasUrlline
+          ? UI_SHELL_URLLINE_HEIGHT
+          : 0;
+    };
+
+    const getPaneBounds = (isRightPane, x, width) => {
+      const paneInset = getPaneInset(isRightPane);
+      const y = shellTop + paneInset;
+      const height = Math.max(bounds.height - shellTop - shellBottomInset - paneInset, 1);
+      return {
+        x,
+        y,
+        width,
+        height,
+      };
+    };
+
+    const splitDividerEnabled = getConfigValue("global.split.divider.enabled", true);
+    const dividerWidth = showSplit && splitDividerEnabled ? 1 : 0;
+    const availableSplitWidth = Math.max(bounds.width - dividerWidth, 2);
+    const rightWidth = showSplit
+      ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
+      : 0;
+    const leftWidth = showSplit
+      ? Math.max(availableSplitWidth - rightWidth, 1)
+      : bounds.width;
+    const rightX = leftWidth + dividerWidth;
+
+    this.splitDivider.visible = showSplit && dividerWidth > 0;
+    this.splitDivider.offsetPx = this.splitDivider.visible ? leftWidth : 0;
 
     for (const buffer of this.buffers) {
       if (buffer === left || buffer === visibleRightMainBuffer) {
         const isRightBuffer = buffer === visibleRightMainBuffer;
-        buffer.view.setBounds({
-          x: isRightBuffer ? leftWidth : 0,
-          y: contentTop,
-          width: isRightBuffer ? rightWidth : leftWidth,
-          height: contentHeight,
-        });
+        buffer.view.setBounds(
+          getPaneBounds(
+            isRightBuffer,
+            isRightBuffer ? rightX : 0,
+            isRightBuffer ? rightWidth : leftWidth,
+          ),
+        );
         buffer.view.setAutoResize({ width: !showSplitWithRegular, height: true });
       } else {
         buffer.view.setAutoResize({ width: false, height: false });
@@ -585,17 +844,12 @@ class BufferManager {
 
     if (rightRegular) {
       if (showSplit && this.split.mode === "regular" && useMirroredRight) {
-        const sourceUrl = rightSource?.url || "about:blank";
+        const sourceUrl = this.resolveBufferMirrorUrl(rightSource);
         if (rightRegular.url !== sourceUrl) {
           rightRegular.load(sourceUrl);
         }
 
-        rightRegular.view.setBounds({
-          x: leftWidth,
-          y: contentTop,
-          width: rightWidth,
-          height: contentHeight,
-        });
+        rightRegular.view.setBounds(getPaneBounds(true, rightX, rightWidth));
         rightRegular.view.setAutoResize({ width: !showSplit, height: true });
       } else {
         rightRegular.view.setAutoResize({ width: false, height: false });
@@ -605,12 +859,7 @@ class BufferManager {
 
     if (this.devtoolsView) {
       if (showSplit && this.split.mode === "devtools") {
-        this.devtoolsView.setBounds({
-          x: leftWidth,
-          y: contentTop,
-          width: rightWidth,
-          height: contentHeight,
-        });
+        this.devtoolsView.setBounds(getPaneBounds(true, rightX, rightWidth));
         this.devtoolsView.setAutoResize({ width: !showSplit, height: true });
       } else {
         this.devtoolsView.setAutoResize({ width: false, height: false });

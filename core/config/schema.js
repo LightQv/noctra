@@ -25,6 +25,7 @@ const ACTION_IDS = new Set([
   "focus_split_right",
   "open_settings",
   "toggle_focus_context",
+  "toggle_urlline",
   "close_buffer",
   "close_focused",
   "close_left_buffers",
@@ -53,6 +54,54 @@ function normalizeNumber(value, fallback, min) {
   if (typeof value === "number" && Number.isFinite(value) && value >= min) {
     return value;
   }
+  return fallback;
+}
+
+function normalizeStringArray(value, fallback = []) {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  return value.filter((item) => typeof item === "string");
+}
+
+function normalizeThemeMode(value, fallback = "dark") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "default") {
+    return "dark";
+  }
+
+  if (
+    normalized === "dark" ||
+    normalized === "light" ||
+    normalized === "auto" ||
+    normalized === "custom"
+  ) {
+    return normalized;
+  }
+
+  return fallback;
+}
+
+function normalizeContentThemeMode(value, fallback = "dark") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === "dark" ||
+    normalized === "light" ||
+    normalized === "auto" ||
+    normalized === "match"
+  ) {
+    return normalized;
+  }
+
   return fallback;
 }
 
@@ -194,6 +243,7 @@ function normalizeConfig(rawConfig) {
   const splitSection = resolveGlobalSection(input, "split");
   const editorSection = resolveGlobalSection(input, "editor");
   const storageSection = resolveGlobalSection(input, "storage");
+  const openingBufferSection = resolveGlobalSection(input, "opening_buffer");
 
   if (isPlainObject(inputSection)) {
     if (typeof inputSection.leader_key === "string" && inputSection.leader_key.trim()) {
@@ -249,15 +299,30 @@ function normalizeConfig(rawConfig) {
       normalizedGlobal.ui.tabline.enabled = uiSection.tabline.enabled;
     }
 
+    if (isPlainObject(uiSection.tabline) && typeof uiSection.tabline.show_favicon === "boolean") {
+      normalizedGlobal.ui.tabline.show_favicon = uiSection.tabline.show_favicon;
+    }
+
+    if (isPlainObject(uiSection.urlline) && typeof uiSection.urlline.enabled === "boolean") {
+      normalizedGlobal.ui.urlline.enabled = uiSection.urlline.enabled;
+    }
+
     if (isPlainObject(uiSection.statusline) && typeof uiSection.statusline.enabled === "boolean") {
       normalizedGlobal.ui.statusline.enabled = uiSection.statusline.enabled;
     }
   }
 
   if (isPlainObject(themeSection)) {
-    if (typeof themeSection.name === "string" && themeSection.name.trim()) {
-      normalizedGlobal.theme.name = themeSection.name.trim();
-    }
+    const normalizedThemeMode = normalizeThemeMode(
+      typeof themeSection.mode === "string" ? themeSection.mode : themeSection.name,
+      defaults.global.theme.mode,
+    );
+    normalizedGlobal.theme.mode = normalizedThemeMode;
+
+    normalizedGlobal.theme.content_mode = normalizeContentThemeMode(
+      themeSection.content_mode,
+      defaults.global.theme.content_mode,
+    );
 
     if (isPlainObject(themeSection.overrides)) {
       normalizedGlobal.theme.overrides = themeSection.overrides;
@@ -280,6 +345,10 @@ function normalizeConfig(rawConfig) {
       defaults.global.split.devtools_ratio,
       0.1,
     );
+
+    if (isPlainObject(splitSection.divider) && typeof splitSection.divider.enabled === "boolean") {
+      normalizedGlobal.split.divider.enabled = splitSection.divider.enabled;
+    }
 
     if (isPlainObject(splitSection.focus_keys)) {
       if (
@@ -321,6 +390,35 @@ function normalizeConfig(rawConfig) {
       if (typeof storageSection[key] === "string" && storageSection[key].trim()) {
         normalizedGlobal.storage[key] = storageSection[key].trim();
       }
+    }
+  }
+
+  if (isPlainObject(openingBufferSection)) {
+    if (
+      openingBufferSection.mode === "blank" ||
+      openingBufferSection.mode === "url" ||
+      openingBufferSection.mode === "dashboard"
+    ) {
+      normalizedGlobal.opening_buffer.mode = openingBufferSection.mode;
+    }
+
+    if (typeof openingBufferSection.url === "string") {
+      normalizedGlobal.opening_buffer.url = openingBufferSection.url;
+    }
+
+    if (isPlainObject(openingBufferSection.dashboard)) {
+      if (typeof openingBufferSection.dashboard.header === "string") {
+        normalizedGlobal.opening_buffer.dashboard.header = openingBufferSection.dashboard.header;
+      }
+
+      if (typeof openingBufferSection.dashboard.footer === "string") {
+        normalizedGlobal.opening_buffer.dashboard.footer = openingBufferSection.dashboard.footer;
+      }
+
+      normalizedGlobal.opening_buffer.dashboard.buttons = normalizeStringArray(
+        openingBufferSection.dashboard.buttons,
+        defaults.global.opening_buffer.dashboard.buttons,
+      );
     }
   }
 

@@ -1,4 +1,5 @@
-const { app } = require("electron");
+const { app, nativeTheme } = require("electron");
+const fs = require("fs");
 const path = require("path");
 const buffers = require("../browser/manager");
 const uiShell = require("../ui/shell/manager");
@@ -6,7 +7,12 @@ const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
 const { buildSettingsPageHtml } = require("./settings/page");
-const { resolveTheme } = require("../ui/theme");
+const {
+  resolveTheme,
+  resolveThemeMode,
+  resolveContentColorScheme,
+  toCssVars,
+} = require("../ui/theme");
 
 function computeStatuslineModeLabel(state) {
   const active = buffers.getActive();
@@ -50,6 +56,20 @@ function blurEditableBufferSurface(buffer) {
   ).catch(() => {});
 }
 
+function runEditableExCommand(buffer, commandText) {
+  if (!buffer || !buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+    return;
+  }
+
+  buffer.webContents.executeJavaScript(
+    `
+      if (typeof window.__settingsEditorRunCommand__ === "function") {
+        window.__settingsEditorRunCommand__(${JSON.stringify(String(commandText || ""))});
+      }
+    `,
+  ).catch(() => {});
+}
+
 function openSettingsBuffer() {
   const existing = buffers.findByKind("editable");
   const configPath = configService.getConfigPath();
@@ -59,8 +79,27 @@ function openSettingsBuffer() {
     return existing;
   }
 
-  const theme = resolveTheme(configService.getConfigValue("global.theme", {}));
-  const html = buildSettingsPageHtml(configPath, theme);
+  const themeConfig = configService.getConfigValue("global.theme", {});
+  const resolvedMode = resolveThemeMode(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
+  const theme = resolveTheme(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
+  let initialContent = "";
+  try {
+    initialContent = fs.readFileSync(configPath, "utf8");
+  } catch {
+    initialContent = "";
+  }
+  const html = buildSettingsPageHtml(
+    configPath,
+    {
+      theme,
+      colorScheme: resolvedMode,
+    },
+    initialContent,
+  );
 
   const buffer = buffers.create(null, {
     kind: "editable",
@@ -86,6 +125,68 @@ function normalizeUrl(rawUrl) {
   }
 
   return `https://${value}`;
+}
+
+function resolveCurrentThemeContext() {
+  const themeConfig = configService.getConfigValue("global.theme", {});
+  const resolvedMode = resolveThemeMode(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
+  const theme = resolveTheme(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
+  const contentColorScheme = resolveContentColorScheme(themeConfig, {
+    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+  });
+
+  return {
+    theme,
+    resolvedMode,
+    contentColorScheme,
+  };
+}
+
+function buildThemePayload(themeContext = {}) {
+  const theme = themeContext.theme || {};
+  const resolvedMode = themeContext.resolvedMode || "dark";
+  return {
+    theme,
+    themeVars: toCssVars(theme),
+    colorScheme: resolvedMode === "light" ? "light" : "dark",
+    resolvedMode,
+  };
+}
+
+function broadcastUiShellPush(win, type, payload = {}) {
+  if (!win || typeof type !== "string" || !type.length) return;
+
+  const targets = new Map();
+  const addTarget = (webContents) => {
+    if (!webContents || webContents.isDestroyed()) return;
+    targets.set(webContents.id, webContents);
+  };
+
+  addTarget(win.webContents);
+  for (const webContents of buffers.getAllWebContents()) {
+    addTarget(webContents);
+  }
+
+  for (const webContents of targets.values()) {
+    webContents.send("ui-shell:push", { type, payload });
+  }
+}
+
+function applyThemeEverywhere(win) {
+  const themeContext = resolveCurrentThemeContext();
+  const payload = buildThemePayload(themeContext);
+  uiShell.setTheme(payload.theme);
+  buffers.setContentUiOptions({
+    thumbColor: payload.theme.scrollbarThumbColor,
+    thumbActiveColor: payload.theme.scrollbarThumbActiveColor,
+    contentColorScheme: themeContext.contentColorScheme === "light" ? "light" : "dark",
+  });
+  buffers.refreshDashboardBuffers();
+  broadcastUiShellPush(win, "theme:update", payload);
 }
 
 function dispatch(win, intent, state) {
@@ -166,18 +267,36 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.SHOW_COMMAND:
-      uiShell.showCommand(state.commandBuffer, state.commandCursorIndex);
+      uiShell.showCommand(
+        state.commandBuffer,
+        state.commandCursorIndex,
+        state.commandTarget === "EDITOR" ? "editor" : "shell",
+      );
       buffers.focusActive();
       break;
 
     case INTENTS.HIDE_COMMAND:
+      state.commandTarget = "SHELL";
       uiShell.hideCommand();
       buffers.focusActive();
+      if (state.interactionContext === "EDITOR") {
+        focusEditableBufferSurface(buffers.getActive());
+      }
       break;
 
     case INTENTS.COMMAND_INPUT:
-      uiShell.updateCommand(state.commandBuffer, state.commandCursorIndex);
+      uiShell.updateCommand(
+        state.commandBuffer,
+        state.commandCursorIndex,
+        state.commandTarget === "EDITOR" ? "editor" : "shell",
+      );
       break;
+
+    case INTENTS.SUBMIT_EDITOR_COMMAND: {
+      const activeEditableBuffer = buffers.getActive();
+      runEditableExCommand(activeEditableBuffer, intent.command);
+      break;
+    }
 
     case INTENTS.SHOW_WHICHKEY:
       uiShell.showWhichKey(intent.model || null, intent.timeoutMs, intent.delayMs);
@@ -195,6 +314,7 @@ function dispatch(win, intent, state) {
       state.mode = "COMMAND";
       state.commandBuffer = "open ";
       state.commandCursorIndex = state.commandBuffer.length;
+      state.commandTarget = "SHELL";
       dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
       dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
       break;
@@ -220,7 +340,11 @@ function dispatch(win, intent, state) {
     }
 
     case INTENTS.NEW_BUFFER: {
-      buffers.create(intent.url || "about:blank");
+      if (intent.url) {
+        buffers.create(intent.url);
+      } else {
+        buffers.openConfiguredBuffer();
+      }
       break;
     }
 
@@ -285,7 +409,31 @@ function dispatch(win, intent, state) {
       if (typeof state.applyConfig === "function") {
         state.applyConfig(config);
       }
+      applyThemeEverywhere(win);
+      uiShell.setTablineOptions({
+        showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
+      });
+      buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+      buffers.layoutViews();
+      uiShell.updateSplitDivider(buffers.getSplitStatus());
       console.info("Configuration reloaded from", configService.getConfigPath());
+      break;
+    }
+
+    case INTENTS.SET_THEME_MODE: {
+      const mode = typeof intent.mode === "string" ? intent.mode : "";
+      if (!["dark", "light", "auto", "custom"].includes(mode)) {
+        console.warn("Unknown theme mode:", intent.mode);
+        break;
+      }
+
+      const config = configService.updateThemeMode(mode);
+      if (typeof state.applyConfig === "function") {
+        state.applyConfig(config);
+      }
+
+      applyThemeEverywhere(win);
+      console.info(`Theme mode set to ${mode}`);
       break;
     }
 
@@ -310,6 +458,17 @@ function dispatch(win, intent, state) {
       } else {
         blurEditableBufferSurface(active);
       }
+      break;
+    }
+
+    case INTENTS.TOGGLE_URLLINE: {
+      const nextVisible = !buffers.isUrllineVisible();
+      buffers.setUrllineVisible(nextVisible);
+      break;
+    }
+
+    case INTENTS.SET_URLLINE_VISIBILITY: {
+      buffers.setUrllineVisible(Boolean(intent.enabled));
       break;
     }
 

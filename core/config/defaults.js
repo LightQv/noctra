@@ -18,19 +18,27 @@ const defaultConfig = {
     ui: {
       tabline: {
         enabled: true,
+        show_favicon: false,
+      },
+      urlline: {
+        enabled: false,
       },
       statusline: {
         enabled: true,
       },
     },
     theme: {
-      name: "default",
+      mode: "dark",
+      content_mode: "dark",
       overrides: {},
     },
     split: {
       enabled: true,
       regular_ratio: 0.5,
       devtools_ratio: 0.25,
+      divider: {
+        enabled: true,
+      },
       focus_keys: {
         left: "Ctrl+h",
         right: "Ctrl+l",
@@ -40,6 +48,23 @@ const defaultConfig = {
       history_file: "~/.config/noctra/history.yml",
       favorites_file: "~/.config/noctra/favorites.yml",
       sessions_file: "~/.config/noctra/sessions.yml",
+    },
+    opening_buffer: {
+      mode: "dashboard",
+      url: "https://anime-sama.to/",
+      dashboard: {
+        header: [
+          "░▒▓███████▓▒░ ░▒▓██████▓▒░ ░▒▓██████▓▒░▒▓████████▓▒░▒▓███████▓▒░ ░▒▓██████▓▒░",
+          "░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ░▒▓█▓▒░   ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░",
+          "░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░        ░▒▓█▓▒░   ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░",
+          "░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░        ░▒▓█▓▒░   ░▒▓███████▓▒░░▒▓████████▓▒░",
+          "░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░        ░▒▓█▓▒░   ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░",
+          "░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ░▒▓█▓▒░   ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░",
+          "░▒▓█▓▒░░▒▓█▓▒░░▒▓██████▓▒░ ░▒▓██████▓▒░  ░▒▓█▓▒░   ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░",
+        ].join("\n"),
+        buttons: [],
+        footer: "",
+      },
     },
   },
   keymap: {
@@ -177,6 +202,10 @@ const defaultConfig = {
             action: "split_devtools",
           },
         },
+      },
+      u: {
+        label: "Toggle URL line",
+        action: "toggle_urlline",
       },
     },
   },

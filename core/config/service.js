@@ -64,7 +64,16 @@ function migrateLegacyConfig(rawConfig) {
   }
 
   const migrated = JSON.parse(JSON.stringify(rawConfig));
-  const legacyGlobalKeys = ["input", "whichkey", "ui", "editor", "theme", "split", "storage"];
+  const legacyGlobalKeys = [
+    "input",
+    "whichkey",
+    "ui",
+    "editor",
+    "theme",
+    "split",
+    "storage",
+    "opening_buffer",
+  ];
 
   const globalSection = isPlainObject(migrated.global) ? migrated.global : {};
 
@@ -82,13 +91,64 @@ function migrateLegacyConfig(rawConfig) {
     migrated.global = globalSection;
   }
 
+  const themeNode =
+    migrated.global && isPlainObject(migrated.global.theme) ? migrated.global.theme : null;
+  if (themeNode) {
+    if (typeof themeNode.mode !== "string" && typeof themeNode.name === "string") {
+      themeNode.mode = themeNode.name;
+    }
+    if (Object.prototype.hasOwnProperty.call(themeNode, "name")) {
+      delete themeNode.name;
+    }
+  }
+
   return migrated;
+}
+
+function readRawConfig() {
+  ensureConfigFile();
+  const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
+  const parsed = raw.trim() ? parse(raw) : {};
+  return migrateLegacyConfig(parsed);
+}
+
+function addThemeComments(yamlText) {
+  const lines = String(yamlText || "").split("\n");
+  const output = [];
+
+  for (const line of lines) {
+    if (/^  theme:\s*$/.test(line)) {
+      output.push("  # Theme controls for Noctra shell and surfaces");
+    }
+
+    if (/^    mode:\s*/.test(line)) {
+      output.push("    # App theme mode: dark | light | auto | custom");
+      output.push("    # custom uses global.theme.overrides");
+    }
+
+    if (/^    content_mode:\s*/.test(line)) {
+      output.push("    # Browser content mode: dark | light | auto | match");
+      output.push("    # match follows app theme, but custom falls back to auto(system)");
+    }
+
+    if (/^    overrides:\s*$/.test(line)) {
+      output.push("    # Overrides are applied only when mode is custom");
+    }
+
+    output.push(line);
+  }
+
+  return output.join("\n");
+}
+
+function serializeConfig(configObject) {
+  return addThemeComments(stringify(configObject));
 }
 
 function syncConfigFile(rawConfig) {
   const migratedRaw = migrateLegacyConfig(rawConfig);
   const merged = mergeWithDefaults(defaultConfig, migratedRaw);
-  const nextText = stringify(merged);
+  const nextText = serializeConfig(merged);
 
   try {
     const currentText = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
@@ -103,7 +163,7 @@ function syncConfigFile(rawConfig) {
 }
 
 function writeDefaultConfig() {
-  fs.writeFileSync(CONFIG_FILE_PATH, stringify(defaultConfig), "utf8");
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(defaultConfig), "utf8");
 }
 
 function getBackupPath() {
@@ -236,10 +296,40 @@ function getConfigValue(pathKey, fallbackValue = undefined) {
   return cursor;
 }
 
+function updateThemeMode(nextMode) {
+  const allowedModes = new Set(["dark", "light", "auto", "custom"]);
+  if (typeof nextMode !== "string") {
+    return cachedConfig;
+  }
+
+  const normalizedMode = nextMode.trim().toLowerCase();
+  if (!allowedModes.has(normalizedMode)) {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.global)) {
+    rawConfig.global = {};
+  }
+
+  if (!isPlainObject(rawConfig.global.theme)) {
+    rawConfig.global.theme = {};
+  }
+
+  rawConfig.global.theme.mode = normalizedMode;
+  if (Object.prototype.hasOwnProperty.call(rawConfig.global.theme, "name")) {
+    delete rawConfig.global.theme.name;
+  }
+
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
 module.exports = {
   initConfig,
   reloadConfig,
   getConfig,
   getConfigPath,
   getConfigValue,
+  updateThemeMode,
 };

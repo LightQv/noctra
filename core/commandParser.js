@@ -26,9 +26,11 @@ function parseCommand(raw) {
         return { type: INTENTS.OPEN_URL, url: target.url };
       }
 
+    case "tab":
+    case "tabe":
     case "tabnew":
       if (!arg) {
-        return { type: INTENTS.NEW_BUFFER, url: "about:blank" };
+        return { type: INTENTS.NEW_BUFFER };
       }
       {
         const target = resolveInputTarget(arg, {
@@ -80,9 +82,38 @@ function parseCommand(raw) {
     case "config-reload":
       return { type: INTENTS.CONFIG_RELOAD };
 
+    case "urlline": {
+      const option = arg.toLowerCase();
+      if (!option || option === "toggle") {
+        return { type: INTENTS.TOGGLE_URLLINE };
+      }
+
+      if (["on", "enable", "enabled", "true", "1"].includes(option)) {
+        return { type: INTENTS.SET_URLLINE_VISIBILITY, enabled: true };
+      }
+
+      if (["off", "disable", "disabled", "false", "0"].includes(option)) {
+        return { type: INTENTS.SET_URLLINE_VISIBILITY, enabled: false };
+      }
+
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
     case "settings":
     case "config":
       return { type: INTENTS.OPEN_SETTINGS_BUFFER };
+
+    case "theme": {
+      const mode = arg.toLowerCase();
+      if (!["dark", "light", "auto", "custom"].includes(mode)) {
+        return { type: INTENTS.UNKNOWN_COMMAND, raw };
+      }
+      return { type: INTENTS.SET_THEME_MODE, mode };
+    }
+
+    case "focus-context":
+    case "context":
+      return { type: INTENTS.TOGGLE_FOCUS_CONTEXT };
 
     case "duck":
       return {

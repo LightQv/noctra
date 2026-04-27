@@ -1,5 +1,6 @@
 const { BrowserView } = require("electron");
 const { renderTabline } = require("../tabline");
+const { renderUrlline: renderShellUrlline } = require("../urlline");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
@@ -25,12 +26,26 @@ const SHELL_HTML = `
         overflow: hidden;
       }
 
+      #split-divider {
+        position: fixed;
+        top: ${UI_SHELL_TABLINE_HEIGHT}px;
+        bottom: ${UI_SHELL_STATUSLINE_HEIGHT}px;
+        width: 1px;
+        left: 0;
+        display: none;
+        pointer-events: none;
+        background: var(--ui-split-divider, #283140);
+        z-index: 1;
+      }
+
       :root {
         --ui-font-family: ${UI_FONT_FAMILY};
       }
     </style>
   </head>
-  <body></body>
+  <body>
+    <div id="split-divider" aria-hidden="true"></div>
+  </body>
 </html>
 `;
 
@@ -46,18 +61,19 @@ const COMMAND_OVERLAY_HTML = `
         width: 100%;
         height: 100%;
         background: transparent;
-        overflow: hidden;
+        overflow: visible;
         pointer-events: none;
       }
 
       ${UI_FONT_FACE_CSS}
 
       #command-shell {
+        position: relative;
         width: 100%;
-        height: 100%;
-        margin: 0;
+        height: calc(100% - 4px);
+        margin: 4px 0 0;
         min-width: 0;
-        padding: 0 10px;
+        padding: 8px 8px;
         border-radius: 6px;
         border: 1px solid var(--ui-accent, #89dceb);
         background: var(--ui-bg-panel, #161b24);
@@ -67,38 +83,45 @@ const COMMAND_OVERLAY_HTML = `
       }
 
       #command-title {
-        margin: 0 auto;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, -50%);
         padding: 0 8px;
         color: var(--ui-accent, #89dceb);
         background: var(--ui-bg-panel, #161b24);
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
         font-size: 13px;
-        line-height: 1;
+        line-height: 14px;
+        white-space: nowrap;
       }
 
       #command-overlay {
         position: relative;
         width: 100%;
-        height: 100%;
+        height: 20px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 5px;
         padding: 0;
-        transform: translateY(-1px);
         color: var(--ui-text-bright, #f4f7ff);
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
         font-size: 13px;
-        line-height: 1;
+        line-height: 20px;
         box-sizing: border-box;
       }
 
       #command-prefix {
         color: var(--ui-accent, #89dceb);
-        font-size: 17px;
-        line-height: 1;
+        font-size: 20px;
+        line-height: 20px;
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
         display: flex;
         align-items: center;
-        height: 100%;
+        justify-content: center;
+        min-width: 18px;
+        height: 20px;
+        transform: translateY(0.25px);
       }
 
       #command-content {
@@ -108,7 +131,7 @@ const COMMAND_OVERLAY_HTML = `
         align-items: center;
         justify-content: flex-start;
         gap: 1px;
-        height: 100%;
+        height: 20px;
         overflow: hidden;
         white-space: pre;
       }
@@ -117,15 +140,14 @@ const COMMAND_OVERLAY_HTML = `
         min-width: 0;
         overflow: hidden;
         white-space: pre;
-        line-height: 1;
+        line-height: 20px;
       }
 
       #command-cursor {
-        height: 1.22em;
+        height: 18px;
         background: var(--ui-accent, #89dceb);
         border-radius: 1px;
         flex: 0 0 auto;
-        transform: translateY(-1px);
       }
 
       #command-cursor.cursor-block {
@@ -138,13 +160,13 @@ const COMMAND_OVERLAY_HTML = `
     </style>
   </head>
   <body>
-    <fieldset id="command-shell">
-      <legend id="command-title">Cmdline</legend>
+    <div id="command-shell">
+      <div id="command-title">Cmdline</div>
       <div id="command-overlay">
         <span id="command-prefix"></span>
         <span id="command-content"><span id="command-text-before" class="command-text-segment"></span><span id="command-cursor" class="cursor-block" aria-hidden="true"></span><span id="command-text-after" class="command-text-segment"></span></span>
       </div>
-    </fieldset>
+    </div>
   </body>
 </html>
 `;
@@ -318,7 +340,7 @@ const STATUSLINE_OVERLAY_HTML = `
         justify-content: space-between;
         padding: 0;
         box-sizing: border-box;
-        background: var(--ui-bg-statusline, #151a22);
+        background: var(--ui-bg-shell, #151a22);
         border-top: 1px solid var(--ui-border-strong, #2a3140);
         color: var(--ui-text, #d8e3f8);
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
@@ -393,6 +415,7 @@ class UiShellManager {
     this.commandVisible = false;
     this.commandText = "";
     this.commandCursorIndex = 0;
+    this.commandContext = "shell";
     this.whichKeyOverlayView = null;
     this.whichKeyOverlayReady = false;
     this.whichKeyVisible = false;
@@ -410,7 +433,16 @@ class UiShellManager {
     };
     this.pendingTablineSnapshot = [];
     this.tablineRenderTimer = null;
+    this.splitDividerState = {
+      visible: false,
+      offsetPx: 0,
+    };
     this.tablineActions = {};
+    this.tablineOptions = {
+      showFavicon: false,
+    };
+    this.urllineActions = {};
+    this.urllineModel = { panes: [] };
     this.windowChrome = {
       platform: process.platform,
       useNativeControls: process.platform === "darwin",
@@ -448,6 +480,8 @@ class UiShellManager {
       this.shellHostReady = true;
       this.applyThemeToWebContents(this.window.webContents);
       this.renderTabline(this.pendingTablineSnapshot);
+      this.renderUrlline(this.urllineModel);
+      this.updateSplitDivider(this.splitDividerState);
     });
   }
 
@@ -546,6 +580,7 @@ class UiShellManager {
         this.windowChrome,
         this.tablineActions,
         this.currentTheme,
+        this.tablineOptions,
       );
     }, 16);
   }
@@ -561,7 +596,35 @@ class UiShellManager {
     this.applyThemeToWebContents(this.whichKeyOverlayView && this.whichKeyOverlayView.webContents);
     this.applyThemeToWebContents(this.statuslineView && this.statuslineView.webContents);
     this.renderTabline(this.pendingTablineSnapshot);
+    this.renderUrlline(this.urllineModel);
     this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
+    this.updateSplitDivider(this.splitDividerState);
+  }
+
+  updateSplitDivider(splitStatus = {}) {
+    const divider = splitStatus.divider && typeof splitStatus.divider === "object"
+      ? splitStatus.divider
+      : {};
+    const visible = Boolean(divider.visible);
+    const offsetPx = Number.isFinite(divider.offsetPx) ? Math.max(0, Math.floor(divider.offsetPx)) : 0;
+
+    this.splitDividerState = {
+      visible,
+      offsetPx,
+    };
+
+    if (!this.window || !this.shellHostReady) return;
+
+    this.window.webContents.executeJavaScript(`
+      (function updateSplitDivider() {
+        const divider = document.getElementById('split-divider');
+        if (!divider) return;
+        const visible = ${JSON.stringify(visible)};
+        const offsetPx = ${JSON.stringify(offsetPx)};
+        divider.style.display = visible ? 'block' : 'none';
+        divider.style.left = visible ? offsetPx + 'px' : '0px';
+      })();
+    `).catch(() => {});
   }
 
   applyThemeToWebContents(webContents) {
@@ -593,6 +656,34 @@ class UiShellManager {
       ...actions,
     };
     this.renderTabline(this.pendingTablineSnapshot);
+  }
+
+  setTablineOptions(options = {}) {
+    this.tablineOptions = {
+      ...this.tablineOptions,
+      ...(options && typeof options === "object" ? options : {}),
+    };
+    this.renderTabline(this.pendingTablineSnapshot);
+  }
+
+  renderUrlline(model = { panes: [] }) {
+    this.urllineModel = model && typeof model === "object" ? model : { panes: [] };
+
+    if (!this.window || !this.shellHostReady) return;
+
+    renderShellUrlline(
+      this.window.webContents,
+      this.urllineModel,
+      this.urllineActions,
+      this.currentTheme,
+    );
+  }
+
+  setUrllineActions(actions = {}) {
+    this.urllineActions = {
+      ...actions,
+    };
+    this.renderUrlline(this.urllineModel);
   }
 
   setWindowChrome(chrome = {}) {
@@ -697,20 +788,22 @@ class UiShellManager {
     return this.commandVisible;
   }
 
-  showCommand(text = "", cursorIndex = null) {
+  showCommand(text = "", cursorIndex = null, context = "shell") {
     this.commandVisible = true;
+    this.commandContext = context === "editor" ? "editor" : "shell";
     this.commandText = text;
     this.commandCursorIndex = Number.isFinite(cursorIndex)
       ? Math.max(0, Math.min(Math.trunc(cursorIndex), String(text).length))
       : String(text).length;
     this.keepCommandOverlayAboveContentViews();
-    this.updateCommand(text, this.commandCursorIndex);
+    this.updateCommand(text, this.commandCursorIndex, this.commandContext);
   }
 
   hideCommand() {
     this.commandVisible = false;
     this.commandText = "";
     this.commandCursorIndex = 0;
+    this.commandContext = "shell";
     this.updateCommand("", 0);
     this.relayout();
   }
@@ -792,7 +885,7 @@ class UiShellManager {
         });
 
         const columnCount = 3;
-        const maxRowsPerColumn = 6;
+        const maxRowsPerColumn = 5;
         const columns = Array.from({ length: columnCount }, (_, index) =>
           entries.slice(index * maxRowsPerColumn, (index + 1) * maxRowsPerColumn),
         );
@@ -942,12 +1035,16 @@ class UiShellManager {
     `);
   }
 
-  updateCommand(text = "", cursorIndex = null) {
+  updateCommand(text = "", cursorIndex = null, context = null) {
     const nextText = String(text);
     const maxCursor = nextText.length;
     const nextCursor = Number.isFinite(cursorIndex)
       ? Math.max(0, Math.min(Math.trunc(cursorIndex), maxCursor))
       : maxCursor;
+
+    if (typeof context === "string") {
+      this.commandContext = context === "editor" ? "editor" : "shell";
+    }
 
     this.commandText = nextText;
     this.commandCursorIndex = nextCursor;
@@ -957,13 +1054,20 @@ class UiShellManager {
     const beforeText = nextText.slice(0, nextCursor);
     const afterText = nextText.slice(nextCursor);
     const cursorClass = nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
+    const isEditorContext = this.commandContext === "editor";
+    const commandTitle = isEditorContext ? "Ex" : "Cmdline";
+    const commandPrefix = "";
 
     this.commandOverlayView.webContents.executeJavaScript(`
       (function updateCommandOverlayText() {
+        const titleNode = document.getElementById('command-title');
+        const prefixNode = document.getElementById('command-prefix');
         const beforeNode = document.getElementById('command-text-before');
         const afterNode = document.getElementById('command-text-after');
         const cursorNode = document.getElementById('command-cursor');
-        if (!beforeNode || !afterNode || !cursorNode) return;
+        if (!titleNode || !prefixNode || !beforeNode || !afterNode || !cursorNode) return;
+        titleNode.textContent = ${JSON.stringify(commandTitle)};
+        prefixNode.textContent = ${JSON.stringify(commandPrefix)};
         beforeNode.textContent = ${JSON.stringify(beforeText)};
         afterNode.textContent = ${JSON.stringify(afterText)};
         cursorNode.className = ${JSON.stringify(cursorClass)};

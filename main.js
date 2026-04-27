@@ -1,6 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain, clipboard } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard, nativeTheme } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
@@ -8,20 +8,77 @@ const configService = require("./core/config/service");
 const uiShell = require("./ui/shell/manager");
 const { dispatch } = require("./core/dispatcher");
 const { INTENTS } = require("./core/intents");
-const { resolveTheme, toCssVars } = require("./ui/theme");
+const {
+  normalizeThemeMode,
+  normalizeContentThemeMode,
+  resolveTheme,
+  resolveThemeMode,
+  resolveContentColorScheme,
+  toCssVars,
+} = require("./ui/theme");
+const { resolveInputTarget } = require("./core/resolver");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
 
 function resolveCurrentTheme() {
-  return resolveTheme(configService.getConfigValue("global.theme", {}));
+  const themeConfig = configService.getConfigValue("global.theme", {});
+  const systemPrefersDark = nativeTheme.shouldUseDarkColors;
+  const configuredMode = normalizeThemeMode(
+    typeof themeConfig?.mode === "string" ? themeConfig.mode : themeConfig?.name,
+    "dark",
+  );
+  const resolvedMode = resolveThemeMode(themeConfig, { systemPrefersDark });
+  const contentMode = normalizeContentThemeMode(themeConfig?.content_mode, "dark");
+  const contentColorScheme = resolveContentColorScheme(themeConfig, { systemPrefersDark });
+  const theme = resolveTheme(themeConfig, { systemPrefersDark });
+
+  return {
+    theme,
+    configuredMode,
+    resolvedMode,
+    contentMode,
+    contentColorScheme,
+  };
 }
 
-function buildThemePayload(theme) {
+function buildThemePayload(themeContext) {
+  const theme = themeContext && themeContext.theme ? themeContext.theme : themeContext || {};
+  const resolvedMode =
+    themeContext && typeof themeContext.resolvedMode === "string"
+      ? themeContext.resolvedMode
+      : "dark";
+
   return {
     theme,
     themeVars: toCssVars(theme),
+    colorScheme: resolvedMode === "light" ? "light" : "dark",
+    resolvedMode,
   };
+}
+
+function syncContentUiTheme(theme) {
+  const contentColorScheme = theme.contentColorScheme === "light" ? "light" : "dark";
+  buffers.setContentUiOptions({
+    thumbColor: theme.scrollbarThumbColor,
+    thumbActiveColor: theme.scrollbarThumbActiveColor,
+    contentColorScheme,
+  });
+}
+
+function applyTheme(themeContext, options = {}) {
+  const shouldBroadcast = Boolean(options.broadcast);
+  const payload = buildThemePayload(themeContext);
+  uiShell.setTheme(payload.theme);
+  syncContentUiTheme({
+    ...payload.theme,
+    contentColorScheme:
+      themeContext && themeContext.contentColorScheme === "light" ? "light" : "dark",
+  });
+  buffers.refreshDashboardBuffers();
+  if (shouldBroadcast) {
+    broadcastUiShellPush("theme:update", payload);
+  }
 }
 
 function broadcastUiShellPush(type, payload = {}) {
@@ -76,6 +133,28 @@ function normalizeInput(input) {
 
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
+
+  const isUrllinePasteShortcut =
+    state.urllineEditing &&
+    normalized.type === "keyDown" &&
+    (normalized.key === "v" || normalized.key === "V") &&
+    ((process.platform === "darwin" && normalized.meta && !normalized.ctrl) ||
+      (process.platform !== "darwin" && normalized.ctrl && !normalized.meta));
+
+  if (isUrllinePasteShortcut) {
+    event.preventDefault();
+    handleUrllineInput(event, {
+      ...normalized,
+      pasteText: clipboard.readText(),
+    });
+    return;
+  }
+
+  if (state.urllineEditing) {
+    event.preventDefault();
+    handleUrllineInput(event, normalized);
+    return;
+  }
 
   const isCommandPasteShortcut =
     state.mode === "COMMAND" &&
@@ -135,10 +214,65 @@ function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
   return results;
 }
 
+function findNormalMappingsForAction(normalMap, targetAction) {
+  if (!normalMap || typeof normalMap !== "object") {
+    return [];
+  }
+
+  const hits = [];
+  for (const [keys, node] of Object.entries(normalMap)) {
+    if (node && node.action === targetAction) {
+      hits.push(keys);
+    }
+  }
+  return hits;
+}
+
+function findCtrlMappingsForAction(ctrlMap, targetAction) {
+  if (!ctrlMap || typeof ctrlMap !== "object") {
+    return [];
+  }
+
+  const hits = [];
+  for (const [key, node] of Object.entries(ctrlMap)) {
+    if (node && node.action === targetAction) {
+      hits.push(`Ctrl+${String(key).toUpperCase()}`);
+    }
+  }
+  return hits;
+}
+
 function formatLeaderSequence(seq = []) {
   if (!Array.isArray(seq) || seq.length === 0) return null;
   const rendered = seq.map((part) => (part === "tab" ? "Tab" : part)).join(" ");
   return `<leader> ${rendered}`;
+}
+
+function findShortcutLabelForAction(actionId) {
+  const normal = configService.getConfigValue("keymap.normal", {});
+  const ctrl = configService.getConfigValue("keymap.ctrl", {});
+  const leader = configService.getConfigValue("keymap.leader", {});
+
+  const labels = [];
+  const normalHits = findNormalMappingsForAction(normal, actionId);
+  if (normalHits.length > 0) {
+    labels.push(normalHits[0]);
+  }
+
+  const ctrlHits = findCtrlMappingsForAction(ctrl, actionId);
+  if (ctrlHits.length > 0) {
+    labels.push(ctrlHits[0]);
+  }
+
+  const leaderHits = findLeaderSequencesForAction(leader, actionId);
+  if (leaderHits.length > 0) {
+    const leaderLabel = formatLeaderSequence(leaderHits[0]);
+    if (leaderLabel) {
+      labels.push(leaderLabel);
+    }
+  }
+
+  return labels.length > 0 ? labels.join(" | ") : "";
 }
 
 function updateTablineActions() {
@@ -146,12 +280,68 @@ function updateTablineActions() {
   const openSettingsSeqs = findLeaderSequencesForAction(leaderTree, "open_settings");
   const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
   const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
+  const newBufferShortcut = findShortcutLabelForAction("new_buffer");
+  const newTabShortcut = [newBufferShortcut, ":tab", ":tabnew", ":tabe"]
+    .filter((value, index, list) => value && list.indexOf(value) === index)
+    .join(" | ");
 
   uiShell.setTablineActions({
+    newTab: {
+      label: "New buffer",
+      icon: "+",
+      shortcutLabel: newTabShortcut,
+    },
     settings: {
       label: "Config",
       icon: "󰒓",
       shortcutLabel: `${systemShortcut} | ${vimShortcut}`,
+    },
+  });
+}
+
+function updateTablineOptions() {
+  uiShell.setTablineOptions({
+    showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
+  });
+}
+
+function buildUrllineModel() {
+  const model = buffers.getUrllineRenderModel();
+  if (!state.urllineEditing) {
+    return model;
+  }
+
+  return {
+    ...model,
+    editing: {
+      active: true,
+      pane: state.urllinePane === "right" ? "right" : "left",
+      text: state.urllineBuffer,
+      cursorIndex: state.urllineCursorIndex,
+    },
+  };
+}
+
+function updateUrllineRender() {
+  uiShell.renderUrlline(buildUrllineModel());
+}
+
+function updateUrllineActions() {
+  uiShell.setUrllineActions({
+    back: {
+      label: "Previous page",
+      icon: "󰁍",
+      shortcutLabel: findShortcutLabelForAction("nav_back"),
+    },
+    forward: {
+      label: "Next page",
+      icon: "󰁔",
+      shortcutLabel: findShortcutLabelForAction("nav_forward"),
+    },
+    reload: {
+      label: "Reload page",
+      icon: "󰑐",
+      shortcutLabel: findShortcutLabelForAction("reload_page"),
     },
   });
 }
@@ -167,6 +357,167 @@ function getStatuslineModeLabel() {
   }
 
   return `SHELL:${state.mode}`;
+}
+
+function clampUrllineCursor() {
+  const max = state.urllineBuffer.length;
+  const index = Number.isFinite(state.urllineCursorIndex)
+    ? Math.trunc(state.urllineCursorIndex)
+    : max;
+  state.urllineCursorIndex = Math.max(0, Math.min(index, max));
+}
+
+function startUrllineEdit(pane, initialUrl) {
+  state.urllineEditing = true;
+  state.urllinePane = pane === "right" ? "right" : "left";
+  state.urllineBuffer = String(initialUrl || "");
+  state.urllineCursorIndex = state.urllineBuffer.length;
+  state.mode = "INSERT";
+  uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  updateUrllineRender();
+}
+
+function stopUrllineEdit() {
+  state.urllineEditing = false;
+  state.urllinePane = "left";
+  state.urllineBuffer = "";
+  state.urllineCursorIndex = 0;
+  state.mode = "NORMAL";
+  uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  updateUrllineRender();
+}
+
+function normalizeUrllineText(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.replace(/\r\n|\r|\n/g, " ");
+}
+
+function insertUrllineText(text) {
+  const chunk = normalizeUrllineText(text);
+  if (!chunk) {
+    return;
+  }
+  clampUrllineCursor();
+  const cursor = state.urllineCursorIndex;
+  state.urllineBuffer =
+    state.urllineBuffer.slice(0, cursor) +
+    chunk +
+    state.urllineBuffer.slice(cursor);
+  state.urllineCursorIndex = cursor + chunk.length;
+}
+
+function submitUrlline() {
+  const targetPane = state.urllinePane === "right" ? "right" : "left";
+  const rawInput = String(state.urllineBuffer || "").trim();
+  stopUrllineEdit();
+
+  if (!rawInput) {
+    return;
+  }
+
+  const target = resolveInputTarget(rawInput, {
+    defaultSearchEngine: "duckduckgo",
+  });
+
+  if (target.kind === "invalid") {
+    return;
+  }
+
+  buffers.focusPane(targetPane);
+  const paneBuffer = buffers.getPaneBuffer(targetPane);
+  if (!paneBuffer || paneBuffer.isEditable) {
+    return;
+  }
+
+  paneBuffer.load(target.url);
+}
+
+function handleUrllineInput(event, input) {
+  if (typeof input.pasteText === "string" && input.pasteText.length > 0) {
+    insertUrllineText(input.pasteText);
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Escape") {
+    stopUrllineEdit();
+    return;
+  }
+
+  if (input.key === "Enter") {
+    submitUrlline();
+    return;
+  }
+
+  if (input.key === "Left" || input.key === "ArrowLeft") {
+    clampUrllineCursor();
+    state.urllineCursorIndex = Math.max(0, state.urllineCursorIndex - 1);
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Right" || input.key === "ArrowRight") {
+    clampUrllineCursor();
+    state.urllineCursorIndex = Math.min(state.urllineBuffer.length, state.urllineCursorIndex + 1);
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Home") {
+    state.urllineCursorIndex = 0;
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "End") {
+    state.urllineCursorIndex = state.urllineBuffer.length;
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Backspace") {
+    clampUrllineCursor();
+    if (state.urllineCursorIndex <= 0) {
+      return;
+    }
+
+    const cursor = state.urllineCursorIndex;
+    state.urllineBuffer =
+      state.urllineBuffer.slice(0, cursor - 1) +
+      state.urllineBuffer.slice(cursor);
+    state.urllineCursorIndex = cursor - 1;
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Delete") {
+    clampUrllineCursor();
+    const cursor = state.urllineCursorIndex;
+    if (cursor >= state.urllineBuffer.length) {
+      return;
+    }
+
+    state.urllineBuffer =
+      state.urllineBuffer.slice(0, cursor) +
+      state.urllineBuffer.slice(cursor + 1);
+    updateUrllineRender();
+    return;
+  }
+
+  if (!input.ctrl && !input.meta && !input.alt) {
+    if (input.key === "Space") {
+      insertUrllineText(" ");
+      updateUrllineRender();
+      return;
+    }
+
+    if (typeof input.key === "string" && input.key.length === 1) {
+      insertUrllineText(input.key);
+      updateUrllineRender();
+    }
+  }
 }
 
 function registerUiShellEvents() {
@@ -208,6 +559,11 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "tabline:new-tab") {
+      dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
+      return;
+    }
+
     if (type === "editor:toggle-context") {
       dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
@@ -231,11 +587,60 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "editor:open-command") {
+      const initialText =
+        typeof payload?.initialText === "string" ? payload.initialText : "";
+      state.mode = "COMMAND";
+      state.commandTarget = "EDITOR";
+      state.commandBuffer = initialText;
+      state.commandCursorIndex = initialText.length;
+      dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
+      dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
+      return;
+    }
+
     if (type === "editor:ready") {
       state.interactionContext = "EDITOR";
       state.editorMode = "NORMAL";
       focusActiveEditorSurface({ forceNormal: true });
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
+    if (type === "urlline:start-edit") {
+      const pane = payload?.pane === "right" ? "right" : "left";
+      buffers.focusPane(pane);
+      const paneBuffer = buffers.getPaneBuffer(pane);
+      if (!paneBuffer || paneBuffer.isEditable) {
+        return;
+      }
+      startUrllineEdit(pane, paneBuffer.url || "about:blank");
+      return;
+    }
+
+    if (type === "urlline:action") {
+      const pane = payload?.pane === "right" ? "right" : "left";
+      const action = payload?.action;
+      const paneBuffer = buffers.getPaneBuffer(pane);
+      if (!paneBuffer || paneBuffer.isEditable) {
+        return;
+      }
+
+      buffers.focusPane(pane);
+
+      if (action === "back") {
+        paneBuffer.webContents.navigationHistory.goBack();
+        return;
+      }
+
+      if (action === "forward") {
+        paneBuffer.webContents.navigationHistory.goForward();
+        return;
+      }
+
+      if (action === "reload") {
+        paneBuffer.webContents.reload();
+      }
       return;
     }
 
@@ -265,7 +670,7 @@ function registerUiShellEvents() {
       const configPath = configService.getConfigPath();
       try {
         const content = fs.readFileSync(configPath, "utf8");
-        const theme = resolveCurrentTheme();
+        const themeContext = resolveCurrentTheme();
         return {
           ok: true,
           content,
@@ -275,7 +680,7 @@ function registerUiShellEvents() {
             true,
           ),
           scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
-          ...buildThemePayload(theme),
+          ...buildThemePayload(themeContext),
         };
       } catch (error) {
         return { ok: false, error: error.message };
@@ -288,10 +693,15 @@ function registerUiShellEvents() {
         fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
         const config = configService.reloadConfig();
         state.applyConfig(config);
-        const theme = resolveCurrentTheme();
-        uiShell.setTheme(theme);
-        broadcastUiShellPush("theme:update", buildThemePayload(theme));
+        buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+        buffers.layoutViews();
+        const themeContext = resolveCurrentTheme();
+        applyTheme(themeContext, { broadcast: true });
+        uiShell.updateSplitDivider(buffers.getSplitStatus());
         updateTablineActions();
+        updateTablineOptions();
+        updateUrllineActions();
+        updateUrllineRender();
         return { ok: true };
       } catch (error) {
         return { ok: false, error: error.message };
@@ -380,8 +790,9 @@ function createWindow() {
   registerUiShellEvents();
 
   buffers.init(win);
+  buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
   uiShell.init(win);
-  uiShell.setTheme(resolveCurrentTheme());
+  applyTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
     platform: process.platform,
     useNativeControls: isMac,
@@ -391,19 +802,28 @@ function createWindow() {
   uiShell.updateStatuslineMode(state.mode);
   uiShell.updateStatuslineScroll(0);
   uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
+  uiShell.updateSplitDivider(buffers.getSplitStatus());
   updateTablineActions();
+  updateTablineOptions();
+  updateUrllineActions();
+  updateUrllineRender();
 
   const syncWindowChrome = () => {
     uiShell.setWindowChrome({
       isMaximized: win.isMaximized(),
       isFullScreen: win.isFullScreen(),
     });
+    updateUrllineRender();
   };
 
   win.on("maximize", syncWindowChrome);
   win.on("unmaximize", syncWindowChrome);
   win.on("enter-full-screen", syncWindowChrome);
   win.on("leave-full-screen", syncWindowChrome);
+  win.on("resize", () => {
+    uiShell.updateSplitDivider(buffers.getSplitStatus());
+    updateUrllineRender();
+  });
 
   let statusPollInFlight = false;
 
@@ -461,8 +881,20 @@ function createWindow() {
     const activeChanged = Boolean(change.activeChanged);
 
     uiShell.renderTabline(snapshot);
+    const urllineModel = buffers.getUrllineRenderModel();
+    if (state.urllineEditing) {
+      const editingPane = state.urllinePane === "right" ? "right" : "left";
+      const paneStillVisible = Array.isArray(urllineModel.panes)
+        ? urllineModel.panes.some((pane) => pane && pane.pane === editingPane)
+        : false;
+      if (!paneStillVisible) {
+        stopUrllineEdit();
+      }
+    }
+    updateUrllineRender();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
+    uiShell.updateSplitDivider(buffers.getSplitStatus());
 
     if (activeChanged || activeInputWebContents !== active.webContents) {
       bindInputToActiveBuffer();
@@ -475,8 +907,31 @@ function createWindow() {
     }
   });
 
-  buffers.create("https://anime-sama.to/");
+  buffers.openConfiguredBuffer();
   bindInputToActiveBuffer();
+
+  const onNativeThemeUpdated = () => {
+    const themeContext = resolveCurrentTheme();
+    const shouldApplyFromSystem =
+      themeContext.configuredMode === "auto" ||
+      themeContext.contentMode === "auto" ||
+      (themeContext.contentMode === "match" && themeContext.configuredMode === "custom");
+    if (!shouldApplyFromSystem) {
+      return;
+    }
+
+    applyTheme(themeContext, { broadcast: true });
+    updateTablineActions();
+    updateTablineOptions();
+    updateUrllineActions();
+    updateUrllineRender();
+  };
+
+  nativeTheme.on("updated", onNativeThemeUpdated);
+
+  win.on("closed", () => {
+    nativeTheme.removeListener("updated", onNativeThemeUpdated);
+  });
 }
 
 app.whenReady().then(createWindow);

@@ -56,6 +56,14 @@ function normalizeNumber(value, fallback, min) {
   return fallback;
 }
 
+function normalizeStringArray(value, fallback = []) {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  return value.filter((item) => typeof item === "string");
+}
+
 function mergeWithFallback(primaryNode, fallbackNode) {
   if (!isPlainObject(primaryNode)) {
     return isPlainObject(fallbackNode) ? fallbackNode : {};
@@ -194,6 +202,7 @@ function normalizeConfig(rawConfig) {
   const splitSection = resolveGlobalSection(input, "split");
   const editorSection = resolveGlobalSection(input, "editor");
   const storageSection = resolveGlobalSection(input, "storage");
+  const openingBufferSection = resolveGlobalSection(input, "opening_buffer");
 
   if (isPlainObject(inputSection)) {
     if (typeof inputSection.leader_key === "string" && inputSection.leader_key.trim()) {
@@ -325,6 +334,35 @@ function normalizeConfig(rawConfig) {
       if (typeof storageSection[key] === "string" && storageSection[key].trim()) {
         normalizedGlobal.storage[key] = storageSection[key].trim();
       }
+    }
+  }
+
+  if (isPlainObject(openingBufferSection)) {
+    if (
+      openingBufferSection.mode === "blank" ||
+      openingBufferSection.mode === "url" ||
+      openingBufferSection.mode === "dashboard"
+    ) {
+      normalizedGlobal.opening_buffer.mode = openingBufferSection.mode;
+    }
+
+    if (typeof openingBufferSection.url === "string") {
+      normalizedGlobal.opening_buffer.url = openingBufferSection.url;
+    }
+
+    if (isPlainObject(openingBufferSection.dashboard)) {
+      if (typeof openingBufferSection.dashboard.header === "string") {
+        normalizedGlobal.opening_buffer.dashboard.header = openingBufferSection.dashboard.header;
+      }
+
+      if (typeof openingBufferSection.dashboard.footer === "string") {
+        normalizedGlobal.opening_buffer.dashboard.footer = openingBufferSection.dashboard.footer;
+      }
+
+      normalizedGlobal.opening_buffer.dashboard.buttons = normalizeStringArray(
+        openingBufferSection.dashboard.buttons,
+        defaults.global.opening_buffer.dashboard.buttons,
+      );
     }
   }
 

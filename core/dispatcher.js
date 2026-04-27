@@ -220,7 +220,11 @@ function dispatch(win, intent, state) {
     }
 
     case INTENTS.NEW_BUFFER: {
-      buffers.create(intent.url || "about:blank");
+      if (intent.url) {
+        buffers.create(intent.url);
+      } else {
+        buffers.openConfiguredBuffer();
+      }
       break;
     }
 

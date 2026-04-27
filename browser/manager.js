@@ -2,6 +2,7 @@ const { BrowserView } = require("electron");
 const Buffer = require("./buffers");
 const { UI_SHELL_TABLINE_HEIGHT, UI_SHELL_STATUSLINE_HEIGHT } = require("../ui/constants");
 const { getConfigValue } = require("../core/config/service");
+const { buildOpeningBufferSpec } = require("../core/opening/buffer");
 
 class BufferManager {
   constructor() {
@@ -66,6 +67,23 @@ class BufferManager {
 
     this.notify({ kind: "structure", activeChanged: activate });
     return buffer;
+  }
+
+  openConfiguredBuffer(options = {}) {
+    const openingBufferConfig = getConfigValue("global.opening_buffer", {});
+    const openingBufferSpec = buildOpeningBufferSpec(openingBufferConfig);
+
+    if (openingBufferSpec.warning) {
+      console.warn(openingBufferSpec.warning);
+    }
+
+    if (openingBufferSpec.kind === "virtual") {
+      const buffer = this.create(null, options);
+      buffer.loadVirtualDocument(openingBufferSpec.document);
+      return buffer;
+    }
+
+    return this.create(openingBufferSpec.url, options);
   }
 
   getLeftBuffer() {
@@ -211,7 +229,7 @@ class BufferManager {
 
     if (this.buffers.length === 0) {
       this.activeIndex = -1;
-      this.create("about:blank");
+      this.openConfiguredBuffer();
       return this.getActive();
     }
 

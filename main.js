@@ -482,7 +482,7 @@ function createWindow() {
     }
   });
 
-  buffers.create("https://anime-sama.to/");
+  buffers.openConfiguredBuffer();
   bindInputToActiveBuffer();
 }
 

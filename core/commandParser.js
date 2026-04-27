@@ -28,7 +28,7 @@ function parseCommand(raw) {
 
     case "tabnew":
       if (!arg) {
-        return { type: INTENTS.NEW_BUFFER, url: "about:blank" };
+        return { type: INTENTS.NEW_BUFFER };
       }
       {
         const target = resolveInputTarget(arg, {

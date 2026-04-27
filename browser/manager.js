@@ -1,6 +1,10 @@
 const { BrowserView } = require("electron");
 const Buffer = require("./buffers");
-const { UI_SHELL_TABLINE_HEIGHT, UI_SHELL_STATUSLINE_HEIGHT } = require("../ui/constants");
+const {
+  UI_SHELL_TABLINE_HEIGHT,
+  UI_SHELL_URLLINE_HEIGHT,
+  UI_SHELL_STATUSLINE_HEIGHT,
+} = require("../ui/constants");
 const { getConfigValue } = require("../core/config/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
 
@@ -25,6 +29,7 @@ class BufferManager {
       visible: false,
       offsetPx: 0,
     };
+    this.urllineVisible = false;
   }
 
   init(windowRef) {
@@ -396,6 +401,22 @@ class BufferManager {
     return true;
   }
 
+  focusPane(pane = "left") {
+    if (pane === "right") {
+      return this.focusSplitRight();
+    }
+
+    if (this.split.enabled) {
+      return this.focusSplitLeft();
+    }
+
+    this.focusedPane = "left";
+    this.layoutViews();
+    this.focusActive();
+    this.notify({ kind: "structure", activeChanged: true });
+    return true;
+  }
+
   isSplitEnabled() {
     return this.split.enabled;
   }
@@ -410,6 +431,46 @@ class BufferManager {
         offsetPx: this.splitDivider.offsetPx,
       },
     };
+  }
+
+  setUrllineVisible(visible) {
+    const next = Boolean(visible);
+    if (this.urllineVisible === next) {
+      return;
+    }
+
+    this.urllineVisible = next;
+    this.layoutViews();
+    this.notify({ kind: "layout", activeChanged: false });
+  }
+
+  isUrllineVisible() {
+    return this.urllineVisible;
+  }
+
+  getRightPaneBuffer() {
+    if (!this.split.enabled || this.split.mode !== "regular") {
+      return null;
+    }
+
+    const left = this.getLeftBuffer();
+    if (this.split.rightPaneSourceBuffer && this.split.rightPaneSourceBuffer !== left) {
+      return this.split.rightPaneSourceBuffer;
+    }
+
+    if (this.split.rightPaneBuffer) {
+      return this.split.rightPaneBuffer;
+    }
+
+    return this.split.rightPaneSourceBuffer || null;
+  }
+
+  getPaneBuffer(pane = "left") {
+    if (pane === "right") {
+      return this.getRightPaneBuffer();
+    }
+
+    return this.getLeftBuffer();
   }
 
   getSnapshot() {
@@ -432,6 +493,71 @@ class BufferManager {
         isOtherPaneBuffer,
       });
     });
+  }
+
+  canShowUrllineForBuffer(buffer) {
+    return Boolean(this.urllineVisible && buffer && !buffer.isEditable);
+  }
+
+  getUrllineRenderModel() {
+    if (!this.window) {
+      return { panes: [] };
+    }
+
+    const bounds = this.window.getContentBounds();
+    const left = this.getLeftBuffer();
+    const rightSource = this.split.mode === "regular" ? this.split.rightPaneSourceBuffer : null;
+    const rightRegular = this.split.mode === "regular" ? this.split.rightPaneBuffer : null;
+    const showSplit = this.split.enabled && (rightSource || rightRegular || this.split.mode === "devtools");
+    const dividerWidth = showSplit && getConfigValue("global.split.divider.enabled", true) ? 1 : 0;
+    const availableSplitWidth = Math.max(bounds.width - dividerWidth, 2);
+    const rightWidth = showSplit
+      ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
+      : 0;
+    const leftWidth = showSplit
+      ? Math.max(availableSplitWidth - rightWidth, 1)
+      : bounds.width;
+    const rightX = leftWidth + dividerWidth;
+
+    const useMirroredRight =
+      showSplit &&
+      this.split.mode === "regular" &&
+      Boolean(left && rightSource && left === rightSource);
+
+    const rightPaneBuffer =
+      this.split.mode === "regular"
+        ? useMirroredRight
+          ? rightRegular
+          : rightSource
+        : null;
+
+    const panes = [];
+
+    if (this.canShowUrllineForBuffer(left)) {
+      panes.push({
+        pane: "left",
+        x: 0,
+        top: UI_SHELL_TABLINE_HEIGHT,
+        width: leftWidth,
+        url: left.url || "about:blank",
+        canGoBack: Boolean(left.webContents?.navigationHistory?.canGoBack?.()),
+        canGoForward: Boolean(left.webContents?.navigationHistory?.canGoForward?.()),
+      });
+    }
+
+    if (showSplit && this.canShowUrllineForBuffer(rightPaneBuffer)) {
+      panes.push({
+        pane: "right",
+        x: rightX,
+        top: UI_SHELL_TABLINE_HEIGHT,
+        width: rightWidth,
+        url: rightPaneBuffer.url || "about:blank",
+        canGoBack: Boolean(rightPaneBuffer.webContents?.navigationHistory?.canGoBack?.()),
+        canGoForward: Boolean(rightPaneBuffer.webContents?.navigationHistory?.canGoForward?.()),
+      });
+    }
+
+    return { panes };
   }
 
   findByKind(kind) {
@@ -564,11 +690,8 @@ class BufferManager {
     if (!this.window) return;
 
     const bounds = this.window.getContentBounds();
-    const contentTop = UI_SHELL_TABLINE_HEIGHT;
-    const contentHeight = Math.max(
-      bounds.height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT,
-      1,
-    );
+    const shellTop = UI_SHELL_TABLINE_HEIGHT;
+    const shellBottomInset = UI_SHELL_STATUSLINE_HEIGHT;
 
     const left = this.getLeftBuffer();
     const rightSource = this.split.mode === "regular" ? this.split.rightPaneSourceBuffer : null;
@@ -590,6 +713,40 @@ class BufferManager {
     const visibleRightMainBuffer =
       this.split.mode === "regular" && rightSource && !useMirroredRight ? rightSource : null;
 
+    const rightVisibleBuffer =
+      this.split.mode === "regular" && useMirroredRight
+        ? rightRegular
+        : visibleRightMainBuffer;
+
+    const leftHasUrlline = this.canShowUrllineForBuffer(left);
+    const rightHasUrlline = this.canShowUrllineForBuffer(rightVisibleBuffer);
+
+    const getPaneInset = (isRightPane) => {
+      if (!showSplit) {
+        return leftHasUrlline ? UI_SHELL_URLLINE_HEIGHT : 0;
+      }
+
+      return isRightPane
+        ? rightHasUrlline
+          ? UI_SHELL_URLLINE_HEIGHT
+          : 0
+        : leftHasUrlline
+          ? UI_SHELL_URLLINE_HEIGHT
+          : 0;
+    };
+
+    const getPaneBounds = (isRightPane, x, width) => {
+      const paneInset = getPaneInset(isRightPane);
+      const y = shellTop + paneInset;
+      const height = Math.max(bounds.height - shellTop - shellBottomInset - paneInset, 1);
+      return {
+        x,
+        y,
+        width,
+        height,
+      };
+    };
+
     const splitDividerEnabled = getConfigValue("global.split.divider.enabled", true);
     const dividerWidth = showSplit && splitDividerEnabled ? 1 : 0;
     const availableSplitWidth = Math.max(bounds.width - dividerWidth, 2);
@@ -607,12 +764,13 @@ class BufferManager {
     for (const buffer of this.buffers) {
       if (buffer === left || buffer === visibleRightMainBuffer) {
         const isRightBuffer = buffer === visibleRightMainBuffer;
-        buffer.view.setBounds({
-          x: isRightBuffer ? rightX : 0,
-          y: contentTop,
-          width: isRightBuffer ? rightWidth : leftWidth,
-          height: contentHeight,
-        });
+        buffer.view.setBounds(
+          getPaneBounds(
+            isRightBuffer,
+            isRightBuffer ? rightX : 0,
+            isRightBuffer ? rightWidth : leftWidth,
+          ),
+        );
         buffer.view.setAutoResize({ width: !showSplitWithRegular, height: true });
       } else {
         buffer.view.setAutoResize({ width: false, height: false });
@@ -627,12 +785,7 @@ class BufferManager {
           rightRegular.load(sourceUrl);
         }
 
-        rightRegular.view.setBounds({
-          x: rightX,
-          y: contentTop,
-          width: rightWidth,
-          height: contentHeight,
-        });
+        rightRegular.view.setBounds(getPaneBounds(true, rightX, rightWidth));
         rightRegular.view.setAutoResize({ width: !showSplit, height: true });
       } else {
         rightRegular.view.setAutoResize({ width: false, height: false });
@@ -642,12 +795,7 @@ class BufferManager {
 
     if (this.devtoolsView) {
       if (showSplit && this.split.mode === "devtools") {
-        this.devtoolsView.setBounds({
-          x: rightX,
-          y: contentTop,
-          width: rightWidth,
-          height: contentHeight,
-        });
+        this.devtoolsView.setBounds(getPaneBounds(true, rightX, rightWidth));
         this.devtoolsView.setAutoResize({ width: !showSplit, height: true });
       } else {
         this.devtoolsView.setAutoResize({ width: false, height: false });

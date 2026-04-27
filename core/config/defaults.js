@@ -19,6 +19,9 @@ const defaultConfig = {
       tabline: {
         enabled: true,
       },
+      urlline: {
+        enabled: false,
+      },
       statusline: {
         enabled: true,
       },
@@ -223,6 +226,10 @@ const defaultConfig = {
             action: "split_devtools",
           },
         },
+      },
+      u: {
+        label: "Toggle URL line",
+        action: "toggle_urlline",
       },
     },
   },

@@ -25,6 +25,7 @@ const ACTION_IDS = new Set([
   "focus_split_right",
   "open_settings",
   "toggle_focus_context",
+  "toggle_urlline",
   "close_buffer",
   "close_focused",
   "close_left_buffers",
@@ -256,6 +257,10 @@ function normalizeConfig(rawConfig) {
   if (isPlainObject(uiSection)) {
     if (isPlainObject(uiSection.tabline) && typeof uiSection.tabline.enabled === "boolean") {
       normalizedGlobal.ui.tabline.enabled = uiSection.tabline.enabled;
+    }
+
+    if (isPlainObject(uiSection.urlline) && typeof uiSection.urlline.enabled === "boolean") {
+      normalizedGlobal.ui.urlline.enabled = uiSection.urlline.enabled;
     }
 
     if (isPlainObject(uiSection.statusline) && typeof uiSection.statusline.enabled === "boolean") {

@@ -28,6 +28,8 @@ const ACTION_IDS = new Set([
   "toggle_urlline",
   "history_toggle",
   "history_toggle_focus",
+  "favorites_toggle",
+  "favorites_toggle_focus",
   "close_buffer",
   "close_focused",
   "close_left_buffers",

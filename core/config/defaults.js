@@ -221,6 +221,10 @@ const defaultConfig = {
         label: "Toggle history tree",
         action: "history_toggle",
       },
+      f: {
+        label: "Toggle favorites tree",
+        action: "favorites_toggle",
+      },
       o: {
         label: "Toggle tree focus",
         action: "history_toggle_focus",

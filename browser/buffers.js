@@ -80,6 +80,11 @@ class Buffer extends EventEmitter {
     this.webContents.on("did-navigate", (_, url) => {
       this.url = this.virtualUrl || url;
       this.emit("updated", { kind: "metadata" });
+      this.emit("visit", {
+        url: this.url,
+        title: this.title,
+        timestampMs: Date.now(),
+      });
     });
 
     this.webContents.on("page-favicon-updated", (_, favicons) => {
@@ -95,6 +100,11 @@ class Buffer extends EventEmitter {
     this.webContents.on("did-navigate-in-page", (_, url) => {
       this.url = this.virtualUrl || url;
       this.emit("updated", { kind: "metadata" });
+      this.emit("visit", {
+        url: this.url,
+        title: this.title,
+        timestampMs: Date.now(),
+      });
     });
   }
 

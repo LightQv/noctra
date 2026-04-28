@@ -22,6 +22,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
   if (!webContents || webContents.isDestroyed()) return;
 
   const showFavicon = Boolean(options.showFavicon);
+  const dimActiveBuffer = Boolean(options.dimActiveBuffer);
 
   const palette = {
     shellBackground: theme.shellBackground || DEFAULT_THEME.shellBackground,
@@ -87,6 +88,19 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
     actions.settings.shortcutLabel.trim().length > 0
       ? actions.settings.shortcutLabel
       : "Cmd+, | Ctrl+,";
+  const historyLabel =
+    typeof actions?.history?.label === "string" && actions.history.label.trim().length > 0
+      ? actions.history.label
+      : "History";
+  const historyIcon =
+    typeof actions?.history?.icon === "string" && actions.history.icon.trim().length > 0
+      ? actions.history.icon
+      : "󰋚";
+  const historyShortcut =
+    typeof actions?.history?.shortcutLabel === "string" &&
+    actions.history.shortcutLabel.trim().length > 0
+      ? actions.history.shortcutLabel
+      : "<leader> e | :history show";
   const newTabLabel =
     typeof actions?.newTab?.label === "string" && actions.newTab.label.trim().length > 0
       ? actions.newTab.label
@@ -109,7 +123,11 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
     `${newTabLabel} (${newTabShortcut})`,
   )}" aria-label="${escapeHtml(newTabLabel)}"><span class="tab-new-icon">${escapeHtml(newTabIcon)}</span></button>`;
 
-  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
+  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-history" title="${escapeHtml(
+    `${historyLabel} (${historyShortcut})`,
+  )}" aria-label="Open history"><span class="tabline-action-icon">${escapeHtml(
+    historyIcon,
+  )}</span></button><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
     `${configLabel} (${configShortcut})`,
   )}" aria-label="Open config"><span class="tabline-action-icon">${escapeHtml(
     configIcon,
@@ -149,6 +167,9 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
             }
             if (tablineAction === 'open-settings' && window.uiShell && window.uiShell.emit) {
               window.uiShell.emit('tabline:open-settings');
+            }
+            if (tablineAction === 'open-history' && window.uiShell && window.uiShell.emit) {
+              window.uiShell.emit('tabline:open-history');
             }
             return;
           }
@@ -246,6 +267,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         Object.assign(tablineActions.style, {
           display: 'inline-flex',
           alignItems: 'center',
+          gap: '8px',
           padding: '0 ${UI_CHROME_HORIZONTAL_PADDING}px',
           height: '100%',
           flexShrink: '0',
@@ -277,8 +299,10 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         Object.assign(icon.style, {
           display: 'inline-flex',
           alignItems: 'center',
+          justifyContent: 'center',
           color: 'inherit',
           fontSize: '${UI_CHROME_ICON_GLYPH_SIZE}px',
+          fontWeight: '700',
           lineHeight: '1',
         });
       });
@@ -404,9 +428,9 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
 
       root.querySelectorAll('.is-active').forEach((tab) => {
         Object.assign(tab.style, {
-          background: ${JSON.stringify(palette.accentPillBackground)},
-          border: ${JSON.stringify(`1px solid ${palette.accentPillBorder}`)},
-          color: ${JSON.stringify(palette.mainColor)},
+          background: ${JSON.stringify(dimActiveBuffer ? palette.subtleBackground : palette.accentPillBackground)},
+          border: ${JSON.stringify(`1px solid ${dimActiveBuffer ? palette.borderMutedColor : palette.accentPillBorder}`)},
+          color: ${JSON.stringify(dimActiveBuffer ? palette.softTextColor : palette.mainColor)},
         });
       });
 
@@ -415,7 +439,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
       });
 
       root.querySelectorAll('.is-active .tab-close').forEach((button) => {
-        button.style.color = ${JSON.stringify(palette.mainColor)};
+        button.style.color = ${JSON.stringify(dimActiveBuffer ? palette.softTextColor : palette.mainColor)};
       });
 
       root.querySelectorAll('.is-secondary-active .tab-close').forEach((button) => {

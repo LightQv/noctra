@@ -17,6 +17,8 @@ const {
   toCssVars,
 } = require("./ui/theme");
 const { resolveInputTarget } = require("./core/resolver");
+const historyService = require("./core/history/service");
+const historyPanel = require("./core/history/panel");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
@@ -247,6 +249,13 @@ function normalizeInput(input) {
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
 
+  if (historyPanel.handleFocusedInput(normalized)) {
+    event.preventDefault();
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    updateTablineOptions();
+    return;
+  }
+
   const isUrllinePasteShortcut =
     state.urllineEditing &&
     normalized.type === "keyDown" &&
@@ -394,6 +403,7 @@ function updateTablineActions() {
   const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
   const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
   const newBufferShortcut = findShortcutLabelForAction("new_buffer");
+  const historyToggleShortcut = findShortcutLabelForAction("history_toggle");
   const newTabShortcut = [newBufferShortcut, ":tab", ":tabnew", ":tabe"]
     .filter((value, index, list) => value && list.indexOf(value) === index)
     .join(" | ");
@@ -409,12 +419,18 @@ function updateTablineActions() {
       icon: "󰒓",
       shortcutLabel: `${systemShortcut} | ${vimShortcut}`,
     },
+    history: {
+      label: "History",
+      icon: "󰋚",
+      shortcutLabel: historyToggleShortcut || "<leader> e | :history show",
+    },
   });
 }
 
 function updateTablineOptions() {
   uiShell.setTablineOptions({
     showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
+    dimActiveBuffer: historyPanel.isFocused(),
   });
 }
 
@@ -460,6 +476,10 @@ function updateUrllineActions() {
 }
 
 function getStatuslineModeLabel() {
+  if (historyPanel.isVisible() && historyPanel.isFocused()) {
+    return "TREE:NORMAL";
+  }
+
   const active = buffers.getActive();
   if (!active || !active.isEditable) {
     return state.mode;
@@ -677,6 +697,12 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "tabline:open-history") {
+      dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
     if (type === "editor:toggle-context") {
       dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
@@ -763,6 +789,10 @@ function registerUiShellEvents() {
 
     if (type === "tab:activate") {
       buffers.switchTo(bufferId);
+      historyPanel.unfocus();
+      buffers.focusActive();
+      updateTablineOptions();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
       return;
     }
 
@@ -808,6 +838,8 @@ function registerUiShellEvents() {
         state.applyConfig(config);
         applyBrowserLanguagePreference();
         buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+        historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+        historyPanel.layout();
         buffers.layoutViews();
         const themeContext = resolveCurrentTheme();
         applyTheme(themeContext, { broadcast: true });
@@ -925,6 +957,18 @@ function createWindow() {
 
   buffers.init(win);
   buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+  historyPanel.init({ window: win, buffers, state });
+  historyPanel.setOnFocusChange(() => {
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    updateTablineOptions();
+  });
+  historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+  const historyPanelWebContents = historyPanel.getWebContents();
+  if (historyPanelWebContents) {
+    historyPanelWebContents.on("before-input-event", (event, input) => {
+      handleRawInput(event, input);
+    });
+  }
   uiShell.init(win);
   applyTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
@@ -995,6 +1039,7 @@ function createWindow() {
   });
 
   win.on("resize", () => {
+    historyPanel.layout();
     uiShell.updateSplitDivider(buffers.getSplitStatus());
     updateUrllineRender();
     persistWindowBoundsDebounced();
@@ -1095,6 +1140,24 @@ function createWindow() {
       uiShell.syncOverlayStack();
     } else if (uiShell.isCommandVisible()) {
       uiShell.keepCommandOverlayAboveContentViews();
+    }
+
+    if (change.kind === "pane-interaction" && historyPanel.isFocused()) {
+      historyPanel.unfocus();
+      updateTablineOptions();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    }
+
+    if (change.kind === "visit" && change.url) {
+      historyService.recordVisit({
+        url: change.url,
+        title: change.title,
+        timestampMs: change.timestampMs,
+      });
+      if (historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
     }
   });
 

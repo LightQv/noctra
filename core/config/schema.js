@@ -26,6 +26,8 @@ const ACTION_IDS = new Set([
   "open_settings",
   "toggle_focus_context",
   "toggle_urlline",
+  "history_toggle",
+  "history_toggle_focus",
   "close_buffer",
   "close_focused",
   "close_left_buffers",
@@ -319,6 +321,14 @@ function normalizeConfig(rawConfig) {
 
     if (isPlainObject(uiSection.urlline) && typeof uiSection.urlline.enabled === "boolean") {
       normalizedGlobal.ui.urlline.enabled = uiSection.urlline.enabled;
+    }
+
+    if (isPlainObject(uiSection.sidepanel)) {
+      normalizedGlobal.ui.sidepanel.width_ratio = normalizeNumber(
+        uiSection.sidepanel.width_ratio,
+        defaults.global.ui.sidepanel.width_ratio,
+        0.1,
+      );
     }
 
     if (isPlainObject(uiSection.statusline) && typeof uiSection.statusline.enabled === "boolean") {

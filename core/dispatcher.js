@@ -6,6 +6,8 @@ const uiShell = require("../ui/shell/manager");
 const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
+const historyService = require("./history/service");
+const historyPanel = require("./history/panel");
 const { buildSettingsPageHtml } = require("./settings/page");
 const {
   resolveTheme,
@@ -15,6 +17,10 @@ const {
 } = require("../ui/theme");
 
 function computeStatuslineModeLabel(state) {
+  if (historyPanel.isVisible() && historyPanel.isFocused()) {
+    return "TREE:NORMAL";
+  }
+
   const active = buffers.getActive();
   if (!active || !active.isEditable) {
     return state.mode;
@@ -432,6 +438,8 @@ function dispatch(win, intent, state) {
         showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
       });
       buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+      historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+      historyPanel.layout();
       buffers.layoutViews();
       uiShell.updateSplitDivider(buffers.getSplitStatus());
       console.info("Configuration reloaded from", configService.getConfigPath());
@@ -514,6 +522,35 @@ function dispatch(win, intent, state) {
       break;
     }
 
+    case INTENTS.HISTORY_SHOW:
+      historyPanel.show();
+      historyPanel.focus();
+      break;
+
+    case INTENTS.HISTORY_HIDE:
+      historyPanel.hide();
+      break;
+
+    case INTENTS.HISTORY_TOGGLE:
+      historyPanel.toggle();
+      break;
+
+    case INTENTS.HISTORY_TOGGLE_FOCUS:
+      historyPanel.toggleFocus();
+      break;
+
+    case INTENTS.HISTORY_DELETE_ALL:
+      historyService.deleteAll();
+      historyPanel.reloadData();
+      historyPanel.render();
+      break;
+
+    case INTENTS.HISTORY_DELETE_TODAY:
+      historyService.deleteToday();
+      historyPanel.reloadData();
+      historyPanel.render();
+      break;
+
     case INTENTS.QUIT:
       app.quit();
       break;
@@ -529,6 +566,9 @@ function dispatch(win, intent, state) {
   }
 
   uiShell.updateStatuslineMode(computeStatuslineModeLabel(state));
+  uiShell.setTablineOptions({
+    dimActiveBuffer: historyPanel.isFocused(),
+  });
 
   if (intent.next) {
     dispatch(win, intent.next, state);

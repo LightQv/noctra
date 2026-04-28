@@ -16,6 +16,9 @@ const defaultConfig = {
       scrolloff_lines: 3,
     },
     ui: {
+      sidepanel: {
+        width_ratio: 0.2,
+      },
       tabline: {
         enabled: true,
         show_favicon: false,
@@ -213,6 +216,14 @@ const defaultConfig = {
       u: {
         label: "Toggle URL line",
         action: "toggle_urlline",
+      },
+      e: {
+        label: "Toggle history tree",
+        action: "history_toggle",
+      },
+      o: {
+        label: "Toggle tree focus",
+        action: "history_toggle_focus",
       },
     },
   },

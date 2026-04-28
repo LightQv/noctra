@@ -440,6 +440,7 @@ class UiShellManager {
     this.tablineActions = {};
     this.tablineOptions = {
       showFavicon: false,
+      dimActiveBuffer: false,
     };
     this.urllineActions = {};
     this.urllineModel = { panes: [] };

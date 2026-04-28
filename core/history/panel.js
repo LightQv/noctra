@@ -1,4 +1,4 @@
-const { BrowserView } = require("electron");
+const { BrowserView, clipboard } = require("electron");
 const historyService = require("./service");
 const {
   UI_SHELL_TABLINE_HEIGHT,
@@ -438,6 +438,13 @@ class HistoryPanel {
         this.cursor = { type: "day", dateKey: this.cursor.dateKey, entryId: null };
       }
     } else if (key === "Enter") this.openCurrent(Boolean(input.shift));
+    else if (key === "y") {
+      const entry = this.getCurrentEntry();
+      if (entry && entry.url) {
+        clipboard.writeText(String(entry.url));
+        console.info("URL yanked.");
+      }
+    }
     else if (key === "d") this.deleteCurrent();
     else if (key === "D") {
       this.confirmDeleteAll = "";

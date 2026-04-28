@@ -84,6 +84,7 @@ class HistoryPanel {
       label:
         location.node.type === "folder" ? "Rename folder" : "Rename favorite",
       value: initialValue,
+      cursor: initialValue.length,
       targetNodeId: location.node.id,
       targetType: location.node.type,
     };
@@ -95,7 +96,16 @@ class HistoryPanel {
       tone: "info",
       label: "Add",
       value: "",
+      cursor: 0,
     };
+  }
+
+  clampFavoriteEditCursor(edit) {
+    if (!edit) return;
+    const value = String(edit.value || "");
+    const len = value.length;
+    const cursor = Number.isFinite(edit.cursor) ? edit.cursor : len;
+    edit.cursor = Math.max(0, Math.min(len, cursor));
   }
 
   getActiveBufferUrl() {
@@ -213,11 +223,13 @@ class HistoryPanel {
     }
 
     if (edit.mode === "add-entry-title") {
+      const nextUrl = edit.url || this.getActiveBufferUrl();
       this.favoriteEditState = {
         mode: "add-entry-url",
         tone: "info",
         label: "Favorite URL",
-        value: edit.url || this.getActiveBufferUrl(),
+        value: nextUrl,
+        cursor: String(nextUrl).length,
         entryTitle: String(edit.value || "").trim(),
       };
       return true;
@@ -253,16 +265,19 @@ class HistoryPanel {
           tone: "info",
           label: "Folder name",
           value: "",
+          cursor: 0,
         };
         return true;
       }
       if (key === "e") {
+        const seedUrl = this.getActiveBufferUrl();
         this.favoriteEditState = {
           mode: "add-entry-title",
           tone: "info",
           label: "Favorite title",
           value: "",
-          url: this.getActiveBufferUrl(),
+          cursor: 0,
+          url: seedUrl,
         };
         return true;
       }
@@ -275,7 +290,34 @@ class HistoryPanel {
     }
 
     if (key === "Backspace") {
-      edit.value = edit.value.slice(0, -1);
+      this.clampFavoriteEditCursor(edit);
+      if (edit.cursor <= 0) return true;
+      const before = edit.value.slice(0, edit.cursor - 1);
+      const after = edit.value.slice(edit.cursor);
+      edit.value = before + after;
+      edit.cursor -= 1;
+      return true;
+    }
+
+    if (key === "ArrowLeft" || (input.ctrl && String(key).toLowerCase() === "h")) {
+      this.clampFavoriteEditCursor(edit);
+      edit.cursor = Math.max(0, edit.cursor - 1);
+      return true;
+    }
+
+    if (key === "ArrowRight" || (input.ctrl && String(key).toLowerCase() === "l")) {
+      this.clampFavoriteEditCursor(edit);
+      edit.cursor = Math.min(String(edit.value || "").length, edit.cursor + 1);
+      return true;
+    }
+
+    if (key === "Home") {
+      edit.cursor = 0;
+      return true;
+    }
+
+    if (key === "End") {
+      edit.cursor = String(edit.value || "").length;
       return true;
     }
 
@@ -286,7 +328,11 @@ class HistoryPanel {
       typeof key === "string" &&
       key.length === 1
     ) {
-      edit.value += key;
+      this.clampFavoriteEditCursor(edit);
+      const before = edit.value.slice(0, edit.cursor);
+      const after = edit.value.slice(edit.cursor);
+      edit.value = before + key + after;
+      edit.cursor += 1;
       return true;
     }
 
@@ -339,9 +385,17 @@ class HistoryPanel {
     const edit = this.favoriteEditState;
     if (!edit) return "";
     if (edit.mode === "add-kind") return "";
+    this.clampFavoriteEditCursor(edit);
+    const rawValue = String(edit.value || "");
+    const cursor = edit.cursor;
+    const before = escapeHtml(rawValue.slice(0, cursor));
+    const atEnd = cursor >= rawValue.length;
+    const after = escapeHtml(rawValue.slice(cursor));
     const label = escapeHtml(edit.label || "Input");
-    const value = escapeHtml(String(edit.value || ""));
-    return `<div class="floating-input"><div class="floating-input-label">${label}</div><div class="floating-input-value">${value}<span class="floating-input-cursor"></span></div></div>`;
+    const cursorHtml = atEnd
+      ? '<span class="floating-input-cursor"></span>'
+      : '<span class="floating-input-caret">|</span>';
+    return `<div class="floating-input"><div class="floating-input-label">${label}</div><div class="floating-input-value">${before}${cursorHtml}${after}</div></div>`;
   }
 
   init({ window, buffers, state }) {
@@ -729,7 +783,9 @@ class HistoryPanel {
       .floating-input-label{color:var(--ui-text-muted,#7f8aa3);font-size:11px;margin-bottom:4px}
       .floating-input-value{color:var(--ui-text,#c9d1df);min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
       .floating-input-cursor{display:inline-block;width:7px;height:12px;margin-left:2px;vertical-align:-2px;background:var(--ui-editor-cursor,#89dceb);opacity:.9}
+      .floating-input-caret{display:inline-block;margin:0 1px;color:var(--ui-editor-cursor,#89dceb);font-weight:600;line-height:1}
       .unfocused .floating-input-cursor{opacity:.45}
+      .unfocused .floating-input-caret{opacity:.55}
     </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${favoriteHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${escapeHtml(footerTone)}</span><div class="foot-main"><span class="foot-text">${footerText}</span><span class="foot-hint">${footerHint}</span><span class="foot-input">${footerValue}</span></div></div></div></body></html>`;
 
     this.scheduleRender(html);

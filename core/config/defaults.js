@@ -217,6 +217,7 @@ const defaultConfig = {
     },
   },
   browser: {
+    language: "en",
     chromium: {
       web_preferences: {
         context_isolation: true,

@@ -136,6 +136,15 @@ function addThemeComments(yamlText) {
       output.push("    # Overrides are applied only when mode is custom");
     }
 
+    if (/^browser:\s*$/.test(line)) {
+      output.push("# Browser behavior");
+    }
+
+    if (/^  language:\s*/.test(line)) {
+      output.push("  # Preferred website language: en | fr");
+      output.push("  # Mapped to Accept-Language and known locale hints for requests");
+    }
+
     output.push(line);
   }
 

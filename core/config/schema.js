@@ -105,6 +105,19 @@ function normalizeContentThemeMode(value, fallback = "dark") {
   return fallback;
 }
 
+function normalizeBrowserLanguage(value, fallback = "en") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "en" || normalized === "fr") {
+    return normalized;
+  }
+
+  return fallback;
+}
+
 function mergeWithFallback(primaryNode, fallbackNode) {
   if (!isPlainObject(primaryNode)) {
     return isPlainObject(fallbackNode) ? fallbackNode : {};
@@ -458,6 +471,13 @@ function normalizeConfig(rawConfig) {
           chromiumConfig.web_preferences.node_integration;
       }
     }
+  }
+
+  if (isPlainObject(input.browser)) {
+    normalized.browser.language = normalizeBrowserLanguage(
+      input.browser.language,
+      defaults.browser.language,
+    );
   }
 
   return normalized;

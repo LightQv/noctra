@@ -527,6 +527,23 @@ function normalizeUrllineText(value) {
   return value.replace(/\r\n|\r|\n/g, " ");
 }
 
+function normalizeHistoryUrl(rawUrl) {
+  if (typeof rawUrl !== "string") return "";
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    parsed.hash = "";
+    const normalized = parsed.toString();
+    if (normalized.endsWith("/") && parsed.pathname === "/") {
+      return normalized.slice(0, -1);
+    }
+    return normalized;
+  } catch {
+    return trimmed;
+  }
+}
+
 function insertUrllineText(text) {
   const chunk = normalizeUrllineText(text);
   if (!chunk) {
@@ -1054,6 +1071,10 @@ function createWindow() {
   }
 
   let statusPollInFlight = false;
+  let lastRecordedVisit = {
+    url: "",
+    atMs: 0,
+  };
 
   const statusPoller = setInterval(() => {
     const activeBuffer = buffers.getActive();
@@ -1149,11 +1170,41 @@ function createWindow() {
     }
 
     if (change.kind === "visit" && change.url) {
+      const normalizedUrl = normalizeHistoryUrl(change.url);
+      if (!normalizedUrl) {
+        return;
+      }
+
+      const nowMs = Number.isFinite(change.timestampMs) ? change.timestampMs : Date.now();
+      if (
+        lastRecordedVisit.url === normalizedUrl &&
+        nowMs - lastRecordedVisit.atMs <= 1200
+      ) {
+        return;
+      }
+
+      lastRecordedVisit = {
+        url: normalizedUrl,
+        atMs: nowMs,
+      };
+
       historyService.recordVisit({
-        url: change.url,
+        url: normalizedUrl,
         title: change.title,
-        timestampMs: change.timestampMs,
+        timestampMs: nowMs,
       });
+      if (historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+    }
+
+    if (change.kind === "title-updated" && change.url && change.title) {
+      const normalizedUrl = normalizeHistoryUrl(change.url);
+      if (!normalizedUrl) {
+        return;
+      }
+      historyService.updateLatestTitleForUrl(normalizedUrl, change.title);
       if (historyPanel.isVisible()) {
         historyPanel.reloadData();
         historyPanel.render();

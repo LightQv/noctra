@@ -307,6 +307,10 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         });
       });
 
+      root.querySelectorAll('[data-tabline-action="open-history"] .tabline-action-icon').forEach((icon) => {
+        icon.style.fontSize = '${UI_CHROME_ICON_GLYPH_SIZE + 2}px';
+      });
+
       root.querySelectorAll('.window-btn').forEach((button) => {
         Object.assign(button.style, {
           border: 'none',

@@ -31,6 +31,8 @@ class HistoryPanel {
     this.previousContext = "SHELL";
     this.view = null;
     this.onFocusChange = null;
+    this.renderTimer = null;
+    this.lastRenderedHtml = "";
   }
 
   init({ window, buffers, state }) {
@@ -105,6 +107,7 @@ class HistoryPanel {
     if (this.state) this.state.interactionContext = this.previousContext || "SHELL";
     this.buffers.setLeftInset(0);
     this.applyHiddenBounds();
+    this.clearRenderTimer();
     this.emitFocusChange();
   }
 
@@ -124,6 +127,9 @@ class HistoryPanel {
     if (this.state) {
       this.state.interactionContext = "TREE";
       this.state.mode = "NORMAL";
+    }
+    if (this.window && this.view && typeof this.window.setTopBrowserView === "function") {
+      this.window.setTopBrowserView(this.view);
     }
     this.render();
     this.emitFocusChange();
@@ -172,7 +178,9 @@ class HistoryPanel {
     this.buffers.setLeftInset(width);
     this.view.setBounds({ x: 0, y, width, height });
     this.view.setAutoResize({ width: false, height: true });
-    if (typeof this.window.setTopBrowserView === "function") this.window.setTopBrowserView(this.view);
+    if (this.focused && typeof this.window.setTopBrowserView === "function") {
+      this.window.setTopBrowserView(this.view);
+    }
   }
 
   applyHiddenBounds() {
@@ -311,13 +319,13 @@ class HistoryPanel {
       const isDaySelected = this.cursor.type === "day" && this.cursor.dateKey === day.key;
       const isOpen = this.expanded.has(day.key);
       rows.push(
-        `<div class="row day ${isDaySelected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon">${isOpen ? "" : ""}</span></span><span class="label">${escapeHtml(day.key)}</span></span><span class="time"></span></div>`,
+        `<div class="row day ${isDaySelected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon">${isOpen ? "" : ""}</span></span><span class="text">${escapeHtml(day.key)}</span></span><span class="time"></span></div>`,
       );
 
       if (isOpen) {
         if (!day.entries.length) {
           rows.push(
-            `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="label empty-label">No item yet.</span></span><span class="time"></span></div>`,
+            `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No item yet.</span></span><span class="time"></span></div>`,
           );
         } else {
           for (let index = 0; index < day.entries.length; index += 1) {
@@ -326,7 +334,7 @@ class HistoryPanel {
             const time = escapeHtml(this.formatTime(entry));
             const branch = index === day.entries.length - 1 ? "└" : "│";
             rows.push(
-              `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="label">${escapeHtml(entry.title || entry.url)}</span></span><span class="time ${this.showTimestamp ? "visible" : ""}">${time}</span></div>`,
+              `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="text">${escapeHtml(entry.title || entry.url)}</span></span><span class="time ${this.showTimestamp ? "visible" : ""}">${time}</span></div>`,
             );
           }
         }
@@ -343,27 +351,46 @@ class HistoryPanel {
       .wrap{display:flex;flex-direction:column;height:100%}
       .head{padding:8px 10px;border-bottom:1px solid var(--ui-border,#2f3440);color:var(--ui-accent,#89dceb)}
       .list{padding:6px 0;overflow:auto;flex:1}
-      .row{display:flex;align-items:stretch;gap:6px;min-height:20px}
+      .row{display:flex;align-items:stretch;gap:0;min-height:22px}
       .cursor{width:6px;flex:0 0 6px;background:transparent;border-radius:1px}
-      .name{display:flex;align-items:center;gap:3px;flex:1;min-width:0;padding:2px 8px 2px 0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-      .time{width:64px;flex:0 0 64px;padding:2px 8px 2px 0;text-align:right;color:var(--ui-text-muted,#7f8aa3);white-space:nowrap;line-height:16px}
+      .name{display:flex;align-items:center;gap:0;flex:1;min-width:0;padding:0 8px 0 6px;overflow:hidden;line-height:18px}
+      .time{width:64px;flex:0 0 64px;padding:0 8px 0 0;text-align:right;color:var(--ui-text-muted,#7f8aa3);white-space:nowrap;line-height:18px;display:flex;align-items:center;justify-content:flex-end}
       .time:not(.visible){visibility:hidden}
       .day{color:var(--ui-accent,#89dceb)}
       .selected{background:var(--ui-bg-subtle,#1f2735)}
       .focused .selected .cursor{background:var(--ui-editor-cursor,#89dceb)}
       .unfocused .selected{background:color-mix(in srgb, var(--ui-bg-subtle,#1f2735) 55%, transparent)}
       .unfocused .selected .cursor{background:var(--ui-text-muted,#7f8aa3);opacity:.45}
-      .tree-cols{display:inline-flex;align-items:center;gap:3px}
+      .tree-cols{display:inline-flex;align-items:center;justify-content:center;flex:0 0 1.2em;margin-right:4px}
       .caret{display:none}
       .icon{display:inline-flex;align-items:center;justify-content:center;width:1.2em;font-size:18px;line-height:1}
-      .file-icon{display:inline-flex;align-items:center;justify-content:center;width:1em;margin-right:2px;color:var(--ui-text-soft,#b6c7e8)}
+      .file-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 1em;margin-right:4px;color:var(--ui-text-soft,#b6c7e8)}
       .guide{color:var(--ui-text-muted,#7f8aa3)}
-      .label{display:inline}
+      .text{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
       .empty-label{font-style:italic;color:var(--ui-text-muted,#7f8aa3)}
       .foot{min-height:18px;padding:4px 8px;color:#f9c97b}
     </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head">History</div><div class="list">${rows.join("")}</div><div class="foot">${confirmText}</div></div></body></html>`;
 
-    this.view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    this.scheduleRender(html);
+  }
+
+  clearRenderTimer() {
+    if (!this.renderTimer) return;
+    clearTimeout(this.renderTimer);
+    this.renderTimer = null;
+  }
+
+  scheduleRender(html) {
+    if (!this.view || this.view.webContents.isDestroyed()) return;
+    if (html === this.lastRenderedHtml) return;
+
+    this.lastRenderedHtml = html;
+    this.clearRenderTimer();
+    this.renderTimer = setTimeout(() => {
+      this.renderTimer = null;
+      if (!this.view || this.view.webContents.isDestroyed()) return;
+      this.view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(this.lastRenderedHtml)}`);
+    }, 16);
   }
 
   handleFocusedInput(input) {

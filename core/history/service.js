@@ -127,6 +127,33 @@ function deleteToday() {
   deleteDate(getDateKeyFromTimestamp(Date.now()));
 }
 
+function updateLatestTitleForUrl(url, title) {
+  if (typeof url !== "string" || !url.trim()) return;
+  if (typeof title !== "string" || !title.trim()) return;
+
+  const targetUrl = url.trim();
+  const nextTitle = title.trim();
+  const history = readHistoryObject();
+  const orderedDates = sortDateKeysDesc(Object.keys(history));
+
+  for (const dateKey of orderedDates) {
+    const entries = Array.isArray(history[dateKey]) ? history[dateKey] : [];
+    for (const entry of entries) {
+      if (String(entry.url || "").trim() !== targetUrl) {
+        continue;
+      }
+
+      if (String(entry.title || "") === nextTitle) {
+        return;
+      }
+
+      entry.title = nextTitle;
+      writeHistoryObject(history);
+      return;
+    }
+  }
+}
+
 module.exports = {
   getHistoryFilePath,
   recordVisit,
@@ -135,4 +162,5 @@ module.exports = {
   deleteDate,
   deleteAll,
   deleteToday,
+  updateLatestTitleForUrl,
 };

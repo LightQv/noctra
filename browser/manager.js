@@ -60,6 +60,17 @@ class BufferManager {
       this.notify({
         kind: "visit",
         activeChanged: false,
+        sourceBufferId: buffer.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
+    });
+    buffer.on("title-updated", (event = {}) => {
+      this.notify({
+        kind: "title-updated",
+        activeChanged: false,
+        sourceBufferId: buffer.id,
         url: event.url,
         title: event.title,
         timestampMs: event.timestampMs,
@@ -680,6 +691,17 @@ class BufferManager {
       this.notify({
         kind: "visit",
         activeChanged: false,
+        sourceBufferId: rightPane.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
+    });
+    rightPane.on("title-updated", (event = {}) => {
+      this.notify({
+        kind: "title-updated",
+        activeChanged: false,
+        sourceBufferId: rightPane.id,
         url: event.url,
         title: event.title,
         timestampMs: event.timestampMs,

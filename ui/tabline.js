@@ -5,6 +5,10 @@ const {
   UI_CHROME_TAB_CHIP_HEIGHT,
   UI_CHROME_BORDER_RADIUS,
   UI_CHROME_HORIZONTAL_PADDING,
+  UI_CHROME_TAB_GAP,
+  UI_CHROME_TABLINE_ACTION_GAP,
+  UI_CHROME_TABLINE_TABS_LEFT_PADDING,
+  UI_CHROME_TABLINE_ACTIONS_RIGHT_PADDING,
   UI_CHROME_ICON_GLYPH_SIZE,
 } = require("./constants");
 const { DEFAULT_THEME } = require("./theme");
@@ -251,8 +255,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         Object.assign(tabsScroll.style, {
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          padding: '0 ${UI_CHROME_HORIZONTAL_PADDING}px',
+          gap: '${UI_CHROME_TAB_GAP}px',
+          padding: '0 ${UI_CHROME_HORIZONTAL_PADDING}px 0 ${UI_CHROME_TABLINE_TABS_LEFT_PADDING}px',
           overflowX: 'auto',
           whiteSpace: 'nowrap',
           minWidth: '0',
@@ -267,8 +271,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         Object.assign(tablineActions.style, {
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '8px',
-          padding: '0 ${UI_CHROME_HORIZONTAL_PADDING}px',
+          gap: '${UI_CHROME_TABLINE_ACTION_GAP}px',
+          padding: '0 ${UI_CHROME_TABLINE_ACTIONS_RIGHT_PADDING}px 0 ${UI_CHROME_HORIZONTAL_PADDING}px',
           height: '100%',
           flexShrink: '0',
           webkitAppRegion: 'no-drag',

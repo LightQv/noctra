@@ -237,12 +237,57 @@ class HistoryPanel {
   }
 
   deleteCurrent() {
+    const beforeNodes = this.getFlatNodes();
+    const beforeIndex = beforeNodes.findIndex(
+      (node) =>
+        node.type === this.cursor.type &&
+        node.dateKey === this.cursor.dateKey &&
+        String(node.entry?.id || "") === String(this.cursor.entryId || ""),
+    );
+    const deletedType = this.cursor.type;
+    const deletedDateKey = this.cursor.dateKey;
+
     if (this.cursor.type === "day") {
       historyService.deleteDate(this.cursor.dateKey);
     } else if (this.cursor.type === "entry") {
       historyService.deleteEntry(this.cursor.dateKey, this.cursor.entryId);
     }
+
     this.reloadData();
+
+    if (deletedType === "entry") {
+      const day = this.days.find((item) => item.key === deletedDateKey);
+      if (day && Array.isArray(day.entries) && day.entries.length > 0) {
+        const nextNodes = this.getFlatNodes();
+        const baseIndex = beforeIndex >= 0 ? Math.min(beforeIndex, nextNodes.length - 1) : 0;
+
+        for (let idx = baseIndex; idx >= 0; idx -= 1) {
+          const candidate = nextNodes[idx];
+          if (candidate && candidate.type === "entry" && candidate.dateKey === deletedDateKey) {
+            this.cursor = {
+              type: "entry",
+              dateKey: candidate.dateKey,
+              entryId: candidate.entry ? candidate.entry.id : null,
+            };
+            return;
+          }
+        }
+
+        const firstEntry = day.entries[0];
+        this.cursor = {
+          type: "entry",
+          dateKey: day.key,
+          entryId: firstEntry ? firstEntry.id : null,
+        };
+        return;
+      }
+
+      if (day) {
+        this.cursor = { type: "day", dateKey: day.key, entryId: null };
+        return;
+      }
+    }
+
     const first = this.getFlatNodes()[0];
     this.cursor = first
       ? { type: first.type, dateKey: first.dateKey, entryId: first.entry ? first.entry.id : null }
@@ -270,14 +315,20 @@ class HistoryPanel {
       );
 
       if (isOpen) {
-        for (let index = 0; index < day.entries.length; index += 1) {
-          const entry = day.entries[index];
-          const selected = this.cursor.type === "entry" && this.cursor.entryId === entry.id;
-          const time = escapeHtml(this.formatTime(entry));
-          const branch = index === day.entries.length - 1 ? "└" : "│";
+        if (!day.entries.length) {
           rows.push(
-            `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="label">${escapeHtml(entry.title || entry.url)}</span></span><span class="time ${this.showTimestamp ? "visible" : ""}">${time}</span></div>`,
+            `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="label empty-label">No item yet.</span></span><span class="time"></span></div>`,
           );
+        } else {
+          for (let index = 0; index < day.entries.length; index += 1) {
+            const entry = day.entries[index];
+            const selected = this.cursor.type === "entry" && this.cursor.entryId === entry.id;
+            const time = escapeHtml(this.formatTime(entry));
+            const branch = index === day.entries.length - 1 ? "└" : "│";
+            rows.push(
+              `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="label">${escapeHtml(entry.title || entry.url)}</span></span><span class="time ${this.showTimestamp ? "visible" : ""}">${time}</span></div>`,
+            );
+          }
         }
       }
     }
@@ -308,6 +359,7 @@ class HistoryPanel {
       .file-icon{display:inline-flex;align-items:center;justify-content:center;width:1em;margin-right:2px;color:var(--ui-text-soft,#b6c7e8)}
       .guide{color:var(--ui-text-muted,#7f8aa3)}
       .label{display:inline}
+      .empty-label{font-style:italic;color:var(--ui-text-muted,#7f8aa3)}
       .foot{min-height:18px;padding:4px 8px;color:#f9c97b}
     </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head">History</div><div class="list">${rows.join("")}</div><div class="foot">${confirmText}</div></div></body></html>`;
 

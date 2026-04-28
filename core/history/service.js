@@ -107,8 +107,8 @@ function deleteEntry(dateKey, entryId) {
   const history = readHistoryObject();
   if (!Array.isArray(history[dateKey])) return;
   history[dateKey] = history[dateKey].filter((entry) => String(entry.id || "") !== String(entryId));
-  if (history[dateKey].length === 0) {
-    delete history[dateKey];
+  if (!Array.isArray(history[dateKey])) {
+    history[dateKey] = [];
   }
   writeHistoryObject(history);
 }

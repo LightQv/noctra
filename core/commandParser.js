@@ -8,7 +8,9 @@ function parseCommand(raw) {
   }
 
   const match = normalized.match(/^(\S+)\s*(.*)$/);
-  const cmd = match ? match[1] : normalized;
+  const cmdToken = match ? match[1] : normalized;
+  const hasBang = cmdToken.endsWith("!");
+  const cmd = hasBang ? cmdToken.slice(0, -1) : cmdToken;
   const arg = match ? match[2].trim() : "";
 
   switch (cmd) {
@@ -109,6 +111,21 @@ function parseCommand(raw) {
         return { type: INTENTS.UNKNOWN_COMMAND, raw };
       }
       return { type: INTENTS.SET_THEME_MODE, mode };
+    }
+
+    case "lang": {
+      const argToken = arg.toLowerCase();
+      const argHasBang = argToken.endsWith("!");
+      const language = argHasBang ? argToken.slice(0, -1) : argToken;
+      const reload = hasBang || argHasBang;
+      if (!["en", "fr"].includes(language)) {
+        return { type: INTENTS.UNKNOWN_COMMAND, raw };
+      }
+      return {
+        type: INTENTS.SET_BROWSER_LANGUAGE,
+        language,
+        reload,
+      };
     }
 
     case "focus-context":

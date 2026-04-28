@@ -335,6 +335,30 @@ function updateThemeMode(nextMode) {
   return loadConfig();
 }
 
+function updateBrowserLanguage(nextLanguage) {
+  if (typeof nextLanguage !== "string") {
+    return cachedConfig;
+  }
+
+  const normalizedLanguage = nextLanguage.trim().toLowerCase();
+  if (normalizedLanguage !== "en" && normalizedLanguage !== "fr") {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.browser)) {
+    rawConfig.browser = {};
+  }
+
+  if (rawConfig.browser.language === normalizedLanguage) {
+    return cachedConfig;
+  }
+
+  rawConfig.browser.language = normalizedLanguage;
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
 function updateWindowState(nextWindowState = {}) {
   if (!isPlainObject(nextWindowState)) {
     return cachedConfig;
@@ -410,5 +434,6 @@ module.exports = {
   getConfigPath,
   getConfigValue,
   updateThemeMode,
+  updateBrowserLanguage,
   updateWindowState,
 };

@@ -1,6 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain, clipboard, nativeTheme } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard, nativeTheme, screen } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
@@ -20,6 +20,25 @@ const { resolveInputTarget } = require("./core/resolver");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
+
+function isFiniteInteger(value) {
+  return Number.isFinite(value) && Number.isInteger(value);
+}
+
+function isBoundsVisibleOnAnyDisplay(bounds) {
+  if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) {
+    return false;
+  }
+
+  const displays = screen.getAllDisplays();
+  return displays.some((display) => {
+    const area = display.workArea;
+    const intersectsHorizontally = bounds.x < area.x + area.width && bounds.x + bounds.width > area.x;
+    const intersectsVertically =
+      bounds.y < area.y + area.height && bounds.y + bounds.height > area.y;
+    return intersectsHorizontally && intersectsVertically;
+  });
+}
 
 function resolveCurrentTheme() {
   const themeConfig = configService.getConfigValue("global.theme", {});
@@ -750,12 +769,17 @@ function createWindow() {
   const config = configService.initConfig();
   state.applyConfig(config);
   const chromiumPreferences = configService.getConfigValue("browser.chromium.web_preferences", {});
+  const initialWidth = configService.getConfigValue("global.window.width", 1200);
+  const initialHeight = configService.getConfigValue("global.window.height", 800);
+  const initialX = configService.getConfigValue("global.window.x", null);
+  const initialY = configService.getConfigValue("global.window.y", null);
+  const initialIsMaximized = configService.getConfigValue("global.window.is_maximized", false);
 
   const isMac = process.platform === "darwin";
 
   const windowOptions = {
-    width: 1200,
-    height: 800,
+    width: initialWidth,
+    height: initialHeight,
     webPreferences: {
       contextIsolation:
         typeof chromiumPreferences.context_isolation === "boolean"
@@ -773,6 +797,20 @@ function createWindow() {
     windowOptions.titleBarStyle = "hiddenInset";
   } else {
     windowOptions.frame = false;
+  }
+
+  const hasConfiguredPosition = isFiniteInteger(initialX) && isFiniteInteger(initialY);
+  if (hasConfiguredPosition) {
+    const candidateBounds = {
+      x: initialX,
+      y: initialY,
+      width: initialWidth,
+      height: initialHeight,
+    };
+    if (isBoundsVisibleOnAnyDisplay(candidateBounds)) {
+      windowOptions.x = initialX;
+      windowOptions.y = initialY;
+    }
   }
 
   win = new BrowserWindow(windowOptions);
@@ -820,10 +858,59 @@ function createWindow() {
   win.on("unmaximize", syncWindowChrome);
   win.on("enter-full-screen", syncWindowChrome);
   win.on("leave-full-screen", syncWindowChrome);
+
+  let persistWindowBoundsTimer = null;
+  const persistWindowBoundsDebounced = () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer);
+    }
+    persistWindowBoundsTimer = setTimeout(() => {
+      if (!win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) {
+        return;
+      }
+      const { width, height, x, y } = win.getBounds();
+      configService.updateWindowState({ width, height, x, y });
+    }, 300);
+  };
+
+  const flushWindowBoundsPersistence = () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer);
+      persistWindowBoundsTimer = null;
+    }
+    if (!win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) {
+      return;
+    }
+    const { width, height, x, y } = win.getBounds();
+    configService.updateWindowState({ width, height, x, y });
+  };
+
+  const persistWindowMaximizedState = (isMaximized) => {
+    configService.updateWindowState({ is_maximized: Boolean(isMaximized) });
+  };
+
+  win.on("maximize", () => {
+    persistWindowMaximizedState(true);
+  });
+
+  win.on("unmaximize", () => {
+    persistWindowMaximizedState(false);
+    persistWindowBoundsDebounced();
+  });
+
   win.on("resize", () => {
     uiShell.updateSplitDivider(buffers.getSplitStatus());
     updateUrllineRender();
+    persistWindowBoundsDebounced();
   });
+
+  win.on("move", () => {
+    persistWindowBoundsDebounced();
+  });
+
+  if (initialIsMaximized) {
+    win.maximize();
+  }
 
   let statusPollInFlight = false;
 
@@ -871,7 +958,15 @@ function createWindow() {
       });
   }, 200);
 
+  win.on("close", () => {
+    flushWindowBoundsPersistence();
+  });
+
   win.on("closed", () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer);
+      persistWindowBoundsTimer = null;
+    }
     clearInterval(statusPoller);
   });
 

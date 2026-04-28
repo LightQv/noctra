@@ -243,6 +243,7 @@ function normalizeConfig(rawConfig) {
   const splitSection = resolveGlobalSection(input, "split");
   const editorSection = resolveGlobalSection(input, "editor");
   const storageSection = resolveGlobalSection(input, "storage");
+  const windowSection = resolveGlobalSection(input, "window");
   const openingBufferSection = resolveGlobalSection(input, "opening_buffer");
 
   if (isPlainObject(inputSection)) {
@@ -390,6 +391,27 @@ function normalizeConfig(rawConfig) {
       if (typeof storageSection[key] === "string" && storageSection[key].trim()) {
         normalizedGlobal.storage[key] = storageSection[key].trim();
       }
+    }
+  }
+
+  if (isPlainObject(windowSection)) {
+    normalizedGlobal.window.width = Math.floor(
+      normalizeNumber(windowSection.width, defaults.global.window.width, 400),
+    );
+    normalizedGlobal.window.height = Math.floor(
+      normalizeNumber(windowSection.height, defaults.global.window.height, 300),
+    );
+
+    if (typeof windowSection.x === "number" && Number.isFinite(windowSection.x)) {
+      normalizedGlobal.window.x = Math.floor(windowSection.x);
+    }
+
+    if (typeof windowSection.y === "number" && Number.isFinite(windowSection.y)) {
+      normalizedGlobal.window.y = Math.floor(windowSection.y);
+    }
+
+    if (typeof windowSection.is_maximized === "boolean") {
+      normalizedGlobal.window.is_maximized = windowSection.is_maximized;
     }
   }
 

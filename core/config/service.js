@@ -72,6 +72,7 @@ function migrateLegacyConfig(rawConfig) {
     "theme",
     "split",
     "storage",
+    "window",
     "opening_buffer",
   ];
 
@@ -325,6 +326,74 @@ function updateThemeMode(nextMode) {
   return loadConfig();
 }
 
+function updateWindowState(nextWindowState = {}) {
+  if (!isPlainObject(nextWindowState)) {
+    return cachedConfig;
+  }
+
+  const width = Number.isFinite(nextWindowState.width) ? Math.floor(nextWindowState.width) : null;
+  const height = Number.isFinite(nextWindowState.height) ? Math.floor(nextWindowState.height) : null;
+  const isMaximized =
+    typeof nextWindowState.is_maximized === "boolean" ? nextWindowState.is_maximized : null;
+  const x = Number.isFinite(nextWindowState.x) ? Math.floor(nextWindowState.x) : null;
+  const y = Number.isFinite(nextWindowState.y) ? Math.floor(nextWindowState.y) : null;
+
+  const hasSize = width !== null && height !== null;
+  const hasMaximized = isMaximized !== null;
+  const hasPosition = x !== null && y !== null;
+
+  if (!hasSize && !hasMaximized && !hasPosition) {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.global)) {
+    rawConfig.global = {};
+  }
+
+  if (!isPlainObject(rawConfig.global.window)) {
+    rawConfig.global.window = {};
+  }
+
+  let changed = false;
+
+  if (hasSize) {
+    const nextWidth = Math.max(400, width);
+    const nextHeight = Math.max(300, height);
+    if (rawConfig.global.window.width !== nextWidth) {
+      rawConfig.global.window.width = nextWidth;
+      changed = true;
+    }
+    if (rawConfig.global.window.height !== nextHeight) {
+      rawConfig.global.window.height = nextHeight;
+      changed = true;
+    }
+  }
+
+  if (hasMaximized && rawConfig.global.window.is_maximized !== isMaximized) {
+    rawConfig.global.window.is_maximized = isMaximized;
+    changed = true;
+  }
+
+  if (hasPosition) {
+    if (rawConfig.global.window.x !== x) {
+      rawConfig.global.window.x = x;
+      changed = true;
+    }
+    if (rawConfig.global.window.y !== y) {
+      rawConfig.global.window.y = y;
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return cachedConfig;
+  }
+
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
 module.exports = {
   initConfig,
   reloadConfig,
@@ -332,4 +401,5 @@ module.exports = {
   getConfigPath,
   getConfigValue,
   updateThemeMode,
+  updateWindowState,
 };

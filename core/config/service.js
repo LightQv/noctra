@@ -136,6 +136,15 @@ function addThemeComments(yamlText) {
       output.push("    # Overrides are applied only when mode is custom");
     }
 
+    if (/^browser:\s*$/.test(line)) {
+      output.push("# Browser behavior");
+    }
+
+    if (/^  language:\s*/.test(line)) {
+      output.push("  # Preferred website language: en | fr");
+      output.push("  # Mapped to Accept-Language and known locale hints for requests");
+    }
+
     output.push(line);
   }
 
@@ -326,6 +335,30 @@ function updateThemeMode(nextMode) {
   return loadConfig();
 }
 
+function updateBrowserLanguage(nextLanguage) {
+  if (typeof nextLanguage !== "string") {
+    return cachedConfig;
+  }
+
+  const normalizedLanguage = nextLanguage.trim().toLowerCase();
+  if (normalizedLanguage !== "en" && normalizedLanguage !== "fr") {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.browser)) {
+    rawConfig.browser = {};
+  }
+
+  if (rawConfig.browser.language === normalizedLanguage) {
+    return cachedConfig;
+  }
+
+  rawConfig.browser.language = normalizedLanguage;
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
 function updateWindowState(nextWindowState = {}) {
   if (!isPlainObject(nextWindowState)) {
     return cachedConfig;
@@ -401,5 +434,6 @@ module.exports = {
   getConfigPath,
   getConfigValue,
   updateThemeMode,
+  updateBrowserLanguage,
   updateWindowState,
 };

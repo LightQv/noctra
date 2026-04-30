@@ -607,6 +607,10 @@ class BufferManager {
     return this.buffers.find((buffer) => buffer.kind === kind) || null;
   }
 
+  getBuffers() {
+    return this.buffers.slice();
+  }
+
   getAllWebContents() {
     const items = [];
 

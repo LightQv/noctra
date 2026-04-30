@@ -1,6 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain, clipboard, nativeTheme, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard, nativeTheme, screen, session } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
@@ -20,6 +20,7 @@ const { resolveInputTarget } = require("./core/resolver");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
+let browserLanguageHooksRegistered = false;
 
 function isFiniteInteger(value) {
   return Number.isFinite(value) && Number.isInteger(value);
@@ -38,6 +39,99 @@ function isBoundsVisibleOnAnyDisplay(bounds) {
       bounds.y < area.y + area.height && bounds.y + bounds.height > area.y;
     return intersectsHorizontally && intersectsVertically;
   });
+}
+
+function mapBrowserLanguageToAcceptLanguage(languageCode) {
+  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
+  if (normalized === "fr") {
+    return "fr-FR,fr;q=0.9,en;q=0.8";
+  }
+  return "en-US,en;q=0.9";
+}
+
+function isGoogleHost(hostname) {
+  if (typeof hostname !== "string") {
+    return false;
+  }
+
+  const normalized = hostname.trim().toLowerCase();
+  return normalized === "google.com" || normalized.endsWith(".google.com") || normalized.includes(".google.");
+}
+
+function mapBrowserLanguageToGoogleLocale(languageCode) {
+  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
+  if (normalized === "fr") {
+    return { hl: "fr", gl: "FR", lr: "lang_fr" };
+  }
+  return { hl: "en", gl: "US", lr: "lang_en" };
+}
+
+function applyGoogleLocaleHint(rawUrl, preferredLanguage) {
+  if (typeof rawUrl !== "string" || !rawUrl.length) {
+    return rawUrl;
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    return rawUrl;
+  }
+
+  if ((parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") || !isGoogleHost(parsedUrl.hostname)) {
+    return rawUrl;
+  }
+
+  const locale = mapBrowserLanguageToGoogleLocale(preferredLanguage);
+  const currentHl = parsedUrl.searchParams.get("hl");
+  const currentGl = parsedUrl.searchParams.get("gl");
+  const currentLr = parsedUrl.searchParams.get("lr");
+  const nextHl = locale.hl;
+  const nextGl = locale.gl;
+  const nextLr = locale.lr;
+
+  if (currentHl === nextHl && currentGl === nextGl && currentLr === nextLr) {
+    return rawUrl;
+  }
+
+  parsedUrl.searchParams.set("hl", nextHl);
+  parsedUrl.searchParams.set("gl", nextGl);
+  parsedUrl.searchParams.set("lr", nextLr);
+  return parsedUrl.toString();
+}
+
+function applyBrowserLanguagePreference() {
+  if (browserLanguageHooksRegistered) {
+    return;
+  }
+
+  session.defaultSession.webRequest.onBeforeRequest({ urls: ["*://*/*"] }, (details, callback) => {
+    if (details.resourceType !== "mainFrame") {
+      callback({});
+      return;
+    }
+
+    const preferredLanguage = configService.getConfigValue("browser.language", "en");
+    const redirectURL = applyGoogleLocaleHint(details.url, preferredLanguage);
+    if (redirectURL && redirectURL !== details.url) {
+      callback({ redirectURL });
+      return;
+    }
+
+    callback({});
+  });
+
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["*://*/*"] }, (details, callback) => {
+    const preferredLanguage = configService.getConfigValue("browser.language", "en");
+    const acceptLanguage = mapBrowserLanguageToAcceptLanguage(preferredLanguage);
+    const requestHeaders = {
+      ...(details.requestHeaders || {}),
+      "Accept-Language": acceptLanguage,
+    };
+    callback({ requestHeaders });
+  });
+
+  browserLanguageHooksRegistered = true;
 }
 
 function resolveCurrentTheme() {
@@ -712,6 +806,7 @@ function registerUiShellEvents() {
         fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
         const config = configService.reloadConfig();
         state.applyConfig(config);
+        applyBrowserLanguagePreference();
         buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
         buffers.layoutViews();
         const themeContext = resolveCurrentTheme();
@@ -768,6 +863,7 @@ function bindInputToActiveBuffer() {
 function createWindow() {
   const config = configService.initConfig();
   state.applyConfig(config);
+  applyBrowserLanguagePreference();
   const chromiumPreferences = configService.getConfigValue("browser.chromium.web_preferences", {});
   const initialWidth = configService.getConfigValue("global.window.width", 1200);
   const initialHeight = configService.getConfigValue("global.window.height", 800);

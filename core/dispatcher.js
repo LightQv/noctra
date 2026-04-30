@@ -189,6 +189,24 @@ function applyThemeEverywhere(win) {
   broadcastUiShellPush(win, "theme:update", payload);
 }
 
+function isReloadableWebBuffer(buffer) {
+  if (!buffer || buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+    return false;
+  }
+
+  const url = typeof buffer.url === "string" ? buffer.url.trim() : "";
+  return url.startsWith("http://") || url.startsWith("https://");
+}
+
+function reloadReloadableBuffers() {
+  for (const buffer of buffers.getBuffers()) {
+    if (!isReloadableWebBuffer(buffer)) {
+      continue;
+    }
+    buffer.webContents.reload();
+  }
+}
+
 function dispatch(win, intent, state) {
   if (!intent) return;
 
@@ -434,6 +452,30 @@ function dispatch(win, intent, state) {
 
       applyThemeEverywhere(win);
       console.info(`Theme mode set to ${mode}`);
+      break;
+    }
+
+    case INTENTS.SET_BROWSER_LANGUAGE: {
+      const language = typeof intent.language === "string" ? intent.language.trim().toLowerCase() : "";
+      if (!["en", "fr"].includes(language)) {
+        console.warn("Unknown browser language:", intent.language);
+        break;
+      }
+
+      const config = configService.updateBrowserLanguage(language);
+      if (typeof state.applyConfig === "function") {
+        state.applyConfig(config);
+      }
+
+      if (intent.reload) {
+        reloadReloadableBuffers();
+      }
+
+      console.info(
+        intent.reload
+          ? `Browser language set to ${language}. Reloaded web buffers.`
+          : `Browser language set to ${language}. Reload with :lang ${language}! to apply on current pages.`,
+      );
       break;
     }
 

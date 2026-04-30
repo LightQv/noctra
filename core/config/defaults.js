@@ -144,7 +144,7 @@ const defaultConfig = {
         action: "split_vertical",
       },
     },
-    ctrl: {
+    mod: {
       d: {
         label: "Half-page down",
         action: "scroll_half_down",
@@ -173,6 +173,14 @@ const defaultConfig = {
         label: "Close focused context",
         action: "close_focused",
       },
+      t: {
+        label: "New buffer",
+        action: "new_buffer",
+      },
+      T: {
+        label: "Reopen last closed buffer",
+        action: "reopen_buffer",
+      },
     },
     leader: {
       ",": {
@@ -183,8 +191,29 @@ const defaultConfig = {
         label: "Toggle focus context",
         action: "toggle_focus_context",
       },
+      b: {
+        label: "Buffers...",
+        children: {
+          c: {
+            label: "Close current buffer",
+            action: "close_buffer",
+          },
+          l: {
+            label: "Close right buffers",
+            action: "close_right_buffers",
+          },
+          h: {
+            label: "Close left buffers",
+            action: "close_left_buffers",
+          },
+          u: {
+            label: "Reopen last closed buffer",
+            action: "reopen_buffer",
+          },
+        },
+      },
       c: {
-        label: "Buffers",
+        label: "Close...",
         children: {
           c: {
             label: "Close current buffer",
@@ -220,6 +249,10 @@ const defaultConfig = {
       e: {
         label: "Toggle history tree",
         action: "history_toggle",
+      },
+      f: {
+        label: "Toggle favorites tree",
+        action: "favorites_toggle",
       },
       o: {
         label: "Toggle tree focus",

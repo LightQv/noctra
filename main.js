@@ -4,6 +4,8 @@ const { app, BrowserWindow, ipcMain, clipboard, nativeTheme, screen, session } =
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
+require("dotenv").config();
+
 const configService = require("./core/config/service");
 const uiShell = require("./ui/shell/manager");
 const { dispatch } = require("./core/dispatcher");
@@ -248,6 +250,10 @@ function normalizeInput(input) {
 
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
+  const isPrimaryMod =
+    process.platform === "darwin"
+      ? normalized.meta && !normalized.ctrl
+      : normalized.ctrl && !normalized.meta;
 
   if (historyPanel.handleFocusedInput(normalized)) {
     event.preventDefault();
@@ -306,6 +312,22 @@ function handleRawInput(event, input) {
     return;
   }
 
+  const isBufferShortcut =
+    normalized.type === "keyDown" &&
+    isPrimaryMod &&
+    !normalized.alt &&
+    (normalized.key === "t" || normalized.key === "T");
+
+  if (isBufferShortcut) {
+    event.preventDefault();
+    if (normalized.key === "T" || normalized.shift) {
+      dispatch(win, { type: INTENTS.REOPEN_BUFFER }, state);
+    } else {
+      dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
+    }
+    return;
+  }
+
   if (shouldPreventDefault(normalized)) {
     event.preventDefault();
   }
@@ -350,15 +372,19 @@ function findNormalMappingsForAction(normalMap, targetAction) {
   return hits;
 }
 
-function findCtrlMappingsForAction(ctrlMap, targetAction) {
-  if (!ctrlMap || typeof ctrlMap !== "object") {
+function findModMappingsForAction(modMap, targetAction) {
+  if (!modMap || typeof modMap !== "object") {
     return [];
   }
 
+  const modLabel = process.platform === "darwin" ? "Cmd" : "Ctrl";
   const hits = [];
-  for (const [key, node] of Object.entries(ctrlMap)) {
+  for (const [key, node] of Object.entries(modMap)) {
     if (node && node.action === targetAction) {
-      hits.push(`Ctrl+${String(key).toUpperCase()}`);
+      const keyText = String(key);
+      const withShift = keyText.length === 1 && keyText !== keyText.toLowerCase();
+      const displayKey = keyText.length === 1 ? keyText.toUpperCase() : keyText;
+      hits.push(withShift ? `${modLabel}+Shift+${displayKey}` : `${modLabel}+${displayKey}`);
     }
   }
   return hits;
@@ -372,7 +398,7 @@ function formatLeaderSequence(seq = []) {
 
 function findShortcutLabelForAction(actionId) {
   const normal = configService.getConfigValue("keymap.normal", {});
-  const ctrl = configService.getConfigValue("keymap.ctrl", {});
+  const mod = configService.getConfigValue("keymap.mod", {});
   const leader = configService.getConfigValue("keymap.leader", {});
 
   const labels = [];
@@ -381,9 +407,9 @@ function findShortcutLabelForAction(actionId) {
     labels.push(normalHits[0]);
   }
 
-  const ctrlHits = findCtrlMappingsForAction(ctrl, actionId);
-  if (ctrlHits.length > 0) {
-    labels.push(ctrlHits[0]);
+  const modHits = findModMappingsForAction(mod, actionId);
+  if (modHits.length > 0) {
+    labels.push(modHits[0]);
   }
 
   const leaderHits = findLeaderSequencesForAction(leader, actionId);

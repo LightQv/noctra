@@ -66,6 +66,15 @@ function parseCommand(raw) {
       return { type: INTENTS.CLOSE_BUFFER, id: bufferId };
     }
 
+    case "q":
+    case "wq":
+      return { type: INTENTS.CLOSE_BUFFER };
+
+    case "breopen":
+    case "brestore":
+    case "reopen":
+      return { type: INTENTS.REOPEN_BUFFER };
+
     case "bcloseleft":
       return { type: INTENTS.CLOSE_LEFT_BUFFERS };
 
@@ -140,6 +149,16 @@ function parseCommand(raw) {
       if (option === "focus") return { type: INTENTS.HISTORY_TOGGLE_FOCUS };
       if (option === "delete-all") return { type: INTENTS.HISTORY_DELETE_ALL };
       if (option === "delete-today") return { type: INTENTS.HISTORY_DELETE_TODAY };
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
+    case "favorites": {
+      const option = arg.toLowerCase();
+      if (!option || option === "show") return { type: INTENTS.FAVORITES_SHOW };
+      if (option === "hide") return { type: INTENTS.FAVORITES_HIDE };
+      if (option === "toggle") return { type: INTENTS.FAVORITES_TOGGLE };
+      if (option === "focus") return { type: INTENTS.FAVORITES_TOGGLE_FOCUS };
+      if (option === "delete-all") return { type: INTENTS.FAVORITES_DELETE_ALL };
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 

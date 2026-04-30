@@ -9,6 +9,7 @@ const { buildSearchUrl } = require("./resolver");
 const historyService = require("./history/service");
 const historyPanel = require("./history/panel");
 const favoritesService = require("./favorites/service");
+const sessionService = require("./session/service");
 const { buildSettingsPageHtml } = require("./settings/page");
 const {
   resolveTheme,
@@ -583,6 +584,22 @@ function dispatch(win, intent, state) {
       historyPanel.reloadData();
       historyPanel.render();
       break;
+
+    case INTENTS.SESSION_SAVE: {
+      const snapshot = buffers.exportSessionSnapshot();
+      sessionService.writeSessionSnapshot(snapshot);
+      console.info("Session snapshot saved to", sessionService.getSessionsFilePath());
+      break;
+    }
+
+    case INTENTS.SESSION_RESTORE: {
+      const snapshot = sessionService.readSessionSnapshot();
+      const restored = buffers.restoreSessionSnapshot(snapshot);
+      if (!restored) {
+        console.warn("No restorable session snapshot found.");
+      }
+      break;
+    }
 
     case INTENTS.QUIT:
       app.quit();

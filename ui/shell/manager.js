@@ -227,9 +227,9 @@ const WHICHKEY_OVERLAY_HTML = `
 
       #whichkey-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 0 14px;
-        flex: 1;
+				flex: 1;
         min-height: 0;
       }
 
@@ -593,9 +593,15 @@ class UiShellManager {
     };
 
     this.applyThemeToWebContents(this.window && this.window.webContents);
-    this.applyThemeToWebContents(this.commandOverlayView && this.commandOverlayView.webContents);
-    this.applyThemeToWebContents(this.whichKeyOverlayView && this.whichKeyOverlayView.webContents);
-    this.applyThemeToWebContents(this.statuslineView && this.statuslineView.webContents);
+    this.applyThemeToWebContents(
+      this.commandOverlayView && this.commandOverlayView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.whichKeyOverlayView && this.whichKeyOverlayView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.statuslineView && this.statuslineView.webContents,
+    );
     this.renderTabline(this.pendingTablineSnapshot);
     this.renderUrlline(this.urllineModel);
     this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
@@ -603,11 +609,14 @@ class UiShellManager {
   }
 
   updateSplitDivider(splitStatus = {}) {
-    const divider = splitStatus.divider && typeof splitStatus.divider === "object"
-      ? splitStatus.divider
-      : {};
+    const divider =
+      splitStatus.divider && typeof splitStatus.divider === "object"
+        ? splitStatus.divider
+        : {};
     const visible = Boolean(divider.visible);
-    const offsetPx = Number.isFinite(divider.offsetPx) ? Math.max(0, Math.floor(divider.offsetPx)) : 0;
+    const offsetPx = Number.isFinite(divider.offsetPx)
+      ? Math.max(0, Math.floor(divider.offsetPx))
+      : 0;
 
     this.splitDividerState = {
       visible,
@@ -616,7 +625,9 @@ class UiShellManager {
 
     if (!this.window || !this.shellHostReady) return;
 
-    this.window.webContents.executeJavaScript(`
+    this.window.webContents
+      .executeJavaScript(
+        `
       (function updateSplitDivider() {
         const divider = document.getElementById('split-divider');
         if (!divider) return;
@@ -625,7 +636,9 @@ class UiShellManager {
         divider.style.display = visible ? 'block' : 'none';
         divider.style.left = visible ? offsetPx + 'px' : '0px';
       })();
-    `).catch(() => {});
+    `,
+      )
+      .catch(() => {});
   }
 
   applyThemeToWebContents(webContents) {
@@ -637,7 +650,8 @@ class UiShellManager {
     };
 
     webContents
-      .executeJavaScript(`
+      .executeJavaScript(
+        `
       (function applyNoctraThemeVars() {
         const vars = ${JSON.stringify(cssVars)};
         const style = document.documentElement && document.documentElement.style;
@@ -648,7 +662,8 @@ class UiShellManager {
           style.setProperty(name, value);
         }
       })();
-    `)
+    `,
+      )
       .catch(() => {});
   }
 
@@ -668,7 +683,8 @@ class UiShellManager {
   }
 
   renderUrlline(model = { panes: [] }) {
-    this.urllineModel = model && typeof model === "object" ? model : { panes: [] };
+    this.urllineModel =
+      model && typeof model === "object" ? model : { panes: [] };
 
     if (!this.window || !this.shellHostReady) return;
 
@@ -1054,7 +1070,8 @@ class UiShellManager {
 
     const beforeText = nextText.slice(0, nextCursor);
     const afterText = nextText.slice(nextCursor);
-    const cursorClass = nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
+    const cursorClass =
+      nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
     const isEditorContext = this.commandContext === "editor";
     const commandTitle = isEditorContext ? "Ex" : "Cmdline";
     const commandPrefix = "";

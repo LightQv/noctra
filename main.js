@@ -21,6 +21,7 @@ const {
 const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
 const historyPanel = require("./core/history/panel");
+const sessionService = require("./core/session/service");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
@@ -333,6 +334,15 @@ function handleRawInput(event, input) {
   }
 
   handleInput(win, normalized);
+}
+
+function persistSessionSnapshot() {
+  try {
+    const snapshot = buffers.exportSessionSnapshot();
+    sessionService.writeSessionSnapshot(snapshot);
+  } catch (error) {
+    console.warn("Failed to persist session snapshot:", error?.message || error);
+  }
 }
 
 function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
@@ -1147,6 +1157,7 @@ function createWindow() {
   }, 200);
 
   win.on("close", () => {
+    persistSessionSnapshot();
     flushWindowBoundsPersistence();
   });
 

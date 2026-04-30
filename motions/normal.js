@@ -58,6 +58,10 @@ function updateWhichKey(state) {
 function handleLeaderSequence(state, input, now) {
   const { key } = input;
 
+  if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta") {
+    return updateWhichKey(state);
+  }
+
   if (key === "Escape") {
     return hideWhichKeyAndReset(state);
   }
@@ -113,14 +117,17 @@ function handleLeaderSequence(state, input, now) {
   }
 
   const node = getLeaderNode(state.leaderPath);
-  const child = node?.children?.[loweredKey];
+  const exactChild = node?.children?.[key];
+  const loweredChild = node?.children?.[loweredKey];
+  const child = exactChild || loweredChild;
 
   if (!child) {
     return hideWhichKeyAndReset(state);
   }
 
   if (child.children) {
-    state.leaderPath = [...state.leaderPath, loweredKey];
+    const matchedKey = exactChild ? key : loweredKey;
+    state.leaderPath = [...state.leaderPath, matchedKey];
     state.leaderLastKeyTime = now;
     return updateWhichKey(state);
   }

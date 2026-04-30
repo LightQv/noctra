@@ -30,6 +30,8 @@ const ACTION_IDS = new Set([
   "history_toggle_focus",
   "favorites_toggle",
   "favorites_toggle_focus",
+  "session_save",
+  "session_restore",
   "close_buffer",
   "reopen_buffer",
   "close_focused",

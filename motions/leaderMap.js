@@ -79,7 +79,13 @@ function getWhichKeyModel(path = [], numericBuffer = "") {
   const entries = [];
 
   if (node && node.children) {
-    const childKeys = Object.keys(node.children).sort();
+    const childKeys = Object.keys(node.children).sort((left, right) => {
+      const primary = left.localeCompare(right, undefined, { sensitivity: "base" });
+      if (primary !== 0) {
+        return primary;
+      }
+      return left.localeCompare(right);
+    });
     for (const key of childKeys) {
       const child = node.children[key];
       const suffix = child.children ? "..." : "";

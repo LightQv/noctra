@@ -162,6 +162,13 @@ function parseCommand(raw) {
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 
+    case "session": {
+      const option = arg.toLowerCase();
+      if (option === "save") return { type: INTENTS.SESSION_SAVE };
+      if (option === "restore") return { type: INTENTS.SESSION_RESTORE };
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
     case "duck":
       return {
         type: INTENTS.SEARCH_WEB,

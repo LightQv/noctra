@@ -70,6 +70,11 @@ function parseCommand(raw) {
     case "wq":
       return { type: INTENTS.CLOSE_BUFFER };
 
+    case "breopen":
+    case "brestore":
+    case "reopen":
+      return { type: INTENTS.REOPEN_BUFFER };
+
     case "bcloseleft":
       return { type: INTENTS.CLOSE_LEFT_BUFFERS };
 

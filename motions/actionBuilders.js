@@ -68,6 +68,7 @@ const ACTION_BUILDERS = {
   favorites_toggle: createActionBuilder("favorites_toggle", () => ({ type: INTENTS.FAVORITES_TOGGLE })),
   favorites_toggle_focus: createActionBuilder("favorites_toggle_focus", () => ({ type: INTENTS.FAVORITES_TOGGLE_FOCUS })),
   close_buffer: createActionBuilder("close_buffer", () => ({ type: INTENTS.CLOSE_BUFFER })),
+  reopen_buffer: createActionBuilder("reopen_buffer", () => ({ type: INTENTS.REOPEN_BUFFER })),
   close_focused: createActionBuilder("close_focused", () => ({ type: INTENTS.CLOSE_FOCUSED })),
   close_left_buffers: createActionBuilder("close_left_buffers", () => ({ type: INTENTS.CLOSE_LEFT_BUFFERS })),
   close_right_buffers: createActionBuilder("close_right_buffers", () => ({ type: INTENTS.CLOSE_RIGHT_BUFFERS })),

@@ -1,5 +1,5 @@
 const { getNormalKeymap } = require("./keymap");
-const { handleCtrl } = require("./modifiers");
+const { handleMod, isModPressed } = require("./modifiers");
 const { INTENTS } = require("../core/intents");
 const { getLeaderNode, getWhichKeyModel } = require("./leaderMap");
 const { rememberRepeatableIntent } = require("./repeat");
@@ -160,7 +160,8 @@ function handleNormal(state, input) {
 
   state.lastKeyTime = now;
 
-  const { key, ctrl } = input;
+  const { key } = input;
+  const mod = isModPressed(input);
   const leaderKey = state.leaderKey || "Space";
 
   if (state.leaderActive) {
@@ -185,13 +186,13 @@ function handleNormal(state, input) {
     return showWhichKey(state);
   }
 
-  if (!ctrl && /[0-9]/.test(key)) {
+  if (!mod && /[0-9]/.test(key)) {
     state.countBuffer += key;
     return null;
   }
 
-  if (ctrl) {
-    return handleCtrl(state, key);
+  if (mod) {
+    return handleMod(state, key);
   }
 
   state.keyBuffer += key;

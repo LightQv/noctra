@@ -26,16 +26,17 @@ function getNormalKeymap() {
   return runtime;
 }
 
-function getCtrlAction(key) {
+function getModAction(key) {
   if (!key) return null;
 
-  const ctrlMap = getConfigValue("keymap.ctrl", {});
-  const mapping = ctrlMap?.[String(key).toLowerCase()];
+  const modMap = getConfigValue("keymap.mod", {});
+  const keyText = String(key);
+  const mapping = modMap?.[keyText] || modMap?.[keyText.toLowerCase()];
   const builder = getBuilderFor(mapping?.action);
   return builder || null;
 }
 
 module.exports = {
   getNormalKeymap,
-  getCtrlAction,
+  getModAction,
 };

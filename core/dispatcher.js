@@ -389,6 +389,10 @@ function dispatch(win, intent, state) {
       buffers.close(intent.id ?? null);
       break;
 
+    case INTENTS.REOPEN_BUFFER:
+      buffers.reopenLastClosed();
+      break;
+
     case INTENTS.CLOSE_FOCUSED:
       if (buffers.isSplitEnabled()) {
         buffers.closeRightSplit();

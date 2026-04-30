@@ -12,6 +12,8 @@ const LEGACY_CONFIG_DIR_PATH = path.join(
   ["vim", "browser"].join("-"),
 );
 const CONFIG_FILE_PATH = path.join(CONFIG_DIR_PATH, "config.yml");
+const CONFIG_POLICY =
+  process.env.NOCTRA_CONFIG_POLICY === "strict" ? "strict" : "customizable";
 
 let cachedConfig = normalizeConfig(defaultConfig);
 
@@ -26,7 +28,7 @@ function mergeWithDefaults(defaultsNode, inputNode) {
 
   const merged = {};
   const inputObject = isPlainObject(inputNode) ? inputNode : {};
-  const keys = new Set([...Object.keys(defaultsNode), ...Object.keys(inputObject)]);
+  const keys = Object.keys(defaultsNode);
 
   for (const key of keys) {
     merged[key] = mergeWithDefaults(defaultsNode[key], inputObject[key]);
@@ -236,6 +238,22 @@ function ensureConfigFile() {
 function loadConfig() {
   ensureConfigFile();
 
+  if (CONFIG_POLICY === "strict") {
+    const strictText = serializeConfig(defaultConfig);
+    try {
+      const currentText = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
+      if (currentText !== strictText) {
+        fs.writeFileSync(CONFIG_FILE_PATH, strictText, "utf8");
+      }
+    } catch {
+      fs.writeFileSync(CONFIG_FILE_PATH, strictText, "utf8");
+    }
+
+    cachedConfig = normalizeConfig(defaultConfig);
+    console.info("Loaded config in strict policy from", CONFIG_FILE_PATH);
+    return cachedConfig;
+  }
+
   try {
     const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
     const parsed = raw.trim() ? parse(raw) : {};
@@ -307,6 +325,10 @@ function getConfigValue(pathKey, fallbackValue = undefined) {
 }
 
 function updateThemeMode(nextMode) {
+  if (CONFIG_POLICY === "strict") {
+    return cachedConfig;
+  }
+
   const allowedModes = new Set(["dark", "light", "auto", "custom"]);
   if (typeof nextMode !== "string") {
     return cachedConfig;
@@ -336,6 +358,10 @@ function updateThemeMode(nextMode) {
 }
 
 function updateBrowserLanguage(nextLanguage) {
+  if (CONFIG_POLICY === "strict") {
+    return cachedConfig;
+  }
+
   if (typeof nextLanguage !== "string") {
     return cachedConfig;
   }
@@ -360,6 +386,10 @@ function updateBrowserLanguage(nextLanguage) {
 }
 
 function updateWindowState(nextWindowState = {}) {
+  if (CONFIG_POLICY === "strict") {
+    return cachedConfig;
+  }
+
   if (!isPlainObject(nextWindowState)) {
     return cachedConfig;
   }

@@ -22,7 +22,7 @@ function getSeedFavoritesTree() {
       {
         type: "folder",
         id: makeFolderId(),
-        name: "example",
+        name: "default",
         children: [
           {
             type: "entry",

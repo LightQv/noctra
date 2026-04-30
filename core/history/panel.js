@@ -56,6 +56,9 @@ class HistoryPanel {
     this.favoriteCursor = { nodeId: null };
     this.favoriteClipboard = null;
     this.favoriteEditState = null;
+    this.favoriteUndoStack = [];
+    this.favoriteRedoStack = [];
+    this.maxFavoriteHistory = 50;
 
     this.treeKind = "history";
     this.confirmDeleteAll = "";
@@ -69,6 +72,73 @@ class HistoryPanel {
 
   clearFavoriteEdit() {
     this.favoriteEditState = null;
+  }
+
+  createFavoriteSnapshot() {
+    return {
+      root: this.deepClone(Array.isArray(this.favoriteRoot) ? this.favoriteRoot : []),
+      expanded: Array.from(this.favoriteExpanded || []),
+      cursor: this.deepClone(this.favoriteCursor || { nodeId: null }),
+      clipboard: this.deepClone(this.favoriteClipboard),
+    };
+  }
+
+  applyFavoriteSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") {
+      return false;
+    }
+
+    this.favoriteRoot = this.deepClone(Array.isArray(snapshot.root) ? snapshot.root : []);
+    this.favoriteExpanded = new Set(Array.isArray(snapshot.expanded) ? snapshot.expanded : []);
+    this.favoriteCursor = this.deepClone(snapshot.cursor || { nodeId: null });
+    this.favoriteClipboard = this.deepClone(snapshot.clipboard || null);
+    this.favoriteEditState = null;
+    this.deleteAllArmed = false;
+    this.confirmDeleteAll = "";
+
+    favoritesService.writeFavoritesTree({ root: this.favoriteRoot });
+    this.favoriteRoot = favoritesService.readFavoritesTree().root;
+    this.reconcileFavoriteState();
+    return true;
+  }
+
+  recordFavoriteMutationSnapshot() {
+    this.favoriteUndoStack.push(this.createFavoriteSnapshot());
+    if (this.favoriteUndoStack.length > this.maxFavoriteHistory) {
+      this.favoriteUndoStack.splice(0, this.favoriteUndoStack.length - this.maxFavoriteHistory);
+    }
+    this.favoriteRedoStack = [];
+  }
+
+  undoLastFavoriteAction() {
+    if (!this.favoriteUndoStack.length) {
+      return false;
+    }
+    const previous = this.favoriteUndoStack.pop();
+    this.favoriteRedoStack.push(this.createFavoriteSnapshot());
+    if (this.favoriteRedoStack.length > this.maxFavoriteHistory) {
+      this.favoriteRedoStack.splice(0, this.favoriteRedoStack.length - this.maxFavoriteHistory);
+    }
+    return this.applyFavoriteSnapshot(previous);
+  }
+
+  redoLastFavoriteAction() {
+    if (!this.favoriteRedoStack.length) {
+      return false;
+    }
+    const next = this.favoriteRedoStack.pop();
+    this.favoriteUndoStack.push(this.createFavoriteSnapshot());
+    if (this.favoriteUndoStack.length > this.maxFavoriteHistory) {
+      this.favoriteUndoStack.splice(0, this.favoriteUndoStack.length - this.maxFavoriteHistory);
+    }
+    return this.applyFavoriteSnapshot(next);
+  }
+
+  isFavoriteRedoShortcut(input) {
+    if (!input || input.type !== "keyDown") {
+      return false;
+    }
+    return Boolean(input.ctrl && !input.meta && !input.alt && String(input.key).toLowerCase() === "r");
   }
 
   startFavoriteRename() {
@@ -155,6 +225,7 @@ class HistoryPanel {
     if (!location) return false;
     const value = String(nextLabel || "").trim();
     if (!value) return false;
+    this.recordFavoriteMutationSnapshot();
     if (location.node.type === "folder") {
       location.node.name = value;
     } else {
@@ -168,6 +239,7 @@ class HistoryPanel {
   createFavoriteFolderAtCursor(name) {
     const value = String(name || "").trim();
     if (!value) return false;
+    this.recordFavoriteMutationSnapshot();
     const target = this.resolveFavoriteInsertTarget();
     const folder = {
       type: "folder",
@@ -185,6 +257,7 @@ class HistoryPanel {
   createFavoriteEntryAtCursor(title, url) {
     const normalizedUrl = String(url || "").trim();
     if (!normalizedUrl || normalizedUrl === "https://") return false;
+    this.recordFavoriteMutationSnapshot();
     const normalizedTitle = String(title || "").trim() || normalizedUrl;
     const target = this.resolveFavoriteInsertTarget();
     const entry = {
@@ -373,7 +446,7 @@ class HistoryPanel {
       tone: "muted",
       text:
         this.treeKind === "favorites"
-          ? "a: add, r: rename, d: delete"
+          ? "a: add, y/m: yank/move, p: paste, r: rename, d: delete, u: undo"
           : "d: delete, D: delete-all",
       hint: "",
       value: "",
@@ -917,22 +990,32 @@ class HistoryPanel {
     return node && node.type === "entry" ? node.entry : null;
   }
 
-  isFavoriteNodeMarkedAsCopy(nodeId) {
-    return Boolean(
-      this.favoriteClipboard &&
-        this.favoriteClipboard.mode === "copy" &&
-        this.favoriteClipboard.sourceNodeId === nodeId,
-    );
+  getFavoriteNodeClipboardMarker(nodeId) {
+    if (!this.favoriteClipboard || this.favoriteClipboard.sourceNodeId !== nodeId) {
+      return "";
+    }
+
+    if (this.favoriteClipboard.mode === "copy") {
+      return "(copy)";
+    }
+
+    if (this.favoriteClipboard.mode === "move") {
+      return "(move)";
+    }
+
+    return "";
   }
 
   getFavoriteFolderDisplayName(node) {
     const base = String(node?.name || "");
-    return this.isFavoriteNodeMarkedAsCopy(node?.id) ? `${base} (copy)` : base;
+    const marker = this.getFavoriteNodeClipboardMarker(node?.id);
+    return marker ? `${base} ${marker}` : base;
   }
 
   getFavoriteEntryDisplayName(node) {
     const base = String(node?.entry?.title || node?.entry?.url || "");
-    return this.isFavoriteNodeMarkedAsCopy(node?.id) ? `${base} (copy)` : base;
+    const marker = this.getFavoriteNodeClipboardMarker(node?.id);
+    return marker ? `${base} ${marker}` : base;
   }
 
   renderFavoriteRows() {
@@ -1025,6 +1108,7 @@ class HistoryPanel {
   }
 
   deleteCurrentFavorite() {
+    this.recordFavoriteMutationSnapshot();
     const beforeNodes = this.getFavoriteFlatNodes();
     let beforeIndex = beforeNodes.findIndex((node) =>
       this.isFavoriteNodeSelected(node),
@@ -1060,6 +1144,10 @@ class HistoryPanel {
       value: this.deepClone(location.node),
       sourceNodeId: location.node.id,
     };
+  }
+
+  clearFavoriteClipboard() {
+    this.favoriteClipboard = null;
   }
 
   cloneFavoriteNodeForCopy(node) {
@@ -1103,6 +1191,7 @@ class HistoryPanel {
   pasteFavoriteAtCursor() {
     const clip = this.favoriteClipboard;
     if (!clip) return;
+    this.recordFavoriteMutationSnapshot();
     const beforeNodes = this.getFavoriteFlatNodes();
     let beforeIndex = beforeNodes.findIndex((node) =>
       this.isFavoriteNodeSelected(node),
@@ -1189,6 +1278,18 @@ class HistoryPanel {
         null
       : null;
 
+    if (isFavorites && this.isFavoriteRedoShortcut(input)) {
+      this.redoLastFavoriteAction();
+      this.render();
+      return true;
+    }
+
+    if (isFavorites && key === "Escape" && this.favoriteClipboard) {
+      this.clearFavoriteClipboard();
+      this.render();
+      return true;
+    }
+
     if (isFavorites && this.favoriteEditState) {
       const consumed = this.handleFavoriteEditInput(input);
       if (consumed) {
@@ -1200,8 +1301,10 @@ class HistoryPanel {
     if (this.deleteAllArmed) {
       if (key === "Enter") {
         if (this.confirmDeleteAll.toLowerCase() === "yes") {
-          if (isFavorites) favoritesService.deleteAll();
-          else historyService.deleteAll();
+          if (isFavorites) {
+            this.recordFavoriteMutationSnapshot();
+            favoritesService.deleteAll();
+          } else historyService.deleteAll();
         }
         this.confirmDeleteAll = "";
         this.deleteAllArmed = false;
@@ -1275,8 +1378,7 @@ class HistoryPanel {
     } else if (key === "Enter") this.openCurrent(Boolean(input.shift));
     else if (key === "y") {
       if (isFavorites) {
-        const entry = this.getCurrentFavoriteEntry();
-        if (entry && entry.url) clipboard.writeText(String(entry.url));
+        this.copyOrMoveCurrentFavorite(false);
       } else {
         const entry = this.getCurrentEntry();
         if (entry && entry.url) clipboard.writeText(String(entry.url));
@@ -1287,6 +1389,11 @@ class HistoryPanel {
     else if (isFavorites && key === "p") this.pasteFavoriteAtCursor();
     else if (isFavorites && key === "r") this.startFavoriteRename();
     else if (isFavorites && key === "a") this.startFavoriteAdd();
+    else if (isFavorites && key === "u") this.undoLastFavoriteAction();
+    else if (isFavorites && key === "Y") {
+      const entry = this.getCurrentFavoriteEntry();
+      if (entry && entry.url) clipboard.writeText(String(entry.url));
+    }
     else if (key === "d") this.deleteCurrent();
     else if (key === "D") {
       this.confirmDeleteAll = "";

@@ -31,6 +31,7 @@ const ACTION_IDS = new Set([
   "favorites_toggle",
   "favorites_toggle_focus",
   "close_buffer",
+  "reopen_buffer",
   "close_focused",
   "close_left_buffers",
   "close_right_buffers",
@@ -309,7 +310,7 @@ function normalizeConfig(rawConfig) {
 
   if (isPlainObject(input.keymap)) {
     normalized.keymap.normal = normalizeKeymapSection(input.keymap.normal, defaults.keymap.normal);
-    normalized.keymap.ctrl = normalizeKeymapSection(input.keymap.ctrl, defaults.keymap.ctrl);
+    normalized.keymap.mod = normalizeKeymapSection(input.keymap.mod, defaults.keymap.mod);
   }
 
   if (isPlainObject(uiSection)) {

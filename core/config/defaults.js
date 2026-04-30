@@ -49,6 +49,13 @@ const defaultConfig = {
       favorites_file: "~/.config/noctra/favorites.yml",
       sessions_file: "~/.config/noctra/sessions.yml",
     },
+    window: {
+      width: 1200,
+      height: 800,
+      x: null,
+      y: null,
+      is_maximized: false,
+    },
     opening_buffer: {
       mode: "dashboard",
       url: "https://anime-sama.to/",

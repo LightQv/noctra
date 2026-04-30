@@ -394,8 +394,32 @@ class HistoryPanel {
     const label = escapeHtml(edit.label || "Input");
     const cursorHtml = atEnd
       ? '<span class="floating-input-cursor"></span>'
-      : '<span class="floating-input-caret">|</span>';
+      : '<span class="floating-input-caret" aria-hidden="true"></span>';
     return `<div class="floating-input"><div class="floating-input-label">${label}</div><div class="floating-input-value">${before}${cursorHtml}${after}</div></div>`;
+  }
+
+  resolveFavoritePasteTarget(cursorLocation) {
+    if (!cursorLocation) return null;
+    if (cursorLocation.node.type === "folder") {
+      const children = Array.isArray(cursorLocation.node.children)
+        ? cursorLocation.node.children
+        : [];
+      cursorLocation.node.children = children;
+      const isOpenFolder = this.favoriteExpanded.has(cursorLocation.node.id);
+      if (isOpenFolder) {
+        return {
+          children,
+          insertAt: children.length,
+          expandFolderId: cursorLocation.node.id,
+        };
+      }
+    }
+
+    return {
+      children: cursorLocation.children,
+      insertAt: cursorLocation.index + 1,
+      expandFolderId: null,
+    };
   }
 
   init({ window, buffers, state }) {
@@ -783,7 +807,7 @@ class HistoryPanel {
       .floating-input-label{color:var(--ui-text-muted,#7f8aa3);font-size:11px;margin-bottom:4px}
       .floating-input-value{color:var(--ui-text,#c9d1df);min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
       .floating-input-cursor{display:inline-block;width:7px;height:12px;margin-left:2px;vertical-align:-2px;background:var(--ui-editor-cursor,#89dceb);opacity:.9}
-      .floating-input-caret{display:inline-block;margin:0 1px;color:var(--ui-editor-cursor,#89dceb);font-weight:600;line-height:1}
+      .floating-input-caret{display:inline-block;width:1px;height:18px;vertical-align:-3px;background:var(--ui-accent,#89dceb)}
       .unfocused .floating-input-cursor{opacity:.45}
       .unfocused .floating-input-caret{opacity:.55}
     </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${favoriteHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${escapeHtml(footerTone)}</span><div class="foot-main"><span class="foot-text">${footerText}</span><span class="foot-hint">${footerHint}</span><span class="foot-input">${footerValue}</span></div></div></div></body></html>`;
@@ -893,6 +917,24 @@ class HistoryPanel {
     return node && node.type === "entry" ? node.entry : null;
   }
 
+  isFavoriteNodeMarkedAsCopy(nodeId) {
+    return Boolean(
+      this.favoriteClipboard &&
+        this.favoriteClipboard.mode === "copy" &&
+        this.favoriteClipboard.sourceNodeId === nodeId,
+    );
+  }
+
+  getFavoriteFolderDisplayName(node) {
+    const base = String(node?.name || "");
+    return this.isFavoriteNodeMarkedAsCopy(node?.id) ? `${base} (copy)` : base;
+  }
+
+  getFavoriteEntryDisplayName(node) {
+    const base = String(node?.entry?.title || node?.entry?.url || "");
+    return this.isFavoriteNodeMarkedAsCopy(node?.id) ? `${base} (copy)` : base;
+  }
+
   renderFavoriteRows() {
     const rows = [];
     const nodes = this.getFavoriteFlatNodes();
@@ -909,13 +951,13 @@ class HistoryPanel {
         const selected = this.isFavoriteNodeSelected(node);
         const indentPx = node.depth * TREE_LAYOUT.nestIndentPx;
         rows.push(
-          `<div class="row day ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${escapeHtml(node.name)}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
+          `<div class="row day ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${escapeHtml(this.getFavoriteFolderDisplayName(node))}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
         );
       } else {
         const selected = this.isFavoriteNodeSelected(node);
         if (node.depth === 0) {
           rows.push(
-            `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${escapeHtml(node.entry.title || node.entry.url)}</span></span><span class="time time-hidden"></span></div>`,
+            `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${escapeHtml(this.getFavoriteEntryDisplayName(node))}</span></span><span class="time time-hidden"></span></div>`,
           );
         } else {
           const siblingNodes = nodes.filter(
@@ -928,7 +970,7 @@ class HistoryPanel {
               TREE_LAYOUT.guideOpticalOffsetPx,
           );
           rows.push(
-            `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="text">${escapeHtml(node.entry.title || node.entry.url)}</span></span><span class="time time-hidden"></span></div>`,
+            `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="text">${escapeHtml(this.getFavoriteEntryDisplayName(node))}</span></span><span class="time time-hidden"></span></div>`,
           );
         }
       }
@@ -1075,8 +1117,10 @@ class HistoryPanel {
       clip.mode === "move"
         ? this.findFavoriteNodeLocation(clip.sourceNodeId)
         : null;
-    let targetChildren = cursorLocation.children;
-    let insertAt = cursorLocation.index + 1;
+    const pasteTarget = this.resolveFavoritePasteTarget(cursorLocation);
+    if (!pasteTarget) return;
+    let targetChildren = pasteTarget.children;
+    let insertAt = pasteTarget.insertAt;
 
     if (
       sourceLocation &&
@@ -1103,9 +1147,11 @@ class HistoryPanel {
     }
 
     targetChildren.splice(insertAt, 0, nodeToInsert);
+    if (pasteTarget.expandFolderId) {
+      this.favoriteExpanded.add(pasteTarget.expandFolderId);
+    }
 
-    this.favoriteClipboard =
-      clip.mode === "move" ? null : this.favoriteClipboard;
+    this.favoriteClipboard = null;
     this.saveFavorites();
     this.favoriteCursor = { nodeId: nodeToInsert.id };
     this.restoreFavoriteCursorByIndex(beforeIndex + 1);

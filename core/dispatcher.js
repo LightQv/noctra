@@ -534,7 +534,6 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.HISTORY_TOGGLE:
-      historyPanel.setTreeKind("history");
       historyPanel.toggle();
       break;
 

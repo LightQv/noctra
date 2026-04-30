@@ -66,6 +66,10 @@ function parseCommand(raw) {
       return { type: INTENTS.CLOSE_BUFFER, id: bufferId };
     }
 
+    case "q":
+    case "wq":
+      return { type: INTENTS.CLOSE_BUFFER };
+
     case "bcloseleft":
       return { type: INTENTS.CLOSE_LEFT_BUFFERS };
 

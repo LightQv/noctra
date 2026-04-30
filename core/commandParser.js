@@ -132,6 +132,17 @@ function parseCommand(raw) {
     case "context":
       return { type: INTENTS.TOGGLE_FOCUS_CONTEXT };
 
+    case "history": {
+      const option = arg.toLowerCase();
+      if (!option || option === "show") return { type: INTENTS.HISTORY_SHOW };
+      if (option === "hide") return { type: INTENTS.HISTORY_HIDE };
+      if (option === "toggle") return { type: INTENTS.HISTORY_TOGGLE };
+      if (option === "focus") return { type: INTENTS.HISTORY_TOGGLE_FOCUS };
+      if (option === "delete-all") return { type: INTENTS.HISTORY_DELETE_ALL };
+      if (option === "delete-today") return { type: INTENTS.HISTORY_DELETE_TODAY };
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
     case "duck":
       return {
         type: INTENTS.SEARCH_WEB,

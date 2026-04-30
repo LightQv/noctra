@@ -32,6 +32,7 @@ class BufferManager {
       offsetPx: 0,
     };
     this.urllineVisible = false;
+    this.leftInsetPx = 0;
   }
 
   init(windowRef) {
@@ -54,6 +55,26 @@ class BufferManager {
     buffer.setContentUiOptions(this.contentUiOptions);
     buffer.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });
+    });
+    buffer.on("visit", (event = {}) => {
+      this.notify({
+        kind: "visit",
+        activeChanged: false,
+        sourceBufferId: buffer.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
+    });
+    buffer.on("title-updated", (event = {}) => {
+      this.notify({
+        kind: "title-updated",
+        activeChanged: false,
+        sourceBufferId: buffer.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
     });
     this.attachPaneTracking(buffer, () => this.resolvePaneForBuffer(buffer));
 
@@ -491,6 +512,14 @@ class BufferManager {
     return this.urllineVisible;
   }
 
+  setLeftInset(px = 0) {
+    const next = Number.isFinite(px) ? Math.max(0, Math.floor(px)) : 0;
+    if (this.leftInsetPx === next) return;
+    this.leftInsetPx = next;
+    this.layoutViews();
+    this.notify({ kind: "layout", activeChanged: false });
+  }
+
   getRightPaneBuffer() {
     if (!this.split.enabled || this.split.mode !== "regular") {
       return null;
@@ -553,14 +582,16 @@ class BufferManager {
     const rightRegular = this.split.mode === "regular" ? this.split.rightPaneBuffer : null;
     const showSplit = this.split.enabled && (rightSource || rightRegular || this.split.mode === "devtools");
     const dividerWidth = showSplit && getConfigValue("global.split.divider.enabled", true) ? 1 : 0;
-    const availableSplitWidth = Math.max(bounds.width - dividerWidth, 2);
+    const contentX = Math.max(0, this.leftInsetPx);
+    const contentWidth = Math.max(bounds.width - contentX, 2);
+    const availableSplitWidth = Math.max(contentWidth - dividerWidth, 2);
     const rightWidth = showSplit
       ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
       : 0;
     const leftWidth = showSplit
       ? Math.max(availableSplitWidth - rightWidth, 1)
-      : bounds.width;
-    const rightX = leftWidth + dividerWidth;
+      : contentWidth;
+    const rightX = contentX + leftWidth + dividerWidth;
 
     const useMirroredRight =
       showSplit &&
@@ -655,6 +686,26 @@ class BufferManager {
     rightPane.setContentUiOptions(this.contentUiOptions);
     rightPane.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });
+    });
+    rightPane.on("visit", (event = {}) => {
+      this.notify({
+        kind: "visit",
+        activeChanged: false,
+        sourceBufferId: rightPane.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
+    });
+    rightPane.on("title-updated", (event = {}) => {
+      this.notify({
+        kind: "title-updated",
+        activeChanged: false,
+        sourceBufferId: rightPane.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
     });
     this.attachPaneTracking(rightPane, () => "right");
 
@@ -817,17 +868,19 @@ class BufferManager {
 
     const splitDividerEnabled = getConfigValue("global.split.divider.enabled", true);
     const dividerWidth = showSplit && splitDividerEnabled ? 1 : 0;
-    const availableSplitWidth = Math.max(bounds.width - dividerWidth, 2);
+    const contentX = Math.max(0, this.leftInsetPx);
+    const contentWidth = Math.max(bounds.width - contentX, 2);
+    const availableSplitWidth = Math.max(contentWidth - dividerWidth, 2);
     const rightWidth = showSplit
       ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
       : 0;
     const leftWidth = showSplit
       ? Math.max(availableSplitWidth - rightWidth, 1)
-      : bounds.width;
-    const rightX = leftWidth + dividerWidth;
+      : contentWidth;
+    const rightX = contentX + leftWidth + dividerWidth;
 
     this.splitDivider.visible = showSplit && dividerWidth > 0;
-    this.splitDivider.offsetPx = this.splitDivider.visible ? leftWidth : 0;
+    this.splitDivider.offsetPx = this.splitDivider.visible ? contentX + leftWidth : 0;
 
     for (const buffer of this.buffers) {
       if (buffer === left || buffer === visibleRightMainBuffer) {
@@ -835,7 +888,7 @@ class BufferManager {
         buffer.view.setBounds(
           getPaneBounds(
             isRightBuffer,
-            isRightBuffer ? rightX : 0,
+            isRightBuffer ? rightX : contentX,
             isRightBuffer ? rightWidth : leftWidth,
           ),
         );
@@ -920,6 +973,7 @@ class BufferManager {
 
   handlePaneInteraction(pane) {
     if (!this.split.enabled) {
+      this.notify({ kind: "pane-interaction", activeChanged: false, pane: "left" });
       return;
     }
 
@@ -932,11 +986,14 @@ class BufferManager {
         this.focusedPane = "right";
         this.layoutViews();
         this.notify({ kind: "structure", activeChanged: true });
+      } else {
+        this.notify({ kind: "pane-interaction", activeChanged: false, pane: "right" });
       }
       return;
     }
 
     if (this.focusedPane === "left") {
+      this.notify({ kind: "pane-interaction", activeChanged: false, pane: "left" });
       return;
     }
 

@@ -1037,29 +1037,6 @@ class HistoryPanel {
     }
   }
 
-  deleteCurrent() {
-    if (this.treeKind === "favorites") {
-      this.deleteCurrentFavorite();
-      return;
-    }
-
-    if (this.cursor.type === "day") {
-      historyService.deleteDate(this.cursor.dateKey);
-    } else if (this.cursor.type === "entry") {
-      historyService.deleteEntry(this.cursor.dateKey, this.cursor.entryId);
-    }
-
-    this.reloadData();
-    const first = this.getFlatNodes()[0];
-    this.cursor = first
-      ? {
-          type: first.type,
-          dateKey: first.dateKey,
-          entryId: first.entry ? first.entry.id : null,
-        }
-      : { type: "day", dateKey: null, entryId: null };
-  }
-
   resolveFavoriteScopeBottomIndex(flatNodes, startIndex) {
     const current = flatNodes[startIndex];
     if (!current) return startIndex;
@@ -1641,7 +1618,6 @@ class HistoryPanel {
     if (Number.isFinite(timeout) && this.treeLastKeyTime && now - this.treeLastKeyTime > timeout) {
       this.treeCountBuffer = "";
       this.treeKeyBuffer = "";
-      this.clearTreeDeletePending();
     }
     this.treeLastKeyTime = now;
 
@@ -1774,12 +1750,10 @@ class HistoryPanel {
       return true;
     }
 
-    const moveCount = 1;
-
     if (key === "H") this.switchTreeByOffset(-1);
     else if (key === "L") this.switchTreeByOffset(1);
-    else if (key === "j" || key === "ArrowDown") this.moveCursor(moveCount);
-    else if (key === "k" || key === "ArrowUp") this.moveCursor(-moveCount);
+    else if (key === "ArrowDown") this.moveCursor(1);
+    else if (key === "ArrowUp") this.moveCursor(-1);
     else if (key === "l" || key === "ArrowRight") {
       if (isFavorites) {
         if (currentFavoriteNode && currentFavoriteNode.type === "folder") {

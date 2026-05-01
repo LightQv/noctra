@@ -1,6 +1,8 @@
 const { BrowserView, clipboard } = require("electron");
 const historyService = require("./service");
 const favoritesService = require("../favorites/service");
+const { getNormalKeymap, getModAction } = require("../../motions/keymap");
+const { isModPressed } = require("../../motions/modifiers");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
@@ -67,7 +69,7 @@ class HistoryPanel {
     this.deleteAllArmed = false;
     this.previousContext = "SHELL";
     this.treeCountBuffer = "";
-    this.treePendingG = false;
+    this.treeKeyBuffer = "";
     this.treeLastKeyTime = 0;
     this.treeScrollContextLines = 3;
     this.lastSelectedTreeIndex = -1;
@@ -84,7 +86,7 @@ class HistoryPanel {
 
   clearTreeNormalState() {
     this.treeCountBuffer = "";
-    this.treePendingG = false;
+    this.treeKeyBuffer = "";
     this.treeLastKeyTime = 0;
   }
 
@@ -154,6 +156,80 @@ class HistoryPanel {
     const count = Number.parseInt(this.treeCountBuffer || String(defaultCount), 10);
     this.treeCountBuffer = "";
     return Number.isFinite(count) && count > 0 ? count : defaultCount;
+  }
+
+  executeSharedTreeAction(actionId, count = 1) {
+    if (!actionId || typeof actionId !== "string") return false;
+    if (actionId === "scroll_down") {
+      this.moveCursor(Math.max(1, count));
+      return true;
+    }
+    if (actionId === "scroll_up") {
+      this.moveCursor(-Math.max(1, count));
+      return true;
+    }
+    if (actionId === "scroll_top") {
+      this.jumpToLine(Math.max(1, count));
+      return true;
+    }
+    if (actionId === "scroll_bottom") {
+      this.jumpToLine(this.getTreeFlatNodes().length);
+      return true;
+    }
+    if (actionId === "scroll_half_down") {
+      this.moveCursor(TREE_LINE_JUMP_STEP);
+      return true;
+    }
+    if (actionId === "scroll_half_up") {
+      this.moveCursor(-TREE_LINE_JUMP_STEP);
+      return true;
+    }
+    return false;
+  }
+
+  resolveSharedTreeNormalAction(input) {
+    const key = String(input?.key || "");
+    const mod = isModPressed(input);
+    if (!key) return null;
+
+    if (!mod && /^[0-9]$/.test(key)) {
+      this.treeCountBuffer += key;
+      return { consumed: true, shouldRender: false };
+    }
+
+    if (mod) {
+      const builder = getModAction(key);
+      if (!builder) {
+        this.treeCountBuffer = "";
+        this.treeKeyBuffer = "";
+        return null;
+      }
+      this.treeCountBuffer = "";
+      this.treeKeyBuffer = "";
+      const handled = this.executeSharedTreeAction(builder.actionId, 1);
+      if (!handled) return null;
+      return { consumed: true, shouldRender: true };
+    }
+
+    this.treeKeyBuffer += key;
+    const keymap = getNormalKeymap();
+    const exactBuilder = keymap[this.treeKeyBuffer];
+    if (exactBuilder) {
+      const count = this.consumeTreeCount(1);
+      this.treeKeyBuffer = "";
+      const handled = this.executeSharedTreeAction(exactBuilder.actionId, count);
+      if (!handled) return null;
+      return { consumed: true, shouldRender: true };
+    }
+
+    const hasPrefix = Object.keys(keymap).some((mapped) => mapped.startsWith(this.treeKeyBuffer));
+    if (hasPrefix) {
+      return { consumed: true, shouldRender: false };
+    }
+
+    this.treeKeyBuffer = "";
+    this.treeCountBuffer = "";
+    return null;
   }
 
   getTreeFlatNodes() {
@@ -1455,7 +1531,7 @@ class HistoryPanel {
     const timeout = this.state?.sequenceTimeout;
     if (Number.isFinite(timeout) && this.treeLastKeyTime && now - this.treeLastKeyTime > timeout) {
       this.treeCountBuffer = "";
-      this.treePendingG = false;
+      this.treeKeyBuffer = "";
     }
     this.treeLastKeyTime = now;
 
@@ -1523,49 +1599,13 @@ class HistoryPanel {
       return true;
     }
 
-    if (!input.ctrl && !input.meta && !input.alt && /^[0-9]$/.test(String(key))) {
-      this.treeCountBuffer += String(key);
+    const shared = this.resolveSharedTreeNormalAction(input);
+    if (shared?.consumed) {
+      if (shared.shouldRender) this.render();
       return true;
     }
 
-    if (!input.ctrl && !input.meta && !input.alt && key === "g") {
-      if (this.treePendingG) {
-        const count = this.consumeTreeCount(1);
-        this.jumpToLine(count);
-        this.treePendingG = false;
-        this.render();
-        return true;
-      }
-      this.treePendingG = true;
-      return true;
-    }
-
-    if (this.treePendingG) {
-      this.treePendingG = false;
-    }
-
-    if (key === "G") {
-      this.treeCountBuffer = "";
-      this.jumpToLine(this.getTreeFlatNodes().length);
-      this.render();
-      return true;
-    }
-
-    if (input.ctrl && !input.meta && !input.alt && String(key).toLowerCase() === "d") {
-      this.treeCountBuffer = "";
-      this.moveCursor(TREE_LINE_JUMP_STEP);
-      this.render();
-      return true;
-    }
-
-    if (input.ctrl && !input.meta && !input.alt && String(key).toLowerCase() === "u") {
-      this.treeCountBuffer = "";
-      this.moveCursor(-TREE_LINE_JUMP_STEP);
-      this.render();
-      return true;
-    }
-
-    const moveCount = this.consumeTreeCount(1);
+    const moveCount = 1;
 
     if (key === "H") this.switchTreeByOffset(-1);
     else if (key === "L") this.switchTreeByOffset(1);

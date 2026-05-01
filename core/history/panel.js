@@ -537,6 +537,13 @@ class HistoryPanel {
     if (!edit) return false;
     const key = input.key;
 
+    const isPasteShortcut =
+      input.type === "keyDown" &&
+      (key === "v" || key === "V") &&
+      ((process.platform === "darwin" && input.meta && !input.ctrl) ||
+        (process.platform !== "darwin" && input.ctrl && !input.meta)) &&
+      !input.alt;
+
     if (key === "Escape") {
       this.clearFavoriteEdit();
       return true;
@@ -565,6 +572,17 @@ class HistoryPanel {
         };
         return true;
       }
+      return true;
+    }
+
+    if (isPasteShortcut) {
+      const chunk = String(clipboard.readText() || "");
+      if (!chunk) return true;
+      this.clampFavoriteEditCursor(edit);
+      const before = edit.value.slice(0, edit.cursor);
+      const after = edit.value.slice(edit.cursor);
+      edit.value = before + chunk + after;
+      edit.cursor += chunk.length;
       return true;
     }
 

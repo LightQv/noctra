@@ -419,7 +419,7 @@ class HistoryPanel {
       return {
         tone: "danger",
         text: `Delete all ${confirmLabel}?`,
-        hint: "type yes then Enter",
+        hint: "type y/n then Enter",
         value: this.confirmDeleteAll,
       };
     }
@@ -1300,7 +1300,8 @@ class HistoryPanel {
 
     if (this.deleteAllArmed) {
       if (key === "Enter") {
-        if (this.confirmDeleteAll.toLowerCase() === "yes") {
+        const answer = this.confirmDeleteAll.trim().toLowerCase();
+        if (answer === "y") {
           if (isFavorites) {
             this.recordFavoriteMutationSnapshot();
             favoritesService.deleteAll();

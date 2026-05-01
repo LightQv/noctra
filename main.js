@@ -892,6 +892,9 @@ function registerUiShellEvents() {
         applyBrowserLanguagePreference();
         buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
         historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+        historyPanel.setTreeScrollContextLines(
+          configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+        );
         historyPanel.layout();
         buffers.layoutViews();
         const themeContext = resolveCurrentTheme();
@@ -1016,6 +1019,9 @@ function createWindow() {
     updateTablineOptions();
   });
   historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+  historyPanel.setTreeScrollContextLines(
+    configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+  );
   const historyPanelWebContents = historyPanel.getWebContents();
   if (historyPanelWebContents) {
     historyPanelWebContents.on("before-input-event", (event, input) => {

@@ -18,6 +18,7 @@ const defaultConfig = {
     ui: {
       sidepanel: {
         width_ratio: 0.2,
+        tree_scroll_context_lines: 3,
       },
       tabline: {
         enabled: true,

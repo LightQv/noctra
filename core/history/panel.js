@@ -36,6 +36,8 @@ const TREE_LAYOUT = Object.freeze({
   guideOpticalOffsetPx: 3,
 });
 
+const TREE_LINE_JUMP_STEP = 10;
+
 class HistoryPanel {
   constructor() {
     this.window = null;
@@ -64,6 +66,12 @@ class HistoryPanel {
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
     this.previousContext = "SHELL";
+    this.treeCountBuffer = "";
+    this.treePendingG = false;
+    this.treeLastKeyTime = 0;
+    this.treeScrollContextLines = 3;
+    this.lastSelectedTreeIndex = -1;
+    this.treeFirstVisibleIndex = 0;
     this.view = null;
     this.onFocusChange = null;
     this.renderTimer = null;
@@ -72,6 +80,101 @@ class HistoryPanel {
 
   clearFavoriteEdit() {
     this.favoriteEditState = null;
+  }
+
+  clearTreeNormalState() {
+    this.treeCountBuffer = "";
+    this.treePendingG = false;
+    this.treeLastKeyTime = 0;
+  }
+
+  resetTreeScrollState() {
+    this.treeFirstVisibleIndex = 0;
+    this.lastSelectedTreeIndex = -1;
+  }
+
+  computeNextFirstVisibleIndex({
+    selectedIndex,
+    direction,
+    totalRows,
+    viewportRows,
+  }) {
+    const safeTotalRows = Math.max(0, Number(totalRows) || 0);
+    const safeViewportRows = Math.max(1, Number(viewportRows) || 1);
+    const maxFirstIndex = Math.max(0, safeTotalRows - safeViewportRows);
+    let firstVisibleIndex = Math.max(
+      0,
+      Math.min(maxFirstIndex, Number(this.treeFirstVisibleIndex) || 0),
+    );
+
+    if (!Number.isFinite(selectedIndex) || selectedIndex < 0 || safeTotalRows === 0) {
+      this.treeFirstVisibleIndex = firstVisibleIndex;
+      return firstVisibleIndex;
+    }
+
+    const maxContext = Math.max(0, Math.floor((safeViewportRows - 1) / 2));
+    const contextLines = Math.min(
+      maxContext,
+      Math.max(0, Math.floor(this.treeScrollContextLines || 0)),
+    );
+    const lastVisibleIndex = firstVisibleIndex + safeViewportRows - 1;
+    const topThreshold = firstVisibleIndex + contextLines;
+    const bottomThreshold = lastVisibleIndex - contextLines;
+
+    if (direction === "down" && selectedIndex > bottomThreshold) {
+      firstVisibleIndex = selectedIndex - (safeViewportRows - 1 - contextLines);
+    } else if (direction === "up" && selectedIndex < topThreshold) {
+      firstVisibleIndex = selectedIndex - contextLines;
+    } else if (selectedIndex < firstVisibleIndex) {
+      firstVisibleIndex = selectedIndex;
+    } else if (selectedIndex > lastVisibleIndex) {
+      firstVisibleIndex = selectedIndex - safeViewportRows + 1;
+    }
+
+    firstVisibleIndex = Math.max(0, Math.min(maxFirstIndex, firstVisibleIndex));
+    this.treeFirstVisibleIndex = firstVisibleIndex;
+    return firstVisibleIndex;
+  }
+
+  getSelectedTreeIndex() {
+    const nodes = this.getTreeFlatNodes();
+    if (!nodes.length) return -1;
+    if (this.treeKind === "favorites") {
+      return nodes.findIndex((node) => node.id === this.favoriteCursor.nodeId);
+    }
+    return nodes.findIndex(
+      (node) =>
+        node.type === this.cursor.type &&
+        node.dateKey === this.cursor.dateKey &&
+        String(node.entry?.id || "") === String(this.cursor.entryId || ""),
+    );
+  }
+
+  consumeTreeCount(defaultCount = 1) {
+    const count = Number.parseInt(this.treeCountBuffer || String(defaultCount), 10);
+    this.treeCountBuffer = "";
+    return Number.isFinite(count) && count > 0 ? count : defaultCount;
+  }
+
+  getTreeFlatNodes() {
+    return this.treeKind === "favorites" ? this.getFavoriteFlatNodes() : this.getFlatNodes();
+  }
+
+  jumpToLine(lineNumber) {
+    const nodes = this.getTreeFlatNodes();
+    if (!nodes.length) return;
+    const targetIndex = Math.max(0, Math.min(nodes.length - 1, Number(lineNumber) - 1));
+    const node = nodes[targetIndex];
+    if (!node) return;
+    if (this.treeKind === "favorites") {
+      this.favoriteCursor = { nodeId: node.id };
+      return;
+    }
+    this.cursor = {
+      type: node.type,
+      dateKey: node.dateKey,
+      entryId: node.entry ? node.entry.id : null,
+    };
   }
 
   createFavoriteSnapshot() {
@@ -415,8 +518,8 @@ class HistoryPanel {
   renderFooter() {
     const defaultText =
       this.treeKind === "favorites"
-        ? "a: add, y/m: yank/move, p: paste, r: rename, d: delete, u: undo, n: count"
-        : "d: delete, D: delete-all, t: timestamp";
+        ? "a: add, y/m: yank/move, p: paste, r: rename, d: delete, u: undo, n: count, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
+        : "d: delete, D: delete-all, t: timestamp, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u";
 
     if (this.deleteAllArmed) {
       return {
@@ -567,6 +670,11 @@ class HistoryPanel {
     }
   }
 
+  setTreeScrollContextLines(lines) {
+    if (!Number.isFinite(lines)) return;
+    this.treeScrollContextLines = Math.max(0, Math.floor(lines));
+  }
+
   setTreeKind(kind) {
     if (kind !== "history" && kind !== "favorites") return;
     if (this.treeKind === kind) return;
@@ -574,6 +682,8 @@ class HistoryPanel {
     this.clearFavoriteEdit();
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
+    this.clearTreeNormalState();
+    this.resetTreeScrollState();
     this.reloadData();
     this.render();
     this.emitFocusChange();
@@ -618,6 +728,8 @@ class HistoryPanel {
     this.clearFavoriteEdit();
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
+    this.clearTreeNormalState();
+    this.resetTreeScrollState();
     if (this.state)
       this.state.interactionContext = this.previousContext || "SHELL";
     this.buffers.setLeftInset(0);
@@ -875,6 +987,31 @@ class HistoryPanel {
       footerSegments.push(`<span class="foot-input" title="${footerValue}">${footerValue}</span>`);
     }
 
+    const selectedTreeIndex = this.getSelectedTreeIndex();
+    const scrollDirection =
+      this.lastSelectedTreeIndex >= 0 && selectedTreeIndex >= 0
+        ? selectedTreeIndex > this.lastSelectedTreeIndex
+          ? "down"
+          : selectedTreeIndex < this.lastSelectedTreeIndex
+            ? "up"
+            : "none"
+        : "none";
+    this.lastSelectedTreeIndex = selectedTreeIndex;
+
+    const panelHeight = this.visible && this.window
+      ? Math.max(1, this.window.getContentBounds().height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT)
+      : 1;
+    const estimatedHeaderHeight = 34;
+    const estimatedFooterHeight = 30;
+    const estimatedListHeight = Math.max(1, panelHeight - estimatedHeaderHeight - estimatedFooterHeight);
+    const viewportRows = Math.max(1, Math.floor(estimatedListHeight / TREE_LAYOUT.rowMinHeight));
+    const nextFirstVisibleIndex = this.computeNextFirstVisibleIndex({
+      selectedIndex: selectedTreeIndex,
+      direction: scrollDirection,
+      totalRows: rows.length,
+      viewportRows,
+    });
+
     const html = `<!doctype html><html><body><style>
       html,body{height:100%}
       body{margin:0;background:var(--ui-bg-panel,#161b24);color:var(--ui-text,#c9d1df);font:12px "JetBrainsMono Nerd Font Mono", monospace;border-right:1px solid var(--ui-border-strong,#2a3140);box-sizing:border-box}
@@ -882,7 +1019,7 @@ class HistoryPanel {
       .head{padding:8px 10px;border-bottom:1px solid var(--ui-border,#2f3440);display:flex;gap:8px;align-items:center}
       .tree-head-item{color:var(--ui-text-muted,#7f8aa3)}
       .tree-head-item.active{color:var(--ui-accent,#89dceb);font-weight:600}
-      .list{padding:6px 0;overflow:auto;flex:1}
+      .list{padding:6px 0;overflow-x:hidden;overflow-y:auto;flex:1}
       .row{display:flex;align-items:stretch;gap:0;min-height:${TREE_LAYOUT.rowMinHeight}px}
       .cursor{width:${TREE_LAYOUT.cursorWidth}px;flex:0 0 ${TREE_LAYOUT.cursorWidth}px;background:transparent;border-radius:1px}
       .name{display:flex;align-items:center;gap:0;flex:1;min-width:0;padding:0 ${TREE_LAYOUT.namePaddingRight}px 0 ${TREE_LAYOUT.namePaddingLeft}px;overflow:hidden;line-height:18px}
@@ -919,7 +1056,7 @@ class HistoryPanel {
       .floating-input-caret{display:inline-block;width:1px;height:18px;vertical-align:-3px;background:var(--ui-accent,#89dceb)}
       .unfocused .floating-input-cursor{opacity:.45}
       .unfocused .floating-input-caret{opacity:.55}
-    </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${favoriteHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div></body></html>`;
+    </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${favoriteHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
 
     this.scheduleRender(html);
   }
@@ -1314,19 +1451,30 @@ class HistoryPanel {
         null
       : null;
 
+    const now = Date.now();
+    const timeout = this.state?.sequenceTimeout;
+    if (Number.isFinite(timeout) && this.treeLastKeyTime && now - this.treeLastKeyTime > timeout) {
+      this.treeCountBuffer = "";
+      this.treePendingG = false;
+    }
+    this.treeLastKeyTime = now;
+
     if (isFavorites && this.isFavoriteRedoShortcut(input)) {
+      this.clearTreeNormalState();
       this.redoLastFavoriteAction();
       this.render();
       return true;
     }
 
     if (isFavorites && key === "Escape" && this.favoriteClipboard) {
+      this.clearTreeNormalState();
       this.clearFavoriteClipboard();
       this.render();
       return true;
     }
 
     if (isFavorites && this.favoriteEditState) {
+      this.clearTreeNormalState();
       const consumed = this.handleFavoriteEditInput(input);
       if (consumed) {
         this.render();
@@ -1335,6 +1483,7 @@ class HistoryPanel {
     }
 
     if (this.deleteAllArmed) {
+      this.clearTreeNormalState();
       if (key === "Enter") {
         const answer = this.confirmDeleteAll.trim().toLowerCase();
         if (answer === "y") {
@@ -1374,10 +1523,54 @@ class HistoryPanel {
       return true;
     }
 
+    if (!input.ctrl && !input.meta && !input.alt && /^[0-9]$/.test(String(key))) {
+      this.treeCountBuffer += String(key);
+      return true;
+    }
+
+    if (!input.ctrl && !input.meta && !input.alt && key === "g") {
+      if (this.treePendingG) {
+        const count = this.consumeTreeCount(1);
+        this.jumpToLine(count);
+        this.treePendingG = false;
+        this.render();
+        return true;
+      }
+      this.treePendingG = true;
+      return true;
+    }
+
+    if (this.treePendingG) {
+      this.treePendingG = false;
+    }
+
+    if (key === "G") {
+      this.treeCountBuffer = "";
+      this.jumpToLine(this.getTreeFlatNodes().length);
+      this.render();
+      return true;
+    }
+
+    if (input.ctrl && !input.meta && !input.alt && String(key).toLowerCase() === "d") {
+      this.treeCountBuffer = "";
+      this.moveCursor(TREE_LINE_JUMP_STEP);
+      this.render();
+      return true;
+    }
+
+    if (input.ctrl && !input.meta && !input.alt && String(key).toLowerCase() === "u") {
+      this.treeCountBuffer = "";
+      this.moveCursor(-TREE_LINE_JUMP_STEP);
+      this.render();
+      return true;
+    }
+
+    const moveCount = this.consumeTreeCount(1);
+
     if (key === "H") this.switchTreeByOffset(-1);
     else if (key === "L") this.switchTreeByOffset(1);
-    else if (key === "j" || key === "ArrowDown") this.moveCursor(1);
-    else if (key === "k" || key === "ArrowUp") this.moveCursor(-1);
+    else if (key === "j" || key === "ArrowDown") this.moveCursor(moveCount);
+    else if (key === "k" || key === "ArrowUp") this.moveCursor(-moveCount);
     else if (key === "l" || key === "ArrowRight") {
       if (isFavorites) {
         if (currentFavoriteNode && currentFavoriteNode.type === "folder") {

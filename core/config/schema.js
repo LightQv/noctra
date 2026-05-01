@@ -334,6 +334,13 @@ function normalizeConfig(rawConfig) {
         defaults.global.ui.sidepanel.width_ratio,
         0.1,
       );
+      normalizedGlobal.ui.sidepanel.tree_scroll_context_lines = Math.floor(
+        normalizeNumber(
+          uiSection.sidepanel.tree_scroll_context_lines,
+          defaults.global.ui.sidepanel.tree_scroll_context_lines,
+          0,
+        ),
+      );
     }
 
     if (isPlainObject(uiSection.statusline) && typeof uiSection.statusline.enabled === "boolean") {

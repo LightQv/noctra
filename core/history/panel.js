@@ -72,6 +72,7 @@ class HistoryPanel {
     this.treeKeyBuffer = "";
     this.treeDeletePending = false;
     this.treeDeleteCountBuffer = "";
+    this.treeDeletePendingG = false;
     this.treeDeletePendingTimer = null;
     this.treeDeleteTimeoutMs = 900;
     this.treeLastKeyTime = 0;
@@ -118,6 +119,7 @@ class HistoryPanel {
     this.clearTreeDeletePendingTimer();
     this.treeDeletePending = false;
     this.treeDeleteCountBuffer = "";
+    this.treeDeletePendingG = false;
   }
 
   resetTreeScrollState() {
@@ -631,7 +633,7 @@ class HistoryPanel {
       return {
         tone: "info",
         text: "",
-        hint: "d pending: d, G, <n>j/<n>k, Esc: Cancel",
+        hint: "d pending: d, G, gg, <n>j/<n>k, Esc: Cancel",
         value: this.treeDeleteCountBuffer,
       };
     }
@@ -1044,6 +1046,17 @@ class HistoryPanel {
     let idx = startIndex;
     while (idx + 1 < flatNodes.length && (flatNodes[idx + 1].parentId || null) === parentId) {
       idx += 1;
+    }
+    return idx;
+  }
+
+  resolveFavoriteScopeTopIndex(flatNodes, startIndex) {
+    const current = flatNodes[startIndex];
+    if (!current) return startIndex;
+    const parentId = current.parentId || null;
+    let idx = startIndex;
+    while (idx - 1 >= 0 && (flatNodes[idx - 1].parentId || null) === parentId) {
+      idx -= 1;
     }
     return idx;
   }
@@ -1695,6 +1708,11 @@ class HistoryPanel {
         return true;
       }
       if (!input.ctrl && !input.meta && !input.alt && /^[0-9]$/.test(String(key))) {
+        if (this.treeDeletePendingG) {
+          this.clearTreeDeletePending();
+          this.render();
+          return true;
+        }
         this.treeDeleteCountBuffer += String(key);
         this.armTreeDeletePendingTimeout();
         this.render();
@@ -1702,6 +1720,28 @@ class HistoryPanel {
       }
       const flat = this.getTreeFlatNodes();
       const currentIndex = this.getSelectedTreeIndex();
+      if (!this.treeDeletePendingG && key === "g") {
+        this.treeDeletePendingG = true;
+        this.armTreeDeletePendingTimeout();
+        this.render();
+        return true;
+      }
+      if (this.treeDeletePendingG && key === "g" && currentIndex >= 0) {
+        let top = 0;
+        if (this.treeKind === "favorites") {
+          top = this.resolveFavoriteScopeTopIndex(flat, currentIndex);
+        }
+        this.deleteRangeInTree(currentIndex, top);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      if (this.treeDeletePendingG) {
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+
       const count = Math.max(1, Number.parseInt(this.treeDeleteCountBuffer || "1", 10));
       const hasExplicitCount = this.treeDeleteCountBuffer.length > 0;
       if ((key === "j" || key === "ArrowDown") && currentIndex >= 0 && hasExplicitCount) {

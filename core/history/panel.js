@@ -164,7 +164,7 @@ class HistoryPanel {
     this.favoriteEditState = {
       mode: "add-kind",
       tone: "info",
-      label: "Add",
+      label: "Type f: folder, e: entry",
       value: "",
       cursor: 0,
     };
@@ -413,14 +413,17 @@ class HistoryPanel {
   }
 
   renderFooter() {
+    const defaultText =
+      this.treeKind === "favorites"
+        ? "a: add, y/m: yank/move, p: paste, r: rename, d: delete, u: undo, n: count"
+        : "d: delete, D: delete-all, t: timestamp";
+
     if (this.deleteAllArmed) {
-      const confirmLabel =
-        this.treeKind === "favorites" ? "favorites" : "history";
       return {
         tone: "danger",
-        text: `Delete all ${confirmLabel}?`,
-        hint: "type y/n then Enter",
-        value: this.confirmDeleteAll,
+        text: "",
+        hint: "y/n + Enter, Esc: Cancel",
+        value: "",
       };
     }
 
@@ -429,46 +432,62 @@ class HistoryPanel {
       if (edit.mode === "add-kind") {
         return {
           tone: "info",
-          text: "Add favorite",
-          hint: "f: folder, e: entry, Esc: cancel",
+          text: "",
+          hint: "f/e: Choose, Esc: Cancel",
           value: "",
         };
       }
       return {
         tone: edit.tone || "info",
-        text: edit.label || "Edit",
-        hint: "Enter: confirm, Esc: cancel",
+        text: "",
+        hint: "Enter: Confirm, Esc: Cancel",
         value: "",
       };
     }
 
     return {
       tone: "muted",
-      text:
-        this.treeKind === "favorites"
-          ? "a: add, y/m: yank/move, p: paste, r: rename, d: delete, u: undo"
-          : "d: delete, D: delete-all",
+      text: defaultText,
       hint: "",
       value: "",
     };
   }
 
-  renderFavoriteInputOverlay() {
-    if (this.treeKind !== "favorites") return "";
-    const edit = this.favoriteEditState;
-    if (!edit) return "";
-    if (edit.mode === "add-kind") return "";
-    this.clampFavoriteEditCursor(edit);
-    const rawValue = String(edit.value || "");
-    const cursor = edit.cursor;
+  renderPromptOverlay() {
+    let label = "";
+    let rawValue = "";
+    let cursor = 0;
+
+    if (this.deleteAllArmed) {
+      label =
+        this.treeKind === "favorites"
+          ? "Delete all favorites"
+          : "Delete all history";
+      rawValue = String(this.confirmDeleteAll || "");
+      cursor = rawValue.length;
+    } else {
+      if (this.treeKind !== "favorites") return "";
+      const edit = this.favoriteEditState;
+      if (!edit) return "";
+      label = String(edit.label || "Input");
+      if (edit.mode === "add-kind") {
+        rawValue = "";
+        cursor = 0;
+      } else {
+        this.clampFavoriteEditCursor(edit);
+        rawValue = String(edit.value || "");
+        cursor = edit.cursor;
+      }
+    }
+
     const before = escapeHtml(rawValue.slice(0, cursor));
     const atEnd = cursor >= rawValue.length;
     const after = escapeHtml(rawValue.slice(cursor));
-    const label = escapeHtml(edit.label || "Input");
+    const labelHtml = escapeHtml(label);
     const cursorHtml = atEnd
       ? '<span class="floating-input-cursor"></span>'
       : '<span class="floating-input-caret" aria-hidden="true"></span>';
-    return `<div class="floating-input"><div class="floating-input-label">${label}</div><div class="floating-input-value">${before}${cursorHtml}${after}</div></div>`;
+    return `<div class="floating-input"><div class="floating-input-label">${labelHtml}</div><div class="floating-input-value">${before}${cursorHtml}${after}</div></div>`;
   }
 
   resolveFavoritePasteTarget(cursorLocation) {
@@ -837,7 +856,24 @@ class HistoryPanel {
         ? "tree-head-item active"
         : "tree-head-item";
 
-    const inputOverlayHtml = this.renderFavoriteInputOverlay();
+    const inputOverlayHtml = this.renderPromptOverlay();
+    const footerBadgeLabel =
+      footerTone === "muted"
+        ? "HINT"
+        : footerTone === "danger"
+          ? "DANGER"
+          : "INFO";
+
+    const footerSegments = [];
+    if (footerText) {
+      footerSegments.push(`<span class="foot-text" title="${footerText}">${footerText}</span>`);
+    }
+    if (footerHint) {
+      footerSegments.push(`<span class="foot-hint" title="${footerHint}">${footerHint}</span>`);
+    }
+    if (footerValue) {
+      footerSegments.push(`<span class="foot-input" title="${footerValue}">${footerValue}</span>`);
+    }
 
     const html = `<!doctype html><html><body><style>
       html,body{height:100%}
@@ -870,10 +906,10 @@ class HistoryPanel {
       .foot-badge.info{color:var(--ui-accent,#89dceb);background:color-mix(in srgb, var(--ui-accent,#89dceb) 14%, transparent)}
       .foot-badge.danger{color:#f38ba8;background:color-mix(in srgb, #f38ba8 14%, transparent)}
       .foot-badge.muted{color:var(--ui-text-muted,#7f8aa3);background:color-mix(in srgb, var(--ui-text-muted,#7f8aa3) 10%, transparent)}
-      .foot-main{display:flex;gap:8px;align-items:center;min-width:0;flex:1}
-      .foot-text{color:var(--ui-text,#c9d1df);white-space:nowrap}
-      .foot-hint{color:var(--ui-text-muted,#7f8aa3);white-space:nowrap}
-      .foot-input{color:var(--ui-accent,#89dceb);min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+      .foot-main{display:flex;gap:8px;align-items:center;min-width:0;flex:1;overflow:hidden}
+      .foot-text{color:var(--ui-text,#c9d1df);min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+      .foot-hint{color:var(--ui-text-muted,#7f8aa3);min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+      .foot-input{color:var(--ui-accent,#89dceb);min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
       .foot-cursor{display:inline-block;width:7px;height:12px;margin-left:2px;vertical-align:-2px;background:var(--ui-editor-cursor,#89dceb);opacity:.9}
       .unfocused .foot-cursor{opacity:.45}
       .floating-input{position:absolute;left:50%;transform:translateX(-50%);bottom:34px;width:97%;z-index:5;border:1px solid var(--ui-border,#2f3440);background:var(--ui-bg-subtle,#1f2735);border-radius:4px;padding:6px 8px;box-sizing:border-box;box-shadow:0 8px 20px rgba(0,0,0,.28)}
@@ -883,7 +919,7 @@ class HistoryPanel {
       .floating-input-caret{display:inline-block;width:1px;height:18px;vertical-align:-3px;background:var(--ui-accent,#89dceb)}
       .unfocused .floating-input-cursor{opacity:.45}
       .unfocused .floating-input-caret{opacity:.55}
-    </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${favoriteHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${escapeHtml(footerTone)}</span><div class="foot-main"><span class="foot-text">${footerText}</span><span class="foot-hint">${footerHint}</span><span class="foot-input">${footerValue}</span></div></div></div></body></html>`;
+    </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${favoriteHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div></body></html>`;
 
     this.scheduleRender(html);
   }

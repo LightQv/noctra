@@ -448,6 +448,9 @@ function dispatch(win, intent, state) {
       historyPanel.setTreeScrollContextLines(
         configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
       );
+      historyPanel.setTreeDeleteOperatorTimeoutMs(
+        configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+      );
       historyPanel.layout();
       buffers.layoutViews();
       uiShell.updateSplitDivider(buffers.getSplitStatus());

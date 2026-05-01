@@ -19,6 +19,7 @@ const defaultConfig = {
       sidepanel: {
         width_ratio: 0.2,
         tree_scroll_context_lines: 3,
+        delete_operator_timeout_ms: 900,
       },
       tabline: {
         enabled: true,

@@ -341,6 +341,13 @@ function normalizeConfig(rawConfig) {
           0,
         ),
       );
+      normalizedGlobal.ui.sidepanel.delete_operator_timeout_ms = Math.floor(
+        normalizeNumber(
+          uiSection.sidepanel.delete_operator_timeout_ms,
+          defaults.global.ui.sidepanel.delete_operator_timeout_ms,
+          0,
+        ),
+      );
     }
 
     if (isPlainObject(uiSection.statusline) && typeof uiSection.statusline.enabled === "boolean") {

@@ -70,6 +70,10 @@ class HistoryPanel {
     this.previousContext = "SHELL";
     this.treeCountBuffer = "";
     this.treeKeyBuffer = "";
+    this.treeDeletePending = false;
+    this.treeDeleteCountBuffer = "";
+    this.treeDeletePendingTimer = null;
+    this.treeDeleteTimeoutMs = 900;
     this.treeLastKeyTime = 0;
     this.treeScrollContextLines = 3;
     this.lastSelectedTreeIndex = -1;
@@ -87,7 +91,33 @@ class HistoryPanel {
   clearTreeNormalState() {
     this.treeCountBuffer = "";
     this.treeKeyBuffer = "";
+    this.clearTreeDeletePending();
     this.treeLastKeyTime = 0;
+  }
+
+  clearTreeDeletePendingTimer() {
+    if (!this.treeDeletePendingTimer) return;
+    clearTimeout(this.treeDeletePendingTimer);
+    this.treeDeletePendingTimer = null;
+  }
+
+  armTreeDeletePendingTimeout() {
+    this.clearTreeDeletePendingTimer();
+    const timeout = Number.isFinite(this.treeDeleteTimeoutMs)
+      ? Math.max(0, Math.floor(this.treeDeleteTimeoutMs))
+      : 900;
+    this.treeDeletePendingTimer = setTimeout(() => {
+      this.treeDeletePendingTimer = null;
+      if (!this.treeDeletePending) return;
+      this.clearTreeDeletePending();
+      this.render();
+    }, timeout);
+  }
+
+  clearTreeDeletePending() {
+    this.clearTreeDeletePendingTimer();
+    this.treeDeletePending = false;
+    this.treeDeleteCountBuffer = "";
   }
 
   resetTreeScrollState() {
@@ -594,8 +624,17 @@ class HistoryPanel {
   renderFooter() {
     const defaultText =
       this.treeKind === "favorites"
-        ? "a: add, y/m: yank/move, p: paste, r: rename, d: delete, u: undo, n: count, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
-        : "d: delete, D: delete-all, t: timestamp, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u";
+        ? "a: add, y/m: yank/move, p: paste, r: rename, dd: delete, d{motion}: range, u: undo, n: count, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
+        : "dd: delete, d{motion}: range, D: delete-all, t: timestamp, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u";
+
+    if (this.treeDeletePending) {
+      return {
+        tone: "info",
+        text: "",
+        hint: "d pending: d, G, <n>j/<n>k, Esc: Cancel",
+        value: this.treeDeleteCountBuffer,
+      };
+    }
 
     if (this.deleteAllArmed) {
       return {
@@ -751,6 +790,11 @@ class HistoryPanel {
     this.treeScrollContextLines = Math.max(0, Math.floor(lines));
   }
 
+  setTreeDeleteOperatorTimeoutMs(timeoutMs) {
+    if (!Number.isFinite(timeoutMs)) return;
+    this.treeDeleteTimeoutMs = Math.max(0, Math.floor(timeoutMs));
+  }
+
   setTreeKind(kind) {
     if (kind !== "history" && kind !== "favorites") return;
     if (this.treeKind === kind) return;
@@ -805,6 +849,7 @@ class HistoryPanel {
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
     this.clearTreeNormalState();
+    this.clearTreeDeletePendingTimer();
     this.resetTreeScrollState();
     if (this.state)
       this.state.interactionContext = this.previousContext || "SHELL";
@@ -1012,6 +1057,70 @@ class HistoryPanel {
           dateKey: first.dateKey,
           entryId: first.entry ? first.entry.id : null,
         }
+      : { type: "day", dateKey: null, entryId: null };
+  }
+
+  resolveFavoriteScopeBottomIndex(flatNodes, startIndex) {
+    const current = flatNodes[startIndex];
+    if (!current) return startIndex;
+    const parentId = current.parentId || null;
+    let idx = startIndex;
+    while (idx + 1 < flatNodes.length && (flatNodes[idx + 1].parentId || null) === parentId) {
+      idx += 1;
+    }
+    return idx;
+  }
+
+  deleteRangeInTree(startIndex, endIndex) {
+    const low = Math.min(startIndex, endIndex);
+    const high = Math.max(startIndex, endIndex);
+    if (this.treeKind === "favorites") {
+      const flat = this.getFavoriteFlatNodes();
+      if (!flat.length) return;
+      const from = Math.max(0, low);
+      const to = Math.min(flat.length - 1, high);
+      const selectedIds = new Set(flat.slice(from, to + 1).map((n) => n.id));
+      if (!selectedIds.size) return;
+      this.recordFavoriteMutationSnapshot();
+      const prune = (children) => {
+        if (!Array.isArray(children)) return [];
+        return children.filter((node) => {
+          if (selectedIds.has(node.id)) return false;
+          if (node.type === "folder" && Array.isArray(node.children)) {
+            node.children = prune(node.children);
+          }
+          return true;
+        });
+      };
+      this.favoriteRoot = prune(this.favoriteRoot);
+      this.saveFavorites();
+      this.restoreFavoriteCursorByIndex(from);
+      return;
+    }
+
+    const flat = this.getFlatNodes();
+    if (!flat.length) return;
+    const from = Math.max(0, low);
+    const to = Math.min(flat.length - 1, high);
+    const slice = flat.slice(from, to + 1);
+    const days = new Set();
+    const entries = [];
+    for (const node of slice) {
+      if (node.type === "day") days.add(node.dateKey);
+      else if (node.type === "entry") entries.push({ dateKey: node.dateKey, entryId: node.entry.id });
+    }
+    for (const { dateKey, entryId } of entries) {
+      if (!days.has(dateKey)) historyService.deleteEntry(dateKey, entryId);
+    }
+    for (const dateKey of days) {
+      historyService.deleteDate(dateKey);
+    }
+    this.reloadData();
+    const next = this.getFlatNodes();
+    const idx = Math.max(0, Math.min(next.length - 1, from));
+    const node = next[idx];
+    this.cursor = node
+      ? { type: node.type, dateKey: node.dateKey, entryId: node.entry ? node.entry.id : null }
       : { type: "day", dateKey: null, entryId: null };
   }
 
@@ -1532,6 +1641,7 @@ class HistoryPanel {
     if (Number.isFinite(timeout) && this.treeLastKeyTime && now - this.treeLastKeyTime > timeout) {
       this.treeCountBuffer = "";
       this.treeKeyBuffer = "";
+      this.clearTreeDeletePending();
     }
     this.treeLastKeyTime = now;
 
@@ -1596,6 +1706,65 @@ class HistoryPanel {
         this.render();
         return true;
       }
+      return true;
+    }
+
+    if (this.treeDeletePending) {
+      if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta") {
+        return true;
+      }
+      if (key === "Escape") {
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      if (!input.ctrl && !input.meta && !input.alt && /^[0-9]$/.test(String(key))) {
+        this.treeDeleteCountBuffer += String(key);
+        this.armTreeDeletePendingTimeout();
+        this.render();
+        return true;
+      }
+      const flat = this.getTreeFlatNodes();
+      const currentIndex = this.getSelectedTreeIndex();
+      const count = Math.max(1, Number.parseInt(this.treeDeleteCountBuffer || "1", 10));
+      const hasExplicitCount = this.treeDeleteCountBuffer.length > 0;
+      if ((key === "j" || key === "ArrowDown") && currentIndex >= 0 && hasExplicitCount) {
+        const target = Math.min(flat.length - 1, currentIndex + count);
+        this.deleteRangeInTree(currentIndex, target);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      if ((key === "k" || key === "ArrowUp") && currentIndex >= 0 && hasExplicitCount) {
+        const target = Math.max(0, currentIndex - count);
+        this.deleteRangeInTree(currentIndex, target);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      const normalizedKey = String(key || "");
+      const isShiftG =
+        normalizedKey === "G" ||
+        (normalizedKey === "g" && Boolean(input.shift)) ||
+        (normalizedKey === "KeyG" && Boolean(input.shift));
+      if (isShiftG && currentIndex >= 0) {
+        let bottom = flat.length - 1;
+        if (this.treeKind === "favorites") {
+          bottom = this.resolveFavoriteScopeBottomIndex(flat, currentIndex);
+        }
+        this.deleteRangeInTree(currentIndex, bottom);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      if (key === "d" && currentIndex >= 0) {
+        this.deleteRangeInTree(currentIndex, currentIndex);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      this.clearTreeDeletePending();
+      this.render();
       return true;
     }
 
@@ -1664,7 +1833,13 @@ class HistoryPanel {
       const entry = this.getCurrentFavoriteEntry();
       if (entry && entry.url) clipboard.writeText(String(entry.url));
     }
-    else if (key === "d") this.deleteCurrent();
+    else if (key === "d") {
+      this.treeCountBuffer = "";
+      this.treeKeyBuffer = "";
+      this.treeDeletePending = true;
+      this.treeDeleteCountBuffer = "";
+      this.armTreeDeletePendingTimeout();
+    }
     else if (key === "D") {
       this.confirmDeleteAll = "";
       this.deleteAllArmed = true;

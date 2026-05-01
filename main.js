@@ -895,6 +895,9 @@ function registerUiShellEvents() {
         historyPanel.setTreeScrollContextLines(
           configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
         );
+        historyPanel.setTreeDeleteOperatorTimeoutMs(
+          configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+        );
         historyPanel.layout();
         buffers.layoutViews();
         const themeContext = resolveCurrentTheme();
@@ -1021,6 +1024,9 @@ function createWindow() {
   historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
   historyPanel.setTreeScrollContextLines(
     configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+  );
+  historyPanel.setTreeDeleteOperatorTimeoutMs(
+    configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
   );
   const historyPanelWebContents = historyPanel.getWebContents();
   if (historyPanelWebContents) {

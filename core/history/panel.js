@@ -326,6 +326,7 @@ class HistoryPanel {
         filterScope: null,
         filterField: null,
         navActive: false,
+        collapsedFolderIds: new Set(),
       };
       return;
     }
@@ -425,6 +426,66 @@ class HistoryPanel {
     const field = edit?.filterField || null;
     const allNodes = this.getFavoriteFlatNodes();
     if (!scope) return allNodes;
+    if (scope === "folder") {
+      const out = [];
+      const root = Array.isArray(this.favoriteRoot) ? this.favoriteRoot : [];
+      const collapsed =
+        edit && edit.collapsedFolderIds instanceof Set
+          ? edit.collapsedFolderIds
+          : new Set();
+      const walkVisible = (children, depth, parentId) => {
+        for (let index = 0; index < children.length; index += 1) {
+          const node = children[index];
+          if (!node || node.type !== "folder") continue;
+          const folderName = String(node.name || "");
+          const match = this.getMatchInfo(folderName, query);
+          if (!match.matched) {
+            if (Array.isArray(node.children)) {
+              walkVisible(node.children, depth + 1, node.id);
+            }
+            continue;
+          }
+
+          const pushFolderWithDescendants = (folderNode, folderDepth, folderParentId) => {
+            const children = Array.isArray(folderNode.children) ? folderNode.children : [];
+            const isOpen = !collapsed.has(folderNode.id);
+            out.push({
+              type: "folder",
+              id: folderNode.id,
+              name: folderNode.name,
+              depth: folderDepth,
+              parentId: folderParentId,
+              index: 0,
+              count: children.length,
+              forceOpen: isOpen,
+              matchScore: match.score,
+              matchStart: match.start,
+            });
+            if (!isOpen) return;
+            for (let childIndex = 0; childIndex < children.length; childIndex += 1) {
+              const child = children[childIndex];
+              if (!child) continue;
+              if (child.type === "entry") {
+                out.push({
+                  type: "entry",
+                  id: child.id,
+                  entry: child,
+                  depth: folderDepth + 1,
+                  parentId: folderNode.id,
+                  index: childIndex,
+                });
+              } else if (child.type === "folder") {
+                pushFolderWithDescendants(child, folderDepth + 1, folderNode.id);
+              }
+            }
+          };
+
+          pushFolderWithDescendants(node, depth, parentId);
+        }
+      };
+      walkVisible(root, 0, null);
+      return out;
+    }
     const out = [];
     for (const node of allNodes) {
       if (scope === "folder") {
@@ -901,6 +962,7 @@ class HistoryPanel {
           filterScope: "folder",
           filterField: null,
           navActive: false,
+          collapsedFolderIds: new Set(),
         };
       } else if (key === "e") {
         this.filterEditState = {
@@ -1631,6 +1693,8 @@ class HistoryPanel {
       .tree-head-item.active{color:var(--ui-accent,#89dceb);font-weight:600}
       .list{padding:6px 0;overflow-x:hidden;overflow-y:auto;flex:1}
       .row{display:flex;align-items:stretch;gap:0;min-height:${TREE_LAYOUT.rowMinHeight}px}
+      .row.row-no-meta .time{width:0;flex:0 0 0;padding:0;overflow:hidden}
+      .row.row-no-meta .name{padding-right:${TREE_LAYOUT.namePaddingRight}px}
       .cursor{width:${TREE_LAYOUT.cursorWidth}px;flex:0 0 ${TREE_LAYOUT.cursorWidth}px;background:transparent;border-radius:1px}
       .name{display:flex;align-items:center;gap:0;flex:1;min-width:0;padding:0 ${TREE_LAYOUT.namePaddingRight}px 0 ${TREE_LAYOUT.namePaddingLeft}px;overflow:hidden;line-height:18px}
       .time{width:${TREE_LAYOUT.rightColWidth}px;flex:0 0 ${TREE_LAYOUT.rightColWidth}px;padding:0 ${TREE_LAYOUT.namePaddingRight}px 0 0;text-align:right;color:var(--ui-text-muted,#7f8aa3);white-space:nowrap;line-height:18px;display:flex;align-items:center;justify-content:flex-end}
@@ -1841,14 +1905,14 @@ class HistoryPanel {
 
     for (const node of nodes) {
       if (node.type === "folder") {
-        const open = this.favoriteExpanded.has(node.id);
+        const open = node.forceOpen ? true : this.favoriteExpanded.has(node.id);
         const selected = this.isFavoriteNodeSelected(node);
         const indentPx = node.depth * TREE_LAYOUT.nestIndentPx;
         const folderText = this.isFavoritesFilterActive()
           ? this.renderTextWithMatch(this.getFavoriteFolderDisplayName(node), query)
           : escapeHtml(this.getFavoriteFolderDisplayName(node));
         rows.push(
-          `<div class="row day ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
+          `<div class="row row-meta day ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
         );
       } else {
         const selected = this.isFavoriteNodeSelected(node);
@@ -1861,7 +1925,7 @@ class HistoryPanel {
           : escapeHtml(this.getFavoriteEntryDisplayName(node));
         if (node.depth === 0) {
           rows.push(
-            `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
+            `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
           );
         } else {
           const siblingNodes = nodes.filter(
@@ -1874,7 +1938,7 @@ class HistoryPanel {
               TREE_LAYOUT.guideOpticalOffsetPx,
           );
           rows.push(
-            `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
+            `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
           );
         }
       }
@@ -2284,6 +2348,17 @@ class HistoryPanel {
     else if (key === "ArrowUp") this.moveCursor(-1);
     else if (key === "l" || key === "ArrowRight") {
       if (isFavorites) {
+        if (
+          this.isFavoritesFilterActive() &&
+          this.filterEditState?.filterScope === "folder" &&
+          currentFavoriteNode &&
+          currentFavoriteNode.type === "folder"
+        ) {
+          if (!(this.filterEditState.collapsedFolderIds instanceof Set)) {
+            this.filterEditState.collapsedFolderIds = new Set();
+          }
+          this.filterEditState.collapsedFolderIds.delete(currentFavoriteNode.id);
+        }
         if (currentFavoriteNode && currentFavoriteNode.type === "folder") {
           this.favoriteExpanded.add(currentFavoriteNode.id);
         }
@@ -2295,6 +2370,17 @@ class HistoryPanel {
         const liveNode =
           liveNodes.find((node) => node.id === this.favoriteCursor.nodeId) ||
           null;
+        if (
+          this.isFavoritesFilterActive() &&
+          this.filterEditState?.filterScope === "folder" &&
+          liveNode &&
+          liveNode.type === "folder"
+        ) {
+          if (!(this.filterEditState.collapsedFolderIds instanceof Set)) {
+            this.filterEditState.collapsedFolderIds = new Set();
+          }
+          this.filterEditState.collapsedFolderIds.add(liveNode.id);
+        }
         if (liveNode && liveNode.type === "folder") {
           if (this.favoriteExpanded.has(liveNode.id)) {
             this.favoriteExpanded.delete(liveNode.id);

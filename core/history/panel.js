@@ -1695,6 +1695,7 @@ class HistoryPanel {
       .row{display:flex;align-items:stretch;gap:0;min-height:${TREE_LAYOUT.rowMinHeight}px}
       .row.row-no-meta .time{width:0;flex:0 0 0;padding:0;overflow:hidden}
       .row.row-no-meta .name{padding-right:${TREE_LAYOUT.namePaddingRight}px}
+      .row.empty .tree-cols{margin-left:3px}
       .cursor{width:${TREE_LAYOUT.cursorWidth}px;flex:0 0 ${TREE_LAYOUT.cursorWidth}px;background:transparent;border-radius:1px}
       .name{display:flex;align-items:center;gap:0;flex:1;min-width:0;padding:0 ${TREE_LAYOUT.namePaddingRight}px 0 ${TREE_LAYOUT.namePaddingLeft}px;overflow:hidden;line-height:18px}
       .time{width:${TREE_LAYOUT.rightColWidth}px;flex:0 0 ${TREE_LAYOUT.rightColWidth}px;padding:0 ${TREE_LAYOUT.namePaddingRight}px 0 0;text-align:right;color:var(--ui-text-muted,#7f8aa3);white-space:nowrap;line-height:18px;display:flex;align-items:center;justify-content:flex-end}

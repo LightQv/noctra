@@ -1908,12 +1908,25 @@ class HistoryPanel {
       if (node.type === "folder") {
         const open = node.forceOpen ? true : this.favoriteExpanded.has(node.id);
         const selected = this.isFavoriteNodeSelected(node);
-        const indentPx = node.depth * TREE_LAYOUT.nestIndentPx;
+        const siblingNodes = nodes.filter((item) => item.parentId === node.parentId);
+        const branch = node.index === siblingNodes.length - 1 ? "└" : "│";
+        const indentPx =
+          node.depth > 0
+            ? Math.max(
+                0,
+                (node.depth - 1) * TREE_LAYOUT.nestIndentPx +
+                  TREE_LAYOUT.guideOpticalOffsetPx,
+              )
+            : node.depth * TREE_LAYOUT.nestIndentPx;
+        const guideHtml =
+          node.depth > 0
+            ? `<span class="tree-cols"><span class="icon guide">${branch}</span></span>`
+            : "";
         const folderText = this.isFavoritesFilterActive()
           ? this.renderTextWithMatch(this.getFavoriteFolderDisplayName(node), query)
           : escapeHtml(this.getFavoriteFolderDisplayName(node));
         rows.push(
-          `<div class="row row-meta day ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
+          `<div class="row row-meta day ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span>${guideHtml}<span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
         );
       } else {
         const selected = this.isFavoriteNodeSelected(node);

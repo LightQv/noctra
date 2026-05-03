@@ -333,56 +333,103 @@ const SELECTION_MODAL_OVERLAY_HTML = `
       }
 
       #selection-modal {
+        margin: 0;
+        min-width: 0;
         width: 100%;
         height: 100%;
         box-sizing: border-box;
         border-radius: 6px;
-        border: 1px solid var(--ui-editor-dialog-border, #2a3140);
-        background: var(--ui-editor-dialog-bg, #141a23);
+        border: 1px solid var(--ui-accent, #89dceb);
+        background: var(--ui-bg-panel, #161b24);
         color: var(--ui-text-bright, #f4f7ff);
         display: flex;
         flex-direction: column;
-        padding: 8px;
+        padding: 6px 8px 8px;
         gap: 6px;
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
       }
 
       #selection-modal-title {
         align-self: center;
+        margin: 0 auto;
+        padding: 0 8px;
         color: var(--ui-text-muted, #7d8aa3);
+        background: var(--ui-bg-panel, #161b24);
         font-size: 12px;
+        line-height: 1;
       }
 
-      #selection-modal-level {
-        color: var(--ui-accent, #89dceb);
-        font-size: 12px;
-      }
-
-      #selection-modal-rows {
-        min-height: 0;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-
-      .selection-modal-row {
-        display: grid;
-        grid-template-columns: max-content minmax(0, 1fr);
-        gap: 8px;
-        align-items: center;
-        font-size: 12px;
-      }
-
-      .selection-modal-key {
-        color: var(--ui-accent, #89dceb);
-      }
-
-      .selection-modal-label {
+      #selection-modal-prompt {
         color: var(--ui-text-soft, #b6c7e8);
+        font-size: 12px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+
+      #selection-modal-url {
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #selection-modal-scope {
+        color: var(--ui-accent, #89dceb);
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #selection-modal-content {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .selection-modal-grid {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        column-gap: 12px;
+        align-items: end;
+      }
+
+      .selection-modal-col {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 0;
+        gap: 2px;
+      }
+
+      .selection-modal-item {
+        color: var(--ui-text-soft, #b6c7e8);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+        text-align: center;
+      }
+
+      .selection-modal-index {
+        color: var(--ui-accent, #89dceb);
+        font-size: 11px;
+        white-space: nowrap;
+        max-width: 150px;
+        text-align: center;
+      }
+
+      .selection-modal-empty {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 12px;
       }
 
       #selection-modal-footer {
@@ -394,12 +441,14 @@ const SELECTION_MODAL_OVERLAY_HTML = `
     </style>
   </head>
   <body>
-    <div id="selection-modal">
-      <div id="selection-modal-title">Select destination</div>
-      <div id="selection-modal-level"></div>
-      <div id="selection-modal-rows"></div>
+    <fieldset id="selection-modal">
+      <legend id="selection-modal-title">Bookmark</legend>
+      <div id="selection-modal-prompt"></div>
+      <div id="selection-modal-url"></div>
+      <div id="selection-modal-scope"></div>
+      <div id="selection-modal-content"></div>
       <div id="selection-modal-footer"></div>
-    </div>
+    </fieldset>
   </body>
 </html>
 `;
@@ -895,7 +944,9 @@ class UiShellManager {
     const modalWidth = this.selectionModalVisible
       ? Math.min(560, Math.max(bounds.width - 120, 320))
       : 1;
-    const modalHeight = this.selectionModalVisible ? 220 : 1;
+    const modalHeight = this.selectionModalVisible
+      ? this.computeSelectionModalHeight(this.selectionModalModel)
+      : 1;
     const modalX = this.selectionModalVisible
       ? Math.max(Math.floor((bounds.width - modalWidth) / 2), 0)
       : -10000;
@@ -1106,13 +1157,15 @@ class UiShellManager {
     if (!this.selectionModalView || !this.selectionModalReady) return;
 
     const safeModel = {
-      title: String(this.selectionModalModel?.title || "Select destination"),
-      levelLabel: String(this.selectionModalModel?.levelLabel || ""),
-      rows: Array.isArray(this.selectionModalModel?.rows)
-        ? this.selectionModalModel.rows.map((row) => ({
-            key: String(row?.key || ""),
-            label: String(row?.label || ""),
-          }))
+      title: String(this.selectionModalModel?.title || "Bookmark"),
+      promptTitle: String(this.selectionModalModel?.promptTitle || ""),
+      urlLine: String(this.selectionModalModel?.urlLine || ""),
+      scopeLabel: String(this.selectionModalModel?.scopeLabel || ""),
+      items: Array.isArray(this.selectionModalModel?.items)
+        ? this.selectionModalModel.items.map((item) => String(item || ""))
+        : [],
+      indexHints: Array.isArray(this.selectionModalModel?.indexHints)
+        ? this.selectionModalModel.indexHints.map((item) => String(item || ""))
         : [],
       footerLeft: String(this.selectionModalModel?.footerLeft || ""),
       footerRight: String(this.selectionModalModel?.footerRight || ""),
@@ -1121,10 +1174,12 @@ class UiShellManager {
     this.selectionModalView.webContents.executeJavaScript(`
       (function updateSelectionModal() {
         const titleNode = document.getElementById('selection-modal-title');
-        const levelNode = document.getElementById('selection-modal-level');
-        const rowsNode = document.getElementById('selection-modal-rows');
+        const promptNode = document.getElementById('selection-modal-prompt');
+        const urlNode = document.getElementById('selection-modal-url');
+        const scopeNode = document.getElementById('selection-modal-scope');
+        const contentNode = document.getElementById('selection-modal-content');
         const footerNode = document.getElementById('selection-modal-footer');
-        if (!titleNode || !levelNode || !rowsNode || !footerNode) return;
+        if (!titleNode || !promptNode || !urlNode || !scopeNode || !contentNode || !footerNode) return;
 
         const escapeHtml = (value) => String(value)
           .replaceAll('&', '&amp;')
@@ -1135,15 +1190,53 @@ class UiShellManager {
 
         const model = ${JSON.stringify(safeModel)};
         titleNode.textContent = model.title;
-        levelNode.textContent = model.levelLabel;
+        promptNode.textContent = model.promptTitle;
+        urlNode.textContent = model.urlLine;
+        scopeNode.textContent = model.scopeLabel;
 
-        rowsNode.innerHTML = model.rows
-          .map((row) => '<div class="selection-modal-row"><span class="selection-modal-key">' + escapeHtml(row.key) + '</span><span class="selection-modal-label">' + escapeHtml(row.label) + '</span></div>')
-          .join('');
+        const items = Array.isArray(model.items) ? model.items : [];
+        const indexHints = Array.isArray(model.indexHints) ? model.indexHints : [];
+
+        if (!items.length) {
+          contentNode.innerHTML = '<div class="selection-modal-empty">no options</div>';
+        } else {
+          const maxLen = Math.max(items.length, indexHints.length);
+          const columns = [];
+          for (let i = 0; i < maxLen; i += 1) {
+            const item = escapeHtml(items[i] || '');
+            const hint = escapeHtml(indexHints[i] || '');
+            columns.push('<span class="selection-modal-col"><span class="selection-modal-item">' + item + '</span><span class="selection-modal-index">' + hint + '</span></span>');
+          }
+          contentNode.innerHTML = '<div class="selection-modal-grid">' + columns.join('') + '</div>';
+        }
 
         footerNode.innerHTML = '<span>' + escapeHtml(model.footerLeft) + '</span><span>' + escapeHtml(model.footerRight) + '</span>';
       })();
     `);
+
+    this.relayout();
+  }
+
+  computeSelectionModalHeight(model = null) {
+    const activeModel = model || this.selectionModalModel || {};
+    const hasPrompt = Boolean(String(activeModel.promptTitle || "").trim());
+    const hasUrl = Boolean(String(activeModel.urlLine || "").trim());
+    const hasScope = Boolean(String(activeModel.scopeLabel || "").trim());
+    const hasFooter = Boolean(
+      String(activeModel.footerLeft || "").trim() ||
+      String(activeModel.footerRight || "").trim(),
+    );
+    const itemCount = Array.isArray(activeModel.items) ? activeModel.items.length : 0;
+
+    const base = 38;
+    const prompt = hasPrompt ? 16 : 0;
+    const url = hasUrl ? 14 : 0;
+    const scope = hasScope ? 14 : 0;
+    const content = itemCount > 0 ? 38 : 22;
+    const footer = hasFooter ? 14 : 0;
+
+    const total = base + prompt + url + scope + content + footer;
+    return Math.max(108, Math.min(210, total));
   }
 
   resetWhichKeyShowTimer(delayMs) {

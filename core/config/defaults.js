@@ -149,7 +149,7 @@ const defaultConfig = {
         action: "toggle_focus_context",
       },
       b: {
-        label: "Buffers",
+        label: "Buffers...",
         children: {
           c: {
             label: "Close current buffer",
@@ -170,7 +170,7 @@ const defaultConfig = {
         },
       },
       c: {
-        label: "Close",
+        label: "Close...",
         children: {
           c: {
             label: "Close current buffer",
@@ -187,7 +187,7 @@ const defaultConfig = {
         },
       },
       s: {
-        label: "Split",
+        label: "Split...",
         children: {
           q: {
             label: "Close right split",
@@ -200,7 +200,7 @@ const defaultConfig = {
         },
       },
       S: {
-        label: "Session",
+        label: "Session...",
         children: {
           s: {
             label: "Save session snapshot",
@@ -225,7 +225,7 @@ const defaultConfig = {
         action: "bookmarks_toggle",
       },
       d: {
-        label: "Bookmark add",
+        label: "Bookmarks...",
         children: {
           r: {
             label: "Add active to root",

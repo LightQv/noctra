@@ -10,6 +10,7 @@ const historyService = require("./history/service");
 const historyPanel = require("./history/panel");
 const bookmarksService = require("./bookmarks/service");
 const bookmarkInsertScopeModal = require("./bookmarks/insertScopeModal");
+const { isBookmarkableBuffer } = require("./bookmarks/eligibility");
 const sessionService = require("./session/service");
 const { buildSettingsPageHtml } = require("./settings/page");
 const {
@@ -218,9 +219,8 @@ function reloadReloadableBuffers() {
 
 function getActiveBookmarkCandidate() {
   const active = buffers.getActive();
-  if (!active || active.isEditable) return null;
+  if (!isBookmarkableBuffer(active)) return null;
   const url = typeof active.url === "string" ? active.url.trim() : "";
-  if (!url || url === "about:blank") return null;
   const title = String(active.title || url).trim() || url;
   return { title, url };
 }

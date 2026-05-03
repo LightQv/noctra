@@ -1,9 +1,16 @@
 const { INTENTS } = require("../core/intents");
 const { cloneIntent } = require("./repeat");
+const { isBookmarkableBuffer } = require("../core/bookmarks/eligibility");
 
 function createActionBuilder(actionId, buildIntent) {
   const builder = (state, count) => buildIntent(state, count);
   builder.actionId = actionId;
+  return builder;
+}
+
+function setAvailability(builder, predicate) {
+  if (!builder || typeof predicate !== "function") return builder;
+  builder.isAvailable = predicate;
   return builder;
 }
 
@@ -67,12 +74,18 @@ const ACTION_BUILDERS = {
   history_toggle_focus: createActionBuilder("history_toggle_focus", () => ({ type: INTENTS.HISTORY_TOGGLE_FOCUS })),
   bookmarks_toggle: createActionBuilder("bookmarks_toggle", () => ({ type: INTENTS.BOOKMARKS_TOGGLE })),
   bookmarks_toggle_focus: createActionBuilder("bookmarks_toggle_focus", () => ({ type: INTENTS.BOOKMARKS_TOGGLE_FOCUS })),
-  bookmarks_add_root_active: createActionBuilder("bookmarks_add_root_active", () => ({
-    type: INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE,
-  })),
-  bookmarks_add_scoped_prompt: createActionBuilder("bookmarks_add_scoped_prompt", () => ({
-    type: INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT,
-  })),
+  bookmarks_add_root_active: setAvailability(
+    createActionBuilder("bookmarks_add_root_active", () => ({
+      type: INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE,
+    })),
+    (context = {}) => isBookmarkableBuffer(context.activeBuffer),
+  ),
+  bookmarks_add_scoped_prompt: setAvailability(
+    createActionBuilder("bookmarks_add_scoped_prompt", () => ({
+      type: INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT,
+    })),
+    (context = {}) => isBookmarkableBuffer(context.activeBuffer),
+  ),
   session_save: createActionBuilder("session_save", () => ({ type: INTENTS.SESSION_SAVE })),
   session_restore: createActionBuilder("session_restore", () => ({ type: INTENTS.SESSION_RESTORE })),
   close_buffer: createActionBuilder("close_buffer", () => ({ type: INTENTS.CLOSE_BUFFER })),

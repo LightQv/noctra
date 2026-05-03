@@ -65,17 +65,23 @@ class BookmarkInsertScopeModal {
     const pathText = depth
       ? `Scope: root/${this.stack.map((item) => item.name).join("/")}`
       : "Scope: root";
+    const pageTitle = this.entry?.title || this.entry?.url || "current page";
+    const promptTitle = `Add "${pageTitle}" to bookmarks`;
+    const urlLine = String(this.entry?.url || "");
 
     if (this.isConfirmStep()) {
       const confirmSelected = this.confirmIndex === 0;
       const cancelSelected = this.confirmIndex === 1;
       return {
-        title: "Add bookmark",
-        levelLabel: pathText,
-        rows: [
-          { key: confirmSelected ? "<" : " ", label: confirmSelected ? "confirm >" : "confirm" },
-          { key: cancelSelected ? "<" : " ", label: cancelSelected ? "cancel >" : "cancel" },
+        title: "Bookmark",
+        promptTitle,
+        urlLine,
+        scopeLabel: pathText,
+        items: [
+          confirmSelected ? "confirm" : "confirm",
+          cancelSelected ? "cancel" : "cancel",
         ],
+        indexHints: [confirmSelected ? "(enter)" : "", cancelSelected ? "(esc)" : ""],
         footerLeft: "h/l choose",
         footerRight: "Enter confirm",
       };
@@ -88,17 +94,22 @@ class BookmarkInsertScopeModal {
     const start = page * PAGE_SIZE;
     const pageFolders = folders.slice(start, start + PAGE_SIZE);
 
-    const rows = [{ key: "0", label: "Use current level" }];
+    const items = ["current"];
+    const indexHints = ["(0)"];
     for (let index = 0; index < pageFolders.length; index += 1) {
-      rows.push({ key: String(index + 1), label: pageFolders[index].name });
+      items.push(pageFolders[index].name);
+      indexHints.push(`(${index + 1})`);
     }
 
     const footerLeft = totalPages > 1 ? "h/l page" : "";
     const footerRight = totalPages > 1 ? `page ${page + 1}/${totalPages}` : "0-9 select";
     return {
-      title: "Add bookmark",
-      levelLabel: pathText,
-      rows,
+      title: "Bookmark",
+      promptTitle,
+      urlLine,
+      scopeLabel: pathText,
+      items,
+      indexHints,
       footerLeft,
       footerRight,
     };

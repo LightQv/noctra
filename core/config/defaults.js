@@ -224,6 +224,19 @@ const defaultConfig = {
         label: "Toggle bookmarks tree",
         action: "bookmarks_toggle",
       },
+      d: {
+        label: "Bookmark add",
+        children: {
+          r: {
+            label: "Add active to root",
+            action: "bookmarks_add_root_active",
+          },
+          d: {
+            label: "Add active scoped",
+            action: "bookmarks_add_scoped_prompt",
+          },
+        },
+      },
       o: {
         label: "Toggle tree focus",
         action: "history_toggle_focus",

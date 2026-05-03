@@ -310,6 +310,100 @@ const WHICHKEY_OVERLAY_HTML = `
 </html>
 `;
 
+const SELECTION_MODAL_OVERLAY_HTML = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      ${UI_FONT_FACE_CSS}
+
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
+      }
+
+      #selection-modal {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        border-radius: 6px;
+        border: 1px solid var(--ui-editor-dialog-border, #2a3140);
+        background: var(--ui-editor-dialog-bg, #141a23);
+        color: var(--ui-text-bright, #f4f7ff);
+        display: flex;
+        flex-direction: column;
+        padding: 8px;
+        gap: 6px;
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+      }
+
+      #selection-modal-title {
+        align-self: center;
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 12px;
+      }
+
+      #selection-modal-level {
+        color: var(--ui-accent, #89dceb);
+        font-size: 12px;
+      }
+
+      #selection-modal-rows {
+        min-height: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .selection-modal-row {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        gap: 8px;
+        align-items: center;
+        font-size: 12px;
+      }
+
+      .selection-modal-key {
+        color: var(--ui-accent, #89dceb);
+      }
+
+      .selection-modal-label {
+        color: var(--ui-text-soft, #b6c7e8);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #selection-modal-footer {
+        display: flex;
+        justify-content: space-between;
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="selection-modal">
+      <div id="selection-modal-title">Select destination</div>
+      <div id="selection-modal-level"></div>
+      <div id="selection-modal-rows"></div>
+      <div id="selection-modal-footer"></div>
+    </div>
+  </body>
+</html>
+`;
+
 const STATUSLINE_OVERLAY_HTML = `
 <!doctype html>
 <html>
@@ -423,6 +517,10 @@ class UiShellManager {
     this.whichKeyHideTimer = null;
     this.whichKeyShowTimer = null;
     this.whichKeyPendingTimeoutMs = 1200;
+    this.selectionModalView = null;
+    this.selectionModalReady = false;
+    this.selectionModalVisible = false;
+    this.selectionModalModel = null;
     this.statuslineView = null;
     this.statuslineReady = false;
     this.statuslineMode = "NORMAL";
@@ -463,6 +561,7 @@ class UiShellManager {
     this.initializeShellHost();
     this.initializeCommandOverlayView();
     this.initializeWhichKeyOverlayView();
+    this.initializeSelectionModalView();
     this.initializeStatuslineView();
 
     this.window.on("resize", () => this.relayout());
@@ -536,6 +635,33 @@ class UiShellManager {
     this.relayout();
   }
 
+  initializeSelectionModalView() {
+    if (!this.window) return;
+
+    this.selectionModalView = new BrowserView({
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    this.selectionModalView.setAutoResize({ width: false, height: false });
+    this.selectionModalView.webContents.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(SELECTION_MODAL_OVERLAY_HTML)}`,
+    );
+
+    this.selectionModalView.webContents.on("did-finish-load", () => {
+      this.selectionModalReady = true;
+      this.applyThemeToWebContents(this.selectionModalView.webContents);
+      if (this.selectionModalModel) {
+        this.updateSelectionModal(this.selectionModalModel);
+      }
+    });
+
+    this.window.addBrowserView(this.selectionModalView);
+    this.relayout();
+  }
+
   initializeStatuslineView() {
     if (!this.window) return;
 
@@ -598,6 +724,9 @@ class UiShellManager {
     );
     this.applyThemeToWebContents(
       this.whichKeyOverlayView && this.whichKeyOverlayView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.selectionModalView && this.selectionModalView.webContents,
     );
     this.applyThemeToWebContents(
       this.statuslineView && this.statuslineView.webContents,
@@ -720,6 +849,7 @@ class UiShellManager {
       !this.window ||
       !this.commandOverlayView ||
       !this.whichKeyOverlayView ||
+      !this.selectionModalView ||
       !this.statuslineView
     )
       return;
@@ -762,6 +892,24 @@ class UiShellManager {
       height: whichHeight,
     });
 
+    const modalWidth = this.selectionModalVisible
+      ? Math.min(560, Math.max(bounds.width - 120, 320))
+      : 1;
+    const modalHeight = this.selectionModalVisible ? 220 : 1;
+    const modalX = this.selectionModalVisible
+      ? Math.max(Math.floor((bounds.width - modalWidth) / 2), 0)
+      : -10000;
+    const modalY = this.selectionModalVisible
+      ? Math.max(UI_SHELL_TABLINE_HEIGHT + 12, 0)
+      : -10000;
+
+    this.selectionModalView.setBounds({
+      x: modalX,
+      y: modalY,
+      width: modalWidth,
+      height: modalHeight,
+    });
+
     this.statuslineView.setBounds({
       x: 0,
       y: Math.max(
@@ -792,6 +940,10 @@ class UiShellManager {
 
     if (this.whichKeyVisible && this.whichKeyOverlayView) {
       this.window.setTopBrowserView(this.whichKeyOverlayView);
+    }
+
+    if (this.selectionModalVisible && this.selectionModalView) {
+      this.window.setTopBrowserView(this.selectionModalView);
     }
 
     if (this.commandVisible && this.commandOverlayView) {
@@ -929,6 +1081,69 @@ class UiShellManager {
     this.clearWhichKeyShowTimer();
     this.clearWhichKeyHideTimer();
     this.relayout();
+  }
+
+  isSelectionModalVisible() {
+    return this.selectionModalVisible;
+  }
+
+  showSelectionModal(model) {
+    this.selectionModalVisible = true;
+    this.selectionModalModel = model || null;
+    this.syncOverlayStack();
+    this.updateSelectionModal(this.selectionModalModel);
+  }
+
+  hideSelectionModal() {
+    this.selectionModalVisible = false;
+    this.selectionModalModel = null;
+    this.relayout();
+  }
+
+  updateSelectionModal(model) {
+    this.selectionModalModel = model || this.selectionModalModel || null;
+    if (!this.selectionModalVisible) return;
+    if (!this.selectionModalView || !this.selectionModalReady) return;
+
+    const safeModel = {
+      title: String(this.selectionModalModel?.title || "Select destination"),
+      levelLabel: String(this.selectionModalModel?.levelLabel || ""),
+      rows: Array.isArray(this.selectionModalModel?.rows)
+        ? this.selectionModalModel.rows.map((row) => ({
+            key: String(row?.key || ""),
+            label: String(row?.label || ""),
+          }))
+        : [],
+      footerLeft: String(this.selectionModalModel?.footerLeft || ""),
+      footerRight: String(this.selectionModalModel?.footerRight || ""),
+    };
+
+    this.selectionModalView.webContents.executeJavaScript(`
+      (function updateSelectionModal() {
+        const titleNode = document.getElementById('selection-modal-title');
+        const levelNode = document.getElementById('selection-modal-level');
+        const rowsNode = document.getElementById('selection-modal-rows');
+        const footerNode = document.getElementById('selection-modal-footer');
+        if (!titleNode || !levelNode || !rowsNode || !footerNode) return;
+
+        const escapeHtml = (value) => String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+
+        const model = ${JSON.stringify(safeModel)};
+        titleNode.textContent = model.title;
+        levelNode.textContent = model.levelLabel;
+
+        rowsNode.innerHTML = model.rows
+          .map((row) => '<div class="selection-modal-row"><span class="selection-modal-key">' + escapeHtml(row.key) + '</span><span class="selection-modal-label">' + escapeHtml(row.label) + '</span></div>')
+          .join('');
+
+        footerNode.innerHTML = '<span>' + escapeHtml(model.footerLeft) + '</span><span>' + escapeHtml(model.footerRight) + '</span>';
+      })();
+    `);
   }
 
   resetWhichKeyShowTimer(delayMs) {

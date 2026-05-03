@@ -136,6 +136,51 @@ function writeBookmarksTree(nextTree) {
   writeYamlObject(filePath, normalizeTree(nextTree));
 }
 
+function appendEntryAtRoot(entry = {}) {
+  const tree = readBookmarksTree();
+  const nextRoot = Array.isArray(tree.root) ? tree.root : [];
+  const normalized = normalizeEntry(entry);
+  if (!normalized) return null;
+  nextRoot.push(normalized);
+  writeBookmarksTree({ root: nextRoot });
+  return normalized;
+}
+
+function getFolderChildrenByPath(rootNodes, folderIdPath = []) {
+  let cursor = Array.isArray(rootNodes) ? rootNodes : [];
+  for (const folderId of folderIdPath) {
+    const next = cursor.find(
+      (node) => node && node.type === "folder" && String(node.id) === String(folderId),
+    );
+    if (!next) return null;
+    if (!Array.isArray(next.children)) {
+      next.children = [];
+    }
+    cursor = next.children;
+  }
+  return cursor;
+}
+
+function appendEntryAtFolderPath(folderIdPath = [], entry = {}) {
+  if (!Array.isArray(folderIdPath)) return null;
+  const tree = readBookmarksTree();
+  const normalized = normalizeEntry(entry);
+  if (!normalized) return null;
+  const children = getFolderChildrenByPath(tree.root, folderIdPath);
+  if (!children) return null;
+  children.push(normalized);
+  writeBookmarksTree({ root: tree.root });
+  return normalized;
+}
+
+function listFolderChildrenByPath(folderIdPath = []) {
+  if (!Array.isArray(folderIdPath)) return [];
+  const tree = readBookmarksTree();
+  const children = getFolderChildrenByPath(tree.root, folderIdPath);
+  if (!children) return [];
+  return children.filter((node) => node && node.type === "folder");
+}
+
 function deleteAll() {
   writeBookmarksTree({ root: [] });
 }
@@ -146,5 +191,8 @@ module.exports = {
   makeFolderId,
   readBookmarksTree,
   writeBookmarksTree,
+  appendEntryAtRoot,
+  appendEntryAtFolderPath,
+  listFolderChildrenByPath,
   deleteAll,
 };

@@ -21,6 +21,7 @@ const {
 const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
 const historyPanel = require("./core/history/panel");
+const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const sessionService = require("./core/session/service");
 const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
 let win;
@@ -256,6 +257,21 @@ function handleRawInput(event, input) {
     process.platform === "darwin"
       ? normalized.meta && !normalized.ctrl
       : normalized.ctrl && !normalized.meta;
+
+  if (bookmarkInsertScopeModal.isActive()) {
+    const wasActive = true;
+    const consumed = bookmarkInsertScopeModal.handleInput(normalized);
+    if (consumed) {
+      event.preventDefault();
+      if (wasActive && !bookmarkInsertScopeModal.isActive() && historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      updateTablineOptions();
+      return;
+    }
+  }
 
   if (historyPanel.handleFocusedInput(normalized)) {
     event.preventDefault();

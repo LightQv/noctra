@@ -67,6 +67,12 @@ const ACTION_BUILDERS = {
   history_toggle_focus: createActionBuilder("history_toggle_focus", () => ({ type: INTENTS.HISTORY_TOGGLE_FOCUS })),
   bookmarks_toggle: createActionBuilder("bookmarks_toggle", () => ({ type: INTENTS.BOOKMARKS_TOGGLE })),
   bookmarks_toggle_focus: createActionBuilder("bookmarks_toggle_focus", () => ({ type: INTENTS.BOOKMARKS_TOGGLE_FOCUS })),
+  bookmarks_add_root_active: createActionBuilder("bookmarks_add_root_active", () => ({
+    type: INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE,
+  })),
+  bookmarks_add_scoped_prompt: createActionBuilder("bookmarks_add_scoped_prompt", () => ({
+    type: INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT,
+  })),
   session_save: createActionBuilder("session_save", () => ({ type: INTENTS.SESSION_SAVE })),
   session_restore: createActionBuilder("session_restore", () => ({ type: INTENTS.SESSION_RESTORE })),
   close_buffer: createActionBuilder("close_buffer", () => ({ type: INTENTS.CLOSE_BUFFER })),

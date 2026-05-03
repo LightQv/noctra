@@ -16,7 +16,7 @@ function makeFolderId() {
   return makeNodeId("f");
 }
 
-function getSeedFavoritesTree() {
+function getSeedBookmarksTree() {
   return {
     root: [
       {
@@ -36,10 +36,10 @@ function getSeedFavoritesTree() {
   };
 }
 
-function getFavoritesFilePath() {
+function getBookmarksFilePath() {
   return resolveUserPath(
-    getConfigValue("global.storage.favorites_file", "~/.config/noctra/favorites.yml"),
-    "~/.config/noctra/favorites.yml",
+    getConfigValue("global.storage.bookmarks_file", "~/.config/noctra/bookmarks.yml"),
+    "~/.config/noctra/bookmarks.yml",
   );
 }
 
@@ -50,14 +50,14 @@ function writeYamlObject(filePath, payload) {
   fs.renameSync(tmpPath, filePath);
 }
 
-function ensureFavoritesFile() {
-  const filePath = getFavoritesFilePath();
+function ensureBookmarksFile() {
+  const filePath = getBookmarksFilePath();
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
   if (!fs.existsSync(filePath)) {
-    writeYamlObject(filePath, getSeedFavoritesTree());
+    writeYamlObject(filePath, getSeedBookmarksTree());
   }
   return filePath;
 }
@@ -112,39 +112,39 @@ function normalizeTree(tree) {
   return { root: normalizeNodeList(tree.root) };
 }
 
-function readFavoritesTree() {
-  const filePath = ensureFavoritesFile();
+function readBookmarksTree() {
+  const filePath = ensureBookmarksFile();
   try {
     const raw = fs.readFileSync(filePath, "utf8");
     const parsed = raw.trim() ? parse(raw) : null;
     const normalized = normalizeTree(parsed);
     if (!normalized.root.length) {
-      const seeded = getSeedFavoritesTree();
+      const seeded = getSeedBookmarksTree();
       writeYamlObject(filePath, seeded);
       return normalizeTree(seeded);
     }
     return normalized;
   } catch {
-    const seeded = getSeedFavoritesTree();
+    const seeded = getSeedBookmarksTree();
     writeYamlObject(filePath, seeded);
     return normalizeTree(seeded);
   }
 }
 
-function writeFavoritesTree(nextTree) {
-  const filePath = ensureFavoritesFile();
+function writeBookmarksTree(nextTree) {
+  const filePath = ensureBookmarksFile();
   writeYamlObject(filePath, normalizeTree(nextTree));
 }
 
 function deleteAll() {
-  writeFavoritesTree({ root: [] });
+  writeBookmarksTree({ root: [] });
 }
 
 module.exports = {
-  getFavoritesFilePath,
+  getBookmarksFilePath,
   makeEntryId,
   makeFolderId,
-  readFavoritesTree,
-  writeFavoritesTree,
+  readBookmarksTree,
+  writeBookmarksTree,
   deleteAll,
 };

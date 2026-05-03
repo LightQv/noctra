@@ -28,8 +28,8 @@ const ACTION_IDS = new Set([
   "toggle_urlline",
   "history_toggle",
   "history_toggle_focus",
-  "favorites_toggle",
-  "favorites_toggle_focus",
+  "bookmarks_toggle",
+  "bookmarks_toggle_focus",
   "session_save",
   "session_restore",
   "close_buffer",
@@ -376,7 +376,7 @@ function normalizeConfig(rawConfig) {
   }
 
   if (isPlainObject(storageSection)) {
-    for (const key of ["history_file", "favorites_file", "sessions_file"]) {
+    for (const key of ["history_file", "bookmarks_file", "sessions_file"]) {
       if (typeof storageSection[key] === "string" && storageSection[key].trim()) {
         normalizedGlobal.storage[key] = storageSection[key].trim();
       }

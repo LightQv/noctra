@@ -4,6 +4,7 @@ const path = require("path");
 const { parse, stringify } = require("yaml");
 const { defaultConfig } = require("./defaults");
 const { normalizeConfig } = require("./schema");
+const { ACTION_BUILDERS } = require("../../motions/actionBuilders");
 
 const CONFIG_DIR_PATH = path.join(os.homedir(), ".config", "noctra");
 const LEGACY_CONFIG_DIR_PATH = path.join(
@@ -118,33 +119,90 @@ function readRawConfig() {
 function addThemeComments(yamlText) {
   const lines = String(yamlText || "").split("\n");
   const output = [];
+  let keymapCommentAdded = false;
+  let inThemeSection = false;
+  let inBrowserSection = false;
+  let inOpeningBufferSection = false;
+  const actionIds = Object.keys(ACTION_BUILDERS).sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: "base" }),
+  );
+  const actionIdLines = [];
+  for (let index = 0; index < actionIds.length; index += 5) {
+    actionIdLines.push(actionIds.slice(index, index + 5).join(", "));
+  }
 
   for (const line of lines) {
-    if (/^  theme:\s*$/.test(line)) {
-      output.push("  # Theme controls for Noctra shell and surfaces");
+    if (/^global:\s*$/.test(line) || /^keymap:\s*$/.test(line) || /^browser:\s*$/.test(line)) {
+      inThemeSection = false;
+      inOpeningBufferSection = false;
     }
 
-    if (/^    mode:\s*/.test(line)) {
+    if (/^  [a-zA-Z0-9_]+:\s*$/.test(line)) {
+      inThemeSection = false;
+      inOpeningBufferSection = false;
+      inBrowserSection = false;
+    }
+
+    if (!keymapCommentAdded && /^keymap:\s*$/.test(line)) {
+      output.push(line);
+      output.push("  # Keymap customization scope:");
+      output.push("  # - Classic NORMAL/TREE motions are fixed internally.");
+      output.push("  # - Only leader mappings are configurable here.");
+      output.push("  # Leader node shape:");
+      output.push("  # - <key>: { label: \"...\", action: \"<action_id>\" }");
+      output.push("  # - <key>: { label: \"...\", children: { ... } }");
+      output.push("  # Valid action ids for leader actions:");
+      for (const actionIdLine of actionIdLines) {
+        output.push(`  #   ${actionIdLine}`);
+      }
+      keymapCommentAdded = true;
+      continue;
+    }
+
+    if (/^  theme:\s*$/.test(line)) {
+      output.push("  # Theme controls for Noctra shell and surfaces");
+      inThemeSection = true;
+      inOpeningBufferSection = false;
+      inBrowserSection = false;
+    }
+
+    if (inThemeSection && /^    mode:\s*/.test(line)) {
       output.push("    # App theme mode: dark | light | auto | custom");
       output.push("    # custom uses global.theme.overrides");
     }
 
-    if (/^    content_mode:\s*/.test(line)) {
+    if (inThemeSection && /^    content_mode:\s*/.test(line)) {
       output.push("    # Browser content mode: dark | light | auto | match");
       output.push("    # match follows app theme, but custom falls back to auto(system)");
     }
 
-    if (/^    overrides:\s*$/.test(line)) {
+    if (inThemeSection && /^    overrides:\s*$/.test(line)) {
       output.push("    # Overrides are applied only when mode is custom");
+      output.push("    # Supported override keys are prefilled below with dark defaults");
     }
 
     if (/^browser:\s*$/.test(line)) {
       output.push("# Browser behavior");
+      inBrowserSection = true;
+      inThemeSection = false;
+      inOpeningBufferSection = false;
     }
 
-    if (/^  language:\s*/.test(line)) {
+    if (inBrowserSection && /^  language:\s*/.test(line)) {
       output.push("  # Preferred website language: en | fr");
       output.push("  # Mapped to Accept-Language and known locale hints for requests");
+    }
+
+    if (/^  opening_buffer:\s*$/.test(line)) {
+      output.push("  # Startup page mode");
+      inOpeningBufferSection = true;
+      inThemeSection = false;
+      inBrowserSection = false;
+    }
+
+    if (inOpeningBufferSection && /^    mode:\s*/.test(line)) {
+      output.push("    # Opening mode: blank | url | dashboard");
+      output.push("    # url uses global.opening_buffer.url");
     }
 
     output.push(line);

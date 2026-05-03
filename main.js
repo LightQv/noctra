@@ -22,6 +22,7 @@ const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
 const historyPanel = require("./core/history/panel");
 const sessionService = require("./core/session/service");
+const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
@@ -374,8 +375,8 @@ function findNormalMappingsForAction(normalMap, targetAction) {
   }
 
   const hits = [];
-  for (const [keys, node] of Object.entries(normalMap)) {
-    if (node && node.action === targetAction) {
+  for (const [keys, actionId] of Object.entries(normalMap)) {
+    if (actionId === targetAction) {
       hits.push(keys);
     }
   }
@@ -389,8 +390,8 @@ function findModMappingsForAction(modMap, targetAction) {
 
   const modLabel = process.platform === "darwin" ? "Cmd" : "Ctrl";
   const hits = [];
-  for (const [key, node] of Object.entries(modMap)) {
-    if (node && node.action === targetAction) {
+  for (const [key, actionId] of Object.entries(modMap)) {
+    if (actionId === targetAction) {
       const keyText = String(key);
       const withShift = keyText.length === 1 && keyText !== keyText.toLowerCase();
       const displayKey = keyText.length === 1 ? keyText.toUpperCase() : keyText;
@@ -407,17 +408,15 @@ function formatLeaderSequence(seq = []) {
 }
 
 function findShortcutLabelForAction(actionId) {
-  const normal = configService.getConfigValue("keymap.normal", {});
-  const mod = configService.getConfigValue("keymap.mod", {});
   const leader = configService.getConfigValue("keymap.leader", {});
 
   const labels = [];
-  const normalHits = findNormalMappingsForAction(normal, actionId);
+  const normalHits = findNormalMappingsForAction(NORMAL_KEY_ACTIONS, actionId);
   if (normalHits.length > 0) {
     labels.push(normalHits[0]);
   }
 
-  const modHits = findModMappingsForAction(mod, actionId);
+  const modHits = findModMappingsForAction(MOD_KEY_ACTIONS, actionId);
   if (modHits.length > 0) {
     labels.push(modHits[0]);
   }

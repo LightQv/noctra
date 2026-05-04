@@ -556,6 +556,73 @@ const STATUSLINE_OVERLAY_HTML = `
 </html>
 `;
 
+const TOAST_OVERLAY_HTML = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      ${UI_FONT_FACE_CSS}
+
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
+      }
+
+      #toast-root {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        padding: 8px 16px 0 0;
+        box-sizing: border-box;
+      }
+
+      .toast-item {
+        width: min(420px, 100%);
+        max-width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--ui-border, #2f3440);
+        background: var(--ui-bg-panel, #161b24);
+        color: var(--ui-text, #d8e3f8);
+        border-left-width: 4px;
+        border-radius: 6px;
+        padding: 10px 10px;
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+        font-size: 12px;
+        line-height: 1.4;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+        opacity: 0;
+        transform: translateY(-6px);
+        transition: opacity 120ms ease, transform 120ms ease;
+      }
+
+      .toast-item.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+    </style>
+  </head>
+  <body>
+    <div id="toast-root" aria-live="polite" aria-atomic="false"></div>
+  </body>
+</html>
+`;
+
 class UiShellManager {
   constructor() {
     this.window = null;
@@ -579,6 +646,8 @@ class UiShellManager {
     this.selectionModalModel = null;
     this.statuslineView = null;
     this.statuslineReady = false;
+    this.toastOverlayView = null;
+    this.toastOverlayReady = false;
     this.statuslineMode = "NORMAL";
     this.statuslineScroll = 0;
     this.statuslineSplitIndicator = {
@@ -607,6 +676,80 @@ class UiShellManager {
     this.currentTheme = {
       ...DEFAULT_THEME,
     };
+    this.pendingToasts = [];
+  }
+
+  showNotificationToast(toast = {}) {
+    if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) {
+      this.pendingToasts.push(toast);
+      if (this.pendingToasts.length > 50) {
+        this.pendingToasts.shift();
+      }
+      return;
+    }
+
+    const severity =
+      toast.severity === "error" || toast.severity === "warning"
+        ? toast.severity
+        : "info";
+    const message = String(toast.message || "");
+    const timeoutMs = Number.isFinite(toast.timeoutMs)
+      ? Math.max(800, Math.floor(toast.timeoutMs))
+      : 2200;
+    const accentColor =
+      severity === "error"
+        ? this.currentTheme.dangerTextColor
+        : severity === "warning"
+          ? "#f6c177"
+          : this.currentTheme.mainColor;
+
+    this.toastOverlayView.webContents
+      .executeJavaScript(
+        `
+      (function pushToast() {
+        const root = document.getElementById('toast-root');
+        if (!root) return;
+        const node = document.createElement('div');
+        node.className = 'toast-item';
+        node.style.borderLeftColor = ${JSON.stringify(accentColor)};
+        node.textContent = ${JSON.stringify(message)};
+        root.prepend(node);
+        requestAnimationFrame(() => node.classList.add('show'));
+        setTimeout(() => {
+          node.classList.remove('show');
+          setTimeout(() => {
+            if (node.parentElement) {
+              node.parentElement.removeChild(node);
+            }
+          }, 140);
+        }, ${JSON.stringify(timeoutMs)});
+      })();
+    `,
+      )
+      .catch((error) => {
+        console.warn(
+          "[noctra:warning] toast_render_failed",
+          error && error.message ? error.message : error,
+        );
+      });
+  }
+
+  flushPendingToasts() {
+    if (
+      !this.window ||
+      !this.shellHostReady ||
+      this.pendingToasts.length === 0
+    ) {
+      return;
+    }
+
+    const queuedToasts = this.pendingToasts.splice(
+      0,
+      this.pendingToasts.length,
+    );
+    for (const toast of queuedToasts) {
+      this.showNotificationToast(toast);
+    }
   }
 
   init(windowRef) {
@@ -619,6 +762,7 @@ class UiShellManager {
     this.initializeWhichKeyOverlayView();
     this.initializeSelectionModalView();
     this.initializeStatuslineView();
+    this.initializeToastOverlayView();
 
     this.window.on("resize", () => this.relayout());
     this.window.on("maximize", () => this.relayout());
@@ -638,6 +782,7 @@ class UiShellManager {
       this.renderTabline(this.pendingTablineSnapshot);
       this.renderUrlline(this.urllineModel);
       this.updateSplitDivider(this.splitDividerState);
+      this.flushPendingToasts();
     });
   }
 
@@ -745,6 +890,31 @@ class UiShellManager {
     this.relayout();
   }
 
+  initializeToastOverlayView() {
+    if (!this.window) return;
+
+    this.toastOverlayView = new BrowserView({
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    this.toastOverlayView.setAutoResize({ width: false, height: false });
+    this.toastOverlayView.webContents.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(TOAST_OVERLAY_HTML)}`,
+    );
+
+    this.toastOverlayView.webContents.on("did-finish-load", () => {
+      this.toastOverlayReady = true;
+      this.applyThemeToWebContents(this.toastOverlayView.webContents);
+      this.flushPendingToasts();
+    });
+
+    this.window.addBrowserView(this.toastOverlayView);
+    this.relayout();
+  }
+
   renderTabline(snapshot) {
     this.pendingTablineSnapshot = snapshot;
 
@@ -786,6 +956,9 @@ class UiShellManager {
     );
     this.applyThemeToWebContents(
       this.statuslineView && this.statuslineView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.toastOverlayView && this.toastOverlayView.webContents,
     );
     this.renderTabline(this.pendingTablineSnapshot);
     this.renderUrlline(this.urllineModel);
@@ -906,7 +1079,8 @@ class UiShellManager {
       !this.commandOverlayView ||
       !this.whichKeyOverlayView ||
       !this.selectionModalView ||
-      !this.statuslineView
+      !this.statuslineView ||
+      !this.toastOverlayView
     )
       return;
 
@@ -977,6 +1151,19 @@ class UiShellManager {
       width: bounds.width,
       height: UI_SHELL_STATUSLINE_HEIGHT,
     });
+
+    this.toastOverlayView.setBounds({
+      x: Math.max(bounds.width - 452, 0),
+      y: UI_SHELL_TABLINE_HEIGHT + 10,
+      width: Math.min(452, bounds.width),
+      height: Math.max(
+        bounds.height -
+          UI_SHELL_TABLINE_HEIGHT -
+          UI_SHELL_STATUSLINE_HEIGHT -
+          20,
+        1,
+      ),
+    });
   }
 
   hasCommandOverlayAttached() {
@@ -1006,6 +1193,10 @@ class UiShellManager {
 
     if (this.commandVisible && this.commandOverlayView) {
       this.window.setTopBrowserView(this.commandOverlayView);
+    }
+
+    if (this.toastOverlayView) {
+      this.window.setTopBrowserView(this.toastOverlayView);
     }
 
     this.relayout();
@@ -1236,9 +1427,11 @@ class UiShellManager {
     const hasScope = Boolean(String(activeModel.scopeLabel || "").trim());
     const hasFooter = Boolean(
       String(activeModel.footerLeft || "").trim() ||
-      String(activeModel.footerRight || "").trim(),
+        String(activeModel.footerRight || "").trim(),
     );
-    const itemCount = Array.isArray(activeModel.items) ? activeModel.items.length : 0;
+    const itemCount = Array.isArray(activeModel.items)
+      ? activeModel.items.length
+      : 0;
 
     const base = 38;
     const prompt = hasPrompt ? 16 : 0;

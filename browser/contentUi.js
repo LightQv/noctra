@@ -2,6 +2,7 @@ const {
   UI_SCROLLBAR_THUMB_COLOR,
   UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
 } = require("../ui/constants");
+const notificationsService = require("../core/notifications/service");
 
 const DEBUGGER_STATE_BY_ID = new Map();
 
@@ -81,7 +82,14 @@ function applyChromiumPreferredColorScheme(executor, scheme) {
         }
 
         if (!isExpectedDebuggerError(error)) {
-          console.warn("Failed to apply emulated color scheme:", error.message);
+          notificationsService.notify({
+            severity: "warning",
+            code: "content_color_scheme_apply_failed",
+            message: "Failed to apply emulated color scheme",
+            source: "browser.contentUi",
+            context: { error: error.message },
+            persist: false,
+          });
         }
       });
 
@@ -98,7 +106,14 @@ function applyChromiumPreferredColorScheme(executor, scheme) {
       return false;
     }
 
-    console.warn("Failed to setup debugger for color scheme emulation:", error.message);
+    notificationsService.notify({
+      severity: "warning",
+      code: "content_color_scheme_debugger_setup_failed",
+      message: "Failed to setup debugger for color scheme emulation",
+      source: "browser.contentUi",
+      context: { error: error.message },
+      persist: false,
+    });
     return true;
   }
 }
@@ -120,7 +135,14 @@ function releaseChromiumPreferredColorScheme(executor) {
     }
   } catch (error) {
     if (!isExpectedDebuggerError(error)) {
-      console.warn("Failed to detach debugger while releasing color scheme control:", error.message);
+      notificationsService.notify({
+        severity: "warning",
+        code: "content_color_scheme_debugger_detach_failed",
+        message: "Failed to detach debugger while releasing color scheme control",
+        source: "browser.contentUi",
+        context: { error: error.message },
+        persist: false,
+      });
     }
   }
 

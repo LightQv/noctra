@@ -112,6 +112,21 @@ const defaultConfig = {
       history_file: "~/.config/noctra/history.yml",
       bookmarks_file: "~/.config/noctra/bookmarks.yml",
       sessions_file: "~/.config/noctra/sessions.yml",
+      notifications_file: "~/.config/noctra/notifications.yml",
+    },
+    notifications: {
+      enabled: true,
+      toast: {
+        info: true,
+        warning: true,
+        error: true,
+      },
+      timeout_ms: {
+        info: 2200,
+        warning: 3600,
+        error: 6500,
+      },
+      persist_errors: true,
     },
     window: {
       width: 1200,
@@ -236,6 +251,10 @@ const defaultConfig = {
       o: {
         label: "Toggle tree focus",
         action: "history_toggle_focus",
+      },
+      n: {
+        label: "Open notifications",
+        action: "open_notifications",
       },
     },
   },

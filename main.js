@@ -23,6 +23,7 @@ const historyService = require("./core/history/service");
 const historyPanel = require("./core/history/panel");
 const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const sessionService = require("./core/session/service");
+const notificationsService = require("./core/notifications/service");
 const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
 let win;
 let activeInputWebContents = null;
@@ -358,7 +359,13 @@ function persistSessionSnapshot() {
     const snapshot = buffers.exportSessionSnapshot();
     sessionService.writeSessionSnapshot(snapshot);
   } catch (error) {
-    console.warn("Failed to persist session snapshot:", error?.message || error);
+    notificationsService.notify({
+      severity: "error",
+      code: "session_snapshot_persist_failed",
+      message: "Failed to persist session snapshot",
+      source: "main",
+      context: { error: error?.message || String(error) },
+    });
   }
 }
 
@@ -878,7 +885,11 @@ function registerUiShellEvents() {
     const { type, payload } = message;
 
     if (type === "settings:get") {
-      const configPath = configService.getConfigPath();
+      const activeBuffer = buffers.getActive();
+      const configPath =
+        activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+          ? activeBuffer.editableFilePath
+          : configService.getConfigPath();
       try {
         const content = fs.readFileSync(configPath, "utf8");
         const themeContext = resolveCurrentTheme();
@@ -899,9 +910,16 @@ function registerUiShellEvents() {
     }
 
     if (type === "settings:save") {
-      const configPath = configService.getConfigPath();
+      const activeBuffer = buffers.getActive();
+      const configPath =
+        activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+          ? activeBuffer.editableFilePath
+          : configService.getConfigPath();
       try {
         fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
+        if (configPath !== configService.getConfigPath()) {
+          return { ok: true };
+        }
         const config = configService.reloadConfig();
         state.applyConfig(config);
         applyBrowserLanguagePreference();
@@ -1050,6 +1068,9 @@ function createWindow() {
     });
   }
   uiShell.init(win);
+  notificationsService.setToastHandler((toast) => {
+    uiShell.showNotificationToast(toast);
+  });
   applyTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
     platform: process.platform,

@@ -7,6 +7,7 @@ const {
   UI_SHELL_STATUSLINE_HEIGHT,
 } = require("../ui/constants");
 const { getConfigValue } = require("../core/config/service");
+const notificationsService = require("../core/notifications/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
 const { resolveTheme, resolveThemeMode } = require("../ui/theme");
 
@@ -107,7 +108,13 @@ class BufferManager {
     );
 
     if (openingBufferSpec.warning) {
-      console.warn(openingBufferSpec.warning);
+      notificationsService.notify({
+        severity: "warning",
+        code: "opening_buffer_warning",
+        message: String(openingBufferSpec.warning),
+        source: "browser.manager",
+        persist: false,
+      });
     }
 
     if (openingBufferSpec.kind === "virtual") {

@@ -114,6 +114,10 @@ function parseCommand(raw) {
     case "config":
       return { type: INTENTS.OPEN_SETTINGS_BUFFER };
 
+    case "notifications":
+    case "notifs":
+      return { type: INTENTS.OPEN_NOTIFICATIONS_BUFFER };
+
     case "theme": {
       const mode = arg.toLowerCase();
       if (!["dark", "light", "auto", "custom"].includes(mode)) {

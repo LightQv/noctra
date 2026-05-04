@@ -728,6 +728,94 @@ class BufferManager {
     return this.buffers.slice();
   }
 
+  isSessionRestorableBuffer(buffer) {
+    if (!buffer || buffer.kind !== "web") {
+      return false;
+    }
+
+    const url = typeof buffer.url === "string" ? buffer.url.trim() : "";
+    if (!url || url === "about:blank") {
+      return false;
+    }
+
+    if (url.startsWith("noctra://") || url.startsWith("data:")) {
+      return false;
+    }
+
+    return true;
+  }
+
+  exportSessionSnapshot() {
+    const entries = this.buffers
+      .filter((buffer) => this.isSessionRestorableBuffer(buffer))
+      .map((buffer) => ({
+        url: buffer.url,
+      }));
+
+    const active = this.getFocusedMainBuffer() || this.getLeftBuffer();
+    const activeRestorableIndex = this.buffers
+      .filter((buffer) => this.isSessionRestorableBuffer(buffer))
+      .findIndex((buffer) => buffer === active);
+
+    return {
+      version: 1,
+      savedAtMs: Date.now(),
+      activeIndex: activeRestorableIndex >= 0 ? activeRestorableIndex : 0,
+      buffers: entries,
+    };
+  }
+
+  restoreSessionSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") {
+      return false;
+    }
+
+    const entries = Array.isArray(snapshot.buffers)
+      ? snapshot.buffers
+          .map((entry) => {
+            const url = typeof entry?.url === "string" ? entry.url.trim() : "";
+            if (!url || url === "about:blank" || url.startsWith("noctra://") || url.startsWith("data:")) {
+              return null;
+            }
+            return { url };
+          })
+          .filter(Boolean)
+      : [];
+
+    if (entries.length === 0 || !this.window) {
+      return false;
+    }
+
+    if (this.split.enabled) {
+      this.closeRightSplit();
+    }
+
+    for (const buffer of this.buffers) {
+      if (this.window.getBrowserViews().includes(buffer.view)) {
+        this.window.removeBrowserView(buffer.view);
+      }
+      buffer.destroy();
+    }
+
+    this.buffers = [];
+    this.activeIndex = -1;
+    this.closedBuffers = [];
+    this.reindexBuffers();
+
+    for (const entry of entries) {
+      this.create(entry.url, { activate: false });
+    }
+
+    const rawActiveIndex = Number.isInteger(snapshot.activeIndex) ? snapshot.activeIndex : 0;
+    const safeActiveIndex = Math.max(0, Math.min(rawActiveIndex, this.buffers.length - 1));
+    this.activeIndex = safeActiveIndex;
+    this.focusedPane = "left";
+    this.layoutViews();
+    this.focusActive();
+    this.notify({ kind: "structure", activeChanged: true });
+    return true;
+  }
+
   getAllWebContents() {
     const items = [];
 

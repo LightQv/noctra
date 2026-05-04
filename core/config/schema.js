@@ -30,6 +30,8 @@ const ACTION_IDS = new Set([
   "history_toggle_focus",
   "favorites_toggle",
   "favorites_toggle_focus",
+  "session_save",
+  "session_restore",
   "close_buffer",
   "reopen_buffer",
   "close_focused",
@@ -331,6 +333,20 @@ function normalizeConfig(rawConfig) {
         uiSection.sidepanel.width_ratio,
         defaults.global.ui.sidepanel.width_ratio,
         0.1,
+      );
+      normalizedGlobal.ui.sidepanel.tree_scroll_context_lines = Math.floor(
+        normalizeNumber(
+          uiSection.sidepanel.tree_scroll_context_lines,
+          defaults.global.ui.sidepanel.tree_scroll_context_lines,
+          0,
+        ),
+      );
+      normalizedGlobal.ui.sidepanel.delete_operator_timeout_ms = Math.floor(
+        normalizeNumber(
+          uiSection.sidepanel.delete_operator_timeout_ms,
+          defaults.global.ui.sidepanel.delete_operator_timeout_ms,
+          0,
+        ),
       );
     }
 

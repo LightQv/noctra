@@ -18,6 +18,8 @@ const defaultConfig = {
     ui: {
       sidepanel: {
         width_ratio: 0.2,
+        tree_scroll_context_lines: 3,
+        delete_operator_timeout_ms: 900,
       },
       tabline: {
         enabled: true,
@@ -192,7 +194,7 @@ const defaultConfig = {
         action: "toggle_focus_context",
       },
       b: {
-        label: "Buffers...",
+        label: "Buffers",
         children: {
           c: {
             label: "Close current buffer",
@@ -213,7 +215,7 @@ const defaultConfig = {
         },
       },
       c: {
-        label: "Close...",
+        label: "Close",
         children: {
           c: {
             label: "Close current buffer",
@@ -239,6 +241,19 @@ const defaultConfig = {
           d: {
             label: "Open devtools split",
             action: "split_devtools",
+          },
+        },
+      },
+      S: {
+        label: "Session",
+        children: {
+          s: {
+            label: "Save session snapshot",
+            action: "session_save",
+          },
+          r: {
+            label: "Restore session snapshot",
+            action: "session_restore",
           },
         },
       },

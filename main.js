@@ -21,6 +21,7 @@ const {
 const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
 const historyPanel = require("./core/history/panel");
+const sessionService = require("./core/session/service");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
@@ -333,6 +334,15 @@ function handleRawInput(event, input) {
   }
 
   handleInput(win, normalized);
+}
+
+function persistSessionSnapshot() {
+  try {
+    const snapshot = buffers.exportSessionSnapshot();
+    sessionService.writeSessionSnapshot(snapshot);
+  } catch (error) {
+    console.warn("Failed to persist session snapshot:", error?.message || error);
+  }
 }
 
 function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
@@ -882,6 +892,12 @@ function registerUiShellEvents() {
         applyBrowserLanguagePreference();
         buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
         historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+        historyPanel.setTreeScrollContextLines(
+          configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+        );
+        historyPanel.setTreeDeleteOperatorTimeoutMs(
+          configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+        );
         historyPanel.layout();
         buffers.layoutViews();
         const themeContext = resolveCurrentTheme();
@@ -1006,6 +1022,12 @@ function createWindow() {
     updateTablineOptions();
   });
   historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+  historyPanel.setTreeScrollContextLines(
+    configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+  );
+  historyPanel.setTreeDeleteOperatorTimeoutMs(
+    configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+  );
   const historyPanelWebContents = historyPanel.getWebContents();
   if (historyPanelWebContents) {
     historyPanelWebContents.on("before-input-event", (event, input) => {
@@ -1147,6 +1169,7 @@ function createWindow() {
   }, 200);
 
   win.on("close", () => {
+    persistSessionSnapshot();
     flushWindowBoundsPersistence();
   });
 

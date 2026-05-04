@@ -1,6 +1,8 @@
 const { BrowserView, clipboard } = require("electron");
 const historyService = require("./service");
 const favoritesService = require("../favorites/service");
+const { getNormalKeymap, getModAction } = require("../../motions/keymap");
+const { isModPressed } = require("../../motions/modifiers");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
@@ -36,6 +38,8 @@ const TREE_LAYOUT = Object.freeze({
   guideOpticalOffsetPx: 3,
 });
 
+const TREE_LINE_JUMP_STEP = 10;
+
 class HistoryPanel {
   constructor() {
     this.window = null;
@@ -64,6 +68,17 @@ class HistoryPanel {
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
     this.previousContext = "SHELL";
+    this.treeCountBuffer = "";
+    this.treeKeyBuffer = "";
+    this.treeDeletePending = false;
+    this.treeDeleteCountBuffer = "";
+    this.treeDeletePendingG = false;
+    this.treeDeletePendingTimer = null;
+    this.treeDeleteTimeoutMs = 900;
+    this.treeLastKeyTime = 0;
+    this.treeScrollContextLines = 3;
+    this.lastSelectedTreeIndex = -1;
+    this.treeFirstVisibleIndex = 0;
     this.view = null;
     this.onFocusChange = null;
     this.renderTimer = null;
@@ -72,6 +87,202 @@ class HistoryPanel {
 
   clearFavoriteEdit() {
     this.favoriteEditState = null;
+  }
+
+  clearTreeNormalState() {
+    this.treeCountBuffer = "";
+    this.treeKeyBuffer = "";
+    this.clearTreeDeletePending();
+    this.treeLastKeyTime = 0;
+  }
+
+  clearTreeDeletePendingTimer() {
+    if (!this.treeDeletePendingTimer) return;
+    clearTimeout(this.treeDeletePendingTimer);
+    this.treeDeletePendingTimer = null;
+  }
+
+  armTreeDeletePendingTimeout() {
+    this.clearTreeDeletePendingTimer();
+    const timeout = Number.isFinite(this.treeDeleteTimeoutMs)
+      ? Math.max(0, Math.floor(this.treeDeleteTimeoutMs))
+      : 900;
+    this.treeDeletePendingTimer = setTimeout(() => {
+      this.treeDeletePendingTimer = null;
+      if (!this.treeDeletePending) return;
+      this.clearTreeDeletePending();
+      this.render();
+    }, timeout);
+  }
+
+  clearTreeDeletePending() {
+    this.clearTreeDeletePendingTimer();
+    this.treeDeletePending = false;
+    this.treeDeleteCountBuffer = "";
+    this.treeDeletePendingG = false;
+  }
+
+  resetTreeScrollState() {
+    this.treeFirstVisibleIndex = 0;
+    this.lastSelectedTreeIndex = -1;
+  }
+
+  computeNextFirstVisibleIndex({
+    selectedIndex,
+    direction,
+    totalRows,
+    viewportRows,
+  }) {
+    const safeTotalRows = Math.max(0, Number(totalRows) || 0);
+    const safeViewportRows = Math.max(1, Number(viewportRows) || 1);
+    const maxFirstIndex = Math.max(0, safeTotalRows - safeViewportRows);
+    let firstVisibleIndex = Math.max(
+      0,
+      Math.min(maxFirstIndex, Number(this.treeFirstVisibleIndex) || 0),
+    );
+
+    if (!Number.isFinite(selectedIndex) || selectedIndex < 0 || safeTotalRows === 0) {
+      this.treeFirstVisibleIndex = firstVisibleIndex;
+      return firstVisibleIndex;
+    }
+
+    const maxContext = Math.max(0, Math.floor((safeViewportRows - 1) / 2));
+    const contextLines = Math.min(
+      maxContext,
+      Math.max(0, Math.floor(this.treeScrollContextLines || 0)),
+    );
+    const lastVisibleIndex = firstVisibleIndex + safeViewportRows - 1;
+    const topThreshold = firstVisibleIndex + contextLines;
+    const bottomThreshold = lastVisibleIndex - contextLines;
+
+    if (direction === "down" && selectedIndex > bottomThreshold) {
+      firstVisibleIndex = selectedIndex - (safeViewportRows - 1 - contextLines);
+    } else if (direction === "up" && selectedIndex < topThreshold) {
+      firstVisibleIndex = selectedIndex - contextLines;
+    } else if (selectedIndex < firstVisibleIndex) {
+      firstVisibleIndex = selectedIndex;
+    } else if (selectedIndex > lastVisibleIndex) {
+      firstVisibleIndex = selectedIndex - safeViewportRows + 1;
+    }
+
+    firstVisibleIndex = Math.max(0, Math.min(maxFirstIndex, firstVisibleIndex));
+    this.treeFirstVisibleIndex = firstVisibleIndex;
+    return firstVisibleIndex;
+  }
+
+  getSelectedTreeIndex() {
+    const nodes = this.getTreeFlatNodes();
+    if (!nodes.length) return -1;
+    if (this.treeKind === "favorites") {
+      return nodes.findIndex((node) => node.id === this.favoriteCursor.nodeId);
+    }
+    return nodes.findIndex(
+      (node) =>
+        node.type === this.cursor.type &&
+        node.dateKey === this.cursor.dateKey &&
+        String(node.entry?.id || "") === String(this.cursor.entryId || ""),
+    );
+  }
+
+  consumeTreeCount(defaultCount = 1) {
+    const count = Number.parseInt(this.treeCountBuffer || String(defaultCount), 10);
+    this.treeCountBuffer = "";
+    return Number.isFinite(count) && count > 0 ? count : defaultCount;
+  }
+
+  executeSharedTreeAction(actionId, count = 1) {
+    if (!actionId || typeof actionId !== "string") return false;
+    if (actionId === "scroll_down") {
+      this.moveCursor(Math.max(1, count));
+      return true;
+    }
+    if (actionId === "scroll_up") {
+      this.moveCursor(-Math.max(1, count));
+      return true;
+    }
+    if (actionId === "scroll_top") {
+      this.jumpToLine(Math.max(1, count));
+      return true;
+    }
+    if (actionId === "scroll_bottom") {
+      this.jumpToLine(this.getTreeFlatNodes().length);
+      return true;
+    }
+    if (actionId === "scroll_half_down") {
+      this.moveCursor(TREE_LINE_JUMP_STEP);
+      return true;
+    }
+    if (actionId === "scroll_half_up") {
+      this.moveCursor(-TREE_LINE_JUMP_STEP);
+      return true;
+    }
+    return false;
+  }
+
+  resolveSharedTreeNormalAction(input) {
+    const key = String(input?.key || "");
+    const mod = isModPressed(input);
+    if (!key) return null;
+
+    if (!mod && /^[0-9]$/.test(key)) {
+      this.treeCountBuffer += key;
+      return { consumed: true, shouldRender: false };
+    }
+
+    if (mod) {
+      const builder = getModAction(key);
+      if (!builder) {
+        this.treeCountBuffer = "";
+        this.treeKeyBuffer = "";
+        return null;
+      }
+      this.treeCountBuffer = "";
+      this.treeKeyBuffer = "";
+      const handled = this.executeSharedTreeAction(builder.actionId, 1);
+      if (!handled) return null;
+      return { consumed: true, shouldRender: true };
+    }
+
+    this.treeKeyBuffer += key;
+    const keymap = getNormalKeymap();
+    const exactBuilder = keymap[this.treeKeyBuffer];
+    if (exactBuilder) {
+      const count = this.consumeTreeCount(1);
+      this.treeKeyBuffer = "";
+      const handled = this.executeSharedTreeAction(exactBuilder.actionId, count);
+      if (!handled) return null;
+      return { consumed: true, shouldRender: true };
+    }
+
+    const hasPrefix = Object.keys(keymap).some((mapped) => mapped.startsWith(this.treeKeyBuffer));
+    if (hasPrefix) {
+      return { consumed: true, shouldRender: false };
+    }
+
+    this.treeKeyBuffer = "";
+    this.treeCountBuffer = "";
+    return null;
+  }
+
+  getTreeFlatNodes() {
+    return this.treeKind === "favorites" ? this.getFavoriteFlatNodes() : this.getFlatNodes();
+  }
+
+  jumpToLine(lineNumber) {
+    const nodes = this.getTreeFlatNodes();
+    if (!nodes.length) return;
+    const targetIndex = Math.max(0, Math.min(nodes.length - 1, Number(lineNumber) - 1));
+    const node = nodes[targetIndex];
+    if (!node) return;
+    if (this.treeKind === "favorites") {
+      this.favoriteCursor = { nodeId: node.id };
+      return;
+    }
+    this.cursor = {
+      type: node.type,
+      dateKey: node.dateKey,
+      entryId: node.entry ? node.entry.id : null,
+    };
   }
 
   createFavoriteSnapshot() {
@@ -164,7 +375,7 @@ class HistoryPanel {
     this.favoriteEditState = {
       mode: "add-kind",
       tone: "info",
-      label: "Add",
+      label: "Type f: folder, e: entry",
       value: "",
       cursor: 0,
     };
@@ -326,6 +537,13 @@ class HistoryPanel {
     if (!edit) return false;
     const key = input.key;
 
+    const isPasteShortcut =
+      input.type === "keyDown" &&
+      (key === "v" || key === "V") &&
+      ((process.platform === "darwin" && input.meta && !input.ctrl) ||
+        (process.platform !== "darwin" && input.ctrl && !input.meta)) &&
+      !input.alt;
+
     if (key === "Escape") {
       this.clearFavoriteEdit();
       return true;
@@ -354,6 +572,17 @@ class HistoryPanel {
         };
         return true;
       }
+      return true;
+    }
+
+    if (isPasteShortcut) {
+      const chunk = String(clipboard.readText() || "");
+      if (!chunk) return true;
+      this.clampFavoriteEditCursor(edit);
+      const before = edit.value.slice(0, edit.cursor);
+      const after = edit.value.slice(edit.cursor);
+      edit.value = before + chunk + after;
+      edit.cursor += chunk.length;
       return true;
     }
 
@@ -413,14 +642,26 @@ class HistoryPanel {
   }
 
   renderFooter() {
+    const defaultText =
+      this.treeKind === "favorites"
+        ? "a: add, y/m: yank/move, p: paste, r: rename, dd: delete, d{motion}: range, u: undo, n: count, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
+        : "dd: delete, d{motion}: range, D: delete-all, t: timestamp, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u";
+
+    if (this.treeDeletePending) {
+      return {
+        tone: "info",
+        text: "",
+        hint: "d pending: d, G, gg, <n>j/<n>k, Esc: Cancel",
+        value: this.treeDeleteCountBuffer,
+      };
+    }
+
     if (this.deleteAllArmed) {
-      const confirmLabel =
-        this.treeKind === "favorites" ? "favorites" : "history";
       return {
         tone: "danger",
-        text: `Delete all ${confirmLabel}?`,
-        hint: "type yes then Enter",
-        value: this.confirmDeleteAll,
+        text: "",
+        hint: "y/n + Enter, Esc: Cancel",
+        value: "",
       };
     }
 
@@ -429,46 +670,62 @@ class HistoryPanel {
       if (edit.mode === "add-kind") {
         return {
           tone: "info",
-          text: "Add favorite",
-          hint: "f: folder, e: entry, Esc: cancel",
+          text: "",
+          hint: "f/e: Choose, Esc: Cancel",
           value: "",
         };
       }
       return {
         tone: edit.tone || "info",
-        text: edit.label || "Edit",
-        hint: "Enter: confirm, Esc: cancel",
+        text: "",
+        hint: "Enter: Confirm, Esc: Cancel",
         value: "",
       };
     }
 
     return {
       tone: "muted",
-      text:
-        this.treeKind === "favorites"
-          ? "a: add, y/m: yank/move, p: paste, r: rename, d: delete, u: undo"
-          : "d: delete, D: delete-all",
+      text: defaultText,
       hint: "",
       value: "",
     };
   }
 
-  renderFavoriteInputOverlay() {
-    if (this.treeKind !== "favorites") return "";
-    const edit = this.favoriteEditState;
-    if (!edit) return "";
-    if (edit.mode === "add-kind") return "";
-    this.clampFavoriteEditCursor(edit);
-    const rawValue = String(edit.value || "");
-    const cursor = edit.cursor;
+  renderPromptOverlay() {
+    let label = "";
+    let rawValue = "";
+    let cursor = 0;
+
+    if (this.deleteAllArmed) {
+      label =
+        this.treeKind === "favorites"
+          ? "Delete all favorites"
+          : "Delete all history";
+      rawValue = String(this.confirmDeleteAll || "");
+      cursor = rawValue.length;
+    } else {
+      if (this.treeKind !== "favorites") return "";
+      const edit = this.favoriteEditState;
+      if (!edit) return "";
+      label = String(edit.label || "Input");
+      if (edit.mode === "add-kind") {
+        rawValue = "";
+        cursor = 0;
+      } else {
+        this.clampFavoriteEditCursor(edit);
+        rawValue = String(edit.value || "");
+        cursor = edit.cursor;
+      }
+    }
+
     const before = escapeHtml(rawValue.slice(0, cursor));
     const atEnd = cursor >= rawValue.length;
     const after = escapeHtml(rawValue.slice(cursor));
-    const label = escapeHtml(edit.label || "Input");
+    const labelHtml = escapeHtml(label);
     const cursorHtml = atEnd
       ? '<span class="floating-input-cursor"></span>'
       : '<span class="floating-input-caret" aria-hidden="true"></span>';
-    return `<div class="floating-input"><div class="floating-input-label">${label}</div><div class="floating-input-value">${before}${cursorHtml}${after}</div></div>`;
+    return `<div class="floating-input"><div class="floating-input-label">${labelHtml}</div><div class="floating-input-value">${before}${cursorHtml}${after}</div></div>`;
   }
 
   resolveFavoritePasteTarget(cursorLocation) {
@@ -548,6 +805,16 @@ class HistoryPanel {
     }
   }
 
+  setTreeScrollContextLines(lines) {
+    if (!Number.isFinite(lines)) return;
+    this.treeScrollContextLines = Math.max(0, Math.floor(lines));
+  }
+
+  setTreeDeleteOperatorTimeoutMs(timeoutMs) {
+    if (!Number.isFinite(timeoutMs)) return;
+    this.treeDeleteTimeoutMs = Math.max(0, Math.floor(timeoutMs));
+  }
+
   setTreeKind(kind) {
     if (kind !== "history" && kind !== "favorites") return;
     if (this.treeKind === kind) return;
@@ -555,6 +822,8 @@ class HistoryPanel {
     this.clearFavoriteEdit();
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
+    this.clearTreeNormalState();
+    this.resetTreeScrollState();
     this.reloadData();
     this.render();
     this.emitFocusChange();
@@ -599,6 +868,9 @@ class HistoryPanel {
     this.clearFavoriteEdit();
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
+    this.clearTreeNormalState();
+    this.clearTreeDeletePendingTimer();
+    this.resetTreeScrollState();
     if (this.state)
       this.state.interactionContext = this.previousContext || "SHELL";
     this.buffers.setLeftInset(0);
@@ -785,26 +1057,78 @@ class HistoryPanel {
     }
   }
 
-  deleteCurrent() {
+  resolveFavoriteScopeBottomIndex(flatNodes, startIndex) {
+    const current = flatNodes[startIndex];
+    if (!current) return startIndex;
+    const parentId = current.parentId || null;
+    let idx = startIndex;
+    while (idx + 1 < flatNodes.length && (flatNodes[idx + 1].parentId || null) === parentId) {
+      idx += 1;
+    }
+    return idx;
+  }
+
+  resolveFavoriteScopeTopIndex(flatNodes, startIndex) {
+    const current = flatNodes[startIndex];
+    if (!current) return startIndex;
+    const parentId = current.parentId || null;
+    let idx = startIndex;
+    while (idx - 1 >= 0 && (flatNodes[idx - 1].parentId || null) === parentId) {
+      idx -= 1;
+    }
+    return idx;
+  }
+
+  deleteRangeInTree(startIndex, endIndex) {
+    const low = Math.min(startIndex, endIndex);
+    const high = Math.max(startIndex, endIndex);
     if (this.treeKind === "favorites") {
-      this.deleteCurrentFavorite();
+      const flat = this.getFavoriteFlatNodes();
+      if (!flat.length) return;
+      const from = Math.max(0, low);
+      const to = Math.min(flat.length - 1, high);
+      const selectedIds = new Set(flat.slice(from, to + 1).map((n) => n.id));
+      if (!selectedIds.size) return;
+      this.recordFavoriteMutationSnapshot();
+      const prune = (children) => {
+        if (!Array.isArray(children)) return [];
+        return children.filter((node) => {
+          if (selectedIds.has(node.id)) return false;
+          if (node.type === "folder" && Array.isArray(node.children)) {
+            node.children = prune(node.children);
+          }
+          return true;
+        });
+      };
+      this.favoriteRoot = prune(this.favoriteRoot);
+      this.saveFavorites();
+      this.restoreFavoriteCursorByIndex(from);
       return;
     }
 
-    if (this.cursor.type === "day") {
-      historyService.deleteDate(this.cursor.dateKey);
-    } else if (this.cursor.type === "entry") {
-      historyService.deleteEntry(this.cursor.dateKey, this.cursor.entryId);
+    const flat = this.getFlatNodes();
+    if (!flat.length) return;
+    const from = Math.max(0, low);
+    const to = Math.min(flat.length - 1, high);
+    const slice = flat.slice(from, to + 1);
+    const days = new Set();
+    const entries = [];
+    for (const node of slice) {
+      if (node.type === "day") days.add(node.dateKey);
+      else if (node.type === "entry") entries.push({ dateKey: node.dateKey, entryId: node.entry.id });
     }
-
+    for (const { dateKey, entryId } of entries) {
+      if (!days.has(dateKey)) historyService.deleteEntry(dateKey, entryId);
+    }
+    for (const dateKey of days) {
+      historyService.deleteDate(dateKey);
+    }
     this.reloadData();
-    const first = this.getFlatNodes()[0];
-    this.cursor = first
-      ? {
-          type: first.type,
-          dateKey: first.dateKey,
-          entryId: first.entry ? first.entry.id : null,
-        }
+    const next = this.getFlatNodes();
+    const idx = Math.max(0, Math.min(next.length - 1, from));
+    const node = next[idx];
+    this.cursor = node
+      ? { type: node.type, dateKey: node.dateKey, entryId: node.entry ? node.entry.id : null }
       : { type: "day", dateKey: null, entryId: null };
   }
 
@@ -837,7 +1161,49 @@ class HistoryPanel {
         ? "tree-head-item active"
         : "tree-head-item";
 
-    const inputOverlayHtml = this.renderFavoriteInputOverlay();
+    const inputOverlayHtml = this.renderPromptOverlay();
+    const footerBadgeLabel =
+      footerTone === "muted"
+        ? "HINT"
+        : footerTone === "danger"
+          ? "DANGER"
+          : "INFO";
+
+    const footerSegments = [];
+    if (footerText) {
+      footerSegments.push(`<span class="foot-text" title="${footerText}">${footerText}</span>`);
+    }
+    if (footerHint) {
+      footerSegments.push(`<span class="foot-hint" title="${footerHint}">${footerHint}</span>`);
+    }
+    if (footerValue) {
+      footerSegments.push(`<span class="foot-input" title="${footerValue}">${footerValue}</span>`);
+    }
+
+    const selectedTreeIndex = this.getSelectedTreeIndex();
+    const scrollDirection =
+      this.lastSelectedTreeIndex >= 0 && selectedTreeIndex >= 0
+        ? selectedTreeIndex > this.lastSelectedTreeIndex
+          ? "down"
+          : selectedTreeIndex < this.lastSelectedTreeIndex
+            ? "up"
+            : "none"
+        : "none";
+    this.lastSelectedTreeIndex = selectedTreeIndex;
+
+    const panelHeight = this.visible && this.window
+      ? Math.max(1, this.window.getContentBounds().height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT)
+      : 1;
+    const estimatedHeaderHeight = 34;
+    const estimatedFooterHeight = 30;
+    const estimatedListHeight = Math.max(1, panelHeight - estimatedHeaderHeight - estimatedFooterHeight);
+    const viewportRows = Math.max(1, Math.floor(estimatedListHeight / TREE_LAYOUT.rowMinHeight));
+    const nextFirstVisibleIndex = this.computeNextFirstVisibleIndex({
+      selectedIndex: selectedTreeIndex,
+      direction: scrollDirection,
+      totalRows: rows.length,
+      viewportRows,
+    });
 
     const html = `<!doctype html><html><body><style>
       html,body{height:100%}
@@ -846,7 +1212,7 @@ class HistoryPanel {
       .head{padding:8px 10px;border-bottom:1px solid var(--ui-border,#2f3440);display:flex;gap:8px;align-items:center}
       .tree-head-item{color:var(--ui-text-muted,#7f8aa3)}
       .tree-head-item.active{color:var(--ui-accent,#89dceb);font-weight:600}
-      .list{padding:6px 0;overflow:auto;flex:1}
+      .list{padding:6px 0;overflow-x:hidden;overflow-y:auto;flex:1}
       .row{display:flex;align-items:stretch;gap:0;min-height:${TREE_LAYOUT.rowMinHeight}px}
       .cursor{width:${TREE_LAYOUT.cursorWidth}px;flex:0 0 ${TREE_LAYOUT.cursorWidth}px;background:transparent;border-radius:1px}
       .name{display:flex;align-items:center;gap:0;flex:1;min-width:0;padding:0 ${TREE_LAYOUT.namePaddingRight}px 0 ${TREE_LAYOUT.namePaddingLeft}px;overflow:hidden;line-height:18px}
@@ -870,10 +1236,10 @@ class HistoryPanel {
       .foot-badge.info{color:var(--ui-accent,#89dceb);background:color-mix(in srgb, var(--ui-accent,#89dceb) 14%, transparent)}
       .foot-badge.danger{color:#f38ba8;background:color-mix(in srgb, #f38ba8 14%, transparent)}
       .foot-badge.muted{color:var(--ui-text-muted,#7f8aa3);background:color-mix(in srgb, var(--ui-text-muted,#7f8aa3) 10%, transparent)}
-      .foot-main{display:flex;gap:8px;align-items:center;min-width:0;flex:1}
-      .foot-text{color:var(--ui-text,#c9d1df);white-space:nowrap}
-      .foot-hint{color:var(--ui-text-muted,#7f8aa3);white-space:nowrap}
-      .foot-input{color:var(--ui-accent,#89dceb);min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+      .foot-main{display:flex;gap:8px;align-items:center;min-width:0;flex:1;overflow:hidden}
+      .foot-text{color:var(--ui-text,#c9d1df);min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+      .foot-hint{color:var(--ui-text-muted,#7f8aa3);min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+      .foot-input{color:var(--ui-accent,#89dceb);min-width:0;flex:1 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
       .foot-cursor{display:inline-block;width:7px;height:12px;margin-left:2px;vertical-align:-2px;background:var(--ui-editor-cursor,#89dceb);opacity:.9}
       .unfocused .foot-cursor{opacity:.45}
       .floating-input{position:absolute;left:50%;transform:translateX(-50%);bottom:34px;width:97%;z-index:5;border:1px solid var(--ui-border,#2f3440);background:var(--ui-bg-subtle,#1f2735);border-radius:4px;padding:6px 8px;box-sizing:border-box;box-shadow:0 8px 20px rgba(0,0,0,.28)}
@@ -883,7 +1249,7 @@ class HistoryPanel {
       .floating-input-caret{display:inline-block;width:1px;height:18px;vertical-align:-3px;background:var(--ui-accent,#89dceb)}
       .unfocused .floating-input-cursor{opacity:.45}
       .unfocused .floating-input-caret{opacity:.55}
-    </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${favoriteHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${escapeHtml(footerTone)}</span><div class="foot-main"><span class="foot-text">${footerText}</span><span class="foot-hint">${footerHint}</span><span class="foot-input">${footerValue}</span></div></div></div></body></html>`;
+    </style><div class="wrap ${this.focused ? "focused" : "unfocused"}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${favoriteHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
 
     this.scheduleRender(html);
   }
@@ -1278,19 +1644,30 @@ class HistoryPanel {
         null
       : null;
 
+    const now = Date.now();
+    const timeout = this.state?.sequenceTimeout;
+    if (Number.isFinite(timeout) && this.treeLastKeyTime && now - this.treeLastKeyTime > timeout) {
+      this.treeCountBuffer = "";
+      this.treeKeyBuffer = "";
+    }
+    this.treeLastKeyTime = now;
+
     if (isFavorites && this.isFavoriteRedoShortcut(input)) {
+      this.clearTreeNormalState();
       this.redoLastFavoriteAction();
       this.render();
       return true;
     }
 
     if (isFavorites && key === "Escape" && this.favoriteClipboard) {
+      this.clearTreeNormalState();
       this.clearFavoriteClipboard();
       this.render();
       return true;
     }
 
     if (isFavorites && this.favoriteEditState) {
+      this.clearTreeNormalState();
       const consumed = this.handleFavoriteEditInput(input);
       if (consumed) {
         this.render();
@@ -1299,8 +1676,10 @@ class HistoryPanel {
     }
 
     if (this.deleteAllArmed) {
+      this.clearTreeNormalState();
       if (key === "Enter") {
-        if (this.confirmDeleteAll.toLowerCase() === "yes") {
+        const answer = this.confirmDeleteAll.trim().toLowerCase();
+        if (answer === "y") {
           if (isFavorites) {
             this.recordFavoriteMutationSnapshot();
             favoritesService.deleteAll();
@@ -1337,10 +1716,102 @@ class HistoryPanel {
       return true;
     }
 
+    if (this.treeDeletePending) {
+      if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta") {
+        return true;
+      }
+      if (key === "Escape") {
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      if (!input.ctrl && !input.meta && !input.alt && /^[0-9]$/.test(String(key))) {
+        if (this.treeDeletePendingG) {
+          this.clearTreeDeletePending();
+          this.render();
+          return true;
+        }
+        this.treeDeleteCountBuffer += String(key);
+        this.armTreeDeletePendingTimeout();
+        this.render();
+        return true;
+      }
+      const flat = this.getTreeFlatNodes();
+      const currentIndex = this.getSelectedTreeIndex();
+      if (!this.treeDeletePendingG && key === "g") {
+        this.treeDeletePendingG = true;
+        this.armTreeDeletePendingTimeout();
+        this.render();
+        return true;
+      }
+      if (this.treeDeletePendingG && key === "g" && currentIndex >= 0) {
+        let top = 0;
+        if (this.treeKind === "favorites") {
+          top = this.resolveFavoriteScopeTopIndex(flat, currentIndex);
+        }
+        this.deleteRangeInTree(currentIndex, top);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      if (this.treeDeletePendingG) {
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+
+      const count = Math.max(1, Number.parseInt(this.treeDeleteCountBuffer || "1", 10));
+      const hasExplicitCount = this.treeDeleteCountBuffer.length > 0;
+      if ((key === "j" || key === "ArrowDown") && currentIndex >= 0 && hasExplicitCount) {
+        const target = Math.min(flat.length - 1, currentIndex + count);
+        this.deleteRangeInTree(currentIndex, target);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      if ((key === "k" || key === "ArrowUp") && currentIndex >= 0 && hasExplicitCount) {
+        const target = Math.max(0, currentIndex - count);
+        this.deleteRangeInTree(currentIndex, target);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      const normalizedKey = String(key || "");
+      const isShiftG =
+        normalizedKey === "G" ||
+        (normalizedKey === "g" && Boolean(input.shift)) ||
+        (normalizedKey === "KeyG" && Boolean(input.shift));
+      if (isShiftG && currentIndex >= 0) {
+        let bottom = flat.length - 1;
+        if (this.treeKind === "favorites") {
+          bottom = this.resolveFavoriteScopeBottomIndex(flat, currentIndex);
+        }
+        this.deleteRangeInTree(currentIndex, bottom);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      if (key === "d" && currentIndex >= 0) {
+        this.deleteRangeInTree(currentIndex, currentIndex);
+        this.clearTreeDeletePending();
+        this.render();
+        return true;
+      }
+      this.clearTreeDeletePending();
+      this.render();
+      return true;
+    }
+
+    const shared = this.resolveSharedTreeNormalAction(input);
+    if (shared?.consumed) {
+      if (shared.shouldRender) this.render();
+      return true;
+    }
+
     if (key === "H") this.switchTreeByOffset(-1);
     else if (key === "L") this.switchTreeByOffset(1);
-    else if (key === "j" || key === "ArrowDown") this.moveCursor(1);
-    else if (key === "k" || key === "ArrowUp") this.moveCursor(-1);
+    else if (key === "ArrowDown") this.moveCursor(1);
+    else if (key === "ArrowUp") this.moveCursor(-1);
     else if (key === "l" || key === "ArrowRight") {
       if (isFavorites) {
         if (currentFavoriteNode && currentFavoriteNode.type === "folder") {
@@ -1394,7 +1865,13 @@ class HistoryPanel {
       const entry = this.getCurrentFavoriteEntry();
       if (entry && entry.url) clipboard.writeText(String(entry.url));
     }
-    else if (key === "d") this.deleteCurrent();
+    else if (key === "d") {
+      this.treeCountBuffer = "";
+      this.treeKeyBuffer = "";
+      this.treeDeletePending = true;
+      this.treeDeleteCountBuffer = "";
+      this.armTreeDeletePendingTimeout();
+    }
     else if (key === "D") {
       this.confirmDeleteAll = "";
       this.deleteAllArmed = true;

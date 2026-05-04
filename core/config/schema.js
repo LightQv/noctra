@@ -164,16 +164,16 @@ function resolveGlobalSection(input, sectionKey) {
   return globalSection || legacySection || null;
 }
 
-function normalizeLeaderNode(node, fallbackNode) {
+function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
   if (!isPlainObject(node)) {
-    return fallbackNode;
+    return null;
   }
 
   const normalized = {
     label:
       typeof node.label === "string" && node.label.trim().length > 0
         ? node.label.trim()
-        : fallbackNode?.label || "Leader Group",
+        : fallbackLabel,
   };
 
   if (typeof node.action === "string" && ACTION_IDS.has(node.action)) {
@@ -181,70 +181,25 @@ function normalizeLeaderNode(node, fallbackNode) {
   }
 
   const sourceChildren = isPlainObject(node.children) ? node.children : null;
-  const fallbackChildren = isPlainObject(fallbackNode?.children) ? fallbackNode.children : {};
-
-  const childKeys = new Set([
-    ...Object.keys(sourceChildren || {}),
-    ...Object.keys(fallbackChildren),
-  ]);
+  const childKeys = new Set(Object.keys(sourceChildren || {}));
 
   if (childKeys.size > 0) {
     normalized.children = {};
     for (const key of childKeys) {
       const sourceChild = sourceChildren ? sourceChildren[key] : undefined;
-      const fallbackChild = fallbackChildren[key];
-      const nextNode = normalizeLeaderNode(sourceChild, fallbackChild);
+      const nextNode = normalizeLeaderNode(sourceChild, key);
       if (nextNode) {
         normalized.children[key] = nextNode;
       }
     }
+
+    if (Object.keys(normalized.children).length === 0) {
+      delete normalized.children;
+    }
   }
 
   if (!normalized.action && !normalized.children) {
-    return fallbackNode || null;
-  }
-
-  return normalized;
-}
-
-function normalizeKeymapSection(section, fallbackSection = {}) {
-  if (!isPlainObject(section)) {
-    return fallbackSection;
-  }
-
-  const normalized = {};
-  const keys = new Set([...Object.keys(fallbackSection), ...Object.keys(section)]);
-
-  for (const key of keys) {
-    const sourceNode = section[key];
-    const fallbackNode = fallbackSection[key];
-
-    if (!isPlainObject(sourceNode)) {
-      if (fallbackNode) {
-        normalized[key] = fallbackNode;
-      }
-      continue;
-    }
-
-    const label =
-      typeof sourceNode.label === "string" && sourceNode.label.trim().length > 0
-        ? sourceNode.label.trim()
-        : fallbackNode?.label || key;
-    const sourceAction =
-      typeof sourceNode.action === "string" && ACTION_IDS.has(sourceNode.action)
-        ? sourceNode.action
-        : null;
-    const fallbackAction =
-      typeof fallbackNode?.action === "string" && ACTION_IDS.has(fallbackNode.action)
-        ? fallbackNode.action
-        : null;
-    const action = sourceAction || fallbackAction;
-
-    if (!action) {
-      continue;
-    }
-
-    normalized[key] = { label, action };
+    return null;
   }
 
   return normalized;
@@ -299,20 +254,12 @@ function normalizeConfig(rawConfig) {
     );
   }
 
-  if (isPlainObject(input.keymap) && input.keymap.leader) {
-    const leaderNode = normalizeLeaderNode(
-      { label: "Leader", children: input.keymap.leader },
-      { label: "Leader", children: defaults.keymap.leader },
-    );
-
-    if (leaderNode && leaderNode.children) {
-      normalized.keymap.leader = leaderNode.children;
-    }
-  }
-
-  if (isPlainObject(input.keymap)) {
-    normalized.keymap.normal = normalizeKeymapSection(input.keymap.normal, defaults.keymap.normal);
-    normalized.keymap.mod = normalizeKeymapSection(input.keymap.mod, defaults.keymap.mod);
+  const userLeaderTree = isPlainObject(input.keymap) ? input.keymap.leader : null;
+  const normalizedUserLeaderNode = normalizeLeaderNode({ label: "Leader", children: userLeaderTree });
+  if (normalizedUserLeaderNode && normalizedUserLeaderNode.children) {
+    normalized.keymap.leader = normalizedUserLeaderNode.children;
+  } else {
+    normalized.keymap.leader = defaults.keymap.leader;
   }
 
   if (isPlainObject(uiSection)) {

@@ -7,7 +7,7 @@ const defaultConfig = {
     whichkey: {
       enabled: true,
       display_delay_ms: 180,
-      timeout_ms: 1200,
+      timeout_ms: null,
     },
     editor: {
       enabled: true,
@@ -35,7 +35,66 @@ const defaultConfig = {
     theme: {
       mode: "dark",
       content_mode: "dark",
-      overrides: {},
+      overrides: {
+        appBackground: "#0f131a",
+        surfaceBackground: "#171b22",
+        panelBackground: "#161b24",
+        shellBackground: "#151a22",
+        elevatedBackground: "#1a2230",
+        subtleBackground: "#202633",
+        windowControlBackground: "#212734",
+        dangerBackground: "#3a1f27",
+        borderColor: "#2f3440",
+        borderStrongColor: "#2a3140",
+        borderMutedColor: "#2f3a4d",
+        splitDividerColor: "#252a35",
+        textColor: "#d8e3f8",
+        brightTextColor: "#f4f7ff",
+        softTextColor: "#b6c7e8",
+        mutedTextColor: "#7d8aa3",
+        secondaryActiveTextColor: "#84b7cb",
+        accentIconColor: "#8ec5ff",
+        mainColor: "#89dceb",
+        accentPillBackground: "#2c3e46",
+        accentPillBorder: "#557b88",
+        dangerTextColor: "#ffb4c2",
+        editorBackground: "#10151d",
+        editorGutterBackground: "#0f131a",
+        editorGutterBorderColor: "#222731",
+        editorLineNumberColor: "#5f6d86",
+        editorSelectionBackground: "rgba(137, 220, 235, 0.22)",
+        editorCursorColor: "#89dceb",
+        editorCursorTextColor: "#10151d",
+        editorActiveLineBackground: "rgba(137, 220, 235, 0.08)",
+        editorMatchingBracketBackground: "rgba(142, 197, 255, 0.2)",
+        editorMatchingBracketColor: "#d8e3f8",
+        editorDialogBackground: "#141a23",
+        editorDialogBorderColor: "#2a3140",
+        editorTokenKeywordColor: "#8ec5ff",
+        editorTokenAtomColor: "#ffb4c2",
+        editorTokenNumberColor: "#f3b889",
+        editorTokenDefColor: "#89dceb",
+        editorTokenVariableColor: "#d8e3f8",
+        editorTokenVariable2Color: "#9dd7ff",
+        editorTokenVariable3Color: "#f8d38e",
+        editorTokenPropertyColor: "#b8d3ff",
+        editorTokenOperatorColor: "#c8d6f0",
+        editorTokenCommentColor: "#7f8ca3",
+        editorTokenStringColor: "#a7d9a8",
+        editorTokenString2Color: "#8ed8c9",
+        editorTokenMetaColor: "#b6c7e8",
+        editorTokenQualifierColor: "#f6c177",
+        editorTokenBuiltinColor: "#c4b5fd",
+        editorTokenTagColor: "#7dc4e4",
+        editorTokenAttributeColor: "#f9cb8c",
+        editorTokenHeaderColor: "#89dceb",
+        editorTokenQuoteColor: "#98d3a5",
+        editorTokenLinkColor: "#89b4ff",
+        fontFamily:
+          '"JetBrainsMono Nerd Font Mono", "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        scrollbarThumbColor: "rgba(137, 220, 235, 0.58)",
+        scrollbarThumbActiveColor: "rgba(137, 220, 235, 0.92)",
+      },
     },
     split: {
       enabled: true,
@@ -63,7 +122,7 @@ const defaultConfig = {
     },
     opening_buffer: {
       mode: "dashboard",
-      url: "https://anime-sama.to/",
+      url: "https://github.com/LightQv/noctra",
       dashboard: {
         header: [
           "░▒▓███████▓▒░ ░▒▓██████▓▒░ ░▒▓██████▓▒░▒▓████████▓▒░▒▓███████▓▒░ ░▒▓██████▓▒░",
@@ -80,110 +139,6 @@ const defaultConfig = {
     },
   },
   keymap: {
-    normal: {
-      j: {
-        label: "Scroll down",
-        action: "scroll_down",
-      },
-      k: {
-        label: "Scroll up",
-        action: "scroll_up",
-      },
-      gg: {
-        label: "Scroll to top",
-        action: "scroll_top",
-      },
-      G: {
-        label: "Scroll to bottom",
-        action: "scroll_bottom",
-      },
-      h: {
-        label: "Scroll left",
-        action: "scroll_left",
-      },
-      l: {
-        label: "Scroll right",
-        action: "scroll_right",
-      },
-      gh: {
-        label: "Navigate back",
-        action: "nav_back",
-      },
-      gl: {
-        label: "Navigate forward",
-        action: "nav_forward",
-      },
-      r: {
-        label: "Reload page",
-        action: "reload_page",
-      },
-      ".": {
-        label: "Repeat last action",
-        action: "repeat_last_action",
-      },
-      H: {
-        label: "Previous buffer",
-        action: "buffer_prev",
-      },
-      L: {
-        label: "Next buffer",
-        action: "buffer_next",
-      },
-      i: {
-        label: "Enter insert mode",
-        action: "enter_insert",
-      },
-      o: {
-        label: "Open URL prompt",
-        action: "open_url_prompt",
-      },
-      b: {
-        label: "New buffer",
-        action: "new_buffer",
-      },
-      "|": {
-        label: "Vertical split",
-        action: "split_vertical",
-      },
-    },
-    mod: {
-      d: {
-        label: "Half-page down",
-        action: "scroll_half_down",
-      },
-      u: {
-        label: "Half-page up",
-        action: "scroll_half_up",
-      },
-      f: {
-        label: "Page down",
-        action: "page_down",
-      },
-      b: {
-        label: "Page up",
-        action: "page_up",
-      },
-      h: {
-        label: "Focus split left",
-        action: "focus_split_left",
-      },
-      l: {
-        label: "Focus split right",
-        action: "focus_split_right",
-      },
-      q: {
-        label: "Close focused context",
-        action: "close_focused",
-      },
-      t: {
-        label: "New buffer",
-        action: "new_buffer",
-      },
-      T: {
-        label: "Reopen last closed buffer",
-        action: "reopen_buffer",
-      },
-    },
     leader: {
       ",": {
         label: "Open settings",

@@ -26,6 +26,7 @@ const ACTION_IDS = new Set([
   "open_settings",
   "toggle_focus_context",
   "toggle_urlline",
+  "toggle_copy_selection_to_clipboard",
   "history_toggle",
   "history_toggle_focus",
   "bookmarks_toggle",

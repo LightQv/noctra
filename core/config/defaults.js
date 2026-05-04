@@ -231,6 +231,10 @@ const defaultConfig = {
         label: "Toggle URL line",
         action: "toggle_urlline",
       },
+      y: {
+        label: "Toggle selection copy",
+        action: "toggle_copy_selection_to_clipboard",
+      },
       e: {
         label: "Toggle side-tree",
         action: "history_toggle",

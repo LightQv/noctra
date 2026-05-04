@@ -582,6 +582,25 @@ function dispatch(win, intent, state) {
       break;
     }
 
+    case INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD: {
+      const current = Boolean(configService.getConfigValue("browser.copy_selection_to_clipboard", false));
+      const nextEnabled =
+        typeof intent.enabled === "boolean" ? intent.enabled : !current;
+      const config = configService.updateCopySelectionToClipboard(nextEnabled);
+      if (typeof state.applyConfig === "function") {
+        state.applyConfig(config);
+      }
+
+      notificationsService.notify({
+        severity: "info",
+        code: "copy_selection_toggle",
+        message: nextEnabled ? "Selection auto-copy enabled" : "Selection auto-copy disabled",
+        source: "core.dispatcher",
+        persist: false,
+      });
+      break;
+    }
+
     case INTENTS.OPEN_SETTINGS_BUFFER:
       focusEditableBufferSurface(openSettingsBuffer());
       buffers.focusActive();

@@ -400,6 +400,29 @@ function updateBrowserLanguage(nextLanguage) {
   return loadConfig();
 }
 
+function updateCopySelectionToClipboard(nextEnabled) {
+  if (CONFIG_POLICY === "strict") {
+    return cachedConfig;
+  }
+
+  if (typeof nextEnabled !== "boolean") {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.browser)) {
+    rawConfig.browser = {};
+  }
+
+  if (rawConfig.browser.copy_selection_to_clipboard === nextEnabled) {
+    return cachedConfig;
+  }
+
+  rawConfig.browser.copy_selection_to_clipboard = nextEnabled;
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
 function updateWindowState(nextWindowState = {}) {
   if (CONFIG_POLICY === "strict") {
     return cachedConfig;
@@ -480,5 +503,6 @@ module.exports = {
   getConfigValue,
   updateThemeMode,
   updateBrowserLanguage,
+  updateCopySelectionToClipboard,
   updateWindowState,
 };

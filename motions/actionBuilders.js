@@ -73,6 +73,10 @@ const ACTION_BUILDERS = {
   })),
   toggle_focus_context: createActionBuilder("toggle_focus_context", () => ({ type: INTENTS.TOGGLE_FOCUS_CONTEXT })),
   toggle_urlline: createActionBuilder("toggle_urlline", () => ({ type: INTENTS.TOGGLE_URLLINE })),
+  toggle_copy_selection_to_clipboard: createActionBuilder(
+    "toggle_copy_selection_to_clipboard",
+    () => ({ type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD }),
+  ),
   history_toggle: createActionBuilder("history_toggle", () => ({ type: INTENTS.HISTORY_TOGGLE })),
   history_toggle_focus: createActionBuilder("history_toggle_focus", () => ({ type: INTENTS.HISTORY_TOGGLE_FOCUS })),
   bookmarks_toggle: createActionBuilder("bookmarks_toggle", () => ({ type: INTENTS.BOOKMARKS_TOGGLE })),

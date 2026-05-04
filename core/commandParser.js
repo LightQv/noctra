@@ -141,6 +141,23 @@ function parseCommand(raw) {
       };
     }
 
+    case "copy-selection": {
+      const option = arg.toLowerCase();
+      if (!option || option === "toggle") {
+        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD };
+      }
+
+      if (["on", "enable", "enabled", "true", "1"].includes(option)) {
+        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD, enabled: true };
+      }
+
+      if (["off", "disable", "disabled", "false", "0"].includes(option)) {
+        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD, enabled: false };
+      }
+
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
     case "focus-context":
     case "context":
       return { type: INTENTS.TOGGLE_FOCUS_CONTEXT };

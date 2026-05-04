@@ -414,6 +414,13 @@ const SELECTION_MODAL_OVERLAY_HTML = `
         text-overflow: ellipsis;
         max-width: 150px;
         text-align: center;
+        border-radius: 4px;
+        padding: 2px 6px;
+      }
+
+      .selection-modal-item.selected {
+        background: color-mix(in srgb, var(--ui-bg-subtle, #1f2735) 55%, transparent);
+        color: var(--ui-text-bright, #f4f7ff);
       }
 
       .selection-modal-index {
@@ -1167,6 +1174,9 @@ class UiShellManager {
       indexHints: Array.isArray(this.selectionModalModel?.indexHints)
         ? this.selectionModalModel.indexHints.map((item) => String(item || ""))
         : [],
+      selectedIndex: Number.isFinite(this.selectionModalModel?.selectedIndex)
+        ? Math.max(0, Math.floor(this.selectionModalModel.selectedIndex))
+        : -1,
       footerLeft: String(this.selectionModalModel?.footerLeft || ""),
       footerRight: String(this.selectionModalModel?.footerRight || ""),
     };
@@ -1202,10 +1212,12 @@ class UiShellManager {
         } else {
           const maxLen = Math.max(items.length, indexHints.length);
           const columns = [];
+          const selectedIndex = Number.isFinite(model.selectedIndex) ? model.selectedIndex : -1;
           for (let i = 0; i < maxLen; i += 1) {
             const item = escapeHtml(items[i] || '');
             const hint = escapeHtml(indexHints[i] || '');
-            columns.push('<span class="selection-modal-col"><span class="selection-modal-item">' + item + '</span><span class="selection-modal-index">' + hint + '</span></span>');
+            const selectedClass = i === selectedIndex ? ' selected' : '';
+            columns.push('<span class="selection-modal-col"><span class="selection-modal-item' + selectedClass + '">' + item + '</span><span class="selection-modal-index">' + hint + '</span></span>');
           }
           contentNode.innerHTML = '<div class="selection-modal-grid">' + columns.join('') + '</div>';
         }

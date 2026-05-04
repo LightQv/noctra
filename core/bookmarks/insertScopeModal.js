@@ -77,11 +77,9 @@ class BookmarkInsertScopeModal {
         promptTitle,
         urlLine,
         scopeLabel: pathText,
-        items: [
-          confirmSelected ? "confirm" : "confirm",
-          cancelSelected ? "cancel" : "cancel",
-        ],
-        indexHints: [confirmSelected ? "(enter)" : "", cancelSelected ? "(esc)" : ""],
+        items: ["confirm", "cancel"],
+        indexHints: ["(enter)", "(esc)"],
+        selectedIndex: confirmSelected ? 0 : 1,
         footerLeft: "h/l choose",
         footerRight: "Enter confirm",
       };

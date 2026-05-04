@@ -217,22 +217,18 @@ const defaultConfig = {
         action: "toggle_urlline",
       },
       e: {
-        label: "Toggle history tree",
+        label: "Toggle side-tree",
         action: "history_toggle",
-      },
-      f: {
-        label: "Toggle bookmarks tree",
-        action: "bookmarks_toggle",
       },
       d: {
         label: "Bookmarks...",
         children: {
           r: {
-            label: "Add active to root",
+            label: "Quick to root level",
             action: "bookmarks_add_root_active",
           },
           d: {
-            label: "Add active scoped",
+            label: "Choose path",
             action: "bookmarks_add_scoped_prompt",
           },
         },

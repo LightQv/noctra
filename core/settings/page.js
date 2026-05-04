@@ -4,7 +4,8 @@ const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_CHROME_ICON_BUTTON_SIZE,
   UI_CHROME_BORDER_RADIUS,
-  UI_CHROME_HORIZONTAL_PADDING,
+  UI_CHROME_TAB_GAP,
+  UI_CHROME_EDITOR_HEADER_HORIZONTAL_PADDING,
   UI_CHROME_ICON_GLYPH_SIZE,
 } = require("../../ui/constants");
 const { resolveTheme, toCssVars } = require("../../ui/theme");
@@ -16,7 +17,11 @@ const CODEMIRROR_SEARCH_CURSOR_JS_URL =
 const CODEMIRROR_VIM_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/keymap/vim.js";
 const CODEMIRROR_YAML_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/yaml/yaml.js";
 
-function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "") {
+function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "", options = {}) {
+  const viewTitle =
+    typeof options.viewTitle === "string" && options.viewTitle.trim().length > 0
+      ? options.viewTitle.trim()
+      : "Settings";
   const sourceTheme =
     themeInput && typeof themeInput === "object" && themeInput.theme
       ? themeInput.theme
@@ -42,7 +47,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Settings</title>
+    <title>${viewTitle}</title>
     <link rel="stylesheet" href="${CODEMIRROR_CSS_URL}" />
     <style>
       ${UI_FONT_FACE_CSS}
@@ -77,7 +82,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
         justify-content: space-between;
         gap: 12px;
         height: ${UI_SHELL_TABLINE_HEIGHT}px;
-        padding: 0 ${UI_CHROME_HORIZONTAL_PADDING}px;
+        padding: 0 ${UI_CHROME_EDITOR_HEADER_HORIZONTAL_PADDING}px;
         box-sizing: border-box;
         border-bottom: 1px solid var(--ui-border-strong);
         background: var(--ui-bg-shell);
@@ -100,7 +105,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
 
       #actions {
         display: inline-flex;
-        gap: 6px;
+        gap: ${UI_CHROME_TAB_GAP}px;
       }
 
       .action-btn {

@@ -69,17 +69,31 @@ class Buffer extends EventEmitter {
       this.applyContentUi();
     });
 
+    this.webContents.on("dom-ready", () => {
+      this.applyContentUi();
+    });
+
     this.webContents.on("page-title-updated", (event, title) => {
       event.preventDefault();
       const nextTitle = title || this.title;
       if (nextTitle === this.title) return;
       this.title = nextTitle;
       this.emit("updated", { kind: "metadata" });
+      this.emit("title-updated", {
+        url: this.url,
+        title: this.title,
+        timestampMs: Date.now(),
+      });
     });
 
     this.webContents.on("did-navigate", (_, url) => {
       this.url = this.virtualUrl || url;
       this.emit("updated", { kind: "metadata" });
+      this.emit("visit", {
+        url: this.url,
+        title: this.title,
+        timestampMs: Date.now(),
+      });
     });
 
     this.webContents.on("page-favicon-updated", (_, favicons) => {

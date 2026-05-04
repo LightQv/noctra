@@ -6,7 +6,15 @@ const uiShell = require("../ui/shell/manager");
 const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
+const historyService = require("./history/service");
+const historyPanel = require("./history/panel");
+const bookmarksService = require("./bookmarks/service");
+const bookmarkInsertScopeModal = require("./bookmarks/insertScopeModal");
+const { isBookmarkableBuffer } = require("./bookmarks/eligibility");
+const sessionService = require("./session/service");
 const { buildSettingsPageHtml } = require("./settings/page");
+const notificationsStore = require("./notifications/store");
+const notificationsService = require("./notifications/service");
 const {
   resolveTheme,
   resolveThemeMode,
@@ -15,6 +23,10 @@ const {
 } = require("../ui/theme");
 
 function computeStatuslineModeLabel(state) {
+  if (historyPanel.isVisible() && historyPanel.isFocused()) {
+    return "TREE:NORMAL";
+  }
+
   const active = buffers.getActive();
   if (!active || !active.isEditable) {
     return state.mode;
@@ -71,10 +83,32 @@ function runEditableExCommand(buffer, commandText) {
 }
 
 function openSettingsBuffer() {
+  return openEditableFileBuffer({
+    virtualUrl: "noctra://settings/config.yml",
+    title: "config.yml",
+    filePath: configService.getConfigPath(),
+    viewTitle: "Settings",
+  });
+}
+
+function openNotificationsBuffer() {
+  return openEditableFileBuffer({
+    virtualUrl: "noctra://settings/notifications.yml",
+    title: "notifications.yml",
+    filePath: notificationsStore.ensureNotificationsFile(),
+    viewTitle: "Notifications",
+  });
+}
+
+function openEditableFileBuffer(options = {}) {
   const existing = buffers.findByKind("editable");
-  const configPath = configService.getConfigPath();
+  const filePath = String(options.filePath || "");
+  const virtualUrl = String(options.virtualUrl || "about:blank");
+  const title = String(options.title || "[No title]");
+  const viewTitle = String(options.viewTitle || "Settings");
 
   if (existing) {
+    existing.editableFilePath = filePath;
     buffers.switchTo(existing.id);
     return existing;
   }
@@ -88,17 +122,15 @@ function openSettingsBuffer() {
   });
   let initialContent = "";
   try {
-    initialContent = fs.readFileSync(configPath, "utf8");
+    initialContent = fs.readFileSync(filePath, "utf8");
   } catch {
     initialContent = "";
   }
   const html = buildSettingsPageHtml(
-    configPath,
-    {
-      theme,
-      colorScheme: resolvedMode,
-    },
+    filePath,
+    { theme, colorScheme: resolvedMode },
     initialContent,
+    { viewTitle },
   );
 
   const buffer = buffers.create(null, {
@@ -108,10 +140,11 @@ function openSettingsBuffer() {
   });
 
   buffer.loadVirtualDocument({
-    url: "noctra://settings/config.yml",
-    title: "config.yml",
+    url: virtualUrl,
+    title,
     html,
   });
+  buffer.editableFilePath = filePath;
 
   return buffer;
 }
@@ -189,11 +222,44 @@ function applyThemeEverywhere(win) {
   broadcastUiShellPush(win, "theme:update", payload);
 }
 
+function isReloadableWebBuffer(buffer) {
+  if (!buffer || buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+    return false;
+  }
+
+  const url = typeof buffer.url === "string" ? buffer.url.trim() : "";
+  return url.startsWith("http://") || url.startsWith("https://");
+}
+
+function reloadReloadableBuffers() {
+  for (const buffer of buffers.getBuffers()) {
+    if (!isReloadableWebBuffer(buffer)) {
+      continue;
+    }
+    buffer.webContents.reload();
+  }
+}
+
+function getActiveBookmarkCandidate() {
+  const active = buffers.getActive();
+  if (!isBookmarkableBuffer(active)) return null;
+  const url = typeof active.url === "string" ? active.url.trim() : "";
+  const title = String(active.title || url).trim() || url;
+  return { title, url };
+}
+
 function dispatch(win, intent, state) {
   if (!intent) return;
 
   if (!isKnownIntentType(intent.type)) {
-    console.warn("Unknown intent type:", intent.type, intent);
+    notificationsService.notify({
+      severity: "warning",
+      code: "unknown_intent_type",
+      message: `Unknown intent type: ${String(intent.type || "")}`,
+      source: "core.dispatcher",
+      context: { intent },
+      persist: false,
+    });
     return;
   }
 
@@ -322,7 +388,14 @@ function dispatch(win, intent, state) {
     case INTENTS.OPEN_URL: {
       const normalized = normalizeUrl(intent.url || "");
       if (!normalized) {
-        console.warn("OPEN_URL intent missing URL", intent);
+        notificationsService.notify({
+          severity: "warning",
+          code: "open_url_missing_url",
+          message: "Cannot open URL: missing target",
+          source: "core.dispatcher",
+          context: { intent },
+          persist: false,
+        });
         break;
       }
       buf.load(normalized);
@@ -332,7 +405,14 @@ function dispatch(win, intent, state) {
     case INTENTS.SEARCH_WEB: {
       const searchUrl = buildSearchUrl(intent.engine, intent.query);
       if (!searchUrl) {
-        console.warn("SEARCH_WEB intent has unknown engine", intent);
+        notificationsService.notify({
+          severity: "warning",
+          code: "search_web_unknown_engine",
+          message: "Cannot search web: unknown engine",
+          source: "core.dispatcher",
+          context: { intent },
+          persist: false,
+        });
         break;
       }
       buf.load(searchUrl);
@@ -362,6 +442,10 @@ function dispatch(win, intent, state) {
 
     case INTENTS.CLOSE_BUFFER:
       buffers.close(intent.id ?? null);
+      break;
+
+    case INTENTS.REOPEN_BUFFER:
+      buffers.reopenLastClosed();
       break;
 
     case INTENTS.CLOSE_FOCUSED:
@@ -414,16 +498,37 @@ function dispatch(win, intent, state) {
         showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
       });
       buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+      historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+      historyPanel.setTreeScrollContextLines(
+        configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+      );
+      historyPanel.setTreeDeleteOperatorTimeoutMs(
+        configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+      );
+      historyPanel.layout();
       buffers.layoutViews();
       uiShell.updateSplitDivider(buffers.getSplitStatus());
-      console.info("Configuration reloaded from", configService.getConfigPath());
+      notificationsService.notify({
+        severity: "info",
+        code: "config_reloaded",
+        message: "Configuration reloaded",
+        source: "core.dispatcher",
+        context: { path: configService.getConfigPath() },
+        persist: false,
+      });
       break;
     }
 
     case INTENTS.SET_THEME_MODE: {
       const mode = typeof intent.mode === "string" ? intent.mode : "";
       if (!["dark", "light", "auto", "custom"].includes(mode)) {
-        console.warn("Unknown theme mode:", intent.mode);
+        notificationsService.notify({
+          severity: "warning",
+          code: "unknown_theme_mode",
+          message: `Unknown theme mode: ${String(intent.mode || "")}`,
+          source: "core.dispatcher",
+          persist: false,
+        });
         break;
       }
 
@@ -433,12 +538,78 @@ function dispatch(win, intent, state) {
       }
 
       applyThemeEverywhere(win);
-      console.info(`Theme mode set to ${mode}`);
+      notificationsService.notify({
+        severity: "info",
+        code: "theme_mode_set",
+        message: `Theme mode set to ${mode}`,
+        source: "core.dispatcher",
+        persist: false,
+      });
+      break;
+    }
+
+    case INTENTS.SET_BROWSER_LANGUAGE: {
+      const language = typeof intent.language === "string" ? intent.language.trim().toLowerCase() : "";
+      if (!["en", "fr"].includes(language)) {
+        notificationsService.notify({
+          severity: "warning",
+          code: "unknown_browser_language",
+          message: `Unknown browser language: ${String(intent.language || "")}`,
+          source: "core.dispatcher",
+          persist: false,
+        });
+        break;
+      }
+
+      const config = configService.updateBrowserLanguage(language);
+      if (typeof state.applyConfig === "function") {
+        state.applyConfig(config);
+      }
+
+      if (intent.reload) {
+        reloadReloadableBuffers();
+      }
+
+      notificationsService.notify({
+        severity: "info",
+        code: "browser_language_set",
+        message: intent.reload
+          ? `Browser language set to ${language}. Reloaded web buffers.`
+          : `Browser language set to ${language}. Reload with :lang ${language}! to apply on current pages.`,
+        source: "core.dispatcher",
+        persist: false,
+      });
+      break;
+    }
+
+    case INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD: {
+      const current = Boolean(configService.getConfigValue("browser.copy_selection_to_clipboard", false));
+      const nextEnabled =
+        typeof intent.enabled === "boolean" ? intent.enabled : !current;
+      const config = configService.updateCopySelectionToClipboard(nextEnabled);
+      if (typeof state.applyConfig === "function") {
+        state.applyConfig(config);
+      }
+
+      notificationsService.notify({
+        severity: "info",
+        code: "copy_selection_toggle",
+        message: nextEnabled ? "Selection auto-copy enabled" : "Selection auto-copy disabled",
+        source: "core.dispatcher",
+        persist: false,
+      });
       break;
     }
 
     case INTENTS.OPEN_SETTINGS_BUFFER:
       focusEditableBufferSurface(openSettingsBuffer());
+      buffers.focusActive();
+      state.interactionContext = "EDITOR";
+      state.editorMode = "NORMAL";
+      break;
+
+    case INTENTS.OPEN_NOTIFICATIONS_BUFFER:
+      focusEditableBufferSurface(openNotificationsBuffer());
       buffers.focusActive();
       state.interactionContext = "EDITOR";
       state.editorMode = "NORMAL";
@@ -472,12 +643,130 @@ function dispatch(win, intent, state) {
       break;
     }
 
+    case INTENTS.HISTORY_SHOW:
+      historyPanel.setTreeKind("history");
+      historyPanel.show();
+      historyPanel.focus();
+      break;
+
+    case INTENTS.HISTORY_HIDE:
+      historyPanel.hide();
+      break;
+
+    case INTENTS.HISTORY_TOGGLE:
+      historyPanel.toggle();
+      break;
+
+    case INTENTS.HISTORY_TOGGLE_FOCUS:
+      historyPanel.toggleFocus();
+      break;
+
+    case INTENTS.HISTORY_DELETE_ALL:
+      historyService.deleteAll();
+      historyPanel.reloadData();
+      historyPanel.render();
+      break;
+
+    case INTENTS.HISTORY_DELETE_TODAY:
+      historyService.deleteToday();
+      historyPanel.reloadData();
+      historyPanel.render();
+      break;
+
+    case INTENTS.BOOKMARKS_SHOW:
+      historyPanel.showTree("bookmarks");
+      break;
+
+    case INTENTS.BOOKMARKS_HIDE:
+      historyPanel.hide();
+      break;
+
+    case INTENTS.BOOKMARKS_TOGGLE:
+      if (historyPanel.isVisible() && historyPanel.treeKind === "bookmarks") {
+        historyPanel.hide();
+      } else {
+        historyPanel.showTree("bookmarks");
+      }
+      break;
+
+    case INTENTS.BOOKMARKS_TOGGLE_FOCUS:
+      historyPanel.setTreeKind("bookmarks");
+      historyPanel.toggleFocus();
+      break;
+
+    case INTENTS.BOOKMARKS_DELETE_ALL:
+      bookmarksService.deleteAll();
+      historyPanel.reloadData();
+      historyPanel.render();
+      break;
+
+    case INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE: {
+      const candidate = getActiveBookmarkCandidate();
+      if (!candidate) {
+        break;
+      }
+      const result = bookmarksService.appendEntryAtRoot({
+        id: bookmarksService.makeEntryId(),
+        title: candidate.title,
+        url: candidate.url,
+      });
+      if (result?.status === "inserted" && historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+      break;
+    }
+
+    case INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT: {
+      const candidate = getActiveBookmarkCandidate();
+      if (!candidate) {
+        break;
+      }
+      bookmarkInsertScopeModal.open(candidate);
+      break;
+    }
+
+    case INTENTS.SESSION_SAVE: {
+      const snapshot = buffers.exportSessionSnapshot();
+      sessionService.writeSessionSnapshot(snapshot);
+      notificationsService.notify({
+        severity: "info",
+        code: "session_snapshot_saved",
+        message: "Session snapshot saved",
+        source: "core.dispatcher",
+        context: { path: sessionService.getSessionsFilePath() },
+        persist: false,
+      });
+      break;
+    }
+
+    case INTENTS.SESSION_RESTORE: {
+      const snapshot = sessionService.readSessionSnapshot();
+      const restored = buffers.restoreSessionSnapshot(snapshot);
+      if (!restored) {
+        notificationsService.notify({
+          severity: "warning",
+          code: "session_snapshot_not_found",
+          message: "No restorable session snapshot found",
+          source: "core.dispatcher",
+          persist: false,
+        });
+      }
+      break;
+    }
+
     case INTENTS.QUIT:
       app.quit();
       break;
 
     case INTENTS.UNKNOWN_COMMAND:
-      console.warn("Unknown command:", intent.raw);
+      notificationsService.notify({
+        severity: "warning",
+        code: "unknown_command",
+        message: `Unknown command: ${String(intent.raw || "")}`,
+        source: "core.dispatcher",
+        persist: false,
+      });
       break;
   }
 
@@ -487,6 +776,9 @@ function dispatch(win, intent, state) {
   }
 
   uiShell.updateStatuslineMode(computeStatuslineModeLabel(state));
+  uiShell.setTablineOptions({
+    dimActiveBuffer: historyPanel.isFocused(),
+  });
 
   if (intent.next) {
     dispatch(win, intent.next, state);

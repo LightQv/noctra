@@ -8,7 +8,9 @@ function parseCommand(raw) {
   }
 
   const match = normalized.match(/^(\S+)\s*(.*)$/);
-  const cmd = match ? match[1] : normalized;
+  const cmdToken = match ? match[1] : normalized;
+  const hasBang = cmdToken.endsWith("!");
+  const cmd = hasBang ? cmdToken.slice(0, -1) : cmdToken;
   const arg = match ? match[2].trim() : "";
 
   switch (cmd) {
@@ -64,6 +66,15 @@ function parseCommand(raw) {
       return { type: INTENTS.CLOSE_BUFFER, id: bufferId };
     }
 
+    case "q":
+    case "wq":
+      return { type: INTENTS.CLOSE_BUFFER };
+
+    case "breopen":
+    case "brestore":
+    case "reopen":
+      return { type: INTENTS.REOPEN_BUFFER };
+
     case "bcloseleft":
       return { type: INTENTS.CLOSE_LEFT_BUFFERS };
 
@@ -103,6 +114,10 @@ function parseCommand(raw) {
     case "config":
       return { type: INTENTS.OPEN_SETTINGS_BUFFER };
 
+    case "notifications":
+    case "notifs":
+      return { type: INTENTS.OPEN_NOTIFICATIONS_BUFFER };
+
     case "theme": {
       const mode = arg.toLowerCase();
       if (!["dark", "light", "auto", "custom"].includes(mode)) {
@@ -111,9 +126,69 @@ function parseCommand(raw) {
       return { type: INTENTS.SET_THEME_MODE, mode };
     }
 
+    case "lang": {
+      const argToken = arg.toLowerCase();
+      const argHasBang = argToken.endsWith("!");
+      const language = argHasBang ? argToken.slice(0, -1) : argToken;
+      const reload = hasBang || argHasBang;
+      if (!["en", "fr"].includes(language)) {
+        return { type: INTENTS.UNKNOWN_COMMAND, raw };
+      }
+      return {
+        type: INTENTS.SET_BROWSER_LANGUAGE,
+        language,
+        reload,
+      };
+    }
+
+    case "copy-selection": {
+      const option = arg.toLowerCase();
+      if (!option || option === "toggle") {
+        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD };
+      }
+
+      if (["on", "enable", "enabled", "true", "1"].includes(option)) {
+        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD, enabled: true };
+      }
+
+      if (["off", "disable", "disabled", "false", "0"].includes(option)) {
+        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD, enabled: false };
+      }
+
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
     case "focus-context":
     case "context":
       return { type: INTENTS.TOGGLE_FOCUS_CONTEXT };
+
+    case "history": {
+      const option = arg.toLowerCase();
+      if (!option || option === "show") return { type: INTENTS.HISTORY_SHOW };
+      if (option === "hide") return { type: INTENTS.HISTORY_HIDE };
+      if (option === "toggle") return { type: INTENTS.HISTORY_TOGGLE };
+      if (option === "focus") return { type: INTENTS.HISTORY_TOGGLE_FOCUS };
+      if (option === "delete-all") return { type: INTENTS.HISTORY_DELETE_ALL };
+      if (option === "delete-today") return { type: INTENTS.HISTORY_DELETE_TODAY };
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
+    case "bookmarks": {
+      const option = arg.toLowerCase();
+      if (!option || option === "show") return { type: INTENTS.BOOKMARKS_SHOW };
+      if (option === "hide") return { type: INTENTS.BOOKMARKS_HIDE };
+      if (option === "toggle") return { type: INTENTS.BOOKMARKS_TOGGLE };
+      if (option === "focus") return { type: INTENTS.BOOKMARKS_TOGGLE_FOCUS };
+      if (option === "delete-all") return { type: INTENTS.BOOKMARKS_DELETE_ALL };
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
+    case "session": {
+      const option = arg.toLowerCase();
+      if (option === "save") return { type: INTENTS.SESSION_SAVE };
+      if (option === "restore") return { type: INTENTS.SESSION_RESTORE };
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
 
     case "duck":
       return {

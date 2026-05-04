@@ -1,9 +1,11 @@
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain, clipboard, nativeTheme } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard, nativeTheme, screen, session } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
+require("dotenv").config();
+
 const configService = require("./core/config/service");
 const uiShell = require("./ui/shell/manager");
 const { dispatch } = require("./core/dispatcher");
@@ -17,9 +19,128 @@ const {
   toCssVars,
 } = require("./ui/theme");
 const { resolveInputTarget } = require("./core/resolver");
+const historyService = require("./core/history/service");
+const historyPanel = require("./core/history/panel");
+const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
+const sessionService = require("./core/session/service");
+const notificationsService = require("./core/notifications/service");
+const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
+let browserLanguageHooksRegistered = false;
+
+function isFiniteInteger(value) {
+  return Number.isFinite(value) && Number.isInteger(value);
+}
+
+function isBoundsVisibleOnAnyDisplay(bounds) {
+  if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) {
+    return false;
+  }
+
+  const displays = screen.getAllDisplays();
+  return displays.some((display) => {
+    const area = display.workArea;
+    const intersectsHorizontally = bounds.x < area.x + area.width && bounds.x + bounds.width > area.x;
+    const intersectsVertically =
+      bounds.y < area.y + area.height && bounds.y + bounds.height > area.y;
+    return intersectsHorizontally && intersectsVertically;
+  });
+}
+
+function mapBrowserLanguageToAcceptLanguage(languageCode) {
+  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
+  if (normalized === "fr") {
+    return "fr-FR,fr;q=0.9,en;q=0.8";
+  }
+  return "en-US,en;q=0.9";
+}
+
+function isGoogleHost(hostname) {
+  if (typeof hostname !== "string") {
+    return false;
+  }
+
+  const normalized = hostname.trim().toLowerCase();
+  return normalized === "google.com" || normalized.endsWith(".google.com") || normalized.includes(".google.");
+}
+
+function mapBrowserLanguageToGoogleLocale(languageCode) {
+  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
+  if (normalized === "fr") {
+    return { hl: "fr", gl: "FR", lr: "lang_fr" };
+  }
+  return { hl: "en", gl: "US", lr: "lang_en" };
+}
+
+function applyGoogleLocaleHint(rawUrl, preferredLanguage) {
+  if (typeof rawUrl !== "string" || !rawUrl.length) {
+    return rawUrl;
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    return rawUrl;
+  }
+
+  if ((parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") || !isGoogleHost(parsedUrl.hostname)) {
+    return rawUrl;
+  }
+
+  const locale = mapBrowserLanguageToGoogleLocale(preferredLanguage);
+  const currentHl = parsedUrl.searchParams.get("hl");
+  const currentGl = parsedUrl.searchParams.get("gl");
+  const currentLr = parsedUrl.searchParams.get("lr");
+  const nextHl = locale.hl;
+  const nextGl = locale.gl;
+  const nextLr = locale.lr;
+
+  if (currentHl === nextHl && currentGl === nextGl && currentLr === nextLr) {
+    return rawUrl;
+  }
+
+  parsedUrl.searchParams.set("hl", nextHl);
+  parsedUrl.searchParams.set("gl", nextGl);
+  parsedUrl.searchParams.set("lr", nextLr);
+  return parsedUrl.toString();
+}
+
+function applyBrowserLanguagePreference() {
+  if (browserLanguageHooksRegistered) {
+    return;
+  }
+
+  session.defaultSession.webRequest.onBeforeRequest({ urls: ["*://*/*"] }, (details, callback) => {
+    if (details.resourceType !== "mainFrame") {
+      callback({});
+      return;
+    }
+
+    const preferredLanguage = configService.getConfigValue("browser.language", "en");
+    const redirectURL = applyGoogleLocaleHint(details.url, preferredLanguage);
+    if (redirectURL && redirectURL !== details.url) {
+      callback({ redirectURL });
+      return;
+    }
+
+    callback({});
+  });
+
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["*://*/*"] }, (details, callback) => {
+    const preferredLanguage = configService.getConfigValue("browser.language", "en");
+    const acceptLanguage = mapBrowserLanguageToAcceptLanguage(preferredLanguage);
+    const requestHeaders = {
+      ...(details.requestHeaders || {}),
+      "Accept-Language": acceptLanguage,
+    };
+    callback({ requestHeaders });
+  });
+
+  browserLanguageHooksRegistered = true;
+}
 
 function resolveCurrentTheme() {
   const themeConfig = configService.getConfigValue("global.theme", {});
@@ -133,6 +254,32 @@ function normalizeInput(input) {
 
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
+  const isPrimaryMod =
+    process.platform === "darwin"
+      ? normalized.meta && !normalized.ctrl
+      : normalized.ctrl && !normalized.meta;
+
+  if (bookmarkInsertScopeModal.isActive()) {
+    const wasActive = true;
+    const consumed = bookmarkInsertScopeModal.handleInput(normalized);
+    if (consumed) {
+      event.preventDefault();
+      if (wasActive && !bookmarkInsertScopeModal.isActive() && historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      updateTablineOptions();
+      return;
+    }
+  }
+
+  if (historyPanel.handleFocusedInput(normalized)) {
+    event.preventDefault();
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    updateTablineOptions();
+    return;
+  }
 
   const isUrllinePasteShortcut =
     state.urllineEditing &&
@@ -184,11 +331,42 @@ function handleRawInput(event, input) {
     return;
   }
 
+  const isBufferShortcut =
+    normalized.type === "keyDown" &&
+    isPrimaryMod &&
+    !normalized.alt &&
+    (normalized.key === "t" || normalized.key === "T");
+
+  if (isBufferShortcut) {
+    event.preventDefault();
+    if (normalized.key === "T" || normalized.shift) {
+      dispatch(win, { type: INTENTS.REOPEN_BUFFER }, state);
+    } else {
+      dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
+    }
+    return;
+  }
+
   if (shouldPreventDefault(normalized)) {
     event.preventDefault();
   }
 
   handleInput(win, normalized);
+}
+
+function persistSessionSnapshot() {
+  try {
+    const snapshot = buffers.exportSessionSnapshot();
+    sessionService.writeSessionSnapshot(snapshot);
+  } catch (error) {
+    notificationsService.notify({
+      severity: "error",
+      code: "session_snapshot_persist_failed",
+      message: "Failed to persist session snapshot",
+      source: "main",
+      context: { error: error?.message || String(error) },
+    });
+  }
 }
 
 function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
@@ -220,23 +398,27 @@ function findNormalMappingsForAction(normalMap, targetAction) {
   }
 
   const hits = [];
-  for (const [keys, node] of Object.entries(normalMap)) {
-    if (node && node.action === targetAction) {
+  for (const [keys, actionId] of Object.entries(normalMap)) {
+    if (actionId === targetAction) {
       hits.push(keys);
     }
   }
   return hits;
 }
 
-function findCtrlMappingsForAction(ctrlMap, targetAction) {
-  if (!ctrlMap || typeof ctrlMap !== "object") {
+function findModMappingsForAction(modMap, targetAction) {
+  if (!modMap || typeof modMap !== "object") {
     return [];
   }
 
+  const modLabel = "Ctrl";
   const hits = [];
-  for (const [key, node] of Object.entries(ctrlMap)) {
-    if (node && node.action === targetAction) {
-      hits.push(`Ctrl+${String(key).toUpperCase()}`);
+  for (const [key, actionId] of Object.entries(modMap)) {
+    if (actionId === targetAction) {
+      const keyText = String(key);
+      const withShift = keyText.length === 1 && keyText !== keyText.toLowerCase();
+      const displayKey = keyText.length === 1 ? keyText.toUpperCase() : keyText;
+      hits.push(withShift ? `${modLabel}+Shift+${displayKey}` : `${modLabel}+${displayKey}`);
     }
   }
   return hits;
@@ -249,19 +431,17 @@ function formatLeaderSequence(seq = []) {
 }
 
 function findShortcutLabelForAction(actionId) {
-  const normal = configService.getConfigValue("keymap.normal", {});
-  const ctrl = configService.getConfigValue("keymap.ctrl", {});
   const leader = configService.getConfigValue("keymap.leader", {});
 
   const labels = [];
-  const normalHits = findNormalMappingsForAction(normal, actionId);
+  const normalHits = findNormalMappingsForAction(NORMAL_KEY_ACTIONS, actionId);
   if (normalHits.length > 0) {
     labels.push(normalHits[0]);
   }
 
-  const ctrlHits = findCtrlMappingsForAction(ctrl, actionId);
-  if (ctrlHits.length > 0) {
-    labels.push(ctrlHits[0]);
+  const modHits = findModMappingsForAction(MOD_KEY_ACTIONS, actionId);
+  if (modHits.length > 0) {
+    labels.push(modHits[0]);
   }
 
   const leaderHits = findLeaderSequencesForAction(leader, actionId);
@@ -281,6 +461,7 @@ function updateTablineActions() {
   const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
   const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
   const newBufferShortcut = findShortcutLabelForAction("new_buffer");
+  const historyToggleShortcut = findShortcutLabelForAction("history_toggle");
   const newTabShortcut = [newBufferShortcut, ":tab", ":tabnew", ":tabe"]
     .filter((value, index, list) => value && list.indexOf(value) === index)
     .join(" | ");
@@ -296,12 +477,18 @@ function updateTablineActions() {
       icon: "󰒓",
       shortcutLabel: `${systemShortcut} | ${vimShortcut}`,
     },
+    history: {
+      label: "History",
+      icon: "󰋚",
+      shortcutLabel: historyToggleShortcut || "<leader> e | :history show",
+    },
   });
 }
 
 function updateTablineOptions() {
   uiShell.setTablineOptions({
     showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
+    dimActiveBuffer: historyPanel.isFocused(),
   });
 }
 
@@ -347,6 +534,10 @@ function updateUrllineActions() {
 }
 
 function getStatuslineModeLabel() {
+  if (historyPanel.isVisible() && historyPanel.isFocused()) {
+    return "TREE:NORMAL";
+  }
+
   const active = buffers.getActive();
   if (!active || !active.isEditable) {
     return state.mode;
@@ -392,6 +583,23 @@ function normalizeUrllineText(value) {
     return "";
   }
   return value.replace(/\r\n|\r|\n/g, " ");
+}
+
+function normalizeHistoryUrl(rawUrl) {
+  if (typeof rawUrl !== "string") return "";
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    parsed.hash = "";
+    const normalized = parsed.toString();
+    if (normalized.endsWith("/") && parsed.pathname === "/") {
+      return normalized.slice(0, -1);
+    }
+    return normalized;
+  } catch {
+    return trimmed;
+  }
 }
 
 function insertUrllineText(text) {
@@ -564,6 +772,12 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "tabline:open-history") {
+      dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
     if (type === "editor:toggle-context") {
       dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
@@ -650,6 +864,10 @@ function registerUiShellEvents() {
 
     if (type === "tab:activate") {
       buffers.switchTo(bufferId);
+      historyPanel.unfocus();
+      buffers.focusActive();
+      updateTablineOptions();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
       return;
     }
 
@@ -667,7 +885,11 @@ function registerUiShellEvents() {
     const { type, payload } = message;
 
     if (type === "settings:get") {
-      const configPath = configService.getConfigPath();
+      const activeBuffer = buffers.getActive();
+      const configPath =
+        activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+          ? activeBuffer.editableFilePath
+          : configService.getConfigPath();
       try {
         const content = fs.readFileSync(configPath, "utf8");
         const themeContext = resolveCurrentTheme();
@@ -688,12 +910,28 @@ function registerUiShellEvents() {
     }
 
     if (type === "settings:save") {
-      const configPath = configService.getConfigPath();
+      const activeBuffer = buffers.getActive();
+      const configPath =
+        activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+          ? activeBuffer.editableFilePath
+          : configService.getConfigPath();
       try {
         fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
+        if (configPath !== configService.getConfigPath()) {
+          return { ok: true };
+        }
         const config = configService.reloadConfig();
         state.applyConfig(config);
+        applyBrowserLanguagePreference();
         buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+        historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+        historyPanel.setTreeScrollContextLines(
+          configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+        );
+        historyPanel.setTreeDeleteOperatorTimeoutMs(
+          configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+        );
+        historyPanel.layout();
         buffers.layoutViews();
         const themeContext = resolveCurrentTheme();
         applyTheme(themeContext, { broadcast: true });
@@ -749,13 +987,19 @@ function bindInputToActiveBuffer() {
 function createWindow() {
   const config = configService.initConfig();
   state.applyConfig(config);
+  applyBrowserLanguagePreference();
   const chromiumPreferences = configService.getConfigValue("browser.chromium.web_preferences", {});
+  const initialWidth = configService.getConfigValue("global.window.width", 1200);
+  const initialHeight = configService.getConfigValue("global.window.height", 800);
+  const initialX = configService.getConfigValue("global.window.x", null);
+  const initialY = configService.getConfigValue("global.window.y", null);
+  const initialIsMaximized = configService.getConfigValue("global.window.is_maximized", false);
 
   const isMac = process.platform === "darwin";
 
   const windowOptions = {
-    width: 1200,
-    height: 800,
+    width: initialWidth,
+    height: initialHeight,
     webPreferences: {
       contextIsolation:
         typeof chromiumPreferences.context_isolation === "boolean"
@@ -775,6 +1019,20 @@ function createWindow() {
     windowOptions.frame = false;
   }
 
+  const hasConfiguredPosition = isFiniteInteger(initialX) && isFiniteInteger(initialY);
+  if (hasConfiguredPosition) {
+    const candidateBounds = {
+      x: initialX,
+      y: initialY,
+      width: initialWidth,
+      height: initialHeight,
+    };
+    if (isBoundsVisibleOnAnyDisplay(candidateBounds)) {
+      windowOptions.x = initialX;
+      windowOptions.y = initialY;
+    }
+  }
+
   win = new BrowserWindow(windowOptions);
 
   win.setMaxListeners(0);
@@ -791,7 +1049,28 @@ function createWindow() {
 
   buffers.init(win);
   buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+  historyPanel.init({ window: win, buffers, state });
+  historyPanel.setOnFocusChange(() => {
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    updateTablineOptions();
+  });
+  historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+  historyPanel.setTreeScrollContextLines(
+    configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+  );
+  historyPanel.setTreeDeleteOperatorTimeoutMs(
+    configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+  );
+  const historyPanelWebContents = historyPanel.getWebContents();
+  if (historyPanelWebContents) {
+    historyPanelWebContents.on("before-input-event", (event, input) => {
+      handleRawInput(event, input);
+    });
+  }
   uiShell.init(win);
+  notificationsService.setToastHandler((toast) => {
+    uiShell.showNotificationToast(toast);
+  });
   applyTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
     platform: process.platform,
@@ -820,12 +1099,66 @@ function createWindow() {
   win.on("unmaximize", syncWindowChrome);
   win.on("enter-full-screen", syncWindowChrome);
   win.on("leave-full-screen", syncWindowChrome);
-  win.on("resize", () => {
-    uiShell.updateSplitDivider(buffers.getSplitStatus());
-    updateUrllineRender();
+
+  let persistWindowBoundsTimer = null;
+  const persistWindowBoundsDebounced = () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer);
+    }
+    persistWindowBoundsTimer = setTimeout(() => {
+      if (!win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) {
+        return;
+      }
+      const { width, height, x, y } = win.getBounds();
+      configService.updateWindowState({ width, height, x, y });
+    }, 300);
+  };
+
+  const flushWindowBoundsPersistence = () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer);
+      persistWindowBoundsTimer = null;
+    }
+    if (!win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) {
+      return;
+    }
+    const { width, height, x, y } = win.getBounds();
+    configService.updateWindowState({ width, height, x, y });
+  };
+
+  const persistWindowMaximizedState = (isMaximized) => {
+    configService.updateWindowState({ is_maximized: Boolean(isMaximized) });
+  };
+
+  win.on("maximize", () => {
+    persistWindowMaximizedState(true);
   });
 
+  win.on("unmaximize", () => {
+    persistWindowMaximizedState(false);
+    persistWindowBoundsDebounced();
+  });
+
+  win.on("resize", () => {
+    historyPanel.layout();
+    uiShell.updateSplitDivider(buffers.getSplitStatus());
+    updateUrllineRender();
+    persistWindowBoundsDebounced();
+  });
+
+  win.on("move", () => {
+    persistWindowBoundsDebounced();
+  });
+
+  if (initialIsMaximized) {
+    win.maximize();
+  }
+
   let statusPollInFlight = false;
+  let lastRecordedVisit = {
+    url: "",
+    atMs: 0,
+  };
 
   const statusPoller = setInterval(() => {
     const activeBuffer = buffers.getActive();
@@ -871,7 +1204,16 @@ function createWindow() {
       });
   }, 200);
 
+  win.on("close", () => {
+    persistSessionSnapshot();
+    flushWindowBoundsPersistence();
+  });
+
   win.on("closed", () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer);
+      persistWindowBoundsTimer = null;
+    }
     clearInterval(statusPoller);
   });
 
@@ -904,6 +1246,54 @@ function createWindow() {
       uiShell.syncOverlayStack();
     } else if (uiShell.isCommandVisible()) {
       uiShell.keepCommandOverlayAboveContentViews();
+    }
+
+    if (change.kind === "pane-interaction" && historyPanel.isFocused()) {
+      historyPanel.unfocus();
+      updateTablineOptions();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    }
+
+    if (change.kind === "visit" && change.url) {
+      const normalizedUrl = normalizeHistoryUrl(change.url);
+      if (!normalizedUrl) {
+        return;
+      }
+
+      const nowMs = Number.isFinite(change.timestampMs) ? change.timestampMs : Date.now();
+      if (
+        lastRecordedVisit.url === normalizedUrl &&
+        nowMs - lastRecordedVisit.atMs <= 1200
+      ) {
+        return;
+      }
+
+      lastRecordedVisit = {
+        url: normalizedUrl,
+        atMs: nowMs,
+      };
+
+      historyService.recordVisit({
+        url: normalizedUrl,
+        title: change.title,
+        timestampMs: nowMs,
+      });
+      if (historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+    }
+
+    if (change.kind === "title-updated" && change.url && change.title) {
+      const normalizedUrl = normalizeHistoryUrl(change.url);
+      if (!normalizedUrl) {
+        return;
+      }
+      historyService.updateLatestTitleForUrl(normalizedUrl, change.title);
+      if (historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
     }
   });
 

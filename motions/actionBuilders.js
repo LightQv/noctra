@@ -1,9 +1,16 @@
 const { INTENTS } = require("../core/intents");
 const { cloneIntent } = require("./repeat");
+const { isBookmarkableBuffer } = require("../core/bookmarks/eligibility");
 
 function createActionBuilder(actionId, buildIntent) {
   const builder = (state, count) => buildIntent(state, count);
   builder.actionId = actionId;
+  return builder;
+}
+
+function setAvailability(builder, predicate) {
+  if (!builder || typeof predicate !== "function") return builder;
+  builder.isAvailable = predicate;
   return builder;
 }
 
@@ -61,9 +68,35 @@ const ACTION_BUILDERS = {
   focus_split_left: createActionBuilder("focus_split_left", () => ({ type: INTENTS.FOCUS_SPLIT_LEFT })),
   focus_split_right: createActionBuilder("focus_split_right", () => ({ type: INTENTS.FOCUS_SPLIT_RIGHT })),
   open_settings: createActionBuilder("open_settings", () => ({ type: INTENTS.OPEN_SETTINGS_BUFFER })),
+  open_notifications: createActionBuilder("open_notifications", () => ({
+    type: INTENTS.OPEN_NOTIFICATIONS_BUFFER,
+  })),
   toggle_focus_context: createActionBuilder("toggle_focus_context", () => ({ type: INTENTS.TOGGLE_FOCUS_CONTEXT })),
   toggle_urlline: createActionBuilder("toggle_urlline", () => ({ type: INTENTS.TOGGLE_URLLINE })),
+  toggle_copy_selection_to_clipboard: createActionBuilder(
+    "toggle_copy_selection_to_clipboard",
+    () => ({ type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD }),
+  ),
+  history_toggle: createActionBuilder("history_toggle", () => ({ type: INTENTS.HISTORY_TOGGLE })),
+  history_toggle_focus: createActionBuilder("history_toggle_focus", () => ({ type: INTENTS.HISTORY_TOGGLE_FOCUS })),
+  bookmarks_toggle: createActionBuilder("bookmarks_toggle", () => ({ type: INTENTS.BOOKMARKS_TOGGLE })),
+  bookmarks_toggle_focus: createActionBuilder("bookmarks_toggle_focus", () => ({ type: INTENTS.BOOKMARKS_TOGGLE_FOCUS })),
+  bookmarks_add_root_active: setAvailability(
+    createActionBuilder("bookmarks_add_root_active", () => ({
+      type: INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE,
+    })),
+    (context = {}) => isBookmarkableBuffer(context.activeBuffer),
+  ),
+  bookmarks_add_scoped_prompt: setAvailability(
+    createActionBuilder("bookmarks_add_scoped_prompt", () => ({
+      type: INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT,
+    })),
+    (context = {}) => isBookmarkableBuffer(context.activeBuffer),
+  ),
+  session_save: createActionBuilder("session_save", () => ({ type: INTENTS.SESSION_SAVE })),
+  session_restore: createActionBuilder("session_restore", () => ({ type: INTENTS.SESSION_RESTORE })),
   close_buffer: createActionBuilder("close_buffer", () => ({ type: INTENTS.CLOSE_BUFFER })),
+  reopen_buffer: createActionBuilder("reopen_buffer", () => ({ type: INTENTS.REOPEN_BUFFER })),
   close_focused: createActionBuilder("close_focused", () => ({ type: INTENTS.CLOSE_FOCUSED })),
   close_left_buffers: createActionBuilder("close_left_buffers", () => ({ type: INTENTS.CLOSE_LEFT_BUFFERS })),
   close_right_buffers: createActionBuilder("close_right_buffers", () => ({ type: INTENTS.CLOSE_RIGHT_BUFFERS })),

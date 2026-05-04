@@ -1,4 +1,4 @@
-const { BrowserView, nativeTheme } = require("electron");
+const { BrowserView, nativeTheme, clipboard } = require("electron");
 const path = require("path");
 const Buffer = require("./buffers");
 const {
@@ -7,6 +7,7 @@ const {
   UI_SHELL_STATUSLINE_HEIGHT,
 } = require("../ui/constants");
 const { getConfigValue } = require("../core/config/service");
+const notificationsService = require("../core/notifications/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
 const { resolveTheme, resolveThemeMode } = require("../ui/theme");
 
@@ -32,6 +33,10 @@ class BufferManager {
       offsetPx: 0,
     };
     this.urllineVisible = false;
+    this.leftInsetPx = 0;
+    this.closedBuffers = [];
+    this.maxClosedBuffers = 50;
+    this.lastSelectionCopyByWebContentsId = new Map();
   }
 
   init(windowRef) {
@@ -54,6 +59,26 @@ class BufferManager {
     buffer.setContentUiOptions(this.contentUiOptions);
     buffer.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });
+    });
+    buffer.on("visit", (event = {}) => {
+      this.notify({
+        kind: "visit",
+        activeChanged: false,
+        sourceBufferId: buffer.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
+    });
+    buffer.on("title-updated", (event = {}) => {
+      this.notify({
+        kind: "title-updated",
+        activeChanged: false,
+        sourceBufferId: buffer.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
     });
     this.attachPaneTracking(buffer, () => this.resolvePaneForBuffer(buffer));
 
@@ -84,7 +109,13 @@ class BufferManager {
     );
 
     if (openingBufferSpec.warning) {
-      console.warn(openingBufferSpec.warning);
+      notificationsService.notify({
+        severity: "warning",
+        code: "opening_buffer_warning",
+        message: String(openingBufferSpec.warning),
+        source: "browser.manager",
+        persist: false,
+      });
     }
 
     if (openingBufferSpec.kind === "virtual") {
@@ -266,6 +297,7 @@ class BufferManager {
     const index = this.buffers.findIndex((buffer) => buffer === target);
     if (index === -1) return null;
 
+    this.rememberClosedBuffer(target, index);
     this.buffers.splice(index, 1);
 
     if (this.window && this.window.getBrowserViews().includes(target.view)) {
@@ -300,6 +332,87 @@ class BufferManager {
     return this.getActive();
   }
 
+  rememberClosedBuffer(buffer, index) {
+    if (!buffer) {
+      return;
+    }
+
+    const snapshot = {
+      url: typeof buffer.url === "string" ? buffer.url : "about:blank",
+      kind: typeof buffer.kind === "string" ? buffer.kind : "web",
+      title: typeof buffer.title === "string" ? buffer.title : "[No title]",
+      virtualUrl: typeof buffer.virtualUrl === "string" ? buffer.virtualUrl : "",
+      index: Number.isInteger(index) ? index : this.buffers.findIndex((item) => item === buffer),
+    };
+
+    if (snapshot.kind !== "web") {
+      return;
+    }
+
+    this.closedBuffers.push(snapshot);
+    if (this.closedBuffers.length > this.maxClosedBuffers) {
+      this.closedBuffers.splice(0, this.closedBuffers.length - this.maxClosedBuffers);
+    }
+  }
+
+  reopenLastClosed() {
+    if (this.closedBuffers.length === 0 || !this.window) {
+      return null;
+    }
+
+    const snapshot = this.closedBuffers.pop();
+    if (!snapshot || typeof snapshot.url !== "string" || !snapshot.url.trim()) {
+      return null;
+    }
+
+    const buffer = new Buffer(0, {
+      kind: snapshot.kind || "web",
+      activate: false,
+      preloadPath: path.join(__dirname, "..", "ui", "shell", "preload.js"),
+    });
+    buffer.setContentUiOptions(this.contentUiOptions);
+    buffer.on("updated", (event = {}) => {
+      this.notify({ kind: event.kind || "metadata", activeChanged: false });
+    });
+    buffer.on("visit", (event = {}) => {
+      this.notify({
+        kind: "visit",
+        activeChanged: false,
+        sourceBufferId: buffer.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
+    });
+    buffer.on("title-updated", (event = {}) => {
+      this.notify({
+        kind: "title-updated",
+        activeChanged: false,
+        sourceBufferId: buffer.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
+    });
+    this.attachPaneTracking(buffer, () => this.resolvePaneForBuffer(buffer));
+
+    const insertIndex = Number.isInteger(snapshot.index)
+      ? Math.max(0, Math.min(snapshot.index, this.buffers.length))
+      : this.buffers.length;
+
+    this.buffers.splice(insertIndex, 0, buffer);
+    this.window.addBrowserView(buffer.view);
+    this.reindexBuffers();
+    this.activeIndex = insertIndex;
+    this.focusedPane = "left";
+    this.reconcileSplitSources();
+    this.layoutViews();
+    buffer.load(snapshot.url);
+    this.focusActive();
+    this.notify({ kind: "structure", activeChanged: true });
+    return buffer;
+  }
+
   closeLeftOfActive() {
     const leftBuffer = this.getLeftBuffer();
     if (!leftBuffer) return null;
@@ -307,6 +420,7 @@ class BufferManager {
 
     const removed = this.buffers.splice(0, this.activeIndex);
     for (const buffer of removed) {
+      this.rememberClosedBuffer(buffer, 0);
       if (this.window && this.window.getBrowserViews().includes(buffer.view)) {
         this.window.removeBrowserView(buffer.view);
       }
@@ -332,6 +446,7 @@ class BufferManager {
 
     const removed = this.buffers.splice(this.activeIndex + 1);
     for (const buffer of removed) {
+      this.rememberClosedBuffer(buffer, this.activeIndex + 1);
       if (this.window && this.window.getBrowserViews().includes(buffer.view)) {
         this.window.removeBrowserView(buffer.view);
       }
@@ -491,6 +606,14 @@ class BufferManager {
     return this.urllineVisible;
   }
 
+  setLeftInset(px = 0) {
+    const next = Number.isFinite(px) ? Math.max(0, Math.floor(px)) : 0;
+    if (this.leftInsetPx === next) return;
+    this.leftInsetPx = next;
+    this.layoutViews();
+    this.notify({ kind: "layout", activeChanged: false });
+  }
+
   getRightPaneBuffer() {
     if (!this.split.enabled || this.split.mode !== "regular") {
       return null;
@@ -553,14 +676,16 @@ class BufferManager {
     const rightRegular = this.split.mode === "regular" ? this.split.rightPaneBuffer : null;
     const showSplit = this.split.enabled && (rightSource || rightRegular || this.split.mode === "devtools");
     const dividerWidth = showSplit && getConfigValue("global.split.divider.enabled", true) ? 1 : 0;
-    const availableSplitWidth = Math.max(bounds.width - dividerWidth, 2);
+    const contentX = Math.max(0, this.leftInsetPx);
+    const contentWidth = Math.max(bounds.width - contentX, 2);
+    const availableSplitWidth = Math.max(contentWidth - dividerWidth, 2);
     const rightWidth = showSplit
       ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
       : 0;
     const leftWidth = showSplit
       ? Math.max(availableSplitWidth - rightWidth, 1)
-      : bounds.width;
-    const rightX = leftWidth + dividerWidth;
+      : contentWidth;
+    const rightX = contentX + leftWidth + dividerWidth;
 
     const useMirroredRight =
       showSplit &&
@@ -607,6 +732,98 @@ class BufferManager {
     return this.buffers.find((buffer) => buffer.kind === kind) || null;
   }
 
+  getBuffers() {
+    return this.buffers.slice();
+  }
+
+  isSessionRestorableBuffer(buffer) {
+    if (!buffer || buffer.kind !== "web") {
+      return false;
+    }
+
+    const url = typeof buffer.url === "string" ? buffer.url.trim() : "";
+    if (!url || url === "about:blank") {
+      return false;
+    }
+
+    if (url.startsWith("noctra://") || url.startsWith("data:")) {
+      return false;
+    }
+
+    return true;
+  }
+
+  exportSessionSnapshot() {
+    const entries = this.buffers
+      .filter((buffer) => this.isSessionRestorableBuffer(buffer))
+      .map((buffer) => ({
+        url: buffer.url,
+      }));
+
+    const active = this.getFocusedMainBuffer() || this.getLeftBuffer();
+    const activeRestorableIndex = this.buffers
+      .filter((buffer) => this.isSessionRestorableBuffer(buffer))
+      .findIndex((buffer) => buffer === active);
+
+    return {
+      version: 1,
+      savedAtMs: Date.now(),
+      activeIndex: activeRestorableIndex >= 0 ? activeRestorableIndex : 0,
+      buffers: entries,
+    };
+  }
+
+  restoreSessionSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") {
+      return false;
+    }
+
+    const entries = Array.isArray(snapshot.buffers)
+      ? snapshot.buffers
+          .map((entry) => {
+            const url = typeof entry?.url === "string" ? entry.url.trim() : "";
+            if (!url || url === "about:blank" || url.startsWith("noctra://") || url.startsWith("data:")) {
+              return null;
+            }
+            return { url };
+          })
+          .filter(Boolean)
+      : [];
+
+    if (entries.length === 0 || !this.window) {
+      return false;
+    }
+
+    if (this.split.enabled) {
+      this.closeRightSplit();
+    }
+
+    for (const buffer of this.buffers) {
+      if (this.window.getBrowserViews().includes(buffer.view)) {
+        this.window.removeBrowserView(buffer.view);
+      }
+      buffer.destroy();
+    }
+
+    this.buffers = [];
+    this.activeIndex = -1;
+    this.closedBuffers = [];
+    this.reindexBuffers();
+
+    for (const entry of entries) {
+      this.create(entry.url, { activate: false });
+    }
+
+    const rawActiveIndex = Number.isInteger(snapshot.activeIndex) ? snapshot.activeIndex : 0;
+    const safeActiveIndex = Math.max(0, Math.min(rawActiveIndex, this.buffers.length - 1));
+    this.activeIndex = safeActiveIndex;
+    this.focusedPane = "left";
+    this.layoutViews();
+    this.focusActive();
+    this.notify({ kind: "structure", activeChanged: true });
+    return true;
+  }
+
   getAllWebContents() {
     const items = [];
 
@@ -651,6 +868,26 @@ class BufferManager {
     rightPane.setContentUiOptions(this.contentUiOptions);
     rightPane.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });
+    });
+    rightPane.on("visit", (event = {}) => {
+      this.notify({
+        kind: "visit",
+        activeChanged: false,
+        sourceBufferId: rightPane.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
+    });
+    rightPane.on("title-updated", (event = {}) => {
+      this.notify({
+        kind: "title-updated",
+        activeChanged: false,
+        sourceBufferId: rightPane.id,
+        url: event.url,
+        title: event.title,
+        timestampMs: event.timestampMs,
+      });
     });
     this.attachPaneTracking(rightPane, () => "right");
 
@@ -813,17 +1050,19 @@ class BufferManager {
 
     const splitDividerEnabled = getConfigValue("global.split.divider.enabled", true);
     const dividerWidth = showSplit && splitDividerEnabled ? 1 : 0;
-    const availableSplitWidth = Math.max(bounds.width - dividerWidth, 2);
+    const contentX = Math.max(0, this.leftInsetPx);
+    const contentWidth = Math.max(bounds.width - contentX, 2);
+    const availableSplitWidth = Math.max(contentWidth - dividerWidth, 2);
     const rightWidth = showSplit
       ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
       : 0;
     const leftWidth = showSplit
       ? Math.max(availableSplitWidth - rightWidth, 1)
-      : bounds.width;
-    const rightX = leftWidth + dividerWidth;
+      : contentWidth;
+    const rightX = contentX + leftWidth + dividerWidth;
 
     this.splitDivider.visible = showSplit && dividerWidth > 0;
-    this.splitDivider.offsetPx = this.splitDivider.visible ? leftWidth : 0;
+    this.splitDivider.offsetPx = this.splitDivider.visible ? contentX + leftWidth : 0;
 
     for (const buffer of this.buffers) {
       if (buffer === left || buffer === visibleRightMainBuffer) {
@@ -831,7 +1070,7 @@ class BufferManager {
         buffer.view.setBounds(
           getPaneBounds(
             isRightBuffer,
-            isRightBuffer ? rightX : 0,
+            isRightBuffer ? rightX : contentX,
             isRightBuffer ? rightWidth : leftWidth,
           ),
         );
@@ -887,8 +1126,76 @@ class BufferManager {
   attachPaneTracking(buffer, paneResolver) {
     if (!buffer || !buffer.webContents) return;
 
+    const maybeCopySelectionToClipboard = async () => {
+      if (!buffer.webContents || buffer.webContents.isDestroyed() || buffer.isEditable) {
+        return;
+      }
+
+      const isEnabled = getConfigValue("browser.copy_selection_to_clipboard", false);
+      if (!isEnabled) {
+        return;
+      }
+
+      let selectedText = "";
+      try {
+        if (typeof buffer.webContents.getSelectedText === "function") {
+          selectedText = String(buffer.webContents.getSelectedText() || "").trim();
+        } else {
+          const resolvedSelection = await buffer.webContents.executeJavaScript(
+            `window.getSelection ? window.getSelection().toString() : ""`,
+          );
+          selectedText = String(resolvedSelection || "").trim();
+        }
+      } catch (error) {
+        notificationsService.notify({
+          severity: "warning",
+          code: "selection_copy_failed",
+          message: "Failed to read selected text",
+          source: "browser.manager",
+          context: { error: error?.message || String(error) },
+          persist: false,
+          toast: false,
+        });
+        return;
+      }
+
+      if (!selectedText) {
+        return;
+      }
+
+      const now = Date.now();
+      const webContentsId = buffer.webContents.id;
+      const previous = this.lastSelectionCopyByWebContentsId.get(webContentsId);
+      if (
+        previous &&
+        previous.text === selectedText &&
+        Number.isFinite(previous.timestampMs) &&
+        now - previous.timestampMs < 700
+      ) {
+        return;
+      }
+
+      clipboard.writeText(selectedText);
+      this.lastSelectionCopyByWebContentsId.set(webContentsId, {
+        text: selectedText,
+        timestampMs: now,
+      });
+      notificationsService.notify({
+        severity: "info",
+        code: "selection_copied",
+        message: "Selection copied",
+        source: "browser.manager",
+        persist: false,
+      });
+    };
+
     const onMouseEvent = (event, input) => {
-      if (!input || input.type !== "mouseDown") return;
+      if (!input || (input.type !== "mouseDown" && input.type !== "mouseUp")) return;
+      if (input.type === "mouseUp") {
+        setTimeout(() => {
+          maybeCopySelectionToClipboard().catch(() => {});
+        }, 0);
+      }
       this.handlePaneInteraction(paneResolver());
     };
 
@@ -898,6 +1205,9 @@ class BufferManager {
 
     buffer.webContents.on("before-mouse-event", onMouseEvent);
     buffer.webContents.on("focus", onFocus);
+    buffer.webContents.once("destroyed", () => {
+      this.lastSelectionCopyByWebContentsId.delete(buffer.webContents.id);
+    });
   }
 
   resolvePaneForBuffer(buffer) {
@@ -916,6 +1226,7 @@ class BufferManager {
 
   handlePaneInteraction(pane) {
     if (!this.split.enabled) {
+      this.notify({ kind: "pane-interaction", activeChanged: false, pane: "left" });
       return;
     }
 
@@ -928,11 +1239,14 @@ class BufferManager {
         this.focusedPane = "right";
         this.layoutViews();
         this.notify({ kind: "structure", activeChanged: true });
+      } else {
+        this.notify({ kind: "pane-interaction", activeChanged: false, pane: "right" });
       }
       return;
     }
 
     if (this.focusedPane === "left") {
+      this.notify({ kind: "pane-interaction", activeChanged: false, pane: "left" });
       return;
     }
 

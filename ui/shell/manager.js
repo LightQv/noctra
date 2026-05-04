@@ -310,6 +310,156 @@ const WHICHKEY_OVERLAY_HTML = `
 </html>
 `;
 
+const SELECTION_MODAL_OVERLAY_HTML = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      ${UI_FONT_FACE_CSS}
+
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
+      }
+
+      #selection-modal {
+        margin: 0;
+        min-width: 0;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        border-radius: 6px;
+        border: 1px solid var(--ui-accent, #89dceb);
+        background: var(--ui-bg-panel, #161b24);
+        color: var(--ui-text-bright, #f4f7ff);
+        display: flex;
+        flex-direction: column;
+        padding: 6px 8px 8px;
+        gap: 6px;
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+      }
+
+      #selection-modal-title {
+        align-self: center;
+        margin: 0 auto;
+        padding: 0 8px;
+        color: var(--ui-text-muted, #7d8aa3);
+        background: var(--ui-bg-panel, #161b24);
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      #selection-modal-prompt {
+        color: var(--ui-text-soft, #b6c7e8);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #selection-modal-url {
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #selection-modal-scope {
+        color: var(--ui-accent, #89dceb);
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #selection-modal-content {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .selection-modal-grid {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        column-gap: 12px;
+        align-items: end;
+      }
+
+      .selection-modal-col {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 0;
+        gap: 2px;
+      }
+
+      .selection-modal-item {
+        color: var(--ui-text-soft, #b6c7e8);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+        text-align: center;
+        border-radius: 4px;
+        padding: 2px 6px;
+      }
+
+      .selection-modal-item.selected {
+        background: color-mix(in srgb, var(--ui-bg-subtle, #1f2735) 55%, transparent);
+        color: var(--ui-text-bright, #f4f7ff);
+      }
+
+      .selection-modal-index {
+        color: var(--ui-accent, #89dceb);
+        font-size: 11px;
+        white-space: nowrap;
+        max-width: 150px;
+        text-align: center;
+      }
+
+      .selection-modal-empty {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 12px;
+      }
+
+      #selection-modal-footer {
+        display: flex;
+        justify-content: space-between;
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <fieldset id="selection-modal">
+      <legend id="selection-modal-title">Bookmark</legend>
+      <div id="selection-modal-prompt"></div>
+      <div id="selection-modal-url"></div>
+      <div id="selection-modal-scope"></div>
+      <div id="selection-modal-content"></div>
+      <div id="selection-modal-footer"></div>
+    </fieldset>
+  </body>
+</html>
+`;
+
 const STATUSLINE_OVERLAY_HTML = `
 <!doctype html>
 <html>
@@ -423,6 +573,10 @@ class UiShellManager {
     this.whichKeyHideTimer = null;
     this.whichKeyShowTimer = null;
     this.whichKeyPendingTimeoutMs = 1200;
+    this.selectionModalView = null;
+    this.selectionModalReady = false;
+    this.selectionModalVisible = false;
+    this.selectionModalModel = null;
     this.statuslineView = null;
     this.statuslineReady = false;
     this.statuslineMode = "NORMAL";
@@ -463,6 +617,7 @@ class UiShellManager {
     this.initializeShellHost();
     this.initializeCommandOverlayView();
     this.initializeWhichKeyOverlayView();
+    this.initializeSelectionModalView();
     this.initializeStatuslineView();
 
     this.window.on("resize", () => this.relayout());
@@ -536,6 +691,33 @@ class UiShellManager {
     this.relayout();
   }
 
+  initializeSelectionModalView() {
+    if (!this.window) return;
+
+    this.selectionModalView = new BrowserView({
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    this.selectionModalView.setAutoResize({ width: false, height: false });
+    this.selectionModalView.webContents.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(SELECTION_MODAL_OVERLAY_HTML)}`,
+    );
+
+    this.selectionModalView.webContents.on("did-finish-load", () => {
+      this.selectionModalReady = true;
+      this.applyThemeToWebContents(this.selectionModalView.webContents);
+      if (this.selectionModalModel) {
+        this.updateSelectionModal(this.selectionModalModel);
+      }
+    });
+
+    this.window.addBrowserView(this.selectionModalView);
+    this.relayout();
+  }
+
   initializeStatuslineView() {
     if (!this.window) return;
 
@@ -598,6 +780,9 @@ class UiShellManager {
     );
     this.applyThemeToWebContents(
       this.whichKeyOverlayView && this.whichKeyOverlayView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.selectionModalView && this.selectionModalView.webContents,
     );
     this.applyThemeToWebContents(
       this.statuslineView && this.statuslineView.webContents,
@@ -720,6 +905,7 @@ class UiShellManager {
       !this.window ||
       !this.commandOverlayView ||
       !this.whichKeyOverlayView ||
+      !this.selectionModalView ||
       !this.statuslineView
     )
       return;
@@ -762,6 +948,26 @@ class UiShellManager {
       height: whichHeight,
     });
 
+    const modalWidth = this.selectionModalVisible
+      ? Math.min(560, Math.max(bounds.width - 120, 320))
+      : 1;
+    const modalHeight = this.selectionModalVisible
+      ? this.computeSelectionModalHeight(this.selectionModalModel)
+      : 1;
+    const modalX = this.selectionModalVisible
+      ? Math.max(Math.floor((bounds.width - modalWidth) / 2), 0)
+      : -10000;
+    const modalY = this.selectionModalVisible
+      ? Math.max(UI_SHELL_TABLINE_HEIGHT + 12, 0)
+      : -10000;
+
+    this.selectionModalView.setBounds({
+      x: modalX,
+      y: modalY,
+      width: modalWidth,
+      height: modalHeight,
+    });
+
     this.statuslineView.setBounds({
       x: 0,
       y: Math.max(
@@ -792,6 +998,10 @@ class UiShellManager {
 
     if (this.whichKeyVisible && this.whichKeyOverlayView) {
       this.window.setTopBrowserView(this.whichKeyOverlayView);
+    }
+
+    if (this.selectionModalVisible && this.selectionModalView) {
+      this.window.setTopBrowserView(this.selectionModalView);
     }
 
     if (this.commandVisible && this.commandOverlayView) {
@@ -929,6 +1139,116 @@ class UiShellManager {
     this.clearWhichKeyShowTimer();
     this.clearWhichKeyHideTimer();
     this.relayout();
+  }
+
+  isSelectionModalVisible() {
+    return this.selectionModalVisible;
+  }
+
+  showSelectionModal(model) {
+    this.selectionModalVisible = true;
+    this.selectionModalModel = model || null;
+    this.syncOverlayStack();
+    this.updateSelectionModal(this.selectionModalModel);
+  }
+
+  hideSelectionModal() {
+    this.selectionModalVisible = false;
+    this.selectionModalModel = null;
+    this.relayout();
+  }
+
+  updateSelectionModal(model) {
+    this.selectionModalModel = model || this.selectionModalModel || null;
+    if (!this.selectionModalVisible) return;
+    if (!this.selectionModalView || !this.selectionModalReady) return;
+
+    const safeModel = {
+      title: String(this.selectionModalModel?.title || "Bookmark"),
+      promptTitle: String(this.selectionModalModel?.promptTitle || ""),
+      urlLine: String(this.selectionModalModel?.urlLine || ""),
+      scopeLabel: String(this.selectionModalModel?.scopeLabel || ""),
+      items: Array.isArray(this.selectionModalModel?.items)
+        ? this.selectionModalModel.items.map((item) => String(item || ""))
+        : [],
+      indexHints: Array.isArray(this.selectionModalModel?.indexHints)
+        ? this.selectionModalModel.indexHints.map((item) => String(item || ""))
+        : [],
+      selectedIndex: Number.isFinite(this.selectionModalModel?.selectedIndex)
+        ? Math.max(0, Math.floor(this.selectionModalModel.selectedIndex))
+        : -1,
+      footerLeft: String(this.selectionModalModel?.footerLeft || ""),
+      footerRight: String(this.selectionModalModel?.footerRight || ""),
+    };
+
+    this.selectionModalView.webContents.executeJavaScript(`
+      (function updateSelectionModal() {
+        const titleNode = document.getElementById('selection-modal-title');
+        const promptNode = document.getElementById('selection-modal-prompt');
+        const urlNode = document.getElementById('selection-modal-url');
+        const scopeNode = document.getElementById('selection-modal-scope');
+        const contentNode = document.getElementById('selection-modal-content');
+        const footerNode = document.getElementById('selection-modal-footer');
+        if (!titleNode || !promptNode || !urlNode || !scopeNode || !contentNode || !footerNode) return;
+
+        const escapeHtml = (value) => String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+
+        const model = ${JSON.stringify(safeModel)};
+        titleNode.textContent = model.title;
+        promptNode.textContent = model.promptTitle;
+        urlNode.textContent = model.urlLine;
+        scopeNode.textContent = model.scopeLabel;
+
+        const items = Array.isArray(model.items) ? model.items : [];
+        const indexHints = Array.isArray(model.indexHints) ? model.indexHints : [];
+
+        if (!items.length) {
+          contentNode.innerHTML = '<div class="selection-modal-empty">no options</div>';
+        } else {
+          const maxLen = Math.max(items.length, indexHints.length);
+          const columns = [];
+          const selectedIndex = Number.isFinite(model.selectedIndex) ? model.selectedIndex : -1;
+          for (let i = 0; i < maxLen; i += 1) {
+            const item = escapeHtml(items[i] || '');
+            const hint = escapeHtml(indexHints[i] || '');
+            const selectedClass = i === selectedIndex ? ' selected' : '';
+            columns.push('<span class="selection-modal-col"><span class="selection-modal-item' + selectedClass + '">' + item + '</span><span class="selection-modal-index">' + hint + '</span></span>');
+          }
+          contentNode.innerHTML = '<div class="selection-modal-grid">' + columns.join('') + '</div>';
+        }
+
+        footerNode.innerHTML = '<span>' + escapeHtml(model.footerLeft) + '</span><span>' + escapeHtml(model.footerRight) + '</span>';
+      })();
+    `);
+
+    this.relayout();
+  }
+
+  computeSelectionModalHeight(model = null) {
+    const activeModel = model || this.selectionModalModel || {};
+    const hasPrompt = Boolean(String(activeModel.promptTitle || "").trim());
+    const hasUrl = Boolean(String(activeModel.urlLine || "").trim());
+    const hasScope = Boolean(String(activeModel.scopeLabel || "").trim());
+    const hasFooter = Boolean(
+      String(activeModel.footerLeft || "").trim() ||
+      String(activeModel.footerRight || "").trim(),
+    );
+    const itemCount = Array.isArray(activeModel.items) ? activeModel.items.length : 0;
+
+    const base = 38;
+    const prompt = hasPrompt ? 16 : 0;
+    const url = hasUrl ? 14 : 0;
+    const scope = hasScope ? 14 : 0;
+    const content = itemCount > 0 ? 38 : 22;
+    const footer = hasFooter ? 14 : 0;
+
+    const total = base + prompt + url + scope + content + footer;
+    return Math.max(108, Math.min(210, total));
   }
 
   resetWhichKeyShowTimer(delayMs) {

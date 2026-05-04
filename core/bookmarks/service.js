@@ -136,6 +136,82 @@ function writeBookmarksTree(nextTree) {
   writeYamlObject(filePath, normalizeTree(nextTree));
 }
 
+function appendEntryAtRoot(entry = {}) {
+  const tree = readBookmarksTree();
+  const nextRoot = Array.isArray(tree.root) ? tree.root : [];
+  const normalized = normalizeEntry(entry);
+  if (!normalized) return null;
+  const existing = nextRoot.find(
+    (node) =>
+      node &&
+      node.type === "entry" &&
+      String(node.url || "").trim() === normalized.url,
+  );
+  if (existing) {
+    return { status: "duplicate", existing };
+  }
+  nextRoot.push(normalized);
+  writeBookmarksTree({ root: nextRoot });
+  return { status: "inserted", entry: normalized };
+}
+
+function getFolderChildrenByPath(rootNodes, folderIdPath = []) {
+  let cursor = Array.isArray(rootNodes) ? rootNodes : [];
+  for (const folderId of folderIdPath) {
+    const next = cursor.find(
+      (node) => node && node.type === "folder" && String(node.id) === String(folderId),
+    );
+    if (!next) return null;
+    if (!Array.isArray(next.children)) {
+      next.children = [];
+    }
+    cursor = next.children;
+  }
+  return cursor;
+}
+
+function appendEntryAtFolderPath(folderIdPath = [], entry = {}) {
+  if (!Array.isArray(folderIdPath)) return null;
+  const tree = readBookmarksTree();
+  const normalized = normalizeEntry(entry);
+  if (!normalized) return null;
+  const children = getFolderChildrenByPath(tree.root, folderIdPath);
+  if (!children) return null;
+  const existing = children.find(
+    (node) =>
+      node &&
+      node.type === "entry" &&
+      String(node.url || "").trim() === normalized.url,
+  );
+  if (existing) {
+    return { status: "duplicate", existing };
+  }
+  children.push(normalized);
+  writeBookmarksTree({ root: tree.root });
+  return { status: "inserted", entry: normalized };
+}
+
+function hasEntryUrlAtFolderPath(folderIdPath = [], url = "") {
+  if (!Array.isArray(folderIdPath)) return false;
+  const normalizedUrl = String(url || "").trim();
+  if (!normalizedUrl) return false;
+  const tree = readBookmarksTree();
+  const children = getFolderChildrenByPath(tree.root, folderIdPath);
+  if (!children) return false;
+  return children.some(
+    (node) =>
+      node && node.type === "entry" && String(node.url || "").trim() === normalizedUrl,
+  );
+}
+
+function listFolderChildrenByPath(folderIdPath = []) {
+  if (!Array.isArray(folderIdPath)) return [];
+  const tree = readBookmarksTree();
+  const children = getFolderChildrenByPath(tree.root, folderIdPath);
+  if (!children) return [];
+  return children.filter((node) => node && node.type === "folder");
+}
+
 function deleteAll() {
   writeBookmarksTree({ root: [] });
 }
@@ -146,5 +222,9 @@ module.exports = {
   makeFolderId,
   readBookmarksTree,
   writeBookmarksTree,
+  appendEntryAtRoot,
+  appendEntryAtFolderPath,
+  hasEntryUrlAtFolderPath,
+  listFolderChildrenByPath,
   deleteAll,
 };

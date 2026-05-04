@@ -21,6 +21,7 @@ const {
 const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
 const historyPanel = require("./core/history/panel");
+const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const sessionService = require("./core/session/service");
 const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
 let win;
@@ -257,6 +258,21 @@ function handleRawInput(event, input) {
       ? normalized.meta && !normalized.ctrl
       : normalized.ctrl && !normalized.meta;
 
+  if (bookmarkInsertScopeModal.isActive()) {
+    const wasActive = true;
+    const consumed = bookmarkInsertScopeModal.handleInput(normalized);
+    if (consumed) {
+      event.preventDefault();
+      if (wasActive && !bookmarkInsertScopeModal.isActive() && historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      updateTablineOptions();
+      return;
+    }
+  }
+
   if (historyPanel.handleFocusedInput(normalized)) {
     event.preventDefault();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
@@ -388,7 +404,7 @@ function findModMappingsForAction(modMap, targetAction) {
     return [];
   }
 
-  const modLabel = process.platform === "darwin" ? "Cmd" : "Ctrl";
+  const modLabel = "Ctrl";
   const hits = [];
   for (const [key, actionId] of Object.entries(modMap)) {
     if (actionId === targetAction) {

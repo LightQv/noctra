@@ -149,7 +149,7 @@ const defaultConfig = {
         action: "toggle_focus_context",
       },
       b: {
-        label: "Buffers",
+        label: "Buffers...",
         children: {
           c: {
             label: "Close current buffer",
@@ -170,7 +170,7 @@ const defaultConfig = {
         },
       },
       c: {
-        label: "Close",
+        label: "Close...",
         children: {
           c: {
             label: "Close current buffer",
@@ -187,7 +187,7 @@ const defaultConfig = {
         },
       },
       s: {
-        label: "Split",
+        label: "Split...",
         children: {
           q: {
             label: "Close right split",
@@ -200,7 +200,7 @@ const defaultConfig = {
         },
       },
       S: {
-        label: "Session",
+        label: "Session...",
         children: {
           s: {
             label: "Save session snapshot",
@@ -217,12 +217,21 @@ const defaultConfig = {
         action: "toggle_urlline",
       },
       e: {
-        label: "Toggle history tree",
+        label: "Toggle side-tree",
         action: "history_toggle",
       },
-      f: {
-        label: "Toggle bookmarks tree",
-        action: "bookmarks_toggle",
+      d: {
+        label: "Bookmarks...",
+        children: {
+          r: {
+            label: "Quick to root level",
+            action: "bookmarks_add_root_active",
+          },
+          d: {
+            label: "Choose path",
+            action: "bookmarks_add_scoped_prompt",
+          },
+        },
       },
       o: {
         label: "Toggle tree focus",

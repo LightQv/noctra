@@ -4,7 +4,7 @@ const { rememberRepeatableIntent } = require("./repeat");
 function isModPressed(input) {
   if (!input) return false;
   if (process.platform === "darwin") {
-    return Boolean(input.meta && !input.ctrl);
+    return Boolean(input.ctrl && !input.meta);
   }
   return Boolean(input.ctrl && !input.meta);
 }

@@ -9,6 +9,8 @@ const { buildSearchUrl } = require("./resolver");
 const historyService = require("./history/service");
 const historyPanel = require("./history/panel");
 const bookmarksService = require("./bookmarks/service");
+const bookmarkInsertScopeModal = require("./bookmarks/insertScopeModal");
+const { isBookmarkableBuffer } = require("./bookmarks/eligibility");
 const sessionService = require("./session/service");
 const { buildSettingsPageHtml } = require("./settings/page");
 const {
@@ -213,6 +215,14 @@ function reloadReloadableBuffers() {
     }
     buffer.webContents.reload();
   }
+}
+
+function getActiveBookmarkCandidate() {
+  const active = buffers.getActive();
+  if (!isBookmarkableBuffer(active)) return null;
+  const url = typeof active.url === "string" ? active.url.trim() : "";
+  const title = String(active.title || url).trim() || url;
+  return { title, url };
 }
 
 function dispatch(win, intent, state) {
@@ -590,6 +600,32 @@ function dispatch(win, intent, state) {
       historyPanel.reloadData();
       historyPanel.render();
       break;
+
+    case INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE: {
+      const candidate = getActiveBookmarkCandidate();
+      if (!candidate) {
+        break;
+      }
+      const result = bookmarksService.appendEntryAtRoot({
+        id: bookmarksService.makeEntryId(),
+        title: candidate.title,
+        url: candidate.url,
+      });
+      if (result?.status === "inserted" && historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+      break;
+    }
+
+    case INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT: {
+      const candidate = getActiveBookmarkCandidate();
+      if (!candidate) {
+        break;
+      }
+      bookmarkInsertScopeModal.open(candidate);
+      break;
+    }
 
     case INTENTS.SESSION_SAVE: {
       const snapshot = buffers.exportSessionSnapshot();

@@ -3,6 +3,13 @@ const { handleMod, isModPressed } = require("./modifiers");
 const { INTENTS } = require("../core/intents");
 const { getLeaderNode, getWhichKeyModel } = require("./leaderMap");
 const { rememberRepeatableIntent } = require("./repeat");
+const buffers = require("../browser/manager");
+
+function buildLeaderContext() {
+  return {
+    activeBuffer: buffers.getActive(),
+  };
+}
 
 function isLeaderKey(key, leaderKey) {
   if (leaderKey === "Space") {
@@ -36,7 +43,7 @@ function showWhichKey(state) {
 
   return {
     type: INTENTS.SHOW_WHICHKEY,
-    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer),
+    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer, buildLeaderContext()),
     delayMs: state.whichKeyDisplayDelay,
     timeoutMs: state.whichKeyTimeout,
   };
@@ -49,7 +56,7 @@ function updateWhichKey(state) {
 
   return {
     type: INTENTS.UPDATE_WHICHKEY,
-    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer),
+    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer, buildLeaderContext()),
     delayMs: state.whichKeyDisplayDelay,
     timeoutMs: state.whichKeyTimeout,
   };
@@ -116,7 +123,7 @@ function handleLeaderSequence(state, input, now) {
     };
   }
 
-  const node = getLeaderNode(state.leaderPath);
+  const node = getLeaderNode(state.leaderPath, buildLeaderContext());
   const exactChild = node?.children?.[key];
   const loweredChild = node?.children?.[loweredKey];
   const child = exactChild || loweredChild;

@@ -404,7 +404,7 @@ function findModMappingsForAction(modMap, targetAction) {
     return [];
   }
 
-  const modLabel = process.platform === "darwin" ? "Cmd" : "Ctrl";
+  const modLabel = "Ctrl";
   const hits = [];
   for (const [key, actionId] of Object.entries(modMap)) {
     if (actionId === targetAction) {

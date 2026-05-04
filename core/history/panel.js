@@ -1,6 +1,7 @@
 const { BrowserView, clipboard } = require("electron");
 const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
+const notificationsService = require("../notifications/service");
 const { getNormalKeymap, getModAction } = require("../../motions/keymap");
 const { isModPressed } = require("../../motions/modifiers");
 const {
@@ -2422,7 +2423,16 @@ class HistoryPanel {
         this.copyOrMoveCurrentFavorite(false);
       } else {
         const entry = this.getCurrentEntry();
-        if (entry && entry.url) clipboard.writeText(String(entry.url));
+        if (entry && entry.url) {
+          clipboard.writeText(String(entry.url));
+          notificationsService.notify({
+            severity: "info",
+            code: "url_yanked",
+            message: "URL yanked",
+            source: "core.history.panel",
+            persist: false,
+          });
+        }
       }
     } else if (isBookmarks && key === "c")
       this.copyOrMoveCurrentFavorite(false);
@@ -2433,7 +2443,16 @@ class HistoryPanel {
     else if (isBookmarks && key === "u") this.undoLastFavoriteAction();
     else if (isBookmarks && key === "Y") {
       const entry = this.getCurrentFavoriteEntry();
-      if (entry && entry.url) clipboard.writeText(String(entry.url));
+      if (entry && entry.url) {
+        clipboard.writeText(String(entry.url));
+        notificationsService.notify({
+          severity: "info",
+          code: "url_yanked",
+          message: "URL yanked",
+          source: "core.history.panel",
+          persist: false,
+        });
+      }
     }
     else if (key === "d") {
       this.treeCountBuffer = "";

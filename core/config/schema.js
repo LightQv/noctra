@@ -452,6 +452,10 @@ function normalizeConfig(rawConfig) {
       input.browser.language,
       defaults.browser.language,
     );
+
+    if (typeof input.browser.copy_selection_to_clipboard === "boolean") {
+      normalized.browser.copy_selection_to_clipboard = input.browser.copy_selection_to_clipboard;
+    }
   }
 
   return normalized;

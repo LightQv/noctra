@@ -118,6 +118,10 @@ function addThemeComments(yamlText) {
       output.push("  # Mapped to Accept-Language and known locale hints for requests");
     }
 
+    if (inBrowserSection && /^  copy_selection_to_clipboard:\s*/.test(line)) {
+      output.push("  # Auto-copy selected page text to clipboard on mouse selection");
+    }
+
     if (/^  opening_buffer:\s*$/.test(line)) {
       output.push("  # Startup page mode");
       inOpeningBufferSection = true;

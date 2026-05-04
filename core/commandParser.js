@@ -114,6 +114,10 @@ function parseCommand(raw) {
     case "config":
       return { type: INTENTS.OPEN_SETTINGS_BUFFER };
 
+    case "notifications":
+    case "notifs":
+      return { type: INTENTS.OPEN_NOTIFICATIONS_BUFFER };
+
     case "theme": {
       const mode = arg.toLowerCase();
       if (!["dark", "light", "auto", "custom"].includes(mode)) {
@@ -135,6 +139,23 @@ function parseCommand(raw) {
         language,
         reload,
       };
+    }
+
+    case "copy-selection": {
+      const option = arg.toLowerCase();
+      if (!option || option === "toggle") {
+        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD };
+      }
+
+      if (["on", "enable", "enabled", "true", "1"].includes(option)) {
+        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD, enabled: true };
+      }
+
+      if (["off", "disable", "disabled", "false", "0"].includes(option)) {
+        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD, enabled: false };
+      }
+
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 
     case "focus-context":

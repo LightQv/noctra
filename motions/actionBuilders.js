@@ -68,8 +68,15 @@ const ACTION_BUILDERS = {
   focus_split_left: createActionBuilder("focus_split_left", () => ({ type: INTENTS.FOCUS_SPLIT_LEFT })),
   focus_split_right: createActionBuilder("focus_split_right", () => ({ type: INTENTS.FOCUS_SPLIT_RIGHT })),
   open_settings: createActionBuilder("open_settings", () => ({ type: INTENTS.OPEN_SETTINGS_BUFFER })),
+  open_notifications: createActionBuilder("open_notifications", () => ({
+    type: INTENTS.OPEN_NOTIFICATIONS_BUFFER,
+  })),
   toggle_focus_context: createActionBuilder("toggle_focus_context", () => ({ type: INTENTS.TOGGLE_FOCUS_CONTEXT })),
   toggle_urlline: createActionBuilder("toggle_urlline", () => ({ type: INTENTS.TOGGLE_URLLINE })),
+  toggle_copy_selection_to_clipboard: createActionBuilder(
+    "toggle_copy_selection_to_clipboard",
+    () => ({ type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD }),
+  ),
   history_toggle: createActionBuilder("history_toggle", () => ({ type: INTENTS.HISTORY_TOGGLE })),
   history_toggle_focus: createActionBuilder("history_toggle_focus", () => ({ type: INTENTS.HISTORY_TOGGLE_FOCUS })),
   bookmarks_toggle: createActionBuilder("bookmarks_toggle", () => ({ type: INTENTS.BOOKMARKS_TOGGLE })),

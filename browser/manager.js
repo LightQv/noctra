@@ -1,4 +1,4 @@
-const { BrowserView, nativeTheme } = require("electron");
+const { BrowserView, nativeTheme, clipboard } = require("electron");
 const path = require("path");
 const Buffer = require("./buffers");
 const {
@@ -7,6 +7,7 @@ const {
   UI_SHELL_STATUSLINE_HEIGHT,
 } = require("../ui/constants");
 const { getConfigValue } = require("../core/config/service");
+const notificationsService = require("../core/notifications/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
 const { resolveTheme, resolveThemeMode } = require("../ui/theme");
 
@@ -35,6 +36,7 @@ class BufferManager {
     this.leftInsetPx = 0;
     this.closedBuffers = [];
     this.maxClosedBuffers = 50;
+    this.lastSelectionCopyByWebContentsId = new Map();
   }
 
   init(windowRef) {
@@ -107,7 +109,13 @@ class BufferManager {
     );
 
     if (openingBufferSpec.warning) {
-      console.warn(openingBufferSpec.warning);
+      notificationsService.notify({
+        severity: "warning",
+        code: "opening_buffer_warning",
+        message: String(openingBufferSpec.warning),
+        source: "browser.manager",
+        persist: false,
+      });
     }
 
     if (openingBufferSpec.kind === "virtual") {
@@ -1118,8 +1126,76 @@ class BufferManager {
   attachPaneTracking(buffer, paneResolver) {
     if (!buffer || !buffer.webContents) return;
 
+    const maybeCopySelectionToClipboard = async () => {
+      if (!buffer.webContents || buffer.webContents.isDestroyed() || buffer.isEditable) {
+        return;
+      }
+
+      const isEnabled = getConfigValue("browser.copy_selection_to_clipboard", false);
+      if (!isEnabled) {
+        return;
+      }
+
+      let selectedText = "";
+      try {
+        if (typeof buffer.webContents.getSelectedText === "function") {
+          selectedText = String(buffer.webContents.getSelectedText() || "").trim();
+        } else {
+          const resolvedSelection = await buffer.webContents.executeJavaScript(
+            `window.getSelection ? window.getSelection().toString() : ""`,
+          );
+          selectedText = String(resolvedSelection || "").trim();
+        }
+      } catch (error) {
+        notificationsService.notify({
+          severity: "warning",
+          code: "selection_copy_failed",
+          message: "Failed to read selected text",
+          source: "browser.manager",
+          context: { error: error?.message || String(error) },
+          persist: false,
+          toast: false,
+        });
+        return;
+      }
+
+      if (!selectedText) {
+        return;
+      }
+
+      const now = Date.now();
+      const webContentsId = buffer.webContents.id;
+      const previous = this.lastSelectionCopyByWebContentsId.get(webContentsId);
+      if (
+        previous &&
+        previous.text === selectedText &&
+        Number.isFinite(previous.timestampMs) &&
+        now - previous.timestampMs < 700
+      ) {
+        return;
+      }
+
+      clipboard.writeText(selectedText);
+      this.lastSelectionCopyByWebContentsId.set(webContentsId, {
+        text: selectedText,
+        timestampMs: now,
+      });
+      notificationsService.notify({
+        severity: "info",
+        code: "selection_copied",
+        message: "Selection copied",
+        source: "browser.manager",
+        persist: false,
+      });
+    };
+
     const onMouseEvent = (event, input) => {
-      if (!input || input.type !== "mouseDown") return;
+      if (!input || (input.type !== "mouseDown" && input.type !== "mouseUp")) return;
+      if (input.type === "mouseUp") {
+        setTimeout(() => {
+          maybeCopySelectionToClipboard().catch(() => {});
+        }, 0);
+      }
       this.handlePaneInteraction(paneResolver());
     };
 
@@ -1129,6 +1205,9 @@ class BufferManager {
 
     buffer.webContents.on("before-mouse-event", onMouseEvent);
     buffer.webContents.on("focus", onFocus);
+    buffer.webContents.once("destroyed", () => {
+      this.lastSelectionCopyByWebContentsId.delete(buffer.webContents.id);
+    });
   }
 
   resolvePaneForBuffer(buffer) {

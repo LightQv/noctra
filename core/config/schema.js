@@ -26,6 +26,7 @@ const ACTION_IDS = new Set([
   "open_settings",
   "toggle_focus_context",
   "toggle_urlline",
+  "toggle_copy_selection_to_clipboard",
   "history_toggle",
   "history_toggle_focus",
   "bookmarks_toggle",
@@ -41,6 +42,7 @@ const ACTION_IDS = new Set([
   "close_right_buffers",
   "split_close_right",
   "split_devtools",
+  "open_notifications",
 ]);
 
 function isPlainObject(value) {
@@ -127,45 +129,6 @@ function normalizeBrowserLanguage(value, fallback = "en") {
   return fallback;
 }
 
-function mergeWithFallback(primaryNode, fallbackNode) {
-  if (!isPlainObject(primaryNode)) {
-    return isPlainObject(fallbackNode) ? fallbackNode : {};
-  }
-
-  if (!isPlainObject(fallbackNode)) {
-    return primaryNode;
-  }
-
-  const merged = { ...primaryNode };
-
-  for (const [key, value] of Object.entries(fallbackNode)) {
-    if (!(key in merged)) {
-      merged[key] = value;
-      continue;
-    }
-
-    if (isPlainObject(merged[key]) && isPlainObject(value)) {
-      merged[key] = mergeWithFallback(merged[key], value);
-    }
-  }
-
-  return merged;
-}
-
-function resolveGlobalSection(input, sectionKey) {
-  const globalSection =
-    isPlainObject(input.global) && isPlainObject(input.global[sectionKey])
-      ? input.global[sectionKey]
-      : null;
-  const legacySection = isPlainObject(input[sectionKey]) ? input[sectionKey] : null;
-
-  if (globalSection && legacySection) {
-    return mergeWithFallback(globalSection, legacySection);
-  }
-
-  return globalSection || legacySection || null;
-}
-
 function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
   if (!isPlainObject(node)) {
     return null;
@@ -210,18 +173,24 @@ function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
 function normalizeConfig(rawConfig) {
   const defaults = cloneDefaults();
   const input = isPlainObject(rawConfig) ? rawConfig : {};
+  const inputGlobal = isPlainObject(input.global) ? input.global : {};
   const normalized = cloneDefaults();
   const normalizedGlobal = normalized.global;
 
-  const inputSection = resolveGlobalSection(input, "input");
-  const whichKeySection = resolveGlobalSection(input, "whichkey");
-  const uiSection = resolveGlobalSection(input, "ui");
-  const themeSection = resolveGlobalSection(input, "theme");
-  const splitSection = resolveGlobalSection(input, "split");
-  const editorSection = resolveGlobalSection(input, "editor");
-  const storageSection = resolveGlobalSection(input, "storage");
-  const windowSection = resolveGlobalSection(input, "window");
-  const openingBufferSection = resolveGlobalSection(input, "opening_buffer");
+  const inputSection = isPlainObject(inputGlobal.input) ? inputGlobal.input : null;
+  const whichKeySection = isPlainObject(inputGlobal.whichkey) ? inputGlobal.whichkey : null;
+  const uiSection = isPlainObject(inputGlobal.ui) ? inputGlobal.ui : null;
+  const themeSection = isPlainObject(inputGlobal.theme) ? inputGlobal.theme : null;
+  const splitSection = isPlainObject(inputGlobal.split) ? inputGlobal.split : null;
+  const editorSection = isPlainObject(inputGlobal.editor) ? inputGlobal.editor : null;
+  const storageSection = isPlainObject(inputGlobal.storage) ? inputGlobal.storage : null;
+  const notificationsSection = isPlainObject(inputGlobal.notifications)
+    ? inputGlobal.notifications
+    : null;
+  const windowSection = isPlainObject(inputGlobal.window) ? inputGlobal.window : null;
+  const openingBufferSection = isPlainObject(inputGlobal.opening_buffer)
+    ? inputGlobal.opening_buffer
+    : null;
 
   if (isPlainObject(inputSection)) {
     if (typeof inputSection.leader_key === "string" && inputSection.leader_key.trim()) {
@@ -306,7 +275,7 @@ function normalizeConfig(rawConfig) {
 
   if (isPlainObject(themeSection)) {
     const normalizedThemeMode = normalizeThemeMode(
-      typeof themeSection.mode === "string" ? themeSection.mode : themeSection.name,
+      themeSection.mode,
       defaults.global.theme.mode,
     );
     normalizedGlobal.theme.mode = normalizedThemeMode;
@@ -378,10 +347,38 @@ function normalizeConfig(rawConfig) {
   }
 
   if (isPlainObject(storageSection)) {
-    for (const key of ["history_file", "bookmarks_file", "sessions_file"]) {
+    for (const key of ["history_file", "bookmarks_file", "sessions_file", "notifications_file"]) {
       if (typeof storageSection[key] === "string" && storageSection[key].trim()) {
         normalizedGlobal.storage[key] = storageSection[key].trim();
       }
+    }
+  }
+
+  if (isPlainObject(notificationsSection)) {
+    if (typeof notificationsSection.enabled === "boolean") {
+      normalizedGlobal.notifications.enabled = notificationsSection.enabled;
+    }
+
+    if (isPlainObject(notificationsSection.toast)) {
+      for (const key of ["info", "warning", "error"]) {
+        if (typeof notificationsSection.toast[key] === "boolean") {
+          normalizedGlobal.notifications.toast[key] = notificationsSection.toast[key];
+        }
+      }
+    }
+
+    if (isPlainObject(notificationsSection.timeout_ms)) {
+      for (const key of ["info", "warning", "error"]) {
+        if (Number.isFinite(notificationsSection.timeout_ms[key])) {
+          normalizedGlobal.notifications.timeout_ms[key] = Math.floor(
+            Math.max(800, notificationsSection.timeout_ms[key]),
+          );
+        }
+      }
+    }
+
+    if (typeof notificationsSection.persist_errors === "boolean") {
+      normalizedGlobal.notifications.persist_errors = notificationsSection.persist_errors;
     }
   }
 
@@ -456,6 +453,10 @@ function normalizeConfig(rawConfig) {
       input.browser.language,
       defaults.browser.language,
     );
+
+    if (typeof input.browser.copy_selection_to_clipboard === "boolean") {
+      normalized.browser.copy_selection_to_clipboard = input.browser.copy_selection_to_clipboard;
+    }
   }
 
   return normalized;

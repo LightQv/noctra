@@ -5,13 +5,9 @@ const { parse, stringify } = require("yaml");
 const { defaultConfig } = require("./defaults");
 const { normalizeConfig } = require("./schema");
 const { ACTION_BUILDERS } = require("../../motions/actionBuilders");
+const notificationsService = require("../notifications/service");
 
 const CONFIG_DIR_PATH = path.join(os.homedir(), ".config", "noctra");
-const LEGACY_CONFIG_DIR_PATH = path.join(
-  os.homedir(),
-  ".config",
-  ["vim", "browser"].join("-"),
-);
 const CONFIG_FILE_PATH = path.join(CONFIG_DIR_PATH, "config.yml");
 const CONFIG_POLICY =
   process.env.NOCTRA_CONFIG_POLICY === "strict" ? "strict" : "customizable";
@@ -38,82 +34,11 @@ function mergeWithDefaults(defaultsNode, inputNode) {
   return merged;
 }
 
-function mergeMissingIntoTarget(targetNode, sourceNode) {
-  if (!isPlainObject(targetNode)) {
-    return isPlainObject(sourceNode) ? { ...sourceNode } : {};
-  }
-
-  if (!isPlainObject(sourceNode)) {
-    return targetNode;
-  }
-
-  for (const [key, value] of Object.entries(sourceNode)) {
-    if (!(key in targetNode)) {
-      targetNode[key] = value;
-      continue;
-    }
-
-    if (isPlainObject(targetNode[key]) && isPlainObject(value)) {
-      mergeMissingIntoTarget(targetNode[key], value);
-    }
-  }
-
-  return targetNode;
-}
-
-function migrateLegacyConfig(rawConfig) {
-  if (!isPlainObject(rawConfig)) {
-    return {};
-  }
-
-  const migrated = JSON.parse(JSON.stringify(rawConfig));
-  const legacyGlobalKeys = [
-    "input",
-    "whichkey",
-    "ui",
-    "editor",
-    "theme",
-    "split",
-    "storage",
-    "window",
-    "opening_buffer",
-  ];
-
-  const globalSection = isPlainObject(migrated.global) ? migrated.global : {};
-
-  for (const legacyKey of legacyGlobalKeys) {
-    if (!isPlainObject(migrated[legacyKey])) {
-      continue;
-    }
-
-    const currentSection = isPlainObject(globalSection[legacyKey]) ? globalSection[legacyKey] : {};
-    globalSection[legacyKey] = mergeMissingIntoTarget(currentSection, migrated[legacyKey]);
-    delete migrated[legacyKey];
-  }
-
-  if (Object.keys(globalSection).length > 0 || isPlainObject(migrated.global)) {
-    migrated.global = globalSection;
-  }
-
-  const themeNode =
-    migrated.global && isPlainObject(migrated.global.theme) ? migrated.global.theme : null;
-  if (themeNode) {
-    if (typeof themeNode.mode !== "string" && typeof themeNode.name === "string") {
-      themeNode.mode = themeNode.name;
-    }
-    if (Object.prototype.hasOwnProperty.call(themeNode, "name")) {
-      delete themeNode.name;
-    }
-  }
-
-  return migrated;
-}
-
 function readRawConfig() {
   ensureConfigFile();
   const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
   const parsed = raw.trim() ? parse(raw) : {};
-  return migrateLegacyConfig(parsed);
+  return isPlainObject(parsed) ? parsed : {};
 }
 
 function addThemeComments(yamlText) {
@@ -193,6 +118,10 @@ function addThemeComments(yamlText) {
       output.push("  # Mapped to Accept-Language and known locale hints for requests");
     }
 
+    if (inBrowserSection && /^  copy_selection_to_clipboard:\s*/.test(line)) {
+      output.push("  # Auto-copy selected page text to clipboard on mouse selection");
+    }
+
     if (/^  opening_buffer:\s*$/.test(line)) {
       output.push("  # Startup page mode");
       inOpeningBufferSection = true;
@@ -216,8 +145,7 @@ function serializeConfig(configObject) {
 }
 
 function syncConfigFile(rawConfig) {
-  const migratedRaw = migrateLegacyConfig(rawConfig);
-  const merged = mergeWithDefaults(defaultConfig, migratedRaw);
+  const merged = mergeWithDefaults(defaultConfig, rawConfig);
   const nextText = serializeConfig(merged);
 
   try {
@@ -254,42 +182,42 @@ function repairInvalidConfig(error) {
     const backupPath = getBackupPath();
     fs.renameSync(CONFIG_FILE_PATH, backupPath);
     writeDefaultConfig();
-    console.warn(
-      "Invalid config.yml detected. Backed up invalid config to",
-      backupPath,
-      "and recreated default config at",
-      CONFIG_FILE_PATH,
-    );
+    notificationsService.notify({
+      severity: "warning",
+      code: "config_invalid_auto_repaired",
+      message: "Invalid config.yml detected. Recreated default file and backed up previous file.",
+      source: "core.config",
+      context: { backupPath, configPath: CONFIG_FILE_PATH },
+    });
     return true;
   } catch (repairError) {
-    console.warn(
-      "Failed to auto-repair invalid config.yml:",
-      repairError.message,
-      "(original error:",
-      error.message,
-      ")",
-    );
+    notificationsService.notify({
+      severity: "error",
+      code: "config_auto_repair_failed",
+      message: "Failed to auto-repair invalid config.yml",
+      source: "core.config",
+      context: { repairError: repairError.message, originalError: error.message },
+    });
     return false;
   }
 }
 
 function ensureConfigFile() {
-  if (!fs.existsSync(CONFIG_DIR_PATH) && fs.existsSync(LEGACY_CONFIG_DIR_PATH)) {
-    try {
-      fs.renameSync(LEGACY_CONFIG_DIR_PATH, CONFIG_DIR_PATH);
-      console.info("Migrated config directory to", CONFIG_DIR_PATH);
-    } catch (error) {
-      console.warn("Failed to migrate legacy config directory:", error.message);
-    }
-  }
-
   if (!fs.existsSync(CONFIG_DIR_PATH)) {
     fs.mkdirSync(CONFIG_DIR_PATH, { recursive: true });
   }
 
   if (!fs.existsSync(CONFIG_FILE_PATH)) {
     writeDefaultConfig();
-    console.info("Created default config at", CONFIG_FILE_PATH);
+    notificationsService.notify({
+      severity: "info",
+      code: "config_default_created",
+      message: "Created default config file",
+      source: "core.config",
+      context: { path: CONFIG_FILE_PATH },
+      toast: false,
+      persist: false,
+    });
   }
 }
 
@@ -308,17 +236,33 @@ function loadConfig() {
     }
 
     cachedConfig = normalizeConfig(defaultConfig);
-    console.info("Loaded config in strict policy from", CONFIG_FILE_PATH);
+    notificationsService.notify({
+      severity: "info",
+      code: "config_loaded_strict",
+      message: "Loaded config in strict policy",
+      source: "core.config",
+      context: { path: CONFIG_FILE_PATH },
+      toast: false,
+      persist: false,
+    });
     return cachedConfig;
   }
 
   try {
     const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
     const parsed = raw.trim() ? parse(raw) : {};
-    const migrated = migrateLegacyConfig(parsed);
-    syncConfigFile(migrated);
-    cachedConfig = normalizeConfig(migrated);
-    console.info("Loaded config from", CONFIG_FILE_PATH);
+    const nextRawConfig = isPlainObject(parsed) ? parsed : {};
+    syncConfigFile(nextRawConfig);
+    cachedConfig = normalizeConfig(nextRawConfig);
+    notificationsService.notify({
+      severity: "info",
+      code: "config_loaded",
+      message: "Loaded config",
+      source: "core.config",
+      context: { path: CONFIG_FILE_PATH },
+      toast: false,
+      persist: false,
+    });
   } catch (error) {
     const repaired = repairInvalidConfig(error);
 
@@ -326,19 +270,35 @@ function loadConfig() {
       try {
         const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
         const parsed = raw.trim() ? parse(raw) : {};
-        const migrated = migrateLegacyConfig(parsed);
-        syncConfigFile(migrated);
-        cachedConfig = normalizeConfig(migrated);
-        console.info("Loaded repaired config from", CONFIG_FILE_PATH);
+        const nextRawConfig = isPlainObject(parsed) ? parsed : {};
+        syncConfigFile(nextRawConfig);
+        cachedConfig = normalizeConfig(nextRawConfig);
+        notificationsService.notify({
+          severity: "warning",
+          code: "config_loaded_repaired",
+          message: "Loaded repaired config from disk",
+          source: "core.config",
+          context: { path: CONFIG_FILE_PATH },
+          persist: false,
+        });
         return cachedConfig;
       } catch (reloadError) {
-        console.warn(
-          "Failed to load repaired config.yml, using defaults:",
-          reloadError.message,
-        );
+        notificationsService.notify({
+          severity: "error",
+          code: "config_repaired_load_failed",
+          message: "Failed to load repaired config.yml, using defaults",
+          source: "core.config",
+          context: { error: reloadError.message },
+        });
       }
     } else {
-      console.warn("Failed to load config.yml, using defaults:", error.message);
+      notificationsService.notify({
+        severity: "error",
+        code: "config_load_failed_defaults",
+        message: "Failed to load config.yml, using defaults",
+        source: "core.config",
+        context: { error: error.message },
+      });
     }
 
     cachedConfig = normalizeConfig(defaultConfig);
@@ -407,9 +367,6 @@ function updateThemeMode(nextMode) {
   }
 
   rawConfig.global.theme.mode = normalizedMode;
-  if (Object.prototype.hasOwnProperty.call(rawConfig.global.theme, "name")) {
-    delete rawConfig.global.theme.name;
-  }
 
   fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
   return loadConfig();
@@ -439,6 +396,29 @@ function updateBrowserLanguage(nextLanguage) {
   }
 
   rawConfig.browser.language = normalizedLanguage;
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
+function updateCopySelectionToClipboard(nextEnabled) {
+  if (CONFIG_POLICY === "strict") {
+    return cachedConfig;
+  }
+
+  if (typeof nextEnabled !== "boolean") {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.browser)) {
+    rawConfig.browser = {};
+  }
+
+  if (rawConfig.browser.copy_selection_to_clipboard === nextEnabled) {
+    return cachedConfig;
+  }
+
+  rawConfig.browser.copy_selection_to_clipboard = nextEnabled;
   fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
   return loadConfig();
 }
@@ -523,5 +503,6 @@ module.exports = {
   getConfigValue,
   updateThemeMode,
   updateBrowserLanguage,
+  updateCopySelectionToClipboard,
   updateWindowState,
 };

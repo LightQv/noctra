@@ -17,7 +17,11 @@ const CODEMIRROR_SEARCH_CURSOR_JS_URL =
 const CODEMIRROR_VIM_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/keymap/vim.js";
 const CODEMIRROR_YAML_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/yaml/yaml.js";
 
-function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "") {
+function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "", options = {}) {
+  const viewTitle =
+    typeof options.viewTitle === "string" && options.viewTitle.trim().length > 0
+      ? options.viewTitle.trim()
+      : "Settings";
   const sourceTheme =
     themeInput && typeof themeInput === "object" && themeInput.theme
       ? themeInput.theme
@@ -43,7 +47,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Settings</title>
+    <title>${viewTitle}</title>
     <link rel="stylesheet" href="${CODEMIRROR_CSS_URL}" />
     <style>
       ${UI_FONT_FACE_CSS}

@@ -1,27 +1,205 @@
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain, clipboard } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard, nativeTheme, screen, session } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
+require("dotenv").config();
+
 const configService = require("./core/config/service");
 const uiShell = require("./ui/shell/manager");
 const { dispatch } = require("./core/dispatcher");
 const { INTENTS } = require("./core/intents");
-const { resolveTheme, toCssVars } = require("./ui/theme");
+const {
+  normalizeThemeMode,
+  normalizeContentThemeMode,
+  resolveTheme,
+  resolveThemeMode,
+  resolveContentColorScheme,
+  toCssVars,
+} = require("./ui/theme");
+const { resolveInputTarget } = require("./core/resolver");
+const historyService = require("./core/history/service");
+const historyPanel = require("./core/history/panel");
+const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
+const sessionService = require("./core/session/service");
+const notificationsService = require("./core/notifications/service");
+const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
+let browserLanguageHooksRegistered = false;
 
-function resolveCurrentTheme() {
-  return resolveTheme(configService.getConfigValue("global.theme", {}));
+function isFiniteInteger(value) {
+  return Number.isFinite(value) && Number.isInteger(value);
 }
 
-function buildThemePayload(theme) {
+function isBoundsVisibleOnAnyDisplay(bounds) {
+  if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) {
+    return false;
+  }
+
+  const displays = screen.getAllDisplays();
+  return displays.some((display) => {
+    const area = display.workArea;
+    const intersectsHorizontally = bounds.x < area.x + area.width && bounds.x + bounds.width > area.x;
+    const intersectsVertically =
+      bounds.y < area.y + area.height && bounds.y + bounds.height > area.y;
+    return intersectsHorizontally && intersectsVertically;
+  });
+}
+
+function mapBrowserLanguageToAcceptLanguage(languageCode) {
+  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
+  if (normalized === "fr") {
+    return "fr-FR,fr;q=0.9,en;q=0.8";
+  }
+  return "en-US,en;q=0.9";
+}
+
+function isGoogleHost(hostname) {
+  if (typeof hostname !== "string") {
+    return false;
+  }
+
+  const normalized = hostname.trim().toLowerCase();
+  return normalized === "google.com" || normalized.endsWith(".google.com") || normalized.includes(".google.");
+}
+
+function mapBrowserLanguageToGoogleLocale(languageCode) {
+  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
+  if (normalized === "fr") {
+    return { hl: "fr", gl: "FR", lr: "lang_fr" };
+  }
+  return { hl: "en", gl: "US", lr: "lang_en" };
+}
+
+function applyGoogleLocaleHint(rawUrl, preferredLanguage) {
+  if (typeof rawUrl !== "string" || !rawUrl.length) {
+    return rawUrl;
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    return rawUrl;
+  }
+
+  if ((parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") || !isGoogleHost(parsedUrl.hostname)) {
+    return rawUrl;
+  }
+
+  const locale = mapBrowserLanguageToGoogleLocale(preferredLanguage);
+  const currentHl = parsedUrl.searchParams.get("hl");
+  const currentGl = parsedUrl.searchParams.get("gl");
+  const currentLr = parsedUrl.searchParams.get("lr");
+  const nextHl = locale.hl;
+  const nextGl = locale.gl;
+  const nextLr = locale.lr;
+
+  if (currentHl === nextHl && currentGl === nextGl && currentLr === nextLr) {
+    return rawUrl;
+  }
+
+  parsedUrl.searchParams.set("hl", nextHl);
+  parsedUrl.searchParams.set("gl", nextGl);
+  parsedUrl.searchParams.set("lr", nextLr);
+  return parsedUrl.toString();
+}
+
+function applyBrowserLanguagePreference() {
+  if (browserLanguageHooksRegistered) {
+    return;
+  }
+
+  session.defaultSession.webRequest.onBeforeRequest({ urls: ["*://*/*"] }, (details, callback) => {
+    if (details.resourceType !== "mainFrame") {
+      callback({});
+      return;
+    }
+
+    const preferredLanguage = configService.getConfigValue("browser.language", "en");
+    const redirectURL = applyGoogleLocaleHint(details.url, preferredLanguage);
+    if (redirectURL && redirectURL !== details.url) {
+      callback({ redirectURL });
+      return;
+    }
+
+    callback({});
+  });
+
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["*://*/*"] }, (details, callback) => {
+    const preferredLanguage = configService.getConfigValue("browser.language", "en");
+    const acceptLanguage = mapBrowserLanguageToAcceptLanguage(preferredLanguage);
+    const requestHeaders = {
+      ...(details.requestHeaders || {}),
+      "Accept-Language": acceptLanguage,
+    };
+    callback({ requestHeaders });
+  });
+
+  browserLanguageHooksRegistered = true;
+}
+
+function resolveCurrentTheme() {
+  const themeConfig = configService.getConfigValue("global.theme", {});
+  const systemPrefersDark = nativeTheme.shouldUseDarkColors;
+  const configuredMode = normalizeThemeMode(
+    typeof themeConfig?.mode === "string" ? themeConfig.mode : themeConfig?.name,
+    "dark",
+  );
+  const resolvedMode = resolveThemeMode(themeConfig, { systemPrefersDark });
+  const contentMode = normalizeContentThemeMode(themeConfig?.content_mode, "dark");
+  const contentColorScheme = resolveContentColorScheme(themeConfig, { systemPrefersDark });
+  const theme = resolveTheme(themeConfig, { systemPrefersDark });
+
+  return {
+    theme,
+    configuredMode,
+    resolvedMode,
+    contentMode,
+    contentColorScheme,
+  };
+}
+
+function buildThemePayload(themeContext) {
+  const theme = themeContext && themeContext.theme ? themeContext.theme : themeContext || {};
+  const resolvedMode =
+    themeContext && typeof themeContext.resolvedMode === "string"
+      ? themeContext.resolvedMode
+      : "dark";
+
   return {
     theme,
     themeVars: toCssVars(theme),
+    colorScheme: resolvedMode === "light" ? "light" : "dark",
+    resolvedMode,
   };
+}
+
+function syncContentUiTheme(theme) {
+  const contentColorScheme = theme.contentColorScheme === "light" ? "light" : "dark";
+  buffers.setContentUiOptions({
+    thumbColor: theme.scrollbarThumbColor,
+    thumbActiveColor: theme.scrollbarThumbActiveColor,
+    contentColorScheme,
+  });
+}
+
+function applyTheme(themeContext, options = {}) {
+  const shouldBroadcast = Boolean(options.broadcast);
+  const payload = buildThemePayload(themeContext);
+  uiShell.setTheme(payload.theme);
+  syncContentUiTheme({
+    ...payload.theme,
+    contentColorScheme:
+      themeContext && themeContext.contentColorScheme === "light" ? "light" : "dark",
+  });
+  buffers.refreshDashboardBuffers();
+  if (shouldBroadcast) {
+    broadcastUiShellPush("theme:update", payload);
+  }
 }
 
 function broadcastUiShellPush(type, payload = {}) {
@@ -76,6 +254,54 @@ function normalizeInput(input) {
 
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
+  const isPrimaryMod =
+    process.platform === "darwin"
+      ? normalized.meta && !normalized.ctrl
+      : normalized.ctrl && !normalized.meta;
+
+  if (bookmarkInsertScopeModal.isActive()) {
+    const wasActive = true;
+    const consumed = bookmarkInsertScopeModal.handleInput(normalized);
+    if (consumed) {
+      event.preventDefault();
+      if (wasActive && !bookmarkInsertScopeModal.isActive() && historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      updateTablineOptions();
+      return;
+    }
+  }
+
+  if (historyPanel.handleFocusedInput(normalized)) {
+    event.preventDefault();
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    updateTablineOptions();
+    return;
+  }
+
+  const isUrllinePasteShortcut =
+    state.urllineEditing &&
+    normalized.type === "keyDown" &&
+    (normalized.key === "v" || normalized.key === "V") &&
+    ((process.platform === "darwin" && normalized.meta && !normalized.ctrl) ||
+      (process.platform !== "darwin" && normalized.ctrl && !normalized.meta));
+
+  if (isUrllinePasteShortcut) {
+    event.preventDefault();
+    handleUrllineInput(event, {
+      ...normalized,
+      pasteText: clipboard.readText(),
+    });
+    return;
+  }
+
+  if (state.urllineEditing) {
+    event.preventDefault();
+    handleUrllineInput(event, normalized);
+    return;
+  }
 
   const isCommandPasteShortcut =
     state.mode === "COMMAND" &&
@@ -105,11 +331,42 @@ function handleRawInput(event, input) {
     return;
   }
 
+  const isBufferShortcut =
+    normalized.type === "keyDown" &&
+    isPrimaryMod &&
+    !normalized.alt &&
+    (normalized.key === "t" || normalized.key === "T");
+
+  if (isBufferShortcut) {
+    event.preventDefault();
+    if (normalized.key === "T" || normalized.shift) {
+      dispatch(win, { type: INTENTS.REOPEN_BUFFER }, state);
+    } else {
+      dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
+    }
+    return;
+  }
+
   if (shouldPreventDefault(normalized)) {
     event.preventDefault();
   }
 
   handleInput(win, normalized);
+}
+
+function persistSessionSnapshot() {
+  try {
+    const snapshot = buffers.exportSessionSnapshot();
+    sessionService.writeSessionSnapshot(snapshot);
+  } catch (error) {
+    notificationsService.notify({
+      severity: "error",
+      code: "session_snapshot_persist_failed",
+      message: "Failed to persist session snapshot",
+      source: "main",
+      context: { error: error?.message || String(error) },
+    });
+  }
 }
 
 function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
@@ -135,10 +392,67 @@ function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
   return results;
 }
 
+function findNormalMappingsForAction(normalMap, targetAction) {
+  if (!normalMap || typeof normalMap !== "object") {
+    return [];
+  }
+
+  const hits = [];
+  for (const [keys, actionId] of Object.entries(normalMap)) {
+    if (actionId === targetAction) {
+      hits.push(keys);
+    }
+  }
+  return hits;
+}
+
+function findModMappingsForAction(modMap, targetAction) {
+  if (!modMap || typeof modMap !== "object") {
+    return [];
+  }
+
+  const modLabel = "Ctrl";
+  const hits = [];
+  for (const [key, actionId] of Object.entries(modMap)) {
+    if (actionId === targetAction) {
+      const keyText = String(key);
+      const withShift = keyText.length === 1 && keyText !== keyText.toLowerCase();
+      const displayKey = keyText.length === 1 ? keyText.toUpperCase() : keyText;
+      hits.push(withShift ? `${modLabel}+Shift+${displayKey}` : `${modLabel}+${displayKey}`);
+    }
+  }
+  return hits;
+}
+
 function formatLeaderSequence(seq = []) {
   if (!Array.isArray(seq) || seq.length === 0) return null;
   const rendered = seq.map((part) => (part === "tab" ? "Tab" : part)).join(" ");
   return `<leader> ${rendered}`;
+}
+
+function findShortcutLabelForAction(actionId) {
+  const leader = configService.getConfigValue("keymap.leader", {});
+
+  const labels = [];
+  const normalHits = findNormalMappingsForAction(NORMAL_KEY_ACTIONS, actionId);
+  if (normalHits.length > 0) {
+    labels.push(normalHits[0]);
+  }
+
+  const modHits = findModMappingsForAction(MOD_KEY_ACTIONS, actionId);
+  if (modHits.length > 0) {
+    labels.push(modHits[0]);
+  }
+
+  const leaderHits = findLeaderSequencesForAction(leader, actionId);
+  if (leaderHits.length > 0) {
+    const leaderLabel = formatLeaderSequence(leaderHits[0]);
+    if (leaderLabel) {
+      labels.push(leaderLabel);
+    }
+  }
+
+  return labels.length > 0 ? labels.join(" | ") : "";
 }
 
 function updateTablineActions() {
@@ -146,17 +460,84 @@ function updateTablineActions() {
   const openSettingsSeqs = findLeaderSequencesForAction(leaderTree, "open_settings");
   const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
   const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
+  const newBufferShortcut = findShortcutLabelForAction("new_buffer");
+  const historyToggleShortcut = findShortcutLabelForAction("history_toggle");
+  const newTabShortcut = [newBufferShortcut, ":tab", ":tabnew", ":tabe"]
+    .filter((value, index, list) => value && list.indexOf(value) === index)
+    .join(" | ");
 
   uiShell.setTablineActions({
+    newTab: {
+      label: "New buffer",
+      icon: "+",
+      shortcutLabel: newTabShortcut,
+    },
     settings: {
       label: "Config",
       icon: "󰒓",
       shortcutLabel: `${systemShortcut} | ${vimShortcut}`,
     },
+    history: {
+      label: "History",
+      icon: "󰋚",
+      shortcutLabel: historyToggleShortcut || "<leader> e | :history show",
+    },
+  });
+}
+
+function updateTablineOptions() {
+  uiShell.setTablineOptions({
+    showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
+    dimActiveBuffer: historyPanel.isFocused(),
+  });
+}
+
+function buildUrllineModel() {
+  const model = buffers.getUrllineRenderModel();
+  if (!state.urllineEditing) {
+    return model;
+  }
+
+  return {
+    ...model,
+    editing: {
+      active: true,
+      pane: state.urllinePane === "right" ? "right" : "left",
+      text: state.urllineBuffer,
+      cursorIndex: state.urllineCursorIndex,
+    },
+  };
+}
+
+function updateUrllineRender() {
+  uiShell.renderUrlline(buildUrllineModel());
+}
+
+function updateUrllineActions() {
+  uiShell.setUrllineActions({
+    back: {
+      label: "Previous page",
+      icon: "󰁍",
+      shortcutLabel: findShortcutLabelForAction("nav_back"),
+    },
+    forward: {
+      label: "Next page",
+      icon: "󰁔",
+      shortcutLabel: findShortcutLabelForAction("nav_forward"),
+    },
+    reload: {
+      label: "Reload page",
+      icon: "󰑐",
+      shortcutLabel: findShortcutLabelForAction("reload_page"),
+    },
   });
 }
 
 function getStatuslineModeLabel() {
+  if (historyPanel.isVisible() && historyPanel.isFocused()) {
+    return "TREE:NORMAL";
+  }
+
   const active = buffers.getActive();
   if (!active || !active.isEditable) {
     return state.mode;
@@ -167,6 +548,184 @@ function getStatuslineModeLabel() {
   }
 
   return `SHELL:${state.mode}`;
+}
+
+function clampUrllineCursor() {
+  const max = state.urllineBuffer.length;
+  const index = Number.isFinite(state.urllineCursorIndex)
+    ? Math.trunc(state.urllineCursorIndex)
+    : max;
+  state.urllineCursorIndex = Math.max(0, Math.min(index, max));
+}
+
+function startUrllineEdit(pane, initialUrl) {
+  state.urllineEditing = true;
+  state.urllinePane = pane === "right" ? "right" : "left";
+  state.urllineBuffer = String(initialUrl || "");
+  state.urllineCursorIndex = state.urllineBuffer.length;
+  state.mode = "INSERT";
+  uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  updateUrllineRender();
+}
+
+function stopUrllineEdit() {
+  state.urllineEditing = false;
+  state.urllinePane = "left";
+  state.urllineBuffer = "";
+  state.urllineCursorIndex = 0;
+  state.mode = "NORMAL";
+  uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  updateUrllineRender();
+}
+
+function normalizeUrllineText(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.replace(/\r\n|\r|\n/g, " ");
+}
+
+function normalizeHistoryUrl(rawUrl) {
+  if (typeof rawUrl !== "string") return "";
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    parsed.hash = "";
+    const normalized = parsed.toString();
+    if (normalized.endsWith("/") && parsed.pathname === "/") {
+      return normalized.slice(0, -1);
+    }
+    return normalized;
+  } catch {
+    return trimmed;
+  }
+}
+
+function insertUrllineText(text) {
+  const chunk = normalizeUrllineText(text);
+  if (!chunk) {
+    return;
+  }
+  clampUrllineCursor();
+  const cursor = state.urllineCursorIndex;
+  state.urllineBuffer =
+    state.urllineBuffer.slice(0, cursor) +
+    chunk +
+    state.urllineBuffer.slice(cursor);
+  state.urllineCursorIndex = cursor + chunk.length;
+}
+
+function submitUrlline() {
+  const targetPane = state.urllinePane === "right" ? "right" : "left";
+  const rawInput = String(state.urllineBuffer || "").trim();
+  stopUrllineEdit();
+
+  if (!rawInput) {
+    return;
+  }
+
+  const target = resolveInputTarget(rawInput, {
+    defaultSearchEngine: "duckduckgo",
+  });
+
+  if (target.kind === "invalid") {
+    return;
+  }
+
+  buffers.focusPane(targetPane);
+  const paneBuffer = buffers.getPaneBuffer(targetPane);
+  if (!paneBuffer || paneBuffer.isEditable) {
+    return;
+  }
+
+  paneBuffer.load(target.url);
+}
+
+function handleUrllineInput(event, input) {
+  if (typeof input.pasteText === "string" && input.pasteText.length > 0) {
+    insertUrllineText(input.pasteText);
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Escape") {
+    stopUrllineEdit();
+    return;
+  }
+
+  if (input.key === "Enter") {
+    submitUrlline();
+    return;
+  }
+
+  if (input.key === "Left" || input.key === "ArrowLeft") {
+    clampUrllineCursor();
+    state.urllineCursorIndex = Math.max(0, state.urllineCursorIndex - 1);
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Right" || input.key === "ArrowRight") {
+    clampUrllineCursor();
+    state.urllineCursorIndex = Math.min(state.urllineBuffer.length, state.urllineCursorIndex + 1);
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Home") {
+    state.urllineCursorIndex = 0;
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "End") {
+    state.urllineCursorIndex = state.urllineBuffer.length;
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Backspace") {
+    clampUrllineCursor();
+    if (state.urllineCursorIndex <= 0) {
+      return;
+    }
+
+    const cursor = state.urllineCursorIndex;
+    state.urllineBuffer =
+      state.urllineBuffer.slice(0, cursor - 1) +
+      state.urllineBuffer.slice(cursor);
+    state.urllineCursorIndex = cursor - 1;
+    updateUrllineRender();
+    return;
+  }
+
+  if (input.key === "Delete") {
+    clampUrllineCursor();
+    const cursor = state.urllineCursorIndex;
+    if (cursor >= state.urllineBuffer.length) {
+      return;
+    }
+
+    state.urllineBuffer =
+      state.urllineBuffer.slice(0, cursor) +
+      state.urllineBuffer.slice(cursor + 1);
+    updateUrllineRender();
+    return;
+  }
+
+  if (!input.ctrl && !input.meta && !input.alt) {
+    if (input.key === "Space") {
+      insertUrllineText(" ");
+      updateUrllineRender();
+      return;
+    }
+
+    if (typeof input.key === "string" && input.key.length === 1) {
+      insertUrllineText(input.key);
+      updateUrllineRender();
+    }
+  }
 }
 
 function registerUiShellEvents() {
@@ -208,6 +767,17 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "tabline:new-tab") {
+      dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
+      return;
+    }
+
+    if (type === "tabline:open-history") {
+      dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
     if (type === "editor:toggle-context") {
       dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
@@ -231,11 +801,60 @@ function registerUiShellEvents() {
       return;
     }
 
+    if (type === "editor:open-command") {
+      const initialText =
+        typeof payload?.initialText === "string" ? payload.initialText : "";
+      state.mode = "COMMAND";
+      state.commandTarget = "EDITOR";
+      state.commandBuffer = initialText;
+      state.commandCursorIndex = initialText.length;
+      dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
+      dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
+      return;
+    }
+
     if (type === "editor:ready") {
       state.interactionContext = "EDITOR";
       state.editorMode = "NORMAL";
       focusActiveEditorSurface({ forceNormal: true });
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      return;
+    }
+
+    if (type === "urlline:start-edit") {
+      const pane = payload?.pane === "right" ? "right" : "left";
+      buffers.focusPane(pane);
+      const paneBuffer = buffers.getPaneBuffer(pane);
+      if (!paneBuffer || paneBuffer.isEditable) {
+        return;
+      }
+      startUrllineEdit(pane, paneBuffer.url || "about:blank");
+      return;
+    }
+
+    if (type === "urlline:action") {
+      const pane = payload?.pane === "right" ? "right" : "left";
+      const action = payload?.action;
+      const paneBuffer = buffers.getPaneBuffer(pane);
+      if (!paneBuffer || paneBuffer.isEditable) {
+        return;
+      }
+
+      buffers.focusPane(pane);
+
+      if (action === "back") {
+        paneBuffer.webContents.navigationHistory.goBack();
+        return;
+      }
+
+      if (action === "forward") {
+        paneBuffer.webContents.navigationHistory.goForward();
+        return;
+      }
+
+      if (action === "reload") {
+        paneBuffer.webContents.reload();
+      }
       return;
     }
 
@@ -245,6 +864,10 @@ function registerUiShellEvents() {
 
     if (type === "tab:activate") {
       buffers.switchTo(bufferId);
+      historyPanel.unfocus();
+      buffers.focusActive();
+      updateTablineOptions();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
       return;
     }
 
@@ -262,10 +885,14 @@ function registerUiShellEvents() {
     const { type, payload } = message;
 
     if (type === "settings:get") {
-      const configPath = configService.getConfigPath();
+      const activeBuffer = buffers.getActive();
+      const configPath =
+        activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+          ? activeBuffer.editableFilePath
+          : configService.getConfigPath();
       try {
         const content = fs.readFileSync(configPath, "utf8");
-        const theme = resolveCurrentTheme();
+        const themeContext = resolveCurrentTheme();
         return {
           ok: true,
           content,
@@ -275,7 +902,7 @@ function registerUiShellEvents() {
             true,
           ),
           scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
-          ...buildThemePayload(theme),
+          ...buildThemePayload(themeContext),
         };
       } catch (error) {
         return { ok: false, error: error.message };
@@ -283,15 +910,36 @@ function registerUiShellEvents() {
     }
 
     if (type === "settings:save") {
-      const configPath = configService.getConfigPath();
+      const activeBuffer = buffers.getActive();
+      const configPath =
+        activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+          ? activeBuffer.editableFilePath
+          : configService.getConfigPath();
       try {
         fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
+        if (configPath !== configService.getConfigPath()) {
+          return { ok: true };
+        }
         const config = configService.reloadConfig();
         state.applyConfig(config);
-        const theme = resolveCurrentTheme();
-        uiShell.setTheme(theme);
-        broadcastUiShellPush("theme:update", buildThemePayload(theme));
+        applyBrowserLanguagePreference();
+        buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+        historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+        historyPanel.setTreeScrollContextLines(
+          configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+        );
+        historyPanel.setTreeDeleteOperatorTimeoutMs(
+          configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+        );
+        historyPanel.layout();
+        buffers.layoutViews();
+        const themeContext = resolveCurrentTheme();
+        applyTheme(themeContext, { broadcast: true });
+        uiShell.updateSplitDivider(buffers.getSplitStatus());
         updateTablineActions();
+        updateTablineOptions();
+        updateUrllineActions();
+        updateUrllineRender();
         return { ok: true };
       } catch (error) {
         return { ok: false, error: error.message };
@@ -339,13 +987,19 @@ function bindInputToActiveBuffer() {
 function createWindow() {
   const config = configService.initConfig();
   state.applyConfig(config);
+  applyBrowserLanguagePreference();
   const chromiumPreferences = configService.getConfigValue("browser.chromium.web_preferences", {});
+  const initialWidth = configService.getConfigValue("global.window.width", 1200);
+  const initialHeight = configService.getConfigValue("global.window.height", 800);
+  const initialX = configService.getConfigValue("global.window.x", null);
+  const initialY = configService.getConfigValue("global.window.y", null);
+  const initialIsMaximized = configService.getConfigValue("global.window.is_maximized", false);
 
   const isMac = process.platform === "darwin";
 
   const windowOptions = {
-    width: 1200,
-    height: 800,
+    width: initialWidth,
+    height: initialHeight,
     webPreferences: {
       contextIsolation:
         typeof chromiumPreferences.context_isolation === "boolean"
@@ -365,6 +1019,20 @@ function createWindow() {
     windowOptions.frame = false;
   }
 
+  const hasConfiguredPosition = isFiniteInteger(initialX) && isFiniteInteger(initialY);
+  if (hasConfiguredPosition) {
+    const candidateBounds = {
+      x: initialX,
+      y: initialY,
+      width: initialWidth,
+      height: initialHeight,
+    };
+    if (isBoundsVisibleOnAnyDisplay(candidateBounds)) {
+      windowOptions.x = initialX;
+      windowOptions.y = initialY;
+    }
+  }
+
   win = new BrowserWindow(windowOptions);
 
   win.setMaxListeners(0);
@@ -380,8 +1048,30 @@ function createWindow() {
   registerUiShellEvents();
 
   buffers.init(win);
+  buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+  historyPanel.init({ window: win, buffers, state });
+  historyPanel.setOnFocusChange(() => {
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    updateTablineOptions();
+  });
+  historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+  historyPanel.setTreeScrollContextLines(
+    configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+  );
+  historyPanel.setTreeDeleteOperatorTimeoutMs(
+    configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+  );
+  const historyPanelWebContents = historyPanel.getWebContents();
+  if (historyPanelWebContents) {
+    historyPanelWebContents.on("before-input-event", (event, input) => {
+      handleRawInput(event, input);
+    });
+  }
   uiShell.init(win);
-  uiShell.setTheme(resolveCurrentTheme());
+  notificationsService.setToastHandler((toast) => {
+    uiShell.showNotificationToast(toast);
+  });
+  applyTheme(resolveCurrentTheme());
   uiShell.setWindowChrome({
     platform: process.platform,
     useNativeControls: isMac,
@@ -391,13 +1081,18 @@ function createWindow() {
   uiShell.updateStatuslineMode(state.mode);
   uiShell.updateStatuslineScroll(0);
   uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
+  uiShell.updateSplitDivider(buffers.getSplitStatus());
   updateTablineActions();
+  updateTablineOptions();
+  updateUrllineActions();
+  updateUrllineRender();
 
   const syncWindowChrome = () => {
     uiShell.setWindowChrome({
       isMaximized: win.isMaximized(),
       isFullScreen: win.isFullScreen(),
     });
+    updateUrllineRender();
   };
 
   win.on("maximize", syncWindowChrome);
@@ -405,7 +1100,65 @@ function createWindow() {
   win.on("enter-full-screen", syncWindowChrome);
   win.on("leave-full-screen", syncWindowChrome);
 
+  let persistWindowBoundsTimer = null;
+  const persistWindowBoundsDebounced = () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer);
+    }
+    persistWindowBoundsTimer = setTimeout(() => {
+      if (!win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) {
+        return;
+      }
+      const { width, height, x, y } = win.getBounds();
+      configService.updateWindowState({ width, height, x, y });
+    }, 300);
+  };
+
+  const flushWindowBoundsPersistence = () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer);
+      persistWindowBoundsTimer = null;
+    }
+    if (!win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) {
+      return;
+    }
+    const { width, height, x, y } = win.getBounds();
+    configService.updateWindowState({ width, height, x, y });
+  };
+
+  const persistWindowMaximizedState = (isMaximized) => {
+    configService.updateWindowState({ is_maximized: Boolean(isMaximized) });
+  };
+
+  win.on("maximize", () => {
+    persistWindowMaximizedState(true);
+  });
+
+  win.on("unmaximize", () => {
+    persistWindowMaximizedState(false);
+    persistWindowBoundsDebounced();
+  });
+
+  win.on("resize", () => {
+    historyPanel.layout();
+    uiShell.updateSplitDivider(buffers.getSplitStatus());
+    updateUrllineRender();
+    persistWindowBoundsDebounced();
+  });
+
+  win.on("move", () => {
+    persistWindowBoundsDebounced();
+  });
+
+  if (initialIsMaximized) {
+    win.maximize();
+  }
+
   let statusPollInFlight = false;
+  let lastRecordedVisit = {
+    url: "",
+    atMs: 0,
+  };
 
   const statusPoller = setInterval(() => {
     const activeBuffer = buffers.getActive();
@@ -451,7 +1204,16 @@ function createWindow() {
       });
   }, 200);
 
+  win.on("close", () => {
+    persistSessionSnapshot();
+    flushWindowBoundsPersistence();
+  });
+
   win.on("closed", () => {
+    if (persistWindowBoundsTimer) {
+      clearTimeout(persistWindowBoundsTimer);
+      persistWindowBoundsTimer = null;
+    }
     clearInterval(statusPoller);
   });
 
@@ -461,8 +1223,20 @@ function createWindow() {
     const activeChanged = Boolean(change.activeChanged);
 
     uiShell.renderTabline(snapshot);
+    const urllineModel = buffers.getUrllineRenderModel();
+    if (state.urllineEditing) {
+      const editingPane = state.urllinePane === "right" ? "right" : "left";
+      const paneStillVisible = Array.isArray(urllineModel.panes)
+        ? urllineModel.panes.some((pane) => pane && pane.pane === editingPane)
+        : false;
+      if (!paneStillVisible) {
+        stopUrllineEdit();
+      }
+    }
+    updateUrllineRender();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
+    uiShell.updateSplitDivider(buffers.getSplitStatus());
 
     if (activeChanged || activeInputWebContents !== active.webContents) {
       bindInputToActiveBuffer();
@@ -473,10 +1247,81 @@ function createWindow() {
     } else if (uiShell.isCommandVisible()) {
       uiShell.keepCommandOverlayAboveContentViews();
     }
+
+    if (change.kind === "pane-interaction" && historyPanel.isFocused()) {
+      historyPanel.unfocus();
+      updateTablineOptions();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    }
+
+    if (change.kind === "visit" && change.url) {
+      const normalizedUrl = normalizeHistoryUrl(change.url);
+      if (!normalizedUrl) {
+        return;
+      }
+
+      const nowMs = Number.isFinite(change.timestampMs) ? change.timestampMs : Date.now();
+      if (
+        lastRecordedVisit.url === normalizedUrl &&
+        nowMs - lastRecordedVisit.atMs <= 1200
+      ) {
+        return;
+      }
+
+      lastRecordedVisit = {
+        url: normalizedUrl,
+        atMs: nowMs,
+      };
+
+      historyService.recordVisit({
+        url: normalizedUrl,
+        title: change.title,
+        timestampMs: nowMs,
+      });
+      if (historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+    }
+
+    if (change.kind === "title-updated" && change.url && change.title) {
+      const normalizedUrl = normalizeHistoryUrl(change.url);
+      if (!normalizedUrl) {
+        return;
+      }
+      historyService.updateLatestTitleForUrl(normalizedUrl, change.title);
+      if (historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+    }
   });
 
-  buffers.create("https://anime-sama.to/");
+  buffers.openConfiguredBuffer();
   bindInputToActiveBuffer();
+
+  const onNativeThemeUpdated = () => {
+    const themeContext = resolveCurrentTheme();
+    const shouldApplyFromSystem =
+      themeContext.configuredMode === "auto" ||
+      themeContext.contentMode === "auto" ||
+      (themeContext.contentMode === "match" && themeContext.configuredMode === "custom");
+    if (!shouldApplyFromSystem) {
+      return;
+    }
+
+    applyTheme(themeContext, { broadcast: true });
+    updateTablineActions();
+    updateTablineOptions();
+    updateUrllineActions();
+    updateUrllineRender();
+  };
+
+  nativeTheme.on("updated", onNativeThemeUpdated);
+
+  win.on("closed", () => {
+    nativeTheme.removeListener("updated", onNativeThemeUpdated);
+  });
 }
 
 app.whenReady().then(createWindow);

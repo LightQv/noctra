@@ -4,14 +4,13 @@ const path = require("path");
 const { parse, stringify } = require("yaml");
 const { defaultConfig } = require("./defaults");
 const { normalizeConfig } = require("./schema");
+const { ACTION_BUILDERS } = require("../../motions/actionBuilders");
+const notificationsService = require("../notifications/service");
 
 const CONFIG_DIR_PATH = path.join(os.homedir(), ".config", "noctra");
-const LEGACY_CONFIG_DIR_PATH = path.join(
-  os.homedir(),
-  ".config",
-  ["vim", "browser"].join("-"),
-);
 const CONFIG_FILE_PATH = path.join(CONFIG_DIR_PATH, "config.yml");
+const CONFIG_POLICY =
+  process.env.NOCTRA_CONFIG_POLICY === "strict" ? "strict" : "customizable";
 
 let cachedConfig = normalizeConfig(defaultConfig);
 
@@ -26,7 +25,7 @@ function mergeWithDefaults(defaultsNode, inputNode) {
 
   const merged = {};
   const inputObject = isPlainObject(inputNode) ? inputNode : {};
-  const keys = new Set([...Object.keys(defaultsNode), ...Object.keys(inputObject)]);
+  const keys = Object.keys(defaultsNode);
 
   for (const key of keys) {
     merged[key] = mergeWithDefaults(defaultsNode[key], inputObject[key]);
@@ -35,60 +34,119 @@ function mergeWithDefaults(defaultsNode, inputNode) {
   return merged;
 }
 
-function mergeMissingIntoTarget(targetNode, sourceNode) {
-  if (!isPlainObject(targetNode)) {
-    return isPlainObject(sourceNode) ? { ...sourceNode } : {};
-  }
-
-  if (!isPlainObject(sourceNode)) {
-    return targetNode;
-  }
-
-  for (const [key, value] of Object.entries(sourceNode)) {
-    if (!(key in targetNode)) {
-      targetNode[key] = value;
-      continue;
-    }
-
-    if (isPlainObject(targetNode[key]) && isPlainObject(value)) {
-      mergeMissingIntoTarget(targetNode[key], value);
-    }
-  }
-
-  return targetNode;
+function readRawConfig() {
+  ensureConfigFile();
+  const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
+  const parsed = raw.trim() ? parse(raw) : {};
+  return isPlainObject(parsed) ? parsed : {};
 }
 
-function migrateLegacyConfig(rawConfig) {
-  if (!isPlainObject(rawConfig)) {
-    return {};
+function addThemeComments(yamlText) {
+  const lines = String(yamlText || "").split("\n");
+  const output = [];
+  let keymapCommentAdded = false;
+  let inThemeSection = false;
+  let inBrowserSection = false;
+  let inOpeningBufferSection = false;
+  const actionIds = Object.keys(ACTION_BUILDERS).sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: "base" }),
+  );
+  const actionIdLines = [];
+  for (let index = 0; index < actionIds.length; index += 5) {
+    actionIdLines.push(actionIds.slice(index, index + 5).join(", "));
   }
 
-  const migrated = JSON.parse(JSON.stringify(rawConfig));
-  const legacyGlobalKeys = ["input", "whichkey", "ui", "editor", "theme", "split", "storage"];
+  for (const line of lines) {
+    if (/^global:\s*$/.test(line) || /^keymap:\s*$/.test(line) || /^browser:\s*$/.test(line)) {
+      inThemeSection = false;
+      inOpeningBufferSection = false;
+    }
 
-  const globalSection = isPlainObject(migrated.global) ? migrated.global : {};
+    if (/^  [a-zA-Z0-9_]+:\s*$/.test(line)) {
+      inThemeSection = false;
+      inOpeningBufferSection = false;
+      inBrowserSection = false;
+    }
 
-  for (const legacyKey of legacyGlobalKeys) {
-    if (!isPlainObject(migrated[legacyKey])) {
+    if (!keymapCommentAdded && /^keymap:\s*$/.test(line)) {
+      output.push(line);
+      output.push("  # Keymap customization scope:");
+      output.push("  # - Classic NORMAL/TREE motions are fixed internally.");
+      output.push("  # - Only leader mappings are configurable here.");
+      output.push("  # Leader node shape:");
+      output.push("  # - <key>: { label: \"...\", action: \"<action_id>\" }");
+      output.push("  # - <key>: { label: \"...\", children: { ... } }");
+      output.push("  # Valid action ids for leader actions:");
+      for (const actionIdLine of actionIdLines) {
+        output.push(`  #   ${actionIdLine}`);
+      }
+      keymapCommentAdded = true;
       continue;
     }
 
-    const currentSection = isPlainObject(globalSection[legacyKey]) ? globalSection[legacyKey] : {};
-    globalSection[legacyKey] = mergeMissingIntoTarget(currentSection, migrated[legacyKey]);
-    delete migrated[legacyKey];
+    if (/^  theme:\s*$/.test(line)) {
+      output.push("  # Theme controls for Noctra shell and surfaces");
+      inThemeSection = true;
+      inOpeningBufferSection = false;
+      inBrowserSection = false;
+    }
+
+    if (inThemeSection && /^    mode:\s*/.test(line)) {
+      output.push("    # App theme mode: dark | light | auto | custom");
+      output.push("    # custom uses global.theme.overrides");
+    }
+
+    if (inThemeSection && /^    content_mode:\s*/.test(line)) {
+      output.push("    # Browser content mode: dark | light | auto | match");
+      output.push("    # match follows app theme, but custom falls back to auto(system)");
+    }
+
+    if (inThemeSection && /^    overrides:\s*$/.test(line)) {
+      output.push("    # Overrides are applied only when mode is custom");
+      output.push("    # Supported override keys are prefilled below with dark defaults");
+    }
+
+    if (/^browser:\s*$/.test(line)) {
+      output.push("# Browser behavior");
+      inBrowserSection = true;
+      inThemeSection = false;
+      inOpeningBufferSection = false;
+    }
+
+    if (inBrowserSection && /^  language:\s*/.test(line)) {
+      output.push("  # Preferred website language: en | fr");
+      output.push("  # Mapped to Accept-Language and known locale hints for requests");
+    }
+
+    if (inBrowserSection && /^  copy_selection_to_clipboard:\s*/.test(line)) {
+      output.push("  # Auto-copy selected page text to clipboard on mouse selection");
+    }
+
+    if (/^  opening_buffer:\s*$/.test(line)) {
+      output.push("  # Startup page mode");
+      inOpeningBufferSection = true;
+      inThemeSection = false;
+      inBrowserSection = false;
+    }
+
+    if (inOpeningBufferSection && /^    mode:\s*/.test(line)) {
+      output.push("    # Opening mode: blank | url | dashboard");
+      output.push("    # url uses global.opening_buffer.url");
+    }
+
+    output.push(line);
   }
 
-  if (Object.keys(globalSection).length > 0 || isPlainObject(migrated.global)) {
-    migrated.global = globalSection;
-  }
+  return output.join("\n");
+}
 
-  return migrated;
+function serializeConfig(configObject) {
+  return addThemeComments(stringify(configObject));
 }
 
 function syncConfigFile(rawConfig) {
-  const migratedRaw = migrateLegacyConfig(rawConfig);
-  const merged = mergeWithDefaults(defaultConfig, migratedRaw);
-  const nextText = stringify(merged);
+  const merged = mergeWithDefaults(defaultConfig, rawConfig);
+  const nextText = serializeConfig(merged);
 
   try {
     const currentText = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
@@ -103,7 +161,7 @@ function syncConfigFile(rawConfig) {
 }
 
 function writeDefaultConfig() {
-  fs.writeFileSync(CONFIG_FILE_PATH, stringify(defaultConfig), "utf8");
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(defaultConfig), "utf8");
 }
 
 function getBackupPath() {
@@ -124,55 +182,87 @@ function repairInvalidConfig(error) {
     const backupPath = getBackupPath();
     fs.renameSync(CONFIG_FILE_PATH, backupPath);
     writeDefaultConfig();
-    console.warn(
-      "Invalid config.yml detected. Backed up invalid config to",
-      backupPath,
-      "and recreated default config at",
-      CONFIG_FILE_PATH,
-    );
+    notificationsService.notify({
+      severity: "warning",
+      code: "config_invalid_auto_repaired",
+      message: "Invalid config.yml detected. Recreated default file and backed up previous file.",
+      source: "core.config",
+      context: { backupPath, configPath: CONFIG_FILE_PATH },
+    });
     return true;
   } catch (repairError) {
-    console.warn(
-      "Failed to auto-repair invalid config.yml:",
-      repairError.message,
-      "(original error:",
-      error.message,
-      ")",
-    );
+    notificationsService.notify({
+      severity: "error",
+      code: "config_auto_repair_failed",
+      message: "Failed to auto-repair invalid config.yml",
+      source: "core.config",
+      context: { repairError: repairError.message, originalError: error.message },
+    });
     return false;
   }
 }
 
 function ensureConfigFile() {
-  if (!fs.existsSync(CONFIG_DIR_PATH) && fs.existsSync(LEGACY_CONFIG_DIR_PATH)) {
-    try {
-      fs.renameSync(LEGACY_CONFIG_DIR_PATH, CONFIG_DIR_PATH);
-      console.info("Migrated config directory to", CONFIG_DIR_PATH);
-    } catch (error) {
-      console.warn("Failed to migrate legacy config directory:", error.message);
-    }
-  }
-
   if (!fs.existsSync(CONFIG_DIR_PATH)) {
     fs.mkdirSync(CONFIG_DIR_PATH, { recursive: true });
   }
 
   if (!fs.existsSync(CONFIG_FILE_PATH)) {
     writeDefaultConfig();
-    console.info("Created default config at", CONFIG_FILE_PATH);
+    notificationsService.notify({
+      severity: "info",
+      code: "config_default_created",
+      message: "Created default config file",
+      source: "core.config",
+      context: { path: CONFIG_FILE_PATH },
+      toast: false,
+      persist: false,
+    });
   }
 }
 
 function loadConfig() {
   ensureConfigFile();
 
+  if (CONFIG_POLICY === "strict") {
+    const strictText = serializeConfig(defaultConfig);
+    try {
+      const currentText = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
+      if (currentText !== strictText) {
+        fs.writeFileSync(CONFIG_FILE_PATH, strictText, "utf8");
+      }
+    } catch {
+      fs.writeFileSync(CONFIG_FILE_PATH, strictText, "utf8");
+    }
+
+    cachedConfig = normalizeConfig(defaultConfig);
+    notificationsService.notify({
+      severity: "info",
+      code: "config_loaded_strict",
+      message: "Loaded config in strict policy",
+      source: "core.config",
+      context: { path: CONFIG_FILE_PATH },
+      toast: false,
+      persist: false,
+    });
+    return cachedConfig;
+  }
+
   try {
     const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
     const parsed = raw.trim() ? parse(raw) : {};
-    const migrated = migrateLegacyConfig(parsed);
-    syncConfigFile(migrated);
-    cachedConfig = normalizeConfig(migrated);
-    console.info("Loaded config from", CONFIG_FILE_PATH);
+    const nextRawConfig = isPlainObject(parsed) ? parsed : {};
+    syncConfigFile(nextRawConfig);
+    cachedConfig = normalizeConfig(nextRawConfig);
+    notificationsService.notify({
+      severity: "info",
+      code: "config_loaded",
+      message: "Loaded config",
+      source: "core.config",
+      context: { path: CONFIG_FILE_PATH },
+      toast: false,
+      persist: false,
+    });
   } catch (error) {
     const repaired = repairInvalidConfig(error);
 
@@ -180,19 +270,35 @@ function loadConfig() {
       try {
         const raw = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
         const parsed = raw.trim() ? parse(raw) : {};
-        const migrated = migrateLegacyConfig(parsed);
-        syncConfigFile(migrated);
-        cachedConfig = normalizeConfig(migrated);
-        console.info("Loaded repaired config from", CONFIG_FILE_PATH);
+        const nextRawConfig = isPlainObject(parsed) ? parsed : {};
+        syncConfigFile(nextRawConfig);
+        cachedConfig = normalizeConfig(nextRawConfig);
+        notificationsService.notify({
+          severity: "warning",
+          code: "config_loaded_repaired",
+          message: "Loaded repaired config from disk",
+          source: "core.config",
+          context: { path: CONFIG_FILE_PATH },
+          persist: false,
+        });
         return cachedConfig;
       } catch (reloadError) {
-        console.warn(
-          "Failed to load repaired config.yml, using defaults:",
-          reloadError.message,
-        );
+        notificationsService.notify({
+          severity: "error",
+          code: "config_repaired_load_failed",
+          message: "Failed to load repaired config.yml, using defaults",
+          source: "core.config",
+          context: { error: reloadError.message },
+        });
       }
     } else {
-      console.warn("Failed to load config.yml, using defaults:", error.message);
+      notificationsService.notify({
+        severity: "error",
+        code: "config_load_failed_defaults",
+        message: "Failed to load config.yml, using defaults",
+        source: "core.config",
+        context: { error: error.message },
+      });
     }
 
     cachedConfig = normalizeConfig(defaultConfig);
@@ -236,10 +342,167 @@ function getConfigValue(pathKey, fallbackValue = undefined) {
   return cursor;
 }
 
+function updateThemeMode(nextMode) {
+  if (CONFIG_POLICY === "strict") {
+    return cachedConfig;
+  }
+
+  const allowedModes = new Set(["dark", "light", "auto", "custom"]);
+  if (typeof nextMode !== "string") {
+    return cachedConfig;
+  }
+
+  const normalizedMode = nextMode.trim().toLowerCase();
+  if (!allowedModes.has(normalizedMode)) {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.global)) {
+    rawConfig.global = {};
+  }
+
+  if (!isPlainObject(rawConfig.global.theme)) {
+    rawConfig.global.theme = {};
+  }
+
+  rawConfig.global.theme.mode = normalizedMode;
+
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
+function updateBrowserLanguage(nextLanguage) {
+  if (CONFIG_POLICY === "strict") {
+    return cachedConfig;
+  }
+
+  if (typeof nextLanguage !== "string") {
+    return cachedConfig;
+  }
+
+  const normalizedLanguage = nextLanguage.trim().toLowerCase();
+  if (normalizedLanguage !== "en" && normalizedLanguage !== "fr") {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.browser)) {
+    rawConfig.browser = {};
+  }
+
+  if (rawConfig.browser.language === normalizedLanguage) {
+    return cachedConfig;
+  }
+
+  rawConfig.browser.language = normalizedLanguage;
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
+function updateCopySelectionToClipboard(nextEnabled) {
+  if (CONFIG_POLICY === "strict") {
+    return cachedConfig;
+  }
+
+  if (typeof nextEnabled !== "boolean") {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.browser)) {
+    rawConfig.browser = {};
+  }
+
+  if (rawConfig.browser.copy_selection_to_clipboard === nextEnabled) {
+    return cachedConfig;
+  }
+
+  rawConfig.browser.copy_selection_to_clipboard = nextEnabled;
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
+function updateWindowState(nextWindowState = {}) {
+  if (CONFIG_POLICY === "strict") {
+    return cachedConfig;
+  }
+
+  if (!isPlainObject(nextWindowState)) {
+    return cachedConfig;
+  }
+
+  const width = Number.isFinite(nextWindowState.width) ? Math.floor(nextWindowState.width) : null;
+  const height = Number.isFinite(nextWindowState.height) ? Math.floor(nextWindowState.height) : null;
+  const isMaximized =
+    typeof nextWindowState.is_maximized === "boolean" ? nextWindowState.is_maximized : null;
+  const x = Number.isFinite(nextWindowState.x) ? Math.floor(nextWindowState.x) : null;
+  const y = Number.isFinite(nextWindowState.y) ? Math.floor(nextWindowState.y) : null;
+
+  const hasSize = width !== null && height !== null;
+  const hasMaximized = isMaximized !== null;
+  const hasPosition = x !== null && y !== null;
+
+  if (!hasSize && !hasMaximized && !hasPosition) {
+    return cachedConfig;
+  }
+
+  const rawConfig = readRawConfig();
+  if (!isPlainObject(rawConfig.global)) {
+    rawConfig.global = {};
+  }
+
+  if (!isPlainObject(rawConfig.global.window)) {
+    rawConfig.global.window = {};
+  }
+
+  let changed = false;
+
+  if (hasSize) {
+    const nextWidth = Math.max(400, width);
+    const nextHeight = Math.max(300, height);
+    if (rawConfig.global.window.width !== nextWidth) {
+      rawConfig.global.window.width = nextWidth;
+      changed = true;
+    }
+    if (rawConfig.global.window.height !== nextHeight) {
+      rawConfig.global.window.height = nextHeight;
+      changed = true;
+    }
+  }
+
+  if (hasMaximized && rawConfig.global.window.is_maximized !== isMaximized) {
+    rawConfig.global.window.is_maximized = isMaximized;
+    changed = true;
+  }
+
+  if (hasPosition) {
+    if (rawConfig.global.window.x !== x) {
+      rawConfig.global.window.x = x;
+      changed = true;
+    }
+    if (rawConfig.global.window.y !== y) {
+      rawConfig.global.window.y = y;
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return cachedConfig;
+  }
+
+  fs.writeFileSync(CONFIG_FILE_PATH, serializeConfig(rawConfig), "utf8");
+  return loadConfig();
+}
+
 module.exports = {
   initConfig,
   reloadConfig,
   getConfig,
   getConfigPath,
   getConfigValue,
+  updateThemeMode,
+  updateBrowserLanguage,
+  updateCopySelectionToClipboard,
+  updateWindowState,
 };

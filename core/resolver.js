@@ -45,6 +45,13 @@ function normalizeUrlCandidate(value) {
   return `https://${value}`;
 }
 
+function resolveUrlInput(rawInput) {
+  const input = (rawInput || "").trim();
+  if (!input) return null;
+  if (!looksLikeUrlTarget(input)) return null;
+  return normalizeUrlCandidate(input);
+}
+
 function resolveInputTarget(rawInput, options = {}) {
   const input = (rawInput || "").trim();
   const defaultSearchEngine = options.defaultSearchEngine || "duckduckgo";
@@ -75,5 +82,6 @@ function resolveInputTarget(rawInput, options = {}) {
 
 module.exports = {
   buildSearchUrl,
+  resolveUrlInput,
   resolveInputTarget,
 };

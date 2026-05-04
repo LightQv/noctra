@@ -49,7 +49,27 @@ function getLeaderTree() {
   return runtimeTree;
 }
 
-function getLeaderNode(path = []) {
+function isNodeAvailable(node, context = {}) {
+  if (!node || typeof node !== "object") {
+    return false;
+  }
+
+  if (node.children && typeof node.children === "object") {
+    return Object.values(node.children).some((child) => isNodeAvailable(child, context));
+  }
+
+  if (typeof node.action !== "function") {
+    return false;
+  }
+
+  if (typeof node.action.isAvailable !== "function") {
+    return true;
+  }
+
+  return Boolean(node.action.isAvailable(context));
+}
+
+function getLeaderNode(path = [], context = {}) {
   let current = { children: getLeaderTree() };
 
   for (const key of path) {
@@ -59,10 +79,14 @@ function getLeaderNode(path = []) {
     current = current.children[key];
   }
 
+  if (!isNodeAvailable(current, context)) {
+    return null;
+  }
+
   return current;
 }
 
-function getWhichKeyModel(path = [], numericBuffer = "") {
+function getWhichKeyModel(path = [], numericBuffer = "", context = {}) {
   if (numericBuffer) {
     return {
       prefix: `<leader>${numericBuffer}`,
@@ -75,17 +99,25 @@ function getWhichKeyModel(path = [], numericBuffer = "") {
     };
   }
 
-  const node = getLeaderNode(path);
+  const node = getLeaderNode(path, context);
   const entries = [];
 
   if (node && node.children) {
-    const childKeys = Object.keys(node.children).sort();
+    const childKeys = Object.keys(node.children).sort((left, right) => {
+      const primary = left.localeCompare(right, undefined, { sensitivity: "base" });
+      if (primary !== 0) {
+        return primary;
+      }
+      return left.localeCompare(right);
+    });
     for (const key of childKeys) {
       const child = node.children[key];
-      const suffix = child.children ? "..." : "";
+      if (!isNodeAvailable(child, context)) {
+        continue;
+      }
       entries.push({
         key,
-        label: `${child.label}${suffix}`,
+        label: child.label,
       });
     }
   }

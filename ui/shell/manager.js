@@ -1,5 +1,6 @@
 const { BrowserView } = require("electron");
 const { renderTabline } = require("../tabline");
+const { renderUrlline: renderShellUrlline } = require("../urlline");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
@@ -25,12 +26,26 @@ const SHELL_HTML = `
         overflow: hidden;
       }
 
+      #split-divider {
+        position: fixed;
+        top: ${UI_SHELL_TABLINE_HEIGHT}px;
+        bottom: ${UI_SHELL_STATUSLINE_HEIGHT}px;
+        width: 1px;
+        left: 0;
+        display: none;
+        pointer-events: none;
+        background: var(--ui-split-divider, #283140);
+        z-index: 1;
+      }
+
       :root {
         --ui-font-family: ${UI_FONT_FAMILY};
       }
     </style>
   </head>
-  <body></body>
+  <body>
+    <div id="split-divider" aria-hidden="true"></div>
+  </body>
 </html>
 `;
 
@@ -46,18 +61,19 @@ const COMMAND_OVERLAY_HTML = `
         width: 100%;
         height: 100%;
         background: transparent;
-        overflow: hidden;
+        overflow: visible;
         pointer-events: none;
       }
 
       ${UI_FONT_FACE_CSS}
 
       #command-shell {
+        position: relative;
         width: 100%;
-        height: 100%;
-        margin: 0;
+        height: calc(100% - 4px);
+        margin: 4px 0 0;
         min-width: 0;
-        padding: 0 10px;
+        padding: 8px 8px;
         border-radius: 6px;
         border: 1px solid var(--ui-accent, #89dceb);
         background: var(--ui-bg-panel, #161b24);
@@ -67,38 +83,45 @@ const COMMAND_OVERLAY_HTML = `
       }
 
       #command-title {
-        margin: 0 auto;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, -50%);
         padding: 0 8px;
         color: var(--ui-accent, #89dceb);
         background: var(--ui-bg-panel, #161b24);
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
         font-size: 13px;
-        line-height: 1;
+        line-height: 14px;
+        white-space: nowrap;
       }
 
       #command-overlay {
         position: relative;
         width: 100%;
-        height: 100%;
+        height: 20px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 5px;
         padding: 0;
-        transform: translateY(-1px);
         color: var(--ui-text-bright, #f4f7ff);
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
         font-size: 13px;
-        line-height: 1;
+        line-height: 20px;
         box-sizing: border-box;
       }
 
       #command-prefix {
         color: var(--ui-accent, #89dceb);
-        font-size: 17px;
-        line-height: 1;
+        font-size: 20px;
+        line-height: 20px;
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
         display: flex;
         align-items: center;
-        height: 100%;
+        justify-content: center;
+        min-width: 18px;
+        height: 20px;
+        transform: translateY(0.25px);
       }
 
       #command-content {
@@ -108,7 +131,7 @@ const COMMAND_OVERLAY_HTML = `
         align-items: center;
         justify-content: flex-start;
         gap: 1px;
-        height: 100%;
+        height: 20px;
         overflow: hidden;
         white-space: pre;
       }
@@ -117,15 +140,14 @@ const COMMAND_OVERLAY_HTML = `
         min-width: 0;
         overflow: hidden;
         white-space: pre;
-        line-height: 1;
+        line-height: 20px;
       }
 
       #command-cursor {
-        height: 1.22em;
+        height: 18px;
         background: var(--ui-accent, #89dceb);
         border-radius: 1px;
         flex: 0 0 auto;
-        transform: translateY(-1px);
       }
 
       #command-cursor.cursor-block {
@@ -138,13 +160,13 @@ const COMMAND_OVERLAY_HTML = `
     </style>
   </head>
   <body>
-    <fieldset id="command-shell">
-      <legend id="command-title">Cmdline</legend>
+    <div id="command-shell">
+      <div id="command-title">Cmdline</div>
       <div id="command-overlay">
         <span id="command-prefix"></span>
         <span id="command-content"><span id="command-text-before" class="command-text-segment"></span><span id="command-cursor" class="cursor-block" aria-hidden="true"></span><span id="command-text-after" class="command-text-segment"></span></span>
       </div>
-    </fieldset>
+    </div>
   </body>
 </html>
 `;
@@ -205,9 +227,9 @@ const WHICHKEY_OVERLAY_HTML = `
 
       #whichkey-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 0 14px;
-        flex: 1;
+				flex: 1;
         min-height: 0;
       }
 
@@ -288,6 +310,156 @@ const WHICHKEY_OVERLAY_HTML = `
 </html>
 `;
 
+const SELECTION_MODAL_OVERLAY_HTML = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      ${UI_FONT_FACE_CSS}
+
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
+      }
+
+      #selection-modal {
+        margin: 0;
+        min-width: 0;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        border-radius: 6px;
+        border: 1px solid var(--ui-accent, #89dceb);
+        background: var(--ui-bg-panel, #161b24);
+        color: var(--ui-text-bright, #f4f7ff);
+        display: flex;
+        flex-direction: column;
+        padding: 6px 8px 8px;
+        gap: 6px;
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+      }
+
+      #selection-modal-title {
+        align-self: center;
+        margin: 0 auto;
+        padding: 0 8px;
+        color: var(--ui-text-muted, #7d8aa3);
+        background: var(--ui-bg-panel, #161b24);
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      #selection-modal-prompt {
+        color: var(--ui-text-soft, #b6c7e8);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #selection-modal-url {
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #selection-modal-scope {
+        color: var(--ui-accent, #89dceb);
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #selection-modal-content {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .selection-modal-grid {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        column-gap: 12px;
+        align-items: end;
+      }
+
+      .selection-modal-col {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 0;
+        gap: 2px;
+      }
+
+      .selection-modal-item {
+        color: var(--ui-text-soft, #b6c7e8);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+        text-align: center;
+        border-radius: 4px;
+        padding: 2px 6px;
+      }
+
+      .selection-modal-item.selected {
+        background: color-mix(in srgb, var(--ui-bg-subtle, #1f2735) 55%, transparent);
+        color: var(--ui-text-bright, #f4f7ff);
+      }
+
+      .selection-modal-index {
+        color: var(--ui-accent, #89dceb);
+        font-size: 11px;
+        white-space: nowrap;
+        max-width: 150px;
+        text-align: center;
+      }
+
+      .selection-modal-empty {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 12px;
+      }
+
+      #selection-modal-footer {
+        display: flex;
+        justify-content: space-between;
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <fieldset id="selection-modal">
+      <legend id="selection-modal-title">Bookmark</legend>
+      <div id="selection-modal-prompt"></div>
+      <div id="selection-modal-url"></div>
+      <div id="selection-modal-scope"></div>
+      <div id="selection-modal-content"></div>
+      <div id="selection-modal-footer"></div>
+    </fieldset>
+  </body>
+</html>
+`;
+
 const STATUSLINE_OVERLAY_HTML = `
 <!doctype html>
 <html>
@@ -318,7 +490,7 @@ const STATUSLINE_OVERLAY_HTML = `
         justify-content: space-between;
         padding: 0;
         box-sizing: border-box;
-        background: var(--ui-bg-statusline, #151a22);
+        background: var(--ui-bg-shell, #151a22);
         border-top: 1px solid var(--ui-border-strong, #2a3140);
         color: var(--ui-text, #d8e3f8);
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
@@ -384,6 +556,73 @@ const STATUSLINE_OVERLAY_HTML = `
 </html>
 `;
 
+const TOAST_OVERLAY_HTML = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      ${UI_FONT_FACE_CSS}
+
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
+      }
+
+      #toast-root {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        padding: 8px 16px 0 0;
+        box-sizing: border-box;
+      }
+
+      .toast-item {
+        width: min(420px, 100%);
+        max-width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--ui-border, #2f3440);
+        background: var(--ui-bg-panel, #161b24);
+        color: var(--ui-text, #d8e3f8);
+        border-left-width: 4px;
+        border-radius: 6px;
+        padding: 10px 10px;
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+        font-size: 12px;
+        line-height: 1.4;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+        opacity: 0;
+        transform: translateY(-6px);
+        transition: opacity 120ms ease, transform 120ms ease;
+      }
+
+      .toast-item.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+    </style>
+  </head>
+  <body>
+    <div id="toast-root" aria-live="polite" aria-atomic="false"></div>
+  </body>
+</html>
+`;
+
 class UiShellManager {
   constructor() {
     this.window = null;
@@ -393,6 +632,7 @@ class UiShellManager {
     this.commandVisible = false;
     this.commandText = "";
     this.commandCursorIndex = 0;
+    this.commandContext = "shell";
     this.whichKeyOverlayView = null;
     this.whichKeyOverlayReady = false;
     this.whichKeyVisible = false;
@@ -400,8 +640,14 @@ class UiShellManager {
     this.whichKeyHideTimer = null;
     this.whichKeyShowTimer = null;
     this.whichKeyPendingTimeoutMs = 1200;
+    this.selectionModalView = null;
+    this.selectionModalReady = false;
+    this.selectionModalVisible = false;
+    this.selectionModalModel = null;
     this.statuslineView = null;
     this.statuslineReady = false;
+    this.toastOverlayView = null;
+    this.toastOverlayReady = false;
     this.statuslineMode = "NORMAL";
     this.statuslineScroll = 0;
     this.statuslineSplitIndicator = {
@@ -410,7 +656,17 @@ class UiShellManager {
     };
     this.pendingTablineSnapshot = [];
     this.tablineRenderTimer = null;
+    this.splitDividerState = {
+      visible: false,
+      offsetPx: 0,
+    };
     this.tablineActions = {};
+    this.tablineOptions = {
+      showFavicon: false,
+      dimActiveBuffer: false,
+    };
+    this.urllineActions = {};
+    this.urllineModel = { panes: [] };
     this.windowChrome = {
       platform: process.platform,
       useNativeControls: process.platform === "darwin",
@@ -420,6 +676,80 @@ class UiShellManager {
     this.currentTheme = {
       ...DEFAULT_THEME,
     };
+    this.pendingToasts = [];
+  }
+
+  showNotificationToast(toast = {}) {
+    if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) {
+      this.pendingToasts.push(toast);
+      if (this.pendingToasts.length > 50) {
+        this.pendingToasts.shift();
+      }
+      return;
+    }
+
+    const severity =
+      toast.severity === "error" || toast.severity === "warning"
+        ? toast.severity
+        : "info";
+    const message = String(toast.message || "");
+    const timeoutMs = Number.isFinite(toast.timeoutMs)
+      ? Math.max(800, Math.floor(toast.timeoutMs))
+      : 2200;
+    const accentColor =
+      severity === "error"
+        ? this.currentTheme.dangerTextColor
+        : severity === "warning"
+          ? "#f6c177"
+          : this.currentTheme.mainColor;
+
+    this.toastOverlayView.webContents
+      .executeJavaScript(
+        `
+      (function pushToast() {
+        const root = document.getElementById('toast-root');
+        if (!root) return;
+        const node = document.createElement('div');
+        node.className = 'toast-item';
+        node.style.borderLeftColor = ${JSON.stringify(accentColor)};
+        node.textContent = ${JSON.stringify(message)};
+        root.prepend(node);
+        requestAnimationFrame(() => node.classList.add('show'));
+        setTimeout(() => {
+          node.classList.remove('show');
+          setTimeout(() => {
+            if (node.parentElement) {
+              node.parentElement.removeChild(node);
+            }
+          }, 140);
+        }, ${JSON.stringify(timeoutMs)});
+      })();
+    `,
+      )
+      .catch((error) => {
+        console.warn(
+          "[noctra:warning] toast_render_failed",
+          error && error.message ? error.message : error,
+        );
+      });
+  }
+
+  flushPendingToasts() {
+    if (
+      !this.window ||
+      !this.shellHostReady ||
+      this.pendingToasts.length === 0
+    ) {
+      return;
+    }
+
+    const queuedToasts = this.pendingToasts.splice(
+      0,
+      this.pendingToasts.length,
+    );
+    for (const toast of queuedToasts) {
+      this.showNotificationToast(toast);
+    }
   }
 
   init(windowRef) {
@@ -430,7 +760,9 @@ class UiShellManager {
     this.initializeShellHost();
     this.initializeCommandOverlayView();
     this.initializeWhichKeyOverlayView();
+    this.initializeSelectionModalView();
     this.initializeStatuslineView();
+    this.initializeToastOverlayView();
 
     this.window.on("resize", () => this.relayout());
     this.window.on("maximize", () => this.relayout());
@@ -448,6 +780,9 @@ class UiShellManager {
       this.shellHostReady = true;
       this.applyThemeToWebContents(this.window.webContents);
       this.renderTabline(this.pendingTablineSnapshot);
+      this.renderUrlline(this.urllineModel);
+      this.updateSplitDivider(this.splitDividerState);
+      this.flushPendingToasts();
     });
   }
 
@@ -501,6 +836,33 @@ class UiShellManager {
     this.relayout();
   }
 
+  initializeSelectionModalView() {
+    if (!this.window) return;
+
+    this.selectionModalView = new BrowserView({
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    this.selectionModalView.setAutoResize({ width: false, height: false });
+    this.selectionModalView.webContents.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(SELECTION_MODAL_OVERLAY_HTML)}`,
+    );
+
+    this.selectionModalView.webContents.on("did-finish-load", () => {
+      this.selectionModalReady = true;
+      this.applyThemeToWebContents(this.selectionModalView.webContents);
+      if (this.selectionModalModel) {
+        this.updateSelectionModal(this.selectionModalModel);
+      }
+    });
+
+    this.window.addBrowserView(this.selectionModalView);
+    this.relayout();
+  }
+
   initializeStatuslineView() {
     if (!this.window) return;
 
@@ -528,6 +890,31 @@ class UiShellManager {
     this.relayout();
   }
 
+  initializeToastOverlayView() {
+    if (!this.window) return;
+
+    this.toastOverlayView = new BrowserView({
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    this.toastOverlayView.setAutoResize({ width: false, height: false });
+    this.toastOverlayView.webContents.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(TOAST_OVERLAY_HTML)}`,
+    );
+
+    this.toastOverlayView.webContents.on("did-finish-load", () => {
+      this.toastOverlayReady = true;
+      this.applyThemeToWebContents(this.toastOverlayView.webContents);
+      this.flushPendingToasts();
+    });
+
+    this.window.addBrowserView(this.toastOverlayView);
+    this.relayout();
+  }
+
   renderTabline(snapshot) {
     this.pendingTablineSnapshot = snapshot;
 
@@ -546,6 +933,7 @@ class UiShellManager {
         this.windowChrome,
         this.tablineActions,
         this.currentTheme,
+        this.tablineOptions,
       );
     }, 16);
   }
@@ -557,11 +945,58 @@ class UiShellManager {
     };
 
     this.applyThemeToWebContents(this.window && this.window.webContents);
-    this.applyThemeToWebContents(this.commandOverlayView && this.commandOverlayView.webContents);
-    this.applyThemeToWebContents(this.whichKeyOverlayView && this.whichKeyOverlayView.webContents);
-    this.applyThemeToWebContents(this.statuslineView && this.statuslineView.webContents);
+    this.applyThemeToWebContents(
+      this.commandOverlayView && this.commandOverlayView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.whichKeyOverlayView && this.whichKeyOverlayView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.selectionModalView && this.selectionModalView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.statuslineView && this.statuslineView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.toastOverlayView && this.toastOverlayView.webContents,
+    );
     this.renderTabline(this.pendingTablineSnapshot);
+    this.renderUrlline(this.urllineModel);
     this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
+    this.updateSplitDivider(this.splitDividerState);
+  }
+
+  updateSplitDivider(splitStatus = {}) {
+    const divider =
+      splitStatus.divider && typeof splitStatus.divider === "object"
+        ? splitStatus.divider
+        : {};
+    const visible = Boolean(divider.visible);
+    const offsetPx = Number.isFinite(divider.offsetPx)
+      ? Math.max(0, Math.floor(divider.offsetPx))
+      : 0;
+
+    this.splitDividerState = {
+      visible,
+      offsetPx,
+    };
+
+    if (!this.window || !this.shellHostReady) return;
+
+    this.window.webContents
+      .executeJavaScript(
+        `
+      (function updateSplitDivider() {
+        const divider = document.getElementById('split-divider');
+        if (!divider) return;
+        const visible = ${JSON.stringify(visible)};
+        const offsetPx = ${JSON.stringify(offsetPx)};
+        divider.style.display = visible ? 'block' : 'none';
+        divider.style.left = visible ? offsetPx + 'px' : '0px';
+      })();
+    `,
+      )
+      .catch(() => {});
   }
 
   applyThemeToWebContents(webContents) {
@@ -573,7 +1008,8 @@ class UiShellManager {
     };
 
     webContents
-      .executeJavaScript(`
+      .executeJavaScript(
+        `
       (function applyNoctraThemeVars() {
         const vars = ${JSON.stringify(cssVars)};
         const style = document.documentElement && document.documentElement.style;
@@ -584,7 +1020,8 @@ class UiShellManager {
           style.setProperty(name, value);
         }
       })();
-    `)
+    `,
+      )
       .catch(() => {});
   }
 
@@ -593,6 +1030,35 @@ class UiShellManager {
       ...actions,
     };
     this.renderTabline(this.pendingTablineSnapshot);
+  }
+
+  setTablineOptions(options = {}) {
+    this.tablineOptions = {
+      ...this.tablineOptions,
+      ...(options && typeof options === "object" ? options : {}),
+    };
+    this.renderTabline(this.pendingTablineSnapshot);
+  }
+
+  renderUrlline(model = { panes: [] }) {
+    this.urllineModel =
+      model && typeof model === "object" ? model : { panes: [] };
+
+    if (!this.window || !this.shellHostReady) return;
+
+    renderShellUrlline(
+      this.window.webContents,
+      this.urllineModel,
+      this.urllineActions,
+      this.currentTheme,
+    );
+  }
+
+  setUrllineActions(actions = {}) {
+    this.urllineActions = {
+      ...actions,
+    };
+    this.renderUrlline(this.urllineModel);
   }
 
   setWindowChrome(chrome = {}) {
@@ -612,7 +1078,9 @@ class UiShellManager {
       !this.window ||
       !this.commandOverlayView ||
       !this.whichKeyOverlayView ||
-      !this.statuslineView
+      !this.selectionModalView ||
+      !this.statuslineView ||
+      !this.toastOverlayView
     )
       return;
 
@@ -654,6 +1122,26 @@ class UiShellManager {
       height: whichHeight,
     });
 
+    const modalWidth = this.selectionModalVisible
+      ? Math.min(560, Math.max(bounds.width - 120, 320))
+      : 1;
+    const modalHeight = this.selectionModalVisible
+      ? this.computeSelectionModalHeight(this.selectionModalModel)
+      : 1;
+    const modalX = this.selectionModalVisible
+      ? Math.max(Math.floor((bounds.width - modalWidth) / 2), 0)
+      : -10000;
+    const modalY = this.selectionModalVisible
+      ? Math.max(UI_SHELL_TABLINE_HEIGHT + 12, 0)
+      : -10000;
+
+    this.selectionModalView.setBounds({
+      x: modalX,
+      y: modalY,
+      width: modalWidth,
+      height: modalHeight,
+    });
+
     this.statuslineView.setBounds({
       x: 0,
       y: Math.max(
@@ -662,6 +1150,19 @@ class UiShellManager {
       ),
       width: bounds.width,
       height: UI_SHELL_STATUSLINE_HEIGHT,
+    });
+
+    this.toastOverlayView.setBounds({
+      x: Math.max(bounds.width - 452, 0),
+      y: UI_SHELL_TABLINE_HEIGHT + 10,
+      width: Math.min(452, bounds.width),
+      height: Math.max(
+        bounds.height -
+          UI_SHELL_TABLINE_HEIGHT -
+          UI_SHELL_STATUSLINE_HEIGHT -
+          20,
+        1,
+      ),
     });
   }
 
@@ -686,8 +1187,16 @@ class UiShellManager {
       this.window.setTopBrowserView(this.whichKeyOverlayView);
     }
 
+    if (this.selectionModalVisible && this.selectionModalView) {
+      this.window.setTopBrowserView(this.selectionModalView);
+    }
+
     if (this.commandVisible && this.commandOverlayView) {
       this.window.setTopBrowserView(this.commandOverlayView);
+    }
+
+    if (this.toastOverlayView) {
+      this.window.setTopBrowserView(this.toastOverlayView);
     }
 
     this.relayout();
@@ -697,20 +1206,22 @@ class UiShellManager {
     return this.commandVisible;
   }
 
-  showCommand(text = "", cursorIndex = null) {
+  showCommand(text = "", cursorIndex = null, context = "shell") {
     this.commandVisible = true;
+    this.commandContext = context === "editor" ? "editor" : "shell";
     this.commandText = text;
     this.commandCursorIndex = Number.isFinite(cursorIndex)
       ? Math.max(0, Math.min(Math.trunc(cursorIndex), String(text).length))
       : String(text).length;
     this.keepCommandOverlayAboveContentViews();
-    this.updateCommand(text, this.commandCursorIndex);
+    this.updateCommand(text, this.commandCursorIndex, this.commandContext);
   }
 
   hideCommand() {
     this.commandVisible = false;
     this.commandText = "";
     this.commandCursorIndex = 0;
+    this.commandContext = "shell";
     this.updateCommand("", 0);
     this.relayout();
   }
@@ -792,7 +1303,7 @@ class UiShellManager {
         });
 
         const columnCount = 3;
-        const maxRowsPerColumn = 6;
+        const maxRowsPerColumn = 5;
         const columns = Array.from({ length: columnCount }, (_, index) =>
           entries.slice(index * maxRowsPerColumn, (index + 1) * maxRowsPerColumn),
         );
@@ -819,6 +1330,118 @@ class UiShellManager {
     this.clearWhichKeyShowTimer();
     this.clearWhichKeyHideTimer();
     this.relayout();
+  }
+
+  isSelectionModalVisible() {
+    return this.selectionModalVisible;
+  }
+
+  showSelectionModal(model) {
+    this.selectionModalVisible = true;
+    this.selectionModalModel = model || null;
+    this.syncOverlayStack();
+    this.updateSelectionModal(this.selectionModalModel);
+  }
+
+  hideSelectionModal() {
+    this.selectionModalVisible = false;
+    this.selectionModalModel = null;
+    this.relayout();
+  }
+
+  updateSelectionModal(model) {
+    this.selectionModalModel = model || this.selectionModalModel || null;
+    if (!this.selectionModalVisible) return;
+    if (!this.selectionModalView || !this.selectionModalReady) return;
+
+    const safeModel = {
+      title: String(this.selectionModalModel?.title || "Bookmark"),
+      promptTitle: String(this.selectionModalModel?.promptTitle || ""),
+      urlLine: String(this.selectionModalModel?.urlLine || ""),
+      scopeLabel: String(this.selectionModalModel?.scopeLabel || ""),
+      items: Array.isArray(this.selectionModalModel?.items)
+        ? this.selectionModalModel.items.map((item) => String(item || ""))
+        : [],
+      indexHints: Array.isArray(this.selectionModalModel?.indexHints)
+        ? this.selectionModalModel.indexHints.map((item) => String(item || ""))
+        : [],
+      selectedIndex: Number.isFinite(this.selectionModalModel?.selectedIndex)
+        ? Math.max(0, Math.floor(this.selectionModalModel.selectedIndex))
+        : -1,
+      footerLeft: String(this.selectionModalModel?.footerLeft || ""),
+      footerRight: String(this.selectionModalModel?.footerRight || ""),
+    };
+
+    this.selectionModalView.webContents.executeJavaScript(`
+      (function updateSelectionModal() {
+        const titleNode = document.getElementById('selection-modal-title');
+        const promptNode = document.getElementById('selection-modal-prompt');
+        const urlNode = document.getElementById('selection-modal-url');
+        const scopeNode = document.getElementById('selection-modal-scope');
+        const contentNode = document.getElementById('selection-modal-content');
+        const footerNode = document.getElementById('selection-modal-footer');
+        if (!titleNode || !promptNode || !urlNode || !scopeNode || !contentNode || !footerNode) return;
+
+        const escapeHtml = (value) => String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+
+        const model = ${JSON.stringify(safeModel)};
+        titleNode.textContent = model.title;
+        promptNode.textContent = model.promptTitle;
+        urlNode.textContent = model.urlLine;
+        scopeNode.textContent = model.scopeLabel;
+
+        const items = Array.isArray(model.items) ? model.items : [];
+        const indexHints = Array.isArray(model.indexHints) ? model.indexHints : [];
+
+        if (!items.length) {
+          contentNode.innerHTML = '<div class="selection-modal-empty">no options</div>';
+        } else {
+          const maxLen = Math.max(items.length, indexHints.length);
+          const columns = [];
+          const selectedIndex = Number.isFinite(model.selectedIndex) ? model.selectedIndex : -1;
+          for (let i = 0; i < maxLen; i += 1) {
+            const item = escapeHtml(items[i] || '');
+            const hint = escapeHtml(indexHints[i] || '');
+            const selectedClass = i === selectedIndex ? ' selected' : '';
+            columns.push('<span class="selection-modal-col"><span class="selection-modal-item' + selectedClass + '">' + item + '</span><span class="selection-modal-index">' + hint + '</span></span>');
+          }
+          contentNode.innerHTML = '<div class="selection-modal-grid">' + columns.join('') + '</div>';
+        }
+
+        footerNode.innerHTML = '<span>' + escapeHtml(model.footerLeft) + '</span><span>' + escapeHtml(model.footerRight) + '</span>';
+      })();
+    `);
+
+    this.relayout();
+  }
+
+  computeSelectionModalHeight(model = null) {
+    const activeModel = model || this.selectionModalModel || {};
+    const hasPrompt = Boolean(String(activeModel.promptTitle || "").trim());
+    const hasUrl = Boolean(String(activeModel.urlLine || "").trim());
+    const hasScope = Boolean(String(activeModel.scopeLabel || "").trim());
+    const hasFooter = Boolean(
+      String(activeModel.footerLeft || "").trim() ||
+        String(activeModel.footerRight || "").trim(),
+    );
+    const itemCount = Array.isArray(activeModel.items)
+      ? activeModel.items.length
+      : 0;
+
+    const base = 38;
+    const prompt = hasPrompt ? 16 : 0;
+    const url = hasUrl ? 14 : 0;
+    const scope = hasScope ? 14 : 0;
+    const content = itemCount > 0 ? 38 : 22;
+    const footer = hasFooter ? 14 : 0;
+
+    const total = base + prompt + url + scope + content + footer;
+    return Math.max(108, Math.min(210, total));
   }
 
   resetWhichKeyShowTimer(delayMs) {
@@ -942,12 +1565,16 @@ class UiShellManager {
     `);
   }
 
-  updateCommand(text = "", cursorIndex = null) {
+  updateCommand(text = "", cursorIndex = null, context = null) {
     const nextText = String(text);
     const maxCursor = nextText.length;
     const nextCursor = Number.isFinite(cursorIndex)
       ? Math.max(0, Math.min(Math.trunc(cursorIndex), maxCursor))
       : maxCursor;
+
+    if (typeof context === "string") {
+      this.commandContext = context === "editor" ? "editor" : "shell";
+    }
 
     this.commandText = nextText;
     this.commandCursorIndex = nextCursor;
@@ -956,14 +1583,22 @@ class UiShellManager {
 
     const beforeText = nextText.slice(0, nextCursor);
     const afterText = nextText.slice(nextCursor);
-    const cursorClass = nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
+    const cursorClass =
+      nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
+    const isEditorContext = this.commandContext === "editor";
+    const commandTitle = isEditorContext ? "Ex" : "Cmdline";
+    const commandPrefix = "";
 
     this.commandOverlayView.webContents.executeJavaScript(`
       (function updateCommandOverlayText() {
+        const titleNode = document.getElementById('command-title');
+        const prefixNode = document.getElementById('command-prefix');
         const beforeNode = document.getElementById('command-text-before');
         const afterNode = document.getElementById('command-text-after');
         const cursorNode = document.getElementById('command-cursor');
-        if (!beforeNode || !afterNode || !cursorNode) return;
+        if (!titleNode || !prefixNode || !beforeNode || !afterNode || !cursorNode) return;
+        titleNode.textContent = ${JSON.stringify(commandTitle)};
+        prefixNode.textContent = ${JSON.stringify(commandPrefix)};
         beforeNode.textContent = ${JSON.stringify(beforeText)};
         afterNode.textContent = ${JSON.stringify(afterText)};
         cursorNode.className = ${JSON.stringify(cursorClass)};

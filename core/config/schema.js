@@ -25,12 +25,24 @@ const ACTION_IDS = new Set([
   "focus_split_right",
   "open_settings",
   "toggle_focus_context",
+  "toggle_urlline",
+  "toggle_copy_selection_to_clipboard",
+  "history_toggle",
+  "history_toggle_focus",
+  "bookmarks_toggle",
+  "bookmarks_toggle_focus",
+  "bookmarks_add_root_active",
+  "bookmarks_add_scoped_prompt",
+  "session_save",
+  "session_restore",
   "close_buffer",
+  "reopen_buffer",
   "close_focused",
   "close_left_buffers",
   "close_right_buffers",
   "split_close_right",
   "split_devtools",
+  "open_notifications",
 ]);
 
 function isPlainObject(value) {
@@ -56,55 +68,77 @@ function normalizeNumber(value, fallback, min) {
   return fallback;
 }
 
-function mergeWithFallback(primaryNode, fallbackNode) {
-  if (!isPlainObject(primaryNode)) {
-    return isPlainObject(fallbackNode) ? fallbackNode : {};
+function normalizeStringArray(value, fallback = []) {
+  if (!Array.isArray(value)) {
+    return fallback;
   }
 
-  if (!isPlainObject(fallbackNode)) {
-    return primaryNode;
-  }
-
-  const merged = { ...primaryNode };
-
-  for (const [key, value] of Object.entries(fallbackNode)) {
-    if (!(key in merged)) {
-      merged[key] = value;
-      continue;
-    }
-
-    if (isPlainObject(merged[key]) && isPlainObject(value)) {
-      merged[key] = mergeWithFallback(merged[key], value);
-    }
-  }
-
-  return merged;
+  return value.filter((item) => typeof item === "string");
 }
 
-function resolveGlobalSection(input, sectionKey) {
-  const globalSection =
-    isPlainObject(input.global) && isPlainObject(input.global[sectionKey])
-      ? input.global[sectionKey]
-      : null;
-  const legacySection = isPlainObject(input[sectionKey]) ? input[sectionKey] : null;
-
-  if (globalSection && legacySection) {
-    return mergeWithFallback(globalSection, legacySection);
+function normalizeThemeMode(value, fallback = "dark") {
+  if (typeof value !== "string") {
+    return fallback;
   }
 
-  return globalSection || legacySection || null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "default") {
+    return "dark";
+  }
+
+  if (
+    normalized === "dark" ||
+    normalized === "light" ||
+    normalized === "auto" ||
+    normalized === "custom"
+  ) {
+    return normalized;
+  }
+
+  return fallback;
 }
 
-function normalizeLeaderNode(node, fallbackNode) {
+function normalizeContentThemeMode(value, fallback = "dark") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === "dark" ||
+    normalized === "light" ||
+    normalized === "auto" ||
+    normalized === "match"
+  ) {
+    return normalized;
+  }
+
+  return fallback;
+}
+
+function normalizeBrowserLanguage(value, fallback = "en") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "en" || normalized === "fr") {
+    return normalized;
+  }
+
+  return fallback;
+}
+
+function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
   if (!isPlainObject(node)) {
-    return fallbackNode;
+    return null;
   }
 
   const normalized = {
     label:
       typeof node.label === "string" && node.label.trim().length > 0
         ? node.label.trim()
-        : fallbackNode?.label || "Leader Group",
+        : fallbackLabel,
   };
 
   if (typeof node.action === "string" && ACTION_IDS.has(node.action)) {
@@ -112,70 +146,25 @@ function normalizeLeaderNode(node, fallbackNode) {
   }
 
   const sourceChildren = isPlainObject(node.children) ? node.children : null;
-  const fallbackChildren = isPlainObject(fallbackNode?.children) ? fallbackNode.children : {};
-
-  const childKeys = new Set([
-    ...Object.keys(sourceChildren || {}),
-    ...Object.keys(fallbackChildren),
-  ]);
+  const childKeys = new Set(Object.keys(sourceChildren || {}));
 
   if (childKeys.size > 0) {
     normalized.children = {};
     for (const key of childKeys) {
       const sourceChild = sourceChildren ? sourceChildren[key] : undefined;
-      const fallbackChild = fallbackChildren[key];
-      const nextNode = normalizeLeaderNode(sourceChild, fallbackChild);
+      const nextNode = normalizeLeaderNode(sourceChild, key);
       if (nextNode) {
         normalized.children[key] = nextNode;
       }
     }
+
+    if (Object.keys(normalized.children).length === 0) {
+      delete normalized.children;
+    }
   }
 
   if (!normalized.action && !normalized.children) {
-    return fallbackNode || null;
-  }
-
-  return normalized;
-}
-
-function normalizeKeymapSection(section, fallbackSection = {}) {
-  if (!isPlainObject(section)) {
-    return fallbackSection;
-  }
-
-  const normalized = {};
-  const keys = new Set([...Object.keys(fallbackSection), ...Object.keys(section)]);
-
-  for (const key of keys) {
-    const sourceNode = section[key];
-    const fallbackNode = fallbackSection[key];
-
-    if (!isPlainObject(sourceNode)) {
-      if (fallbackNode) {
-        normalized[key] = fallbackNode;
-      }
-      continue;
-    }
-
-    const label =
-      typeof sourceNode.label === "string" && sourceNode.label.trim().length > 0
-        ? sourceNode.label.trim()
-        : fallbackNode?.label || key;
-    const sourceAction =
-      typeof sourceNode.action === "string" && ACTION_IDS.has(sourceNode.action)
-        ? sourceNode.action
-        : null;
-    const fallbackAction =
-      typeof fallbackNode?.action === "string" && ACTION_IDS.has(fallbackNode.action)
-        ? fallbackNode.action
-        : null;
-    const action = sourceAction || fallbackAction;
-
-    if (!action) {
-      continue;
-    }
-
-    normalized[key] = { label, action };
+    return null;
   }
 
   return normalized;
@@ -184,16 +173,24 @@ function normalizeKeymapSection(section, fallbackSection = {}) {
 function normalizeConfig(rawConfig) {
   const defaults = cloneDefaults();
   const input = isPlainObject(rawConfig) ? rawConfig : {};
+  const inputGlobal = isPlainObject(input.global) ? input.global : {};
   const normalized = cloneDefaults();
   const normalizedGlobal = normalized.global;
 
-  const inputSection = resolveGlobalSection(input, "input");
-  const whichKeySection = resolveGlobalSection(input, "whichkey");
-  const uiSection = resolveGlobalSection(input, "ui");
-  const themeSection = resolveGlobalSection(input, "theme");
-  const splitSection = resolveGlobalSection(input, "split");
-  const editorSection = resolveGlobalSection(input, "editor");
-  const storageSection = resolveGlobalSection(input, "storage");
+  const inputSection = isPlainObject(inputGlobal.input) ? inputGlobal.input : null;
+  const whichKeySection = isPlainObject(inputGlobal.whichkey) ? inputGlobal.whichkey : null;
+  const uiSection = isPlainObject(inputGlobal.ui) ? inputGlobal.ui : null;
+  const themeSection = isPlainObject(inputGlobal.theme) ? inputGlobal.theme : null;
+  const splitSection = isPlainObject(inputGlobal.split) ? inputGlobal.split : null;
+  const editorSection = isPlainObject(inputGlobal.editor) ? inputGlobal.editor : null;
+  const storageSection = isPlainObject(inputGlobal.storage) ? inputGlobal.storage : null;
+  const notificationsSection = isPlainObject(inputGlobal.notifications)
+    ? inputGlobal.notifications
+    : null;
+  const windowSection = isPlainObject(inputGlobal.window) ? inputGlobal.window : null;
+  const openingBufferSection = isPlainObject(inputGlobal.opening_buffer)
+    ? inputGlobal.opening_buffer
+    : null;
 
   if (isPlainObject(inputSection)) {
     if (typeof inputSection.leader_key === "string" && inputSection.leader_key.trim()) {
@@ -228,25 +225,47 @@ function normalizeConfig(rawConfig) {
     );
   }
 
-  if (isPlainObject(input.keymap) && input.keymap.leader) {
-    const leaderNode = normalizeLeaderNode(
-      { label: "Leader", children: input.keymap.leader },
-      { label: "Leader", children: defaults.keymap.leader },
-    );
-
-    if (leaderNode && leaderNode.children) {
-      normalized.keymap.leader = leaderNode.children;
-    }
-  }
-
-  if (isPlainObject(input.keymap)) {
-    normalized.keymap.normal = normalizeKeymapSection(input.keymap.normal, defaults.keymap.normal);
-    normalized.keymap.ctrl = normalizeKeymapSection(input.keymap.ctrl, defaults.keymap.ctrl);
+  const userLeaderTree = isPlainObject(input.keymap) ? input.keymap.leader : null;
+  const normalizedUserLeaderNode = normalizeLeaderNode({ label: "Leader", children: userLeaderTree });
+  if (normalizedUserLeaderNode && normalizedUserLeaderNode.children) {
+    normalized.keymap.leader = normalizedUserLeaderNode.children;
+  } else {
+    normalized.keymap.leader = defaults.keymap.leader;
   }
 
   if (isPlainObject(uiSection)) {
     if (isPlainObject(uiSection.tabline) && typeof uiSection.tabline.enabled === "boolean") {
       normalizedGlobal.ui.tabline.enabled = uiSection.tabline.enabled;
+    }
+
+    if (isPlainObject(uiSection.tabline) && typeof uiSection.tabline.show_favicon === "boolean") {
+      normalizedGlobal.ui.tabline.show_favicon = uiSection.tabline.show_favicon;
+    }
+
+    if (isPlainObject(uiSection.urlline) && typeof uiSection.urlline.enabled === "boolean") {
+      normalizedGlobal.ui.urlline.enabled = uiSection.urlline.enabled;
+    }
+
+    if (isPlainObject(uiSection.sidepanel)) {
+      normalizedGlobal.ui.sidepanel.width_ratio = normalizeNumber(
+        uiSection.sidepanel.width_ratio,
+        defaults.global.ui.sidepanel.width_ratio,
+        0.1,
+      );
+      normalizedGlobal.ui.sidepanel.tree_scroll_context_lines = Math.floor(
+        normalizeNumber(
+          uiSection.sidepanel.tree_scroll_context_lines,
+          defaults.global.ui.sidepanel.tree_scroll_context_lines,
+          0,
+        ),
+      );
+      normalizedGlobal.ui.sidepanel.delete_operator_timeout_ms = Math.floor(
+        normalizeNumber(
+          uiSection.sidepanel.delete_operator_timeout_ms,
+          defaults.global.ui.sidepanel.delete_operator_timeout_ms,
+          0,
+        ),
+      );
     }
 
     if (isPlainObject(uiSection.statusline) && typeof uiSection.statusline.enabled === "boolean") {
@@ -255,9 +274,16 @@ function normalizeConfig(rawConfig) {
   }
 
   if (isPlainObject(themeSection)) {
-    if (typeof themeSection.name === "string" && themeSection.name.trim()) {
-      normalizedGlobal.theme.name = themeSection.name.trim();
-    }
+    const normalizedThemeMode = normalizeThemeMode(
+      themeSection.mode,
+      defaults.global.theme.mode,
+    );
+    normalizedGlobal.theme.mode = normalizedThemeMode;
+
+    normalizedGlobal.theme.content_mode = normalizeContentThemeMode(
+      themeSection.content_mode,
+      defaults.global.theme.content_mode,
+    );
 
     if (isPlainObject(themeSection.overrides)) {
       normalizedGlobal.theme.overrides = themeSection.overrides;
@@ -280,6 +306,10 @@ function normalizeConfig(rawConfig) {
       defaults.global.split.devtools_ratio,
       0.1,
     );
+
+    if (isPlainObject(splitSection.divider) && typeof splitSection.divider.enabled === "boolean") {
+      normalizedGlobal.split.divider.enabled = splitSection.divider.enabled;
+    }
 
     if (isPlainObject(splitSection.focus_keys)) {
       if (
@@ -317,10 +347,88 @@ function normalizeConfig(rawConfig) {
   }
 
   if (isPlainObject(storageSection)) {
-    for (const key of ["history_file", "favorites_file", "sessions_file"]) {
+    for (const key of ["history_file", "bookmarks_file", "sessions_file", "notifications_file"]) {
       if (typeof storageSection[key] === "string" && storageSection[key].trim()) {
         normalizedGlobal.storage[key] = storageSection[key].trim();
       }
+    }
+  }
+
+  if (isPlainObject(notificationsSection)) {
+    if (typeof notificationsSection.enabled === "boolean") {
+      normalizedGlobal.notifications.enabled = notificationsSection.enabled;
+    }
+
+    if (isPlainObject(notificationsSection.toast)) {
+      for (const key of ["info", "warning", "error"]) {
+        if (typeof notificationsSection.toast[key] === "boolean") {
+          normalizedGlobal.notifications.toast[key] = notificationsSection.toast[key];
+        }
+      }
+    }
+
+    if (isPlainObject(notificationsSection.timeout_ms)) {
+      for (const key of ["info", "warning", "error"]) {
+        if (Number.isFinite(notificationsSection.timeout_ms[key])) {
+          normalizedGlobal.notifications.timeout_ms[key] = Math.floor(
+            Math.max(800, notificationsSection.timeout_ms[key]),
+          );
+        }
+      }
+    }
+
+    if (typeof notificationsSection.persist_errors === "boolean") {
+      normalizedGlobal.notifications.persist_errors = notificationsSection.persist_errors;
+    }
+  }
+
+  if (isPlainObject(windowSection)) {
+    normalizedGlobal.window.width = Math.floor(
+      normalizeNumber(windowSection.width, defaults.global.window.width, 400),
+    );
+    normalizedGlobal.window.height = Math.floor(
+      normalizeNumber(windowSection.height, defaults.global.window.height, 300),
+    );
+
+    if (typeof windowSection.x === "number" && Number.isFinite(windowSection.x)) {
+      normalizedGlobal.window.x = Math.floor(windowSection.x);
+    }
+
+    if (typeof windowSection.y === "number" && Number.isFinite(windowSection.y)) {
+      normalizedGlobal.window.y = Math.floor(windowSection.y);
+    }
+
+    if (typeof windowSection.is_maximized === "boolean") {
+      normalizedGlobal.window.is_maximized = windowSection.is_maximized;
+    }
+  }
+
+  if (isPlainObject(openingBufferSection)) {
+    if (
+      openingBufferSection.mode === "blank" ||
+      openingBufferSection.mode === "url" ||
+      openingBufferSection.mode === "dashboard"
+    ) {
+      normalizedGlobal.opening_buffer.mode = openingBufferSection.mode;
+    }
+
+    if (typeof openingBufferSection.url === "string") {
+      normalizedGlobal.opening_buffer.url = openingBufferSection.url;
+    }
+
+    if (isPlainObject(openingBufferSection.dashboard)) {
+      if (typeof openingBufferSection.dashboard.header === "string") {
+        normalizedGlobal.opening_buffer.dashboard.header = openingBufferSection.dashboard.header;
+      }
+
+      if (typeof openingBufferSection.dashboard.footer === "string") {
+        normalizedGlobal.opening_buffer.dashboard.footer = openingBufferSection.dashboard.footer;
+      }
+
+      normalizedGlobal.opening_buffer.dashboard.buttons = normalizeStringArray(
+        openingBufferSection.dashboard.buttons,
+        defaults.global.opening_buffer.dashboard.buttons,
+      );
     }
   }
 
@@ -337,6 +445,17 @@ function normalizeConfig(rawConfig) {
         normalized.browser.chromium.web_preferences.node_integration =
           chromiumConfig.web_preferences.node_integration;
       }
+    }
+  }
+
+  if (isPlainObject(input.browser)) {
+    normalized.browser.language = normalizeBrowserLanguage(
+      input.browser.language,
+      defaults.browser.language,
+    );
+
+    if (typeof input.browser.copy_selection_to_clipboard === "boolean") {
+      normalized.browser.copy_selection_to_clipboard = input.browser.copy_selection_to_clipboard;
     }
   }
 

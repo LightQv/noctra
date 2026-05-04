@@ -1,8 +1,15 @@
 const { getNormalKeymap } = require("./keymap");
-const { handleCtrl } = require("./modifiers");
+const { handleMod, isModPressed } = require("./modifiers");
 const { INTENTS } = require("../core/intents");
 const { getLeaderNode, getWhichKeyModel } = require("./leaderMap");
 const { rememberRepeatableIntent } = require("./repeat");
+const buffers = require("../browser/manager");
+
+function buildLeaderContext() {
+  return {
+    activeBuffer: buffers.getActive(),
+  };
+}
 
 function isLeaderKey(key, leaderKey) {
   if (leaderKey === "Space") {
@@ -36,7 +43,7 @@ function showWhichKey(state) {
 
   return {
     type: INTENTS.SHOW_WHICHKEY,
-    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer),
+    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer, buildLeaderContext()),
     delayMs: state.whichKeyDisplayDelay,
     timeoutMs: state.whichKeyTimeout,
   };
@@ -49,7 +56,7 @@ function updateWhichKey(state) {
 
   return {
     type: INTENTS.UPDATE_WHICHKEY,
-    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer),
+    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer, buildLeaderContext()),
     delayMs: state.whichKeyDisplayDelay,
     timeoutMs: state.whichKeyTimeout,
   };
@@ -57,6 +64,10 @@ function updateWhichKey(state) {
 
 function handleLeaderSequence(state, input, now) {
   const { key } = input;
+
+  if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta") {
+    return updateWhichKey(state);
+  }
 
   if (key === "Escape") {
     return hideWhichKeyAndReset(state);
@@ -112,15 +123,18 @@ function handleLeaderSequence(state, input, now) {
     };
   }
 
-  const node = getLeaderNode(state.leaderPath);
-  const child = node?.children?.[loweredKey];
+  const node = getLeaderNode(state.leaderPath, buildLeaderContext());
+  const exactChild = node?.children?.[key];
+  const loweredChild = node?.children?.[loweredKey];
+  const child = exactChild || loweredChild;
 
   if (!child) {
     return hideWhichKeyAndReset(state);
   }
 
   if (child.children) {
-    state.leaderPath = [...state.leaderPath, loweredKey];
+    const matchedKey = exactChild ? key : loweredKey;
+    state.leaderPath = [...state.leaderPath, matchedKey];
     state.leaderLastKeyTime = now;
     return updateWhichKey(state);
   }
@@ -160,7 +174,8 @@ function handleNormal(state, input) {
 
   state.lastKeyTime = now;
 
-  const { key, ctrl } = input;
+  const { key } = input;
+  const mod = isModPressed(input);
   const leaderKey = state.leaderKey || "Space";
 
   if (state.leaderActive) {
@@ -171,6 +186,7 @@ function handleNormal(state, input) {
     state.mode = "COMMAND";
     state.commandBuffer = "";
     state.commandCursorIndex = 0;
+    state.commandTarget = "SHELL";
     return { type: INTENTS.SHOW_COMMAND };
   }
 
@@ -184,13 +200,13 @@ function handleNormal(state, input) {
     return showWhichKey(state);
   }
 
-  if (!ctrl && /[0-9]/.test(key)) {
+  if (!mod && /[0-9]/.test(key)) {
     state.countBuffer += key;
     return null;
   }
 
-  if (ctrl) {
-    return handleCtrl(state, key);
+  if (mod) {
+    return handleMod(state, key);
   }
 
   state.keyBuffer += key;

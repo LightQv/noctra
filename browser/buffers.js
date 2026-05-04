@@ -1,6 +1,6 @@
 const { BrowserView } = require("electron");
 const { EventEmitter } = require("events");
-const { applyScrollableUi } = require("./contentUi");
+const { applyScrollableUi, releaseChromiumPreferredColorScheme } = require("./contentUi");
 const {
   UI_SCROLLBAR_THUMB_COLOR,
   UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
@@ -51,18 +51,25 @@ class Buffer extends EventEmitter {
 
     this.webContents = this.view.webContents;
     this.url = "about:blank";
+    this.virtualUrl = "";
     this.title = "[No title]";
+    this.faviconUrl = "";
     this.kind = options.kind || "web";
     this.isEditable = this.kind === "editable";
     this.contentUiOptions = {
       widthPx: 6,
       hideDelayMs: 700,
       trackColor: "transparent",
+      contentColorScheme: "dark",
       thumbColor: UI_SCROLLBAR_THUMB_COLOR,
       thumbActiveColor: UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
     };
 
     this.webContents.on("did-finish-load", () => {
+      this.applyContentUi();
+    });
+
+    this.webContents.on("dom-ready", () => {
       this.applyContentUi();
     });
 
@@ -72,22 +79,44 @@ class Buffer extends EventEmitter {
       if (nextTitle === this.title) return;
       this.title = nextTitle;
       this.emit("updated", { kind: "metadata" });
+      this.emit("title-updated", {
+        url: this.url,
+        title: this.title,
+        timestampMs: Date.now(),
+      });
     });
 
     this.webContents.on("did-navigate", (_, url) => {
-      this.url = url;
+      this.url = this.virtualUrl || url;
+      this.emit("updated", { kind: "metadata" });
+      this.emit("visit", {
+        url: this.url,
+        title: this.title,
+        timestampMs: Date.now(),
+      });
+    });
+
+    this.webContents.on("page-favicon-updated", (_, favicons) => {
+      const nextFavicon =
+        Array.isArray(favicons) && typeof favicons[0] === "string" ? favicons[0] : "";
+      if (this.faviconUrl === nextFavicon) {
+        return;
+      }
+      this.faviconUrl = nextFavicon;
       this.emit("updated", { kind: "metadata" });
     });
 
     this.webContents.on("did-navigate-in-page", (_, url) => {
-      this.url = url;
+      this.url = this.virtualUrl || url;
       this.emit("updated", { kind: "metadata" });
     });
   }
 
   load(url) {
     this.url = url;
+    this.virtualUrl = "";
     this.title = getUrlDisplayTitle(url);
+    this.faviconUrl = "";
     this.webContents.loadURL(url);
     this.emit("updated", { kind: "metadata" });
   }
@@ -98,7 +127,9 @@ class Buffer extends EventEmitter {
     const html = typeof options.html === "string" ? options.html : "";
 
     this.url = virtualUrl;
+    this.virtualUrl = virtualUrl;
     this.title = title;
+    this.faviconUrl = "";
 
     const encoded = encodeURIComponent(html);
     this.webContents.loadURL(`data:text/html;charset=utf-8,${encoded}`);
@@ -122,6 +153,7 @@ class Buffer extends EventEmitter {
       id: this.id,
       title: this.title,
       url: this.url,
+      faviconUrl: this.faviconUrl,
       isActive,
       kind: this.kind,
       isEditable: this.isEditable,
@@ -132,6 +164,7 @@ class Buffer extends EventEmitter {
 
   destroy() {
     this.removeAllListeners();
+    releaseChromiumPreferredColorScheme(this.webContents);
     if (!this.webContents.isDestroyed()) {
       this.webContents.destroy();
     }

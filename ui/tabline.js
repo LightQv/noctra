@@ -1,7 +1,17 @@
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_FONT_FAMILY,
+  UI_CHROME_ICON_BUTTON_SIZE,
+  UI_CHROME_TAB_CHIP_HEIGHT,
+  UI_CHROME_BORDER_RADIUS,
+  UI_CHROME_HORIZONTAL_PADDING,
+  UI_CHROME_TAB_GAP,
+  UI_CHROME_TABLINE_ACTION_GAP,
+  UI_CHROME_TABLINE_TABS_LEFT_PADDING,
+  UI_CHROME_TABLINE_ACTIONS_RIGHT_PADDING,
+  UI_CHROME_ICON_GLYPH_SIZE,
 } = require("./constants");
+const { DEFAULT_THEME } = require("./theme");
 
 function escapeHtml(value) {
   return String(value)
@@ -12,27 +22,29 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme = {}) {
+function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme = {}, options = {}) {
   if (!webContents || webContents.isDestroyed()) return;
 
+  const showFavicon = Boolean(options.showFavicon);
+  const dimActiveBuffer = Boolean(options.dimActiveBuffer);
+
   const palette = {
-    surfaceBackground: theme.surfaceBackground || "#171b22",
-    borderColor: theme.borderColor || "#2f3440",
-    textColor: theme.textColor || "#d8e3f8",
-    mutedTextColor: theme.mutedTextColor || "#7d8aa3",
-    elevatedBackground: theme.elevatedBackground || "#1a2230",
-    borderMutedColor: theme.borderMutedColor || "#2f3a4d",
-    softTextColor: theme.softTextColor || "#d4def2",
-    accentIconColor: theme.accentIconColor || "#8ec5ff",
-    windowControlBackground: theme.windowControlBackground || "#212734",
-    dangerBackground: theme.dangerBackground || "#3a1f27",
-    dangerTextColor: theme.dangerTextColor || "#ffb4c2",
-    subtleBackground: theme.subtleBackground || "#202633",
-    accentPillBackground: theme.accentPillBackground || "#263846",
-    accentPillBorder: theme.accentPillBorder || "#5d90a2",
-    mainColor: theme.mainColor || "#89dceb",
-    secondaryActiveTextColor: theme.secondaryActiveTextColor || "#83abc6",
-    fontFamily: theme.fontFamily || UI_FONT_FAMILY,
+    shellBackground: theme.shellBackground || DEFAULT_THEME.shellBackground,
+    borderColor: theme.borderColor || DEFAULT_THEME.borderColor,
+    textColor: theme.textColor || DEFAULT_THEME.textColor,
+    mutedTextColor: theme.mutedTextColor || DEFAULT_THEME.mutedTextColor,
+    elevatedBackground: theme.elevatedBackground || DEFAULT_THEME.elevatedBackground,
+    borderMutedColor: theme.borderMutedColor || DEFAULT_THEME.borderMutedColor,
+    softTextColor: theme.softTextColor || DEFAULT_THEME.softTextColor,
+    windowControlBackground: theme.windowControlBackground || DEFAULT_THEME.windowControlBackground,
+    dangerBackground: theme.dangerBackground || DEFAULT_THEME.dangerBackground,
+    dangerTextColor: theme.dangerTextColor || DEFAULT_THEME.dangerTextColor,
+    subtleBackground: theme.subtleBackground || DEFAULT_THEME.subtleBackground,
+    accentPillBackground: theme.accentPillBackground || DEFAULT_THEME.accentPillBackground,
+    accentPillBorder: theme.accentPillBorder || DEFAULT_THEME.accentPillBorder,
+    mainColor: theme.mainColor || DEFAULT_THEME.mainColor,
+    secondaryActiveTextColor: theme.secondaryActiveTextColor || DEFAULT_THEME.secondaryActiveTextColor,
+    fontFamily: theme.fontFamily || DEFAULT_THEME.fontFamily || UI_FONT_FAMILY,
   };
 
   const platform = chrome.platform || process.platform;
@@ -43,6 +55,14 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
   const tabsMarkup = snapshot
     .map((buffer) => {
       const title = escapeHtml(buffer.title || buffer.url || "[No title]");
+      const faviconUrl =
+        typeof buffer.faviconUrl === "string" && buffer.faviconUrl.trim().length > 0
+          ? buffer.faviconUrl.trim()
+          : "";
+      const faviconMarkup =
+        showFavicon && faviconUrl
+          ? `<span class="tab-favicon"><img class="tab-favicon-img" src="${escapeHtml(faviconUrl)}" alt="" referrerpolicy="no-referrer" onerror="if (this.parentElement) this.parentElement.style.display='none'; this.remove();"></span>`
+          : "";
       const classes = ["tab"];
       if (buffer.isFocusedPaneBuffer || buffer.isActive) {
         classes.push("is-active");
@@ -52,7 +72,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         classes.push("is-secondary-active");
       }
 
-      return `<span class="${classes.join(" ")}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${buffer.id}: ${title}</span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
+      return `<span class="${classes.join(" ")}" data-tab-id="${buffer.id}" title="${title}"><span class="tab-label">${faviconMarkup}<span class="tab-label-text">${buffer.id}: ${title}</span></span><button class="tab-close" data-tab-id="${buffer.id}" type="button" aria-label="Close buffer ${buffer.id}">󰅖</button></span>`;
     })
     .join("");
 
@@ -72,12 +92,46 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
     actions.settings.shortcutLabel.trim().length > 0
       ? actions.settings.shortcutLabel
       : "Cmd+, | Ctrl+,";
+  const historyLabel =
+    typeof actions?.history?.label === "string" && actions.history.label.trim().length > 0
+      ? actions.history.label
+      : "History";
+  const historyIcon =
+    typeof actions?.history?.icon === "string" && actions.history.icon.trim().length > 0
+      ? actions.history.icon
+      : "󰋚";
+  const historyShortcut =
+    typeof actions?.history?.shortcutLabel === "string" &&
+    actions.history.shortcutLabel.trim().length > 0
+      ? actions.history.shortcutLabel
+      : "<leader> e | :history show";
+  const newTabLabel =
+    typeof actions?.newTab?.label === "string" && actions.newTab.label.trim().length > 0
+      ? actions.newTab.label
+      : "New buffer";
+  const newTabIcon =
+    typeof actions?.newTab?.icon === "string" && actions.newTab.icon.trim().length > 0
+      ? actions.newTab.icon
+      : "+";
+  const newTabShortcut =
+    typeof actions?.newTab?.shortcutLabel === "string" &&
+    actions.newTab.shortcutLabel.trim().length > 0
+      ? actions.newTab.shortcutLabel
+      : "b | :tab | :tabnew";
 
   const controlsMarkup = showCustomControls
     ? `<div class="window-controls"><button class="window-btn" data-window-action="minimize" type="button" aria-label="Minimize">-</button><button class="window-btn" data-window-action="toggleMaximize" type="button" aria-label="${maximizeLabel}">${maximizeIcon}</button><button class="window-btn is-close" data-window-action="close" type="button" aria-label="Close">X</button></div>`
     : `<div class="window-controls native-spacer" aria-hidden="true"></div>`;
 
-  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
+  const newTabMarkup = `<button class="tab tab-new" type="button" data-tabline-action="new-tab" title="${escapeHtml(
+    `${newTabLabel} (${newTabShortcut})`,
+  )}" aria-label="${escapeHtml(newTabLabel)}"><span class="tab-new-icon">${escapeHtml(newTabIcon)}</span></button>`;
+
+  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-history" title="${escapeHtml(
+    `${historyLabel} (${historyShortcut})`,
+  )}" aria-label="Open history"><span class="tabline-action-icon">${escapeHtml(
+    historyIcon,
+  )}</span></button><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
     `${configLabel} (${configShortcut})`,
   )}" aria-label="Open config"><span class="tabline-action-icon">${escapeHtml(
     configIcon,
@@ -111,8 +165,15 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           const tablineActionButton = target.closest('[data-tabline-action]');
           if (tablineActionButton) {
             const tablineAction = tablineActionButton.getAttribute('data-tabline-action');
+            if (tablineAction === 'new-tab' && window.uiShell && window.uiShell.emit) {
+              window.uiShell.emit('tabline:new-tab');
+              return;
+            }
             if (tablineAction === 'open-settings' && window.uiShell && window.uiShell.emit) {
               window.uiShell.emit('tabline:open-settings');
+            }
+            if (tablineAction === 'open-history' && window.uiShell && window.uiShell.emit) {
+              window.uiShell.emit('tabline:open-history');
             }
             return;
           }
@@ -143,7 +204,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         `ui-shell-topbar platform-${platform} ${showCustomControls ? "controls-custom" : "controls-native"}`,
       )};
       root.innerHTML = ${JSON.stringify(
-        `${controlsMarkup}<div class="tabs-scroll">${tabsMarkup}</div>${rightActionsMarkup}`,
+        `${controlsMarkup}<div class="tabs-scroll">${tabsMarkup}${newTabMarkup}</div>${rightActionsMarkup}`,
       )};
 
       Object.assign(root.style, {
@@ -158,7 +219,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         padding: '0',
         overflow: 'hidden',
         zIndex: '999998',
-        background: ${JSON.stringify(palette.surfaceBackground)},
+        background: ${JSON.stringify(palette.shellBackground)},
         color: ${JSON.stringify(palette.textColor)},
         borderBottom: ${JSON.stringify(`1px solid ${palette.borderColor}`)},
         fontFamily: ${JSON.stringify(palette.fontFamily)},
@@ -174,7 +235,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           alignItems: 'center',
           gap: '6px',
           height: '100%',
-          padding: '0 8px',
+          padding: '0 ${UI_CHROME_HORIZONTAL_PADDING}px',
           flexShrink: '0',
           webkitAppRegion: 'no-drag',
         });
@@ -194,8 +255,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         Object.assign(tabsScroll.style, {
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          padding: '0 8px',
+          gap: '${UI_CHROME_TAB_GAP}px',
+          padding: '0 ${UI_CHROME_HORIZONTAL_PADDING}px 0 ${UI_CHROME_TABLINE_TABS_LEFT_PADDING}px',
           overflowX: 'auto',
           whiteSpace: 'nowrap',
           minWidth: '0',
@@ -210,7 +271,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         Object.assign(tablineActions.style, {
           display: 'inline-flex',
           alignItems: 'center',
-          padding: '0 10px',
+          gap: '${UI_CHROME_TABLINE_ACTION_GAP}px',
+          padding: '0 ${UI_CHROME_TABLINE_ACTIONS_RIGHT_PADDING}px 0 ${UI_CHROME_HORIZONTAL_PADDING}px',
           height: '100%',
           flexShrink: '0',
           webkitAppRegion: 'no-drag',
@@ -225,9 +287,9 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           border: ${JSON.stringify(`1px solid ${palette.borderMutedColor}`)},
           background: ${JSON.stringify(palette.elevatedBackground)},
           color: ${JSON.stringify(palette.textColor)},
-          borderRadius: '4px',
-          width: '24px',
-          height: '24px',
+          borderRadius: '${UI_CHROME_BORDER_RADIUS}px',
+          width: '${UI_CHROME_ICON_BUTTON_SIZE}px',
+          height: '${UI_CHROME_ICON_BUTTON_SIZE}px',
           padding: '0',
           cursor: 'pointer',
           fontFamily: 'inherit',
@@ -241,10 +303,16 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         Object.assign(icon.style, {
           display: 'inline-flex',
           alignItems: 'center',
+          justifyContent: 'center',
           color: 'inherit',
-          fontSize: '16px',
+          fontSize: '${UI_CHROME_ICON_GLYPH_SIZE}px',
+          fontWeight: '700',
           lineHeight: '1',
         });
+      });
+
+      root.querySelectorAll('[data-tabline-action="open-history"] .tabline-action-icon').forEach((icon) => {
+        icon.style.fontSize = '${UI_CHROME_ICON_GLYPH_SIZE + 2}px';
       });
 
       root.querySelectorAll('.window-btn').forEach((button) => {
@@ -252,7 +320,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           border: 'none',
           background: ${JSON.stringify(palette.windowControlBackground)},
           color: ${JSON.stringify(palette.textColor)},
-          borderRadius: '4px',
+          borderRadius: '${UI_CHROME_BORDER_RADIUS}px',
           width: '28px',
           height: '22px',
           padding: '0',
@@ -274,8 +342,11 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           display: 'inline-flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '6px 8px',
-          borderRadius: '4px',
+          boxSizing: 'border-box',
+          height: '${UI_CHROME_TAB_CHIP_HEIGHT}px',
+          padding: '0 8px',
+          border: '1px solid transparent',
+          borderRadius: '${UI_CHROME_BORDER_RADIUS}px',
           background: ${JSON.stringify(palette.subtleBackground)},
           color: ${JSON.stringify(palette.mutedTextColor)},
           maxWidth: '320px',
@@ -286,12 +357,65 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
         });
       });
 
+      root.querySelectorAll('.tab-new').forEach((tab) => {
+        Object.assign(tab.style, {
+          border: ${JSON.stringify(`1px dashed ${palette.borderMutedColor}`)},
+          justifyContent: 'center',
+          width: '${UI_CHROME_TAB_CHIP_HEIGHT}px',
+          minWidth: '${UI_CHROME_TAB_CHIP_HEIGHT}px',
+          maxWidth: '${UI_CHROME_TAB_CHIP_HEIGHT}px',
+          padding: '0',
+          color: ${JSON.stringify(palette.softTextColor)},
+          fontWeight: '600',
+        });
+      });
+
+      root.querySelectorAll('.tab-new-icon').forEach((icon) => {
+        Object.assign(icon.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '${UI_CHROME_ICON_GLYPH_SIZE}px',
+          lineHeight: '1',
+        });
+      });
+
       root.querySelectorAll('.tab-label').forEach((label) => {
         Object.assign(label.style, {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          minWidth: '0',
+          overflow: 'hidden',
+          maxWidth: '260px',
+        });
+      });
+
+      root.querySelectorAll('.tab-label-text').forEach((text) => {
+        Object.assign(text.style, {
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          maxWidth: '260px',
+        });
+      });
+
+      root.querySelectorAll('.tab-favicon').forEach((icon) => {
+        Object.assign(icon.style, {
+          width: '14px',
+          height: '14px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: '0',
+        });
+      });
+
+      root.querySelectorAll('.tab-favicon-img').forEach((image) => {
+        Object.assign(image.style, {
+          width: '14px',
+          height: '14px',
+          display: 'block',
+          borderRadius: '2px',
         });
       });
 
@@ -312,9 +436,9 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
 
       root.querySelectorAll('.is-active').forEach((tab) => {
         Object.assign(tab.style, {
-          background: ${JSON.stringify(palette.accentPillBackground)},
-          border: ${JSON.stringify(`1px solid ${palette.accentPillBorder}`)},
-          color: ${JSON.stringify(palette.mainColor)},
+          background: ${JSON.stringify(dimActiveBuffer ? palette.subtleBackground : palette.accentPillBackground)},
+          border: ${JSON.stringify(`1px solid ${dimActiveBuffer ? palette.borderMutedColor : palette.accentPillBorder}`)},
+          color: ${JSON.stringify(dimActiveBuffer ? palette.softTextColor : palette.mainColor)},
         });
       });
 
@@ -323,7 +447,7 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
       });
 
       root.querySelectorAll('.is-active .tab-close').forEach((button) => {
-        button.style.color = ${JSON.stringify(palette.mainColor)};
+        button.style.color = ${JSON.stringify(dimActiveBuffer ? palette.softTextColor : palette.mainColor)};
       });
 
       root.querySelectorAll('.is-secondary-active .tab-close').forEach((button) => {

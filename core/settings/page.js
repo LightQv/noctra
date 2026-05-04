@@ -1,21 +1,43 @@
-const { UI_FONT_FAMILY, UI_FONT_FACE_CSS } = require("../../ui/constants");
+const {
+  UI_FONT_FAMILY,
+  UI_FONT_FACE_CSS,
+  UI_SHELL_TABLINE_HEIGHT,
+  UI_CHROME_ICON_BUTTON_SIZE,
+  UI_CHROME_BORDER_RADIUS,
+  UI_CHROME_TAB_GAP,
+  UI_CHROME_EDITOR_HEADER_HORIZONTAL_PADDING,
+  UI_CHROME_ICON_GLYPH_SIZE,
+} = require("../../ui/constants");
 const { resolveTheme, toCssVars } = require("../../ui/theme");
 
 const CODEMIRROR_CSS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css";
-const CODEMIRROR_DIALOG_CSS_URL =
-  "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/dialog/dialog.css";
 const CODEMIRROR_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js";
 const CODEMIRROR_SEARCH_CURSOR_JS_URL =
   "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/search/searchcursor.js";
-const CODEMIRROR_DIALOG_JS_URL =
-  "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/dialog/dialog.js";
 const CODEMIRROR_VIM_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/keymap/vim.js";
 const CODEMIRROR_YAML_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/yaml/yaml.js";
 
-function buildSettingsPageHtml(configPath, themeInput = null) {
-  const theme = resolveTheme({ overrides: themeInput || {} });
+function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "", options = {}) {
+  const viewTitle =
+    typeof options.viewTitle === "string" && options.viewTitle.trim().length > 0
+      ? options.viewTitle.trim()
+      : "Settings";
+  const sourceTheme =
+    themeInput && typeof themeInput === "object" && themeInput.theme
+      ? themeInput.theme
+      : themeInput;
+  const sourceColorScheme =
+    themeInput && typeof themeInput === "object" && themeInput.colorScheme === "light"
+      ? "light"
+      : "dark";
+  const theme = resolveTheme({
+    mode: sourceColorScheme,
+    overrides: sourceTheme || {},
+  });
   const themeVars = toCssVars(theme);
   const initialThemeVars = JSON.stringify(themeVars);
+  const initialColorScheme = JSON.stringify(sourceColorScheme);
+  const initialContentJson = JSON.stringify(String(initialContent || ""));
   const initialThemeCss = Object.entries(themeVars)
     .map(([name, value]) => `${name}: ${value};`)
     .join("\n        ");
@@ -25,14 +47,14 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Settings</title>
+    <title>${viewTitle}</title>
     <link rel="stylesheet" href="${CODEMIRROR_CSS_URL}" />
-    <link rel="stylesheet" href="${CODEMIRROR_DIALOG_CSS_URL}" />
     <style>
       ${UI_FONT_FACE_CSS}
 
       :root {
-        color-scheme: dark;
+        color-scheme: var(--ui-color-scheme, ${sourceColorScheme});
+        --ui-color-scheme: ${sourceColorScheme};
         --ui-font-family: ${UI_FONT_FAMILY};
         ${initialThemeCss}
       }
@@ -59,9 +81,11 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 8px 12px;
+        height: ${UI_SHELL_TABLINE_HEIGHT}px;
+        padding: 0 ${UI_CHROME_EDITOR_HEADER_HORIZONTAL_PADDING}px;
+        box-sizing: border-box;
         border-bottom: 1px solid var(--ui-border-strong);
-        background: var(--ui-bg-panel);
+        background: var(--ui-bg-shell);
       }
 
       #meta {
@@ -69,13 +93,6 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         align-items: baseline;
         gap: 8px;
         min-width: 0;
-      }
-
-      #title {
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--ui-text-muted);
       }
 
       #path {
@@ -88,21 +105,21 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 
       #actions {
         display: inline-flex;
-        gap: 8px;
+        gap: ${UI_CHROME_TAB_GAP}px;
       }
 
       .action-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 24px;
-        height: 24px;
+        width: ${UI_CHROME_ICON_BUTTON_SIZE}px;
+        height: ${UI_CHROME_ICON_BUTTON_SIZE}px;
         border: 1px solid var(--ui-border);
-        border-radius: 4px;
+        border-radius: ${UI_CHROME_BORDER_RADIUS}px;
         background: var(--ui-bg-elevated);
         color: var(--ui-text);
         font-family: inherit;
-        font-size: 16px;
+        font-size: ${UI_CHROME_ICON_GLYPH_SIZE}px;
         line-height: 1;
         padding: 0;
         cursor: pointer;
@@ -138,28 +155,128 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
       }
 
       .CodeMirror-cursor {
-        border-left: 1px solid var(--ui-accent);
+        border-left: 1px solid var(--ui-editor-cursor);
+      }
+
+      .CodeMirror div.CodeMirror-cursor {
+        border-left: 1px solid var(--ui-editor-cursor) !important;
+      }
+
+      .CodeMirror.cm-fat-cursor div.CodeMirror-cursor {
+        background: var(--ui-editor-cursor) !important;
+        border: 0 !important;
+        box-shadow: inset 0 0 0 1px var(--ui-editor-cursor-text);
+      }
+
+      .CodeMirror.cm-fat-cursor .CodeMirror-line::selection,
+      .CodeMirror.cm-fat-cursor .CodeMirror-line > span::selection,
+      .CodeMirror.cm-fat-cursor .CodeMirror-line > span > span::selection {
+        background: var(--ui-editor-selection);
       }
 
       .CodeMirror-selected {
         background: var(--ui-editor-selection);
       }
 
-      .CodeMirror-dialog {
-        background: var(--ui-editor-dialog-bg);
-        border-bottom: 1px solid var(--ui-editor-dialog-border);
-        color: var(--ui-text);
+      .CodeMirror-activeline-background {
+        background: var(--ui-editor-active-line);
       }
 
-      .CodeMirror-dialog input {
-        color: var(--ui-text);
+      .CodeMirror-matchingbracket {
+        background: var(--ui-editor-matching-bracket-bg);
+        color: var(--ui-editor-matching-bracket-color) !important;
       }
+
+      .CodeMirror-dialog {
+        display: none !important;
+      }
+
+      .cm-s-default .cm-keyword {
+        color: var(--ui-editor-token-keyword);
+      }
+
+      .cm-s-default .cm-atom {
+        color: var(--ui-editor-token-atom);
+      }
+
+      .cm-s-default .cm-number {
+        color: var(--ui-editor-token-number);
+      }
+
+      .cm-s-default .cm-def {
+        color: var(--ui-editor-token-def);
+      }
+
+      .cm-s-default .cm-variable {
+        color: var(--ui-editor-token-variable);
+      }
+
+      .cm-s-default .cm-variable-2 {
+        color: var(--ui-editor-token-variable2);
+      }
+
+      .cm-s-default .cm-variable-3,
+      .cm-s-default .cm-type {
+        color: var(--ui-editor-token-variable3);
+      }
+
+      .cm-s-default .cm-property {
+        color: var(--ui-editor-token-property);
+      }
+
+      .cm-s-default .cm-operator {
+        color: var(--ui-editor-token-operator);
+      }
+
+      .cm-s-default .cm-comment {
+        color: var(--ui-editor-token-comment);
+      }
+
+      .cm-s-default .cm-string {
+        color: var(--ui-editor-token-string);
+      }
+
+      .cm-s-default .cm-string-2 {
+        color: var(--ui-editor-token-string2);
+      }
+
+      .cm-s-default .cm-meta {
+        color: var(--ui-editor-token-meta);
+      }
+
+      .cm-s-default .cm-qualifier {
+        color: var(--ui-editor-token-qualifier);
+      }
+
+      .cm-s-default .cm-builtin {
+        color: var(--ui-editor-token-builtin);
+      }
+
+      .cm-s-default .cm-tag {
+        color: var(--ui-editor-token-tag);
+      }
+
+      .cm-s-default .cm-attribute {
+        color: var(--ui-editor-token-attribute);
+      }
+
+      .cm-s-default .cm-header {
+        color: var(--ui-editor-token-header);
+      }
+
+      .cm-s-default .cm-quote {
+        color: var(--ui-editor-token-quote);
+      }
+
+      .cm-s-default .cm-link {
+        color: var(--ui-editor-token-link);
+      }
+
     </style>
   </head>
   <body>
       <div id="topbar">
         <div id="meta">
-          <span id="title">FILEPATH</span>
           <span id="path">${String(configPath || "")}</span>
         </div>
         <div id="actions">
@@ -170,17 +287,33 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
     <div id="editor-root"></div>
     <script src="${CODEMIRROR_JS_URL}"></script>
     <script src="${CODEMIRROR_SEARCH_CURSOR_JS_URL}"></script>
-    <script src="${CODEMIRROR_DIALOG_JS_URL}"></script>
     <script src="${CODEMIRROR_VIM_JS_URL}"></script>
     <script src="${CODEMIRROR_YAML_JS_URL}"></script>
     <script>
       (function settingsEditorBoot() {
         const initialThemeVars = ${initialThemeVars};
+        const initialColorScheme = ${initialColorScheme};
         const root = document.getElementById("editor-root");
         const saveBtn = document.getElementById("save-btn");
         const reloadBtn = document.getElementById("reload-btn");
 
-        if (!root || !window.uiShell || typeof window.CodeMirror === "undefined") return;
+        if (!root || typeof window.CodeMirror === "undefined") return;
+
+        const shell = window.uiShell && typeof window.uiShell === "object" ? window.uiShell : null;
+        const invokeShell = (type, payload) => {
+          if (!shell || typeof shell.invoke !== "function") {
+            return Promise.resolve({ ok: false });
+          }
+          return shell.invoke(type, payload);
+        };
+        const emitShell = (type, payload) => {
+          if (!shell || typeof shell.emit !== "function") return;
+          shell.emit(type, payload);
+        };
+        const onShell = (type, handler) => {
+          if (!shell || typeof shell.on !== "function") return;
+          shell.on(type, handler);
+        };
 
         const applyThemeVars = (vars) => {
           if (!vars || typeof vars !== "object") return;
@@ -191,10 +324,25 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
           }
         };
 
+        const applyColorScheme = (colorScheme) => {
+          const next = colorScheme === "light" ? "light" : "dark";
+          document.documentElement.style.setProperty("--ui-color-scheme", next);
+          document.documentElement.style.colorScheme = next;
+        };
+
+        const applyThemePayload = (payload) => {
+          if (!payload || typeof payload !== "object") return;
+          if (payload.themeVars && typeof payload.themeVars === "object") {
+            applyThemeVars(payload.themeVars);
+          }
+          applyColorScheme(payload.colorScheme);
+        };
+
         applyThemeVars(initialThemeVars);
+        applyColorScheme(initialColorScheme);
 
         const editor = window.CodeMirror(root, {
-          value: "",
+          value: ${initialContentJson},
           mode: "yaml",
           keyMap: "vim",
           lineNumbers: true,
@@ -221,16 +369,16 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
             reloadContent().catch(() => {});
           });
           defineVimExCommand("quit", "q", () => {
-            window.uiShell.invoke("settings:close").catch(() => {});
+            invokeShell("settings:close").catch(() => {});
           });
           defineVimExCommand("wq", "wq", () => {
             saveContent()
-              .then(() => window.uiShell.invoke("settings:close"))
+              .then(() => invokeShell("settings:close"))
               .catch(() => {});
           });
           defineVimExCommand("xit", "x", () => {
             saveContent()
-              .then(() => window.uiShell.invoke("settings:close"))
+              .then(() => invokeShell("settings:close"))
               .catch(() => {});
           });
           window.__settingsEditorExDefined__ = true;
@@ -258,7 +406,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         const notifyReady = () => {
           if (didNotifyReady) return;
           didNotifyReady = true;
-          window.uiShell.emit("editor:ready");
+          emitShell("editor:ready");
         };
 
         const isLeaderStroke = (event) => {
@@ -271,7 +419,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 
         const setMode = (next) => {
           mode = next;
-          window.uiShell.emit("editor:mode-change", { mode });
+          emitShell("editor:mode-change", { mode });
         };
 
         const lineNumberFormatter = (line) => {
@@ -357,7 +505,46 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         };
 
         const saveContent = async () => {
-          await window.uiShell.invoke("settings:save", { content: editor.getValue() });
+          await invokeShell("settings:save", { content: editor.getValue() });
+        };
+
+        const runEditorCommand = (rawCommand) => {
+          const text = String(rawCommand || "").trim().replace(/^:/, "").trim();
+          if (!text) {
+            return Promise.resolve();
+          }
+
+          if (
+            window.CodeMirror &&
+            window.CodeMirror.Vim &&
+            typeof window.CodeMirror.Vim.handleEx === "function"
+          ) {
+            try {
+              window.CodeMirror.Vim.handleEx(editor, text);
+              return Promise.resolve();
+            } catch {
+              // fall back to local command handlers below
+            }
+          }
+
+          const lowered = text.toLowerCase();
+          if (lowered === "w" || lowered === "write") {
+            return saveContent();
+          }
+
+          if (lowered === "e" || lowered === "edit") {
+            return reloadContent();
+          }
+
+          if (lowered === "q" || lowered === "quit") {
+            return invokeShell("settings:close");
+          }
+
+          if (lowered === "wq" || lowered === "x" || lowered === "xit") {
+            return saveContent().then(() => invokeShell("settings:close"));
+          }
+
+          return Promise.resolve();
         };
 
         const loadBaselineContent = (content) => {
@@ -367,9 +554,9 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
         };
 
         const reloadContent = async () => {
-          const result = await window.uiShell.invoke("settings:get");
+          const result = await invokeShell("settings:get");
           if (!result || !result.ok) return;
-          applyThemeVars(result.themeVars);
+          applyThemePayload(result);
           loadBaselineContent(result.content);
           useRelativeLineNumbers = result.relativeLineNumbers !== false;
           scrolloffLines = Math.max(0, Number.parseInt(result.scrolloffLines, 10) || 0);
@@ -383,11 +570,9 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
               : "Space";
         };
 
-        if (typeof window.uiShell.on === "function") {
-          window.uiShell.on("theme:update", (payload) => {
-            applyThemeVars(payload && payload.themeVars);
-          });
-        }
+        onShell("theme:update", (payload) => {
+          applyThemePayload(payload);
+        });
 
         const focusEditorSurface = () => {
           editor.focus();
@@ -395,7 +580,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 
         const enterEditorContext = () => {
           focusEditorSurface();
-          window.uiShell.emit("editor:focus-request");
+          emitShell("editor:focus-request");
         };
 
         window.__settingsEditorFocus__ = () => {
@@ -416,6 +601,10 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
           editor.getInputField().blur();
         };
 
+        window.__settingsEditorRunCommand__ = (commandText) => {
+          runEditorCommand(commandText).catch(() => {});
+        };
+
         const onEditorKeyDown = (event) => {
           if (mode === "INSERT") {
             return;
@@ -427,7 +616,7 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
             if (isTab) {
               event.preventDefault();
               event.stopImmediatePropagation();
-              window.uiShell.emit("editor:toggle-context");
+              emitShell("editor:toggle-context");
             }
             return;
           }
@@ -441,6 +630,18 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
 
           if (event.key === "Escape") {
             clearLeaderPending();
+          }
+
+          if (
+            event.key === ":" &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.altKey
+          ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            emitShell("editor:open-command", { initialText: "" });
+            return;
           }
 
           if (event.key === "s" && (event.metaKey || event.ctrlKey)) {
@@ -479,13 +680,23 @@ function buildSettingsPageHtml(configPath, themeInput = null) {
           ensureCursorVisibleWithScrolloff();
         });
 
-        reloadContent().then(() => {
+        if (shell && typeof shell.invoke === "function") {
+          reloadContent().then(() => {
+            focusEditorSurface();
+            notifyReady();
+          }).catch(() => {
+            focusEditorSurface();
+            notifyReady();
+          });
+        } else {
+          loadBaselineContent(${initialContentJson});
+          snapEditorViewportToLineGrid();
+          applyLineNumbers();
+          applyScrolloff();
+          ensureCursorVisibleWithScrolloff();
           focusEditorSurface();
           notifyReady();
-        }).catch(() => {
-          focusEditorSurface();
-          notifyReady();
-        });
+        }
       })();
     </script>
   </body>

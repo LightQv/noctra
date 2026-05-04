@@ -60,6 +60,12 @@ class BookmarkInsertScopeModal {
     return this.getCurrentFolders().length === 0;
   }
 
+  hasDuplicateInCurrentScope() {
+    const url = String(this.entry?.url || "").trim();
+    if (!url) return false;
+    return bookmarksService.hasEntryUrlAtFolderPath(this.getCurrentFolderPath(), url);
+  }
+
   buildModel() {
     const depth = this.stack.length;
     const pathText = depth
@@ -70,6 +76,7 @@ class BookmarkInsertScopeModal {
     const urlLine = String(this.entry?.url || "");
 
     if (this.isConfirmStep()) {
+      const duplicateInScope = this.hasDuplicateInCurrentScope();
       const confirmSelected = this.confirmIndex === 0;
       const cancelSelected = this.confirmIndex === 1;
       return {
@@ -77,11 +84,11 @@ class BookmarkInsertScopeModal {
         promptTitle,
         urlLine,
         scopeLabel: pathText,
-        items: ["confirm", "cancel"],
+        items: [duplicateInScope ? "confirm (exists)" : "confirm", "cancel"],
         indexHints: ["(enter)", "(esc)"],
-        selectedIndex: confirmSelected ? 0 : 1,
-        footerLeft: "h/l choose",
-        footerRight: "Enter confirm",
+        selectedIndex: duplicateInScope ? 1 : confirmSelected ? 0 : 1,
+        footerLeft: duplicateInScope ? "URL already exists in this folder" : "h/l choose",
+        footerRight: duplicateInScope ? "confirm disabled" : "Enter confirm",
       };
     }
 
@@ -119,7 +126,7 @@ class BookmarkInsertScopeModal {
   }
 
   confirmInsert() {
-    const inserted = bookmarksService.appendEntryAtFolderPath(
+    const result = bookmarksService.appendEntryAtFolderPath(
       this.getCurrentFolderPath(),
       {
         id: bookmarksService.makeEntryId(),
@@ -128,7 +135,7 @@ class BookmarkInsertScopeModal {
       },
     );
     this.close();
-    return Boolean(inserted);
+    return result?.status === "inserted";
   }
 
   handleInput(input) {
@@ -151,6 +158,11 @@ class BookmarkInsertScopeModal {
 
     if (this.isConfirmStep()) {
       if (key === "h" || key === "ArrowLeft") {
+        if (this.hasDuplicateInCurrentScope()) {
+          this.confirmIndex = 1;
+          this.rerender();
+          return true;
+        }
         this.confirmIndex = 0;
         this.rerender();
         return true;
@@ -162,6 +174,11 @@ class BookmarkInsertScopeModal {
       }
       if (key === "Enter") {
         if (this.confirmIndex === 0) {
+          if (this.hasDuplicateInCurrentScope()) {
+            this.confirmIndex = 1;
+            this.rerender();
+            return true;
+          }
           this.confirmInsert();
         } else {
           this.close();

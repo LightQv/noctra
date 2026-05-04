@@ -606,12 +606,12 @@ function dispatch(win, intent, state) {
       if (!candidate) {
         break;
       }
-      bookmarksService.appendEntryAtRoot({
+      const result = bookmarksService.appendEntryAtRoot({
         id: bookmarksService.makeEntryId(),
         title: candidate.title,
         url: candidate.url,
       });
-      if (historyPanel.isVisible()) {
+      if (result?.status === "inserted" && historyPanel.isVisible()) {
         historyPanel.reloadData();
         historyPanel.render();
       }

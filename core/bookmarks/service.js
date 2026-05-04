@@ -141,9 +141,18 @@ function appendEntryAtRoot(entry = {}) {
   const nextRoot = Array.isArray(tree.root) ? tree.root : [];
   const normalized = normalizeEntry(entry);
   if (!normalized) return null;
+  const existing = nextRoot.find(
+    (node) =>
+      node &&
+      node.type === "entry" &&
+      String(node.url || "").trim() === normalized.url,
+  );
+  if (existing) {
+    return { status: "duplicate", existing };
+  }
   nextRoot.push(normalized);
   writeBookmarksTree({ root: nextRoot });
-  return normalized;
+  return { status: "inserted", entry: normalized };
 }
 
 function getFolderChildrenByPath(rootNodes, folderIdPath = []) {
@@ -168,9 +177,31 @@ function appendEntryAtFolderPath(folderIdPath = [], entry = {}) {
   if (!normalized) return null;
   const children = getFolderChildrenByPath(tree.root, folderIdPath);
   if (!children) return null;
+  const existing = children.find(
+    (node) =>
+      node &&
+      node.type === "entry" &&
+      String(node.url || "").trim() === normalized.url,
+  );
+  if (existing) {
+    return { status: "duplicate", existing };
+  }
   children.push(normalized);
   writeBookmarksTree({ root: tree.root });
-  return normalized;
+  return { status: "inserted", entry: normalized };
+}
+
+function hasEntryUrlAtFolderPath(folderIdPath = [], url = "") {
+  if (!Array.isArray(folderIdPath)) return false;
+  const normalizedUrl = String(url || "").trim();
+  if (!normalizedUrl) return false;
+  const tree = readBookmarksTree();
+  const children = getFolderChildrenByPath(tree.root, folderIdPath);
+  if (!children) return false;
+  return children.some(
+    (node) =>
+      node && node.type === "entry" && String(node.url || "").trim() === normalizedUrl,
+  );
 }
 
 function listFolderChildrenByPath(folderIdPath = []) {
@@ -193,6 +224,7 @@ module.exports = {
   writeBookmarksTree,
   appendEntryAtRoot,
   appendEntryAtFolderPath,
+  hasEntryUrlAtFolderPath,
   listFolderChildrenByPath,
   deleteAll,
 };

@@ -110,7 +110,7 @@ const defaultConfig = {
     },
     storage: {
       history_file: "~/.config/noctra/history.yml",
-      favorites_file: "~/.config/noctra/favorites.yml",
+      bookmarks_file: "~/.config/noctra/bookmarks.yml",
       sessions_file: "~/.config/noctra/sessions.yml",
     },
     window: {
@@ -221,8 +221,8 @@ const defaultConfig = {
         action: "history_toggle",
       },
       f: {
-        label: "Toggle favorites tree",
-        action: "favorites_toggle",
+        label: "Toggle bookmarks tree",
+        action: "bookmarks_toggle",
       },
       o: {
         label: "Toggle tree focus",

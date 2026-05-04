@@ -152,13 +152,13 @@ function parseCommand(raw) {
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 
-    case "favorites": {
+    case "bookmarks": {
       const option = arg.toLowerCase();
-      if (!option || option === "show") return { type: INTENTS.FAVORITES_SHOW };
-      if (option === "hide") return { type: INTENTS.FAVORITES_HIDE };
-      if (option === "toggle") return { type: INTENTS.FAVORITES_TOGGLE };
-      if (option === "focus") return { type: INTENTS.FAVORITES_TOGGLE_FOCUS };
-      if (option === "delete-all") return { type: INTENTS.FAVORITES_DELETE_ALL };
+      if (!option || option === "show") return { type: INTENTS.BOOKMARKS_SHOW };
+      if (option === "hide") return { type: INTENTS.BOOKMARKS_HIDE };
+      if (option === "toggle") return { type: INTENTS.BOOKMARKS_TOGGLE };
+      if (option === "focus") return { type: INTENTS.BOOKMARKS_TOGGLE_FOCUS };
+      if (option === "delete-all") return { type: INTENTS.BOOKMARKS_DELETE_ALL };
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 

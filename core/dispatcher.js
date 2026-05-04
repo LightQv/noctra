@@ -8,7 +8,7 @@ const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
 const historyService = require("./history/service");
 const historyPanel = require("./history/panel");
-const favoritesService = require("./favorites/service");
+const bookmarksService = require("./bookmarks/service");
 const sessionService = require("./session/service");
 const { buildSettingsPageHtml } = require("./settings/page");
 const {
@@ -564,29 +564,29 @@ function dispatch(win, intent, state) {
       historyPanel.render();
       break;
 
-    case INTENTS.FAVORITES_SHOW:
-      historyPanel.showTree("favorites");
+    case INTENTS.BOOKMARKS_SHOW:
+      historyPanel.showTree("bookmarks");
       break;
 
-    case INTENTS.FAVORITES_HIDE:
+    case INTENTS.BOOKMARKS_HIDE:
       historyPanel.hide();
       break;
 
-    case INTENTS.FAVORITES_TOGGLE:
-      if (historyPanel.isVisible() && historyPanel.treeKind === "favorites") {
+    case INTENTS.BOOKMARKS_TOGGLE:
+      if (historyPanel.isVisible() && historyPanel.treeKind === "bookmarks") {
         historyPanel.hide();
       } else {
-        historyPanel.showTree("favorites");
+        historyPanel.showTree("bookmarks");
       }
       break;
 
-    case INTENTS.FAVORITES_TOGGLE_FOCUS:
-      historyPanel.setTreeKind("favorites");
+    case INTENTS.BOOKMARKS_TOGGLE_FOCUS:
+      historyPanel.setTreeKind("bookmarks");
       historyPanel.toggleFocus();
       break;
 
-    case INTENTS.FAVORITES_DELETE_ALL:
-      favoritesService.deleteAll();
+    case INTENTS.BOOKMARKS_DELETE_ALL:
+      bookmarksService.deleteAll();
       historyPanel.reloadData();
       historyPanel.render();
       break;

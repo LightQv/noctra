@@ -1,6 +1,6 @@
 const { BrowserView, clipboard } = require("electron");
 const historyService = require("./service");
-const favoritesService = require("../favorites/service");
+const bookmarksService = require("../bookmarks/service");
 const { getNormalKeymap, getModAction } = require("../../motions/keymap");
 const { isModPressed } = require("../../motions/modifiers");
 const {
@@ -55,13 +55,13 @@ class HistoryPanel {
     this.expanded = new Set();
     this.cursor = { type: "day", dateKey: null, entryId: null };
 
-    this.favoriteRoot = [];
-    this.favoriteExpanded = new Set();
-    this.favoriteCursor = { nodeId: null };
-    this.favoriteClipboard = null;
-    this.favoriteEditState = null;
-    this.favoriteUndoStack = [];
-    this.favoriteRedoStack = [];
+    this.bookmarkRoot = [];
+    this.bookmarkExpanded = new Set();
+    this.bookmarkCursor = { nodeId: null };
+    this.bookmarkClipboard = null;
+    this.bookmarkEditState = null;
+    this.bookmarkUndoStack = [];
+    this.bookmarkRedoStack = [];
     this.maxFavoriteHistory = 50;
     this.filterEditState = null;
 
@@ -87,7 +87,7 @@ class HistoryPanel {
   }
 
   clearFavoriteEdit() {
-    this.favoriteEditState = null;
+    this.bookmarkEditState = null;
   }
 
   clearFilterEdit() {
@@ -178,8 +178,8 @@ class HistoryPanel {
   getSelectedTreeIndex() {
     const nodes = this.getTreeFlatNodes();
     if (!nodes.length) return -1;
-    if (this.treeKind === "favorites") {
-      return nodes.findIndex((node) => node.id === this.favoriteCursor.nodeId);
+    if (this.treeKind === "bookmarks") {
+      return nodes.findIndex((node) => node.id === this.bookmarkCursor.nodeId);
     }
     return nodes.findIndex(
       (node) =>
@@ -270,8 +270,8 @@ class HistoryPanel {
   }
 
   getTreeFlatNodes() {
-    if (this.treeKind === "favorites") {
-      if (this.isFavoritesFilterActive()) {
+    if (this.treeKind === "bookmarks") {
+      if (this.isBookmarksFilterActive()) {
         return this.getFilteredFavoriteFlatNodes();
       }
       return this.getFavoriteFlatNodes();
@@ -303,10 +303,10 @@ class HistoryPanel {
     );
   }
 
-  isFavoritesFilterActive() {
+  isBookmarksFilterActive() {
     return Boolean(
       this.filterEditState &&
-        this.treeKind === "favorites" &&
+        this.treeKind === "bookmarks" &&
         this.isFilterQueryMode(this.filterEditState.mode),
     );
   }
@@ -316,7 +316,7 @@ class HistoryPanel {
   }
 
   startFilterPrompt() {
-    if (this.treeKind === "favorites") {
+    if (this.treeKind === "bookmarks") {
       this.filterEditState = {
         mode: "filter-kind",
         tone: "info",
@@ -428,7 +428,7 @@ class HistoryPanel {
     if (!scope) return allNodes;
     if (scope === "folder") {
       const out = [];
-      const root = Array.isArray(this.favoriteRoot) ? this.favoriteRoot : [];
+      const root = Array.isArray(this.bookmarkRoot) ? this.bookmarkRoot : [];
       const collapsed =
         edit && edit.collapsedFolderIds instanceof Set
           ? edit.collapsedFolderIds
@@ -533,10 +533,10 @@ class HistoryPanel {
     if (!this.filterEditState) return;
     const nodes = this.getTreeFlatNodes();
     if (!nodes.length) return;
-    if (this.treeKind === "favorites") {
-      const hasFavorite = nodes.some((node) => node.id === this.favoriteCursor.nodeId);
+    if (this.treeKind === "bookmarks") {
+      const hasFavorite = nodes.some((node) => node.id === this.bookmarkCursor.nodeId);
       if (!hasFavorite) {
-        this.favoriteCursor = { nodeId: nodes[0].id };
+        this.bookmarkCursor = { nodeId: nodes[0].id };
       }
       return;
     }
@@ -562,8 +562,8 @@ class HistoryPanel {
     const targetIndex = Math.max(0, Math.min(nodes.length - 1, Number(lineNumber) - 1));
     const node = nodes[targetIndex];
     if (!node) return;
-    if (this.treeKind === "favorites") {
-      this.favoriteCursor = { nodeId: node.id };
+    if (this.treeKind === "bookmarks") {
+      this.bookmarkCursor = { nodeId: node.id };
       return;
     }
     this.cursor = {
@@ -575,10 +575,10 @@ class HistoryPanel {
 
   createFavoriteSnapshot() {
     return {
-      root: this.deepClone(Array.isArray(this.favoriteRoot) ? this.favoriteRoot : []),
-      expanded: Array.from(this.favoriteExpanded || []),
-      cursor: this.deepClone(this.favoriteCursor || { nodeId: null }),
-      clipboard: this.deepClone(this.favoriteClipboard),
+      root: this.deepClone(Array.isArray(this.bookmarkRoot) ? this.bookmarkRoot : []),
+      expanded: Array.from(this.bookmarkExpanded || []),
+      cursor: this.deepClone(this.bookmarkCursor || { nodeId: null }),
+      clipboard: this.deepClone(this.bookmarkClipboard),
     };
   }
 
@@ -587,48 +587,48 @@ class HistoryPanel {
       return false;
     }
 
-    this.favoriteRoot = this.deepClone(Array.isArray(snapshot.root) ? snapshot.root : []);
-    this.favoriteExpanded = new Set(Array.isArray(snapshot.expanded) ? snapshot.expanded : []);
-    this.favoriteCursor = this.deepClone(snapshot.cursor || { nodeId: null });
-    this.favoriteClipboard = this.deepClone(snapshot.clipboard || null);
-    this.favoriteEditState = null;
+    this.bookmarkRoot = this.deepClone(Array.isArray(snapshot.root) ? snapshot.root : []);
+    this.bookmarkExpanded = new Set(Array.isArray(snapshot.expanded) ? snapshot.expanded : []);
+    this.bookmarkCursor = this.deepClone(snapshot.cursor || { nodeId: null });
+    this.bookmarkClipboard = this.deepClone(snapshot.clipboard || null);
+    this.bookmarkEditState = null;
     this.deleteAllArmed = false;
     this.confirmDeleteAll = "";
 
-    favoritesService.writeFavoritesTree({ root: this.favoriteRoot });
-    this.favoriteRoot = favoritesService.readFavoritesTree().root;
+    bookmarksService.writeBookmarksTree({ root: this.bookmarkRoot });
+    this.bookmarkRoot = bookmarksService.readBookmarksTree().root;
     this.reconcileFavoriteState();
     return true;
   }
 
   recordFavoriteMutationSnapshot() {
-    this.favoriteUndoStack.push(this.createFavoriteSnapshot());
-    if (this.favoriteUndoStack.length > this.maxFavoriteHistory) {
-      this.favoriteUndoStack.splice(0, this.favoriteUndoStack.length - this.maxFavoriteHistory);
+    this.bookmarkUndoStack.push(this.createFavoriteSnapshot());
+    if (this.bookmarkUndoStack.length > this.maxFavoriteHistory) {
+      this.bookmarkUndoStack.splice(0, this.bookmarkUndoStack.length - this.maxFavoriteHistory);
     }
-    this.favoriteRedoStack = [];
+    this.bookmarkRedoStack = [];
   }
 
   undoLastFavoriteAction() {
-    if (!this.favoriteUndoStack.length) {
+    if (!this.bookmarkUndoStack.length) {
       return false;
     }
-    const previous = this.favoriteUndoStack.pop();
-    this.favoriteRedoStack.push(this.createFavoriteSnapshot());
-    if (this.favoriteRedoStack.length > this.maxFavoriteHistory) {
-      this.favoriteRedoStack.splice(0, this.favoriteRedoStack.length - this.maxFavoriteHistory);
+    const previous = this.bookmarkUndoStack.pop();
+    this.bookmarkRedoStack.push(this.createFavoriteSnapshot());
+    if (this.bookmarkRedoStack.length > this.maxFavoriteHistory) {
+      this.bookmarkRedoStack.splice(0, this.bookmarkRedoStack.length - this.maxFavoriteHistory);
     }
     return this.applyFavoriteSnapshot(previous);
   }
 
   redoLastFavoriteAction() {
-    if (!this.favoriteRedoStack.length) {
+    if (!this.bookmarkRedoStack.length) {
       return false;
     }
-    const next = this.favoriteRedoStack.pop();
-    this.favoriteUndoStack.push(this.createFavoriteSnapshot());
-    if (this.favoriteUndoStack.length > this.maxFavoriteHistory) {
-      this.favoriteUndoStack.splice(0, this.favoriteUndoStack.length - this.maxFavoriteHistory);
+    const next = this.bookmarkRedoStack.pop();
+    this.bookmarkUndoStack.push(this.createFavoriteSnapshot());
+    if (this.bookmarkUndoStack.length > this.maxFavoriteHistory) {
+      this.bookmarkUndoStack.splice(0, this.bookmarkUndoStack.length - this.maxFavoriteHistory);
     }
     return this.applyFavoriteSnapshot(next);
   }
@@ -642,17 +642,17 @@ class HistoryPanel {
 
   startFavoriteRename() {
     this.clearFilterEdit();
-    const location = this.findFavoriteNodeLocation(this.favoriteCursor.nodeId);
+    const location = this.findFavoriteNodeLocation(this.bookmarkCursor.nodeId);
     if (!location) return;
     const initialValue =
       location.node.type === "folder"
         ? String(location.node.name || "")
         : String(location.node.title || location.node.url || "");
-    this.favoriteEditState = {
+    this.bookmarkEditState = {
       mode: "rename",
       tone: "info",
       label:
-        location.node.type === "folder" ? "Rename folder" : "Rename favorite",
+        location.node.type === "folder" ? "Rename folder" : "Rename bookmark",
       value: initialValue,
       cursor: initialValue.length,
       targetNodeId: location.node.id,
@@ -662,7 +662,7 @@ class HistoryPanel {
 
   startFavoriteAdd() {
     this.clearFilterEdit();
-    this.favoriteEditState = {
+    this.bookmarkEditState = {
       mode: "add-kind",
       tone: "info",
       label: "Type f: folder, e: entry",
@@ -690,14 +690,14 @@ class HistoryPanel {
   }
 
   resolveFavoriteInsertTarget() {
-    const selectedId = this.favoriteCursor.nodeId;
+    const selectedId = this.bookmarkCursor.nodeId;
     const location = selectedId
       ? this.findFavoriteNodeLocation(selectedId)
       : null;
     if (!location) {
       return {
-        children: this.favoriteRoot,
-        insertAt: this.favoriteRoot.length,
+        children: this.bookmarkRoot,
+        insertAt: this.bookmarkRoot.length,
         expandFolderId: null,
       };
     }
@@ -722,7 +722,7 @@ class HistoryPanel {
   }
 
   renameCurrentFavorite(nextLabel) {
-    const location = this.findFavoriteNodeLocation(this.favoriteCursor.nodeId);
+    const location = this.findFavoriteNodeLocation(this.bookmarkCursor.nodeId);
     if (!location) return false;
     const value = String(nextLabel || "").trim();
     if (!value) return false;
@@ -732,8 +732,8 @@ class HistoryPanel {
     } else {
       location.node.title = value;
     }
-    this.saveFavorites();
-    this.favoriteCursor = { nodeId: location.node.id };
+    this.saveBookmarks();
+    this.bookmarkCursor = { nodeId: location.node.id };
     return true;
   }
 
@@ -744,14 +744,14 @@ class HistoryPanel {
     const target = this.resolveFavoriteInsertTarget();
     const folder = {
       type: "folder",
-      id: favoritesService.makeFolderId(),
+      id: bookmarksService.makeFolderId(),
       name: this.makeUniqueFolderName(target.children, value),
       children: [],
     };
     target.children.splice(target.insertAt, 0, folder);
-    if (target.expandFolderId) this.favoriteExpanded.add(target.expandFolderId);
-    this.saveFavorites();
-    this.favoriteCursor = { nodeId: folder.id };
+    if (target.expandFolderId) this.bookmarkExpanded.add(target.expandFolderId);
+    this.saveBookmarks();
+    this.bookmarkCursor = { nodeId: folder.id };
     return true;
   }
 
@@ -763,19 +763,19 @@ class HistoryPanel {
     const target = this.resolveFavoriteInsertTarget();
     const entry = {
       type: "entry",
-      id: favoritesService.makeEntryId(),
+      id: bookmarksService.makeEntryId(),
       title: normalizedTitle,
       url: normalizedUrl,
     };
     target.children.splice(target.insertAt, 0, entry);
-    if (target.expandFolderId) this.favoriteExpanded.add(target.expandFolderId);
-    this.saveFavorites();
-    this.favoriteCursor = { nodeId: entry.id };
+    if (target.expandFolderId) this.bookmarkExpanded.add(target.expandFolderId);
+    this.saveBookmarks();
+    this.bookmarkCursor = { nodeId: entry.id };
     return true;
   }
 
   confirmFavoriteEdit() {
-    const edit = this.favoriteEditState;
+    const edit = this.bookmarkEditState;
     if (!edit) return false;
 
     if (edit.mode === "add-kind") {
@@ -798,7 +798,7 @@ class HistoryPanel {
 
     if (edit.mode === "add-entry-title") {
       const nextUrl = edit.url || this.getActiveBufferUrl();
-      this.favoriteEditState = {
+      this.bookmarkEditState = {
         mode: "add-entry-url",
         tone: "info",
         label: "Favorite URL",
@@ -823,7 +823,7 @@ class HistoryPanel {
   }
 
   handleFavoriteEditInput(input) {
-    const edit = this.favoriteEditState;
+    const edit = this.bookmarkEditState;
     if (!edit) return false;
     const key = input.key;
 
@@ -841,7 +841,7 @@ class HistoryPanel {
 
     if (edit.mode === "add-kind") {
       if (key === "f") {
-        this.favoriteEditState = {
+        this.bookmarkEditState = {
           mode: "add-folder",
           tone: "info",
           label: "Folder name",
@@ -852,7 +852,7 @@ class HistoryPanel {
       }
       if (key === "e") {
         const seedUrl = this.getActiveBufferUrl();
-        this.favoriteEditState = {
+        this.bookmarkEditState = {
           mode: "add-entry-title",
           tone: "info",
           label: "Favorite title",
@@ -1069,7 +1069,7 @@ class HistoryPanel {
 
   renderFooter() {
     const defaultText =
-      this.treeKind === "favorites"
+      this.treeKind === "bookmarks"
         ? "a: add, y/m: yank/move, p: paste, r: rename, dd: delete, d{motion}: range, u: undo, n: count, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
         : "dd: delete, d{motion}: range, D: delete-all, t: timestamp, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u";
 
@@ -1091,8 +1091,8 @@ class HistoryPanel {
       };
     }
 
-    const edit = this.favoriteEditState;
-    if (this.treeKind === "favorites" && edit) {
+    const edit = this.bookmarkEditState;
+    if (this.treeKind === "bookmarks" && edit) {
       if (edit.mode === "add-kind") {
         return {
           tone: "info",
@@ -1158,8 +1158,8 @@ class HistoryPanel {
 
     if (this.deleteAllArmed) {
       label =
-        this.treeKind === "favorites"
-          ? "Delete all favorites"
+        this.treeKind === "bookmarks"
+          ? "Delete all bookmarks"
           : "Delete all history";
       rawValue = String(this.confirmDeleteAll || "");
       cursor = rawValue.length;
@@ -1175,8 +1175,8 @@ class HistoryPanel {
         cursor = edit.cursor;
       }
     } else {
-      if (this.treeKind !== "favorites") return "";
-      const edit = this.favoriteEditState;
+      if (this.treeKind !== "bookmarks") return "";
+      const edit = this.bookmarkEditState;
       if (!edit) return "";
       label = String(edit.label || "Input");
       if (edit.mode === "add-kind") {
@@ -1206,7 +1206,7 @@ class HistoryPanel {
         ? cursorLocation.node.children
         : [];
       cursorLocation.node.children = children;
-      const isOpenFolder = this.favoriteExpanded.has(cursorLocation.node.id);
+      const isOpenFolder = this.bookmarkExpanded.has(cursorLocation.node.id);
       if (isOpenFolder) {
         return {
           children,
@@ -1287,7 +1287,7 @@ class HistoryPanel {
   }
 
   setTreeKind(kind) {
-    if (kind !== "history" && kind !== "favorites") return;
+    if (kind !== "history" && kind !== "bookmarks") return;
     if (this.treeKind === kind) return;
     this.treeKind = kind;
     this.clearFavoriteEdit();
@@ -1303,7 +1303,7 @@ class HistoryPanel {
 
   switchTreeByOffset(offset) {
     if (!Number.isFinite(offset) || offset === 0) return;
-    const order = ["history", "favorites"];
+    const order = ["history", "bookmarks"];
     const idx = Math.max(0, order.indexOf(this.treeKind));
     const next =
       order[
@@ -1321,7 +1321,7 @@ class HistoryPanel {
       this.cursor = { type: "day", dateKey: this.days[0].key, entryId: null };
     }
 
-    this.favoriteRoot = favoritesService.readFavoritesTree().root;
+    this.bookmarkRoot = bookmarksService.readBookmarksTree().root;
     this.reconcileFavoriteState();
   }
 
@@ -1448,7 +1448,7 @@ class HistoryPanel {
   }
 
   getFlatNodes() {
-    if (this.treeKind === "favorites") {
+    if (this.treeKind === "bookmarks") {
       return this.getFavoriteFlatNodes();
     }
 
@@ -1465,7 +1465,7 @@ class HistoryPanel {
   }
 
   moveCursor(delta) {
-    if (this.treeKind === "favorites") {
+    if (this.treeKind === "bookmarks") {
       this.moveFavoriteCursor(delta);
       return;
     }
@@ -1496,7 +1496,7 @@ class HistoryPanel {
   }
 
   openCurrent(newTab = false) {
-    if (this.treeKind === "favorites") {
+    if (this.treeKind === "bookmarks") {
       const entry = this.getCurrentFavoriteEntry();
       if (!entry || !entry.url) return;
       if (newTab) {
@@ -1555,7 +1555,7 @@ class HistoryPanel {
   deleteRangeInTree(startIndex, endIndex) {
     const low = Math.min(startIndex, endIndex);
     const high = Math.max(startIndex, endIndex);
-    if (this.treeKind === "favorites") {
+    if (this.treeKind === "bookmarks") {
       const flat = this.getFavoriteFlatNodes();
       if (!flat.length) return;
       const from = Math.max(0, low);
@@ -1573,8 +1573,8 @@ class HistoryPanel {
           return true;
         });
       };
-      this.favoriteRoot = prune(this.favoriteRoot);
-      this.saveFavorites();
+      this.bookmarkRoot = prune(this.bookmarkRoot);
+      this.saveBookmarks();
       this.restoreFavoriteCursorByIndex(from);
       return;
     }
@@ -1618,8 +1618,8 @@ class HistoryPanel {
 
   render() {
     if (!this.view || this.view.webContents.isDestroyed()) return;
-    const isFavorites = this.treeKind === "favorites";
-    const rows = isFavorites
+    const isBookmarks = this.treeKind === "bookmarks";
+    const rows = isBookmarks
       ? this.renderFavoriteRows()
       : this.renderHistoryRows();
     const footer = this.renderFooter();
@@ -1629,8 +1629,8 @@ class HistoryPanel {
     const footerValue = escapeHtml(footer.value || "");
     const historyHeadClass =
       this.treeKind === "history" ? "tree-head-item active" : "tree-head-item";
-    const favoriteHeadClass =
-      this.treeKind === "favorites"
+    const bookmarkHeadClass =
+      this.treeKind === "bookmarks"
         ? "tree-head-item active"
         : "tree-head-item";
 
@@ -1737,7 +1737,7 @@ class HistoryPanel {
       .filter-nav-active .floating-input-cursor{background:var(--ui-text-muted,#7f8aa3);opacity:.55}
       .filter-nav-active .floating-input-caret{background:var(--ui-text-muted,#7f8aa3);opacity:.65}
       .filter-prompt-active .floating-input{border-color:color-mix(in srgb, var(--ui-accent,#89dceb) 40%, var(--ui-border,#2f3440))}
-    </style><div class="wrap ${this.focused ? "focused" : "unfocused"} ${filterModeClass}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${favoriteHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
+    </style><div class="wrap ${this.focused ? "focused" : "unfocused"} ${filterModeClass}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${bookmarkHeadClass}">Favorite</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
 
     this.scheduleRender(html);
   }
@@ -1796,12 +1796,12 @@ class HistoryPanel {
     const folderSet = new Set(
       visible.filter((n) => n.type === "folder").map((n) => n.id),
     );
-    this.favoriteExpanded = new Set(
-      [...this.favoriteExpanded].filter((key) => folderSet.has(key)),
+    this.bookmarkExpanded = new Set(
+      [...this.bookmarkExpanded].filter((key) => folderSet.has(key)),
     );
-    const hasCursor = visible.some((n) => n.id === this.favoriteCursor.nodeId);
+    const hasCursor = visible.some((n) => n.id === this.bookmarkCursor.nodeId);
     if (!hasCursor && visible.length > 0) {
-      this.favoriteCursor = { nodeId: visible[0].id };
+      this.bookmarkCursor = { nodeId: visible[0].id };
     }
   }
 
@@ -1820,7 +1820,7 @@ class HistoryPanel {
             index,
             count: Array.isArray(node.children) ? node.children.length : 0,
           });
-          if (this.favoriteExpanded.has(node.id)) {
+          if (this.bookmarkExpanded.has(node.id)) {
             walk(
               Array.isArray(node.children) ? node.children : [],
               depth + 1,
@@ -1839,12 +1839,12 @@ class HistoryPanel {
         }
       }
     };
-    walk(Array.isArray(this.favoriteRoot) ? this.favoriteRoot : [], 0, null);
+    walk(Array.isArray(this.bookmarkRoot) ? this.bookmarkRoot : [], 0, null);
     return nodes;
   }
 
   isFavoriteNodeSelected(node) {
-    return Boolean(node && node.id && node.id === this.favoriteCursor.nodeId);
+    return Boolean(node && node.id && node.id === this.bookmarkCursor.nodeId);
   }
 
   moveFavoriteCursor(delta) {
@@ -1854,25 +1854,25 @@ class HistoryPanel {
     if (idx === -1) idx = 0;
     idx = Math.max(0, Math.min(nodes.length - 1, idx + delta));
     const node = nodes[idx];
-    this.favoriteCursor = { nodeId: node.id };
+    this.bookmarkCursor = { nodeId: node.id };
   }
 
   getCurrentFavoriteEntry() {
     const nodes = this.getTreeFlatNodes();
-    const node = nodes.find((item) => item.id === this.favoriteCursor.nodeId);
+    const node = nodes.find((item) => item.id === this.bookmarkCursor.nodeId);
     return node && node.type === "entry" ? node.entry : null;
   }
 
   getFavoriteNodeClipboardMarker(nodeId) {
-    if (!this.favoriteClipboard || this.favoriteClipboard.sourceNodeId !== nodeId) {
+    if (!this.bookmarkClipboard || this.bookmarkClipboard.sourceNodeId !== nodeId) {
       return "";
     }
 
-    if (this.favoriteClipboard.mode === "copy") {
+    if (this.bookmarkClipboard.mode === "copy") {
       return "(copy)";
     }
 
-    if (this.favoriteClipboard.mode === "move") {
+    if (this.bookmarkClipboard.mode === "move") {
       return "(move)";
     }
 
@@ -1893,10 +1893,10 @@ class HistoryPanel {
 
   renderFavoriteRows() {
     const rows = [];
-    const nodes = this.isFavoritesFilterActive()
+    const nodes = this.isBookmarksFilterActive()
       ? this.getFilteredFavoriteFlatNodes()
       : this.getFavoriteFlatNodes();
-    const query = this.isFavoritesFilterActive() ? this.getActiveFilterQuery() : "";
+    const query = this.isBookmarksFilterActive() ? this.getActiveFilterQuery() : "";
     if (!nodes.length) {
       rows.push(
         `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No item yet.</span></span><span class="time time-hidden"></span></div>`,
@@ -1906,7 +1906,7 @@ class HistoryPanel {
 
     for (const node of nodes) {
       if (node.type === "folder") {
-        const open = node.forceOpen ? true : this.favoriteExpanded.has(node.id);
+        const open = node.forceOpen ? true : this.bookmarkExpanded.has(node.id);
         const selected = this.isFavoriteNodeSelected(node);
         const siblingNodes = nodes.filter((item) => item.parentId === node.parentId);
         const branch = node.index === siblingNodes.length - 1 ? "└" : "│";
@@ -1922,7 +1922,7 @@ class HistoryPanel {
           node.depth > 0
             ? `<span class="tree-cols"><span class="icon guide">${branch}</span></span>`
             : "";
-        const folderText = this.isFavoritesFilterActive()
+        const folderText = this.isBookmarksFilterActive()
           ? this.renderTextWithMatch(this.getFavoriteFolderDisplayName(node), query)
           : escapeHtml(this.getFavoriteFolderDisplayName(node));
         rows.push(
@@ -1931,10 +1931,10 @@ class HistoryPanel {
       } else {
         const selected = this.isFavoriteNodeSelected(node);
         const entryTextSource =
-          this.isFavoritesFilterActive() && this.filterEditState?.filterScope === "entry" && this.filterEditState?.filterField === "url"
+          this.isBookmarksFilterActive() && this.filterEditState?.filterScope === "entry" && this.filterEditState?.filterField === "url"
             ? String(node.entry?.url || "")
             : this.getFavoriteEntryDisplayName(node);
-        const entryText = this.isFavoritesFilterActive()
+        const entryText = this.isBookmarksFilterActive()
           ? this.renderTextWithMatch(entryTextSource, query)
           : escapeHtml(this.getFavoriteEntryDisplayName(node));
         if (node.depth === 0) {
@@ -1960,21 +1960,21 @@ class HistoryPanel {
     return rows;
   }
 
-  saveFavorites() {
-    favoritesService.writeFavoritesTree({ root: this.favoriteRoot });
-    this.favoriteRoot = favoritesService.readFavoritesTree().root;
+  saveBookmarks() {
+    bookmarksService.writeBookmarksTree({ root: this.bookmarkRoot });
+    this.bookmarkRoot = bookmarksService.readBookmarksTree().root;
     this.reconcileFavoriteState();
   }
 
   setFavoriteCursorFromNode(node) {
     if (!node) return;
-    this.favoriteCursor = { nodeId: node.id };
+    this.bookmarkCursor = { nodeId: node.id };
   }
 
   restoreFavoriteCursorByIndex(previousIndex = 0) {
     const nextNodes = this.getFavoriteFlatNodes();
     if (!nextNodes.length) {
-      this.favoriteCursor = { nodeId: null };
+      this.bookmarkCursor = { nodeId: null };
       return;
     }
     const idx = Math.max(
@@ -1986,7 +1986,7 @@ class HistoryPanel {
 
   findFavoriteNodeLocation(
     nodeId,
-    children = this.favoriteRoot,
+    children = this.bookmarkRoot,
     parentChildren = null,
   ) {
     for (let index = 0; index < children.length; index += 1) {
@@ -2014,10 +2014,10 @@ class HistoryPanel {
     );
     if (beforeIndex < 0) beforeIndex = 0;
 
-    const location = this.findFavoriteNodeLocation(this.favoriteCursor.nodeId);
+    const location = this.findFavoriteNodeLocation(this.bookmarkCursor.nodeId);
     if (!location) return;
     location.children.splice(location.index, 1);
-    this.saveFavorites();
+    this.saveBookmarks();
     this.restoreFavoriteCursorByIndex(beforeIndex);
   }
 
@@ -2026,10 +2026,10 @@ class HistoryPanel {
   }
 
   copyOrMoveCurrentFavorite(isMove) {
-    const location = this.findFavoriteNodeLocation(this.favoriteCursor.nodeId);
+    const location = this.findFavoriteNodeLocation(this.bookmarkCursor.nodeId);
     if (!location) return;
     if (location.node.type === "entry") {
-      this.favoriteClipboard = {
+      this.bookmarkClipboard = {
         mode: isMove ? "move" : "copy",
         nodeType: "entry",
         value: this.deepClone(location.node),
@@ -2037,7 +2037,7 @@ class HistoryPanel {
       };
       return;
     }
-    this.favoriteClipboard = {
+    this.bookmarkClipboard = {
       mode: isMove ? "move" : "copy",
       nodeType: "folder",
       value: this.deepClone(location.node),
@@ -2046,7 +2046,7 @@ class HistoryPanel {
   }
 
   clearFavoriteClipboard() {
-    this.favoriteClipboard = null;
+    this.bookmarkClipboard = null;
   }
 
   cloneFavoriteNodeForCopy(node) {
@@ -2054,7 +2054,7 @@ class HistoryPanel {
     if (node.type === "entry") {
       return {
         type: "entry",
-        id: favoritesService.makeEntryId(),
+        id: bookmarksService.makeEntryId(),
         title: node.title,
         url: node.url,
       };
@@ -2066,7 +2066,7 @@ class HistoryPanel {
       : [];
     return {
       type: "folder",
-      id: favoritesService.makeFolderId(),
+      id: bookmarksService.makeFolderId(),
       name: node.name,
       children,
     };
@@ -2088,7 +2088,7 @@ class HistoryPanel {
   }
 
   pasteFavoriteAtCursor() {
-    const clip = this.favoriteClipboard;
+    const clip = this.bookmarkClipboard;
     if (!clip) return;
     this.recordFavoriteMutationSnapshot();
     const beforeNodes = this.getFavoriteFlatNodes();
@@ -2097,7 +2097,7 @@ class HistoryPanel {
     );
     if (beforeIndex < 0) beforeIndex = 0;
     const cursorLocation = this.findFavoriteNodeLocation(
-      this.favoriteCursor.nodeId,
+      this.bookmarkCursor.nodeId,
     );
     if (!cursorLocation) return;
 
@@ -2136,12 +2136,12 @@ class HistoryPanel {
 
     targetChildren.splice(insertAt, 0, nodeToInsert);
     if (pasteTarget.expandFolderId) {
-      this.favoriteExpanded.add(pasteTarget.expandFolderId);
+      this.bookmarkExpanded.add(pasteTarget.expandFolderId);
     }
 
-    this.favoriteClipboard = null;
-    this.saveFavorites();
-    this.favoriteCursor = { nodeId: nodeToInsert.id };
+    this.bookmarkClipboard = null;
+    this.saveBookmarks();
+    this.bookmarkCursor = { nodeId: nodeToInsert.id };
     this.restoreFavoriteCursorByIndex(beforeIndex + 1);
   }
 
@@ -2170,10 +2170,10 @@ class HistoryPanel {
       return false;
     if (this.state && this.state.mode === "COMMAND") return false;
     const key = input.key;
-    const isFavorites = this.treeKind === "favorites";
-    const favoriteNodes = isFavorites ? this.getFavoriteFlatNodes() : [];
-    const currentFavoriteNode = isFavorites
-      ? favoriteNodes.find((node) => node.id === this.favoriteCursor.nodeId) ||
+    const isBookmarks = this.treeKind === "bookmarks";
+    const bookmarkNodes = isBookmarks ? this.getFavoriteFlatNodes() : [];
+    const currentFavoriteNode = isBookmarks
+      ? bookmarkNodes.find((node) => node.id === this.bookmarkCursor.nodeId) ||
         null
       : null;
 
@@ -2185,14 +2185,14 @@ class HistoryPanel {
     }
     this.treeLastKeyTime = now;
 
-    if (isFavorites && this.isFavoriteRedoShortcut(input)) {
+    if (isBookmarks && this.isFavoriteRedoShortcut(input)) {
       this.clearTreeNormalState();
       this.redoLastFavoriteAction();
       this.render();
       return true;
     }
 
-    if (isFavorites && key === "Escape" && this.favoriteClipboard) {
+    if (isBookmarks && key === "Escape" && this.bookmarkClipboard) {
       this.clearTreeNormalState();
       this.clearFavoriteClipboard();
       this.render();
@@ -2209,7 +2209,7 @@ class HistoryPanel {
       }
     }
 
-    if (isFavorites && this.favoriteEditState) {
+    if (isBookmarks && this.bookmarkEditState) {
       this.clearTreeNormalState();
       const consumed = this.handleFavoriteEditInput(input);
       if (consumed) {
@@ -2223,9 +2223,9 @@ class HistoryPanel {
       if (key === "Enter") {
         const answer = this.confirmDeleteAll.trim().toLowerCase();
         if (answer === "y") {
-          if (isFavorites) {
+          if (isBookmarks) {
             this.recordFavoriteMutationSnapshot();
-            favoritesService.deleteAll();
+            bookmarksService.deleteAll();
           } else historyService.deleteAll();
         }
         this.confirmDeleteAll = "";
@@ -2289,7 +2289,7 @@ class HistoryPanel {
       }
       if (this.treeDeletePendingG && key === "g" && currentIndex >= 0) {
         let top = 0;
-        if (this.treeKind === "favorites") {
+        if (this.treeKind === "bookmarks") {
           top = this.resolveFavoriteScopeTopIndex(flat, currentIndex);
         }
         this.deleteRangeInTree(currentIndex, top);
@@ -2326,7 +2326,7 @@ class HistoryPanel {
         (normalizedKey === "KeyG" && Boolean(input.shift));
       if (isShiftG && currentIndex >= 0) {
         let bottom = flat.length - 1;
-        if (this.treeKind === "favorites") {
+        if (this.treeKind === "bookmarks") {
           bottom = this.resolveFavoriteScopeBottomIndex(flat, currentIndex);
         }
         this.deleteRangeInTree(currentIndex, bottom);
@@ -2361,9 +2361,9 @@ class HistoryPanel {
     else if (key === "ArrowDown") this.moveCursor(1);
     else if (key === "ArrowUp") this.moveCursor(-1);
     else if (key === "l" || key === "ArrowRight") {
-      if (isFavorites) {
+      if (isBookmarks) {
         if (
-          this.isFavoritesFilterActive() &&
+          this.isBookmarksFilterActive() &&
           this.filterEditState?.filterScope === "folder" &&
           currentFavoriteNode &&
           currentFavoriteNode.type === "folder"
@@ -2374,18 +2374,18 @@ class HistoryPanel {
           this.filterEditState.collapsedFolderIds.delete(currentFavoriteNode.id);
         }
         if (currentFavoriteNode && currentFavoriteNode.type === "folder") {
-          this.favoriteExpanded.add(currentFavoriteNode.id);
+          this.bookmarkExpanded.add(currentFavoriteNode.id);
         }
       } else if (this.cursor.type === "day")
         this.expanded.add(this.cursor.dateKey);
     } else if (key === "h" || key === "ArrowLeft") {
-      if (isFavorites) {
+      if (isBookmarks) {
         const liveNodes = this.getFavoriteFlatNodes();
         const liveNode =
-          liveNodes.find((node) => node.id === this.favoriteCursor.nodeId) ||
+          liveNodes.find((node) => node.id === this.bookmarkCursor.nodeId) ||
           null;
         if (
-          this.isFavoritesFilterActive() &&
+          this.isBookmarksFilterActive() &&
           this.filterEditState?.filterScope === "folder" &&
           liveNode &&
           liveNode.type === "folder"
@@ -2396,14 +2396,14 @@ class HistoryPanel {
           this.filterEditState.collapsedFolderIds.add(liveNode.id);
         }
         if (liveNode && liveNode.type === "folder") {
-          if (this.favoriteExpanded.has(liveNode.id)) {
-            this.favoriteExpanded.delete(liveNode.id);
+          if (this.bookmarkExpanded.has(liveNode.id)) {
+            this.bookmarkExpanded.delete(liveNode.id);
           } else if (liveNode.parentId) {
-            this.favoriteCursor = { nodeId: liveNode.parentId };
+            this.bookmarkCursor = { nodeId: liveNode.parentId };
           }
         } else {
-          this.favoriteCursor = {
-            nodeId: liveNode?.parentId || this.favoriteCursor.nodeId,
+          this.bookmarkCursor = {
+            nodeId: liveNode?.parentId || this.bookmarkCursor.nodeId,
           };
         }
       } else if (this.cursor.type === "day") {
@@ -2418,20 +2418,20 @@ class HistoryPanel {
       }
     } else if (key === "Enter") this.openCurrent(Boolean(input.shift));
     else if (key === "y") {
-      if (isFavorites) {
+      if (isBookmarks) {
         this.copyOrMoveCurrentFavorite(false);
       } else {
         const entry = this.getCurrentEntry();
         if (entry && entry.url) clipboard.writeText(String(entry.url));
       }
-    } else if (isFavorites && key === "c")
+    } else if (isBookmarks && key === "c")
       this.copyOrMoveCurrentFavorite(false);
-    else if (isFavorites && key === "m") this.copyOrMoveCurrentFavorite(true);
-    else if (isFavorites && key === "p") this.pasteFavoriteAtCursor();
-    else if (isFavorites && key === "r") this.startFavoriteRename();
-    else if (isFavorites && key === "a") this.startFavoriteAdd();
-    else if (isFavorites && key === "u") this.undoLastFavoriteAction();
-    else if (isFavorites && key === "Y") {
+    else if (isBookmarks && key === "m") this.copyOrMoveCurrentFavorite(true);
+    else if (isBookmarks && key === "p") this.pasteFavoriteAtCursor();
+    else if (isBookmarks && key === "r") this.startFavoriteRename();
+    else if (isBookmarks && key === "a") this.startFavoriteAdd();
+    else if (isBookmarks && key === "u") this.undoLastFavoriteAction();
+    else if (isBookmarks && key === "Y") {
       const entry = this.getCurrentFavoriteEntry();
       if (entry && entry.url) clipboard.writeText(String(entry.url));
     }
@@ -2445,9 +2445,9 @@ class HistoryPanel {
     else if (key === "D") {
       this.confirmDeleteAll = "";
       this.deleteAllArmed = true;
-    } else if (!isFavorites && key === "t")
+    } else if (!isBookmarks && key === "t")
       this.showTimestamp = !this.showTimestamp;
-    else if (isFavorites && key === "n")
+    else if (isBookmarks && key === "n")
       this.showFavoriteCount = !this.showFavoriteCount;
     else if (key === "Escape") this.unfocus();
     else return false;

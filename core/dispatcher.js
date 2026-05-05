@@ -10,6 +10,7 @@ const historyService = require("./history/service");
 const historyPanel = require("./history/panel");
 const bookmarksService = require("./bookmarks/service");
 const bookmarkInsertScopeModal = require("./bookmarks/insertScopeModal");
+const telescopeService = require("./telescope/service");
 const { isBookmarkableBuffer } = require("./bookmarks/eligibility");
 const sessionService = require("./session/service");
 const { buildSettingsPageHtml } = require("./settings/page");
@@ -23,6 +24,10 @@ const {
 } = require("../ui/theme");
 
 function computeStatuslineModeLabel(state) {
+  if (telescopeService.isActive()) {
+    return telescopeService.getMode();
+  }
+
   if (state.mode === "COMMAND") {
     return "COMMAND";
   }
@@ -753,6 +758,48 @@ function dispatch(win, intent, state) {
         break;
       }
       bookmarkInsertScopeModal.open(candidate);
+      break;
+    }
+
+    case INTENTS.TELESCOPE_OPEN_HISTORY:
+      uiShell.showTelescope(
+        telescopeService.open("history", {
+          promptPosition: configService.getConfigValue("global.ui.telescope.prompt_position", "top"),
+        }),
+      );
+      break;
+
+    case INTENTS.TELESCOPE_OPEN_BOOKMARKS:
+      uiShell.showTelescope(
+        telescopeService.open("bookmarks", {
+          promptPosition: configService.getConfigValue("global.ui.telescope.prompt_position", "top"),
+        }),
+      );
+      break;
+
+    case INTENTS.TELESCOPE_OPEN_BUFFERS:
+      uiShell.showTelescope(
+        telescopeService.open("buffers", {
+          promptPosition: configService.getConfigValue("global.ui.telescope.prompt_position", "top"),
+        }),
+      );
+      break;
+
+    case INTENTS.TELESCOPE_REOPEN_LAST: {
+      const model = telescopeService.reopenLast(
+        configService.getConfigValue("global.ui.telescope.prompt_position", "top"),
+      );
+      if (!model) {
+        notificationsService.notify({
+          severity: "info",
+          code: "telescope_reopen_empty",
+          message: "No previous telescope query",
+          source: "core.dispatcher",
+          persist: false,
+        });
+        break;
+      }
+      uiShell.showTelescope(model);
       break;
     }
 

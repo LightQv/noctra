@@ -33,6 +33,10 @@ const ACTION_IDS = new Set([
   "bookmarks_toggle_focus",
   "bookmarks_add_root_active",
   "bookmarks_add_scoped_prompt",
+  "telescope_open_history",
+  "telescope_open_bookmarks",
+  "telescope_open_buffers",
+  "telescope_reopen_last",
   "session_save",
   "session_restore",
   "close_buffer",
@@ -44,6 +48,13 @@ const ACTION_IDS = new Set([
   "split_devtools",
   "open_notifications",
 ]);
+
+const LEGACY_ACTION_ALIASES = Object.freeze({
+  fuzzy_open_history: "telescope_open_history",
+  fuzzy_open_bookmarks: "telescope_open_bookmarks",
+  fuzzy_open_buffers: "telescope_open_buffers",
+  fuzzy_reopen_last: "telescope_reopen_last",
+});
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -141,8 +152,12 @@ function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
         : fallbackLabel,
   };
 
-  if (typeof node.action === "string" && ACTION_IDS.has(node.action)) {
-    normalized.action = node.action;
+  if (typeof node.action === "string") {
+    const rawActionId = node.action.trim();
+    const resolvedActionId = LEGACY_ACTION_ALIASES[rawActionId] || rawActionId;
+    if (ACTION_IDS.has(resolvedActionId)) {
+      normalized.action = resolvedActionId;
+    }
   }
 
   const sourceChildren = isPlainObject(node.children) ? node.children : null;
@@ -270,6 +285,13 @@ function normalizeConfig(rawConfig) {
 
     if (isPlainObject(uiSection.statusline) && typeof uiSection.statusline.enabled === "boolean") {
       normalizedGlobal.ui.statusline.enabled = uiSection.statusline.enabled;
+    }
+
+    if (isPlainObject(uiSection.telescope)) {
+      const promptPosition = String(uiSection.telescope.prompt_position || "").trim().toLowerCase();
+      if (promptPosition === "top" || promptPosition === "bottom") {
+        normalizedGlobal.ui.telescope.prompt_position = promptPosition;
+      }
     }
   }
 

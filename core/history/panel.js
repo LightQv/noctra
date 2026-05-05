@@ -7,6 +7,7 @@ const { isModPressed } = require("../../motions/modifiers");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
+  UI_TREE_LAYOUT,
 } = require("../../ui/constants");
 
 function escapeHtml(value) {
@@ -26,18 +27,7 @@ function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-const TREE_LAYOUT = Object.freeze({
-  rowMinHeight: 22,
-  cursorWidth: 6,
-  rightColWidth: 64,
-  namePaddingLeft: 6,
-  namePaddingRight: 8,
-  treeColWidthEm: 1.2,
-  treeColGapPx: 4,
-  fileIconWidthEm: 1,
-  nestIndentPx: 14,
-  guideOpticalOffsetPx: 3,
-});
+const TREE_LAYOUT = UI_TREE_LAYOUT;
 
 const TREE_LINE_JUMP_STEP = 10;
 

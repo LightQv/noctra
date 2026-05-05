@@ -31,6 +31,9 @@ const defaultConfig = {
       statusline: {
         enabled: true,
       },
+      telescope: {
+        prompt_position: "top",
+      },
     },
     theme: {
       mode: "dark",
@@ -249,6 +252,27 @@ const defaultConfig = {
           d: {
             label: "Choose path",
             action: "bookmarks_add_scoped_prompt",
+          },
+        },
+      },
+      f: {
+        label: "Find...",
+        children: {
+          h: {
+            label: "History",
+            action: "telescope_open_history",
+          },
+          b: {
+            label: "Bookmarks",
+            action: "telescope_open_bookmarks",
+          },
+          f: {
+            label: "Buffers",
+            action: "telescope_open_buffers",
+          },
+          Enter: {
+            label: "Resume last find",
+            action: "telescope_reopen_last",
           },
         },
       },

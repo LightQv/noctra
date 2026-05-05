@@ -98,7 +98,7 @@ function handleLeaderSequence(state, input, now) {
     return hideWhichKeyAndReset(state);
   }
 
-  if (key === "Enter") {
+  if (key === "Enter" && state.leaderPath.length === 0) {
     return hideWhichKeyAndReset(state);
   }
 

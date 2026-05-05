@@ -22,6 +22,7 @@ const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
 const historyPanel = require("./core/history/panel");
 const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
+const telescopeService = require("./core/telescope/service");
 const sessionService = require("./core/session/service");
 const notificationsService = require("./core/notifications/service");
 const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
@@ -275,6 +276,28 @@ function handleRawInput(event, input) {
       }
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       updateTablineOptions();
+      return;
+    }
+  }
+
+  if (telescopeService.isActive()) {
+    const result = telescopeService.handleInput(normalized);
+    if (result.consumed) {
+      event.preventDefault();
+      if (result.close) {
+        telescopeService.close();
+        uiShell.hideTelescope();
+        uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      } else {
+        uiShell.updateTelescope(telescopeService.buildModel());
+        if (result.modeChanged) {
+          uiShell.updateStatuslineMode(telescopeService.getMode());
+        }
+      }
+
+      if (result.intent) {
+        dispatch(win, result.intent, state);
+      }
       return;
     }
   }

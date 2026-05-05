@@ -86,6 +86,29 @@ function runEditableExCommand(buffer, commandText) {
   ).catch(() => {});
 }
 
+function blurFocusedWebInput(buffer) {
+  if (!buffer || buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+    return;
+  }
+
+  buffer.webContents
+    .executeJavaScript(
+      `(function blurFocusedEditable() {
+        const element = document.activeElement;
+        if (!element || !(element instanceof Element)) return false;
+        const isEditable =
+          (typeof element.matches === "function" &&
+            element.matches("input, textarea, select, [contenteditable]")) ||
+          element.isContentEditable === true;
+        if (!isEditable || typeof element.blur !== "function") return false;
+        element.blur();
+        return true;
+      })();`,
+      true,
+    )
+    .catch(() => {});
+}
+
 function openSettingsBuffer() {
   return openEditableFileBuffer({
     virtualUrl: "noctra://settings/config.yml",
@@ -332,8 +355,11 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.ENTER_INSERT:
-    case INTENTS.ENTER_NORMAL:
       // state already changed in motion layer
+      break;
+
+    case INTENTS.ENTER_NORMAL:
+      blurFocusedWebInput(buf);
       break;
 
     case INTENTS.SHOW_COMMAND:

@@ -169,10 +169,21 @@ If you are looking for a first contribution, prioritize small improvements in do
 
 ## Roadmap themes
 
-- Stabilize keymap override and runtime reload behavior.
-- Add in-page `/` search with a Neovim-like experience.
-- Build a unified fuzzy finder for history, bookmarks, and open web buffers/tabs.
-- Harden adapter boundaries for future multi-engine support.
+### Fixes
+
+- [ ] Vertical spacing above whichkey hints.
+- [ ] Subfolder alignment in bookmarks lists.
+- [ ] Add `border-bottom` on tabline to match statusline styling.
+
+### Next features
+
+- [ ] Build a unified fuzzy finder for history, bookmarks, and open web buffers/tabs.
+- [ ] Add in-page `/` search with a Neovim-like experience.
+- [ ] Add extensions support (for example ad blockers).
+- [ ] Improve web-native behavior (download management, native app events like quit handling, and related integrations).
+- [ ] Stabilize keymap override and runtime reload behavior.
+- [ ] Handle in-page navigation/insertion through Vim-motion flow.
+- [ ] Harden adapter boundaries for future multi-engine support.
 
 ## License
 

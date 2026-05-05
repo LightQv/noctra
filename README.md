@@ -62,16 +62,21 @@ Available variable:
 
 Use this sequence if you are new:
 
-1. `docs/getting-started.md`
-2. `docs/tutorials/first-30-minutes.md`
-3. `docs/keybindings.md`
-4. `docs/commands.md`
-5. `docs/configuration.md`
+1. [Getting Started](docs/getting-started.md)
+2. [Tutorial: First 30 Minutes](docs/tutorials/first-30-minutes.md)
+3. [Keybindings](docs/keybindings.md)
+4. [Commands](docs/commands.md)
+5. [Configuration](docs/configuration.md)
 
 Reference docs:
 
-- `docs/architecture.md`
-- `docs/faq.md`
+- [Architecture](docs/architecture.md)
+- [FAQ](docs/faq.md)
+
+Tutorials:
+
+- [Customize Leader Keymap](docs/tutorials/customize-keymap.md)
+- [Sessions, History, and Bookmarks](docs/tutorials/sessions-history-bookmarks.md)
 
 ## Keyboard and command preview
 
@@ -110,7 +115,7 @@ Use `:` to open command mode, then run commands such as:
 - `:theme dark`
 - `:quit`
 
-Full command and mapping references are in `docs/commands.md` and `docs/keybindings.md`.
+Full command and mapping references are in [Commands](docs/commands.md) and [Keybindings](docs/keybindings.md).
 
 ## How Noctra works
 
@@ -139,7 +144,7 @@ Config includes:
 - Storage paths (history/bookmarks/sessions/notifications)
 - Browser settings (language, selection-copy behavior)
 
-See `docs/configuration.md` for schema and examples.
+See [Configuration](docs/configuration.md) for schema and examples.
 
 ## Project structure
 
@@ -158,7 +163,7 @@ Contributions are welcome.
 
 Start here:
 
-- `CONTRIBUTING.md` for workflow, standards, and PR expectations.
+- [Contributing Guide](CONTRIBUTING.md) for workflow, standards, and PR expectations.
 
 If you are looking for a first contribution, prioritize small improvements in docs, keymap ergonomics, and command discoverability.
 
@@ -171,6 +176,4 @@ If you are looking for a first contribution, prioritize small improvements in do
 
 ## License
 
-No license file is included yet.
-
-Before public open-source release, add a `LICENSE` file (MIT/Apache-2.0 are common choices) so users and contributors know usage terms.
+Noctra is licensed under the [MIT License](LICENSE).

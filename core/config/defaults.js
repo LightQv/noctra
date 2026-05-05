@@ -262,11 +262,11 @@ const defaultConfig = {
             label: "History",
             action: "telescope_open_history",
           },
-          b: {
+          d: {
             label: "Bookmarks",
             action: "telescope_open_bookmarks",
           },
-          f: {
+          b: {
             label: "Buffers",
             action: "telescope_open_buffers",
           },

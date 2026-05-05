@@ -488,29 +488,33 @@ const TELESCOPE_OVERLAY_HTML = `
         height: 100%;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 4px;
         box-sizing: border-box;
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
       }
 
       #fuzzyfinder-prompt {
         margin: 0;
+        min-inline-size: 0;
         border: 1px solid var(--ui-accent, #89dceb);
         border-radius: 6px;
         background: var(--ui-bg-panel, #161b24);
-        padding: 8px 8px;
+        padding: 8px;
         display: flex;
         align-items: center;
+        box-sizing: border-box;
       }
 
       #fuzzyfinder-results {
         margin: 0;
+        min-inline-size: 0;
         flex: 1;
         min-height: 0;
         border: 1px solid var(--ui-accent, #89dceb);
         border-radius: 6px;
         background: var(--ui-bg-panel, #161b24);
-        padding: 4px 0;
+        padding: 6px 0;
+        box-sizing: border-box;
       }
 
       #fuzzyfinder-results-title,
@@ -530,6 +534,8 @@ const TELESCOPE_OVERLAY_HTML = `
         display: flex;
         flex-direction: column;
         gap: 0;
+        padding: 0;
+        margin: 0;
       }
 
       .fuzzyfinder-empty {

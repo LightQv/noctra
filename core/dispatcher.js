@@ -23,6 +23,10 @@ const {
 } = require("../ui/theme");
 
 function computeStatuslineModeLabel(state) {
+  if (state.mode === "COMMAND") {
+    return "COMMAND";
+  }
+
   if (historyPanel.isVisible() && historyPanel.isFocused()) {
     return "TREE:NORMAL";
   }

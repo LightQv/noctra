@@ -28,6 +28,11 @@ const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
+let activeWebModeWebContents = null;
+let webModeListeners = null;
+let webModeSyncTimer = null;
+let webModeSyncInFlight = false;
+let webModeSyncPending = false;
 let browserLanguageHooksRegistered = false;
 
 function isFiniteInteger(value) {
@@ -352,6 +357,169 @@ function handleRawInput(event, input) {
   }
 
   handleInput(win, normalized);
+}
+
+function syncWebBufferModeWithFocusedElement(webContents) {
+  if (!webContents || webContents.isDestroyed()) {
+    return Promise.resolve();
+  }
+
+  if (webContents.isLoading() || webContents.isLoadingMainFrame()) {
+    return Promise.resolve();
+  }
+
+  const activeBuffer = buffers.getActive();
+  if (!activeBuffer || activeBuffer.webContents !== webContents || activeBuffer.isEditable) {
+    return Promise.resolve();
+  }
+
+  if (
+    state.mode === "COMMAND" ||
+    state.urllineEditing ||
+    state.interactionContext !== "SHELL" ||
+    (state.mode !== "NORMAL" && state.mode !== "INSERT")
+  ) {
+    return Promise.resolve();
+  }
+
+  return webContents
+    .executeJavaScript(
+      `(function resolveEditableFocus() {
+        const element = document.activeElement;
+        if (!element || !(element instanceof Element)) return false;
+        if (typeof element.matches === "function" && element.matches("input, textarea, select, [contenteditable]")) {
+          return true;
+        }
+        return element.isContentEditable === true;
+      })();`,
+      true,
+    )
+    .then((isEditableFocused) => {
+      if (!webContents || webContents.isDestroyed()) {
+        return;
+      }
+      const latestActive = buffers.getActive();
+      if (!latestActive || latestActive.webContents !== webContents || latestActive.isEditable) {
+        return;
+      }
+
+      if (
+        state.mode === "COMMAND" ||
+        state.urllineEditing ||
+        state.interactionContext !== "SHELL" ||
+        (state.mode !== "NORMAL" && state.mode !== "INSERT")
+      ) {
+        return;
+      }
+
+      const shouldInsert = Boolean(isEditableFocused);
+      const nextMode = shouldInsert ? "INSERT" : "NORMAL";
+      if (state.mode === nextMode) {
+        return;
+      }
+
+      state.mode = nextMode;
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+    })
+    .catch(() => {});
+}
+
+function requestWebModeSync(webContents, delayMs = 40) {
+  if (!webContents || webContents.isDestroyed()) {
+    return;
+  }
+
+  if (activeWebModeWebContents !== webContents) {
+    return;
+  }
+
+  if (webModeSyncTimer) {
+    clearTimeout(webModeSyncTimer);
+  }
+
+  webModeSyncTimer = setTimeout(() => {
+    webModeSyncTimer = null;
+
+    if (!webContents || webContents.isDestroyed() || activeWebModeWebContents !== webContents) {
+      return;
+    }
+
+    if (webModeSyncInFlight) {
+      webModeSyncPending = true;
+      return;
+    }
+
+    webModeSyncInFlight = true;
+    syncWebBufferModeWithFocusedElement(webContents)
+      .finally(() => {
+        webModeSyncInFlight = false;
+        if (!webModeSyncPending) {
+          return;
+        }
+        webModeSyncPending = false;
+        requestWebModeSync(webContents, 30);
+      });
+  }, Math.max(0, Number(delayMs) || 0));
+}
+
+function unbindWebModeTracking() {
+  if (!activeWebModeWebContents || activeWebModeWebContents.isDestroyed() || !webModeListeners) {
+    activeWebModeWebContents = null;
+    webModeListeners = null;
+    if (webModeSyncTimer) {
+      clearTimeout(webModeSyncTimer);
+      webModeSyncTimer = null;
+    }
+    webModeSyncInFlight = false;
+    webModeSyncPending = false;
+    return;
+  }
+
+  const webContents = activeWebModeWebContents;
+  webContents.removeListener("focus-changed-in-page", webModeListeners.onFocusChangedInPage);
+  webContents.removeListener("before-mouse-event", webModeListeners.onBeforeMouseEvent);
+  webContents.removeListener("did-finish-load", webModeListeners.onDidFinishLoad);
+
+  activeWebModeWebContents = null;
+  webModeListeners = null;
+  if (webModeSyncTimer) {
+    clearTimeout(webModeSyncTimer);
+    webModeSyncTimer = null;
+  }
+  webModeSyncInFlight = false;
+  webModeSyncPending = false;
+}
+
+function bindWebModeTracking(webContents) {
+  if (!webContents || webContents.isDestroyed()) {
+    return;
+  }
+
+  const onFocusChangedInPage = () => {
+    requestWebModeSync(webContents);
+  };
+  const onBeforeMouseEvent = (_event, input) => {
+    if (!input || (input.type !== "mouseDown" && input.type !== "mouseUp")) {
+      return;
+    }
+    requestWebModeSync(webContents, input.type === "mouseDown" ? 10 : 35);
+  };
+  const onDidFinishLoad = () => {
+    requestWebModeSync(webContents, 20);
+  };
+
+  webContents.on("focus-changed-in-page", onFocusChangedInPage);
+  webContents.on("before-mouse-event", onBeforeMouseEvent);
+  webContents.on("did-finish-load", onDidFinishLoad);
+
+  activeWebModeWebContents = webContents;
+  webModeListeners = {
+    onFocusChangedInPage,
+    onBeforeMouseEvent,
+    onDidFinishLoad,
+  };
+
+  requestWebModeSync(webContents, 0);
 }
 
 function persistSessionSnapshot() {
@@ -966,7 +1134,13 @@ function bindInputToActiveBuffer() {
   const nextWebContents = buffers.getActiveWebContents();
   if (!nextWebContents) return;
 
-  if (activeInputWebContents === nextWebContents) {
+  const activeBuffer = buffers.getActive();
+  const shouldTrackWebMode = Boolean(activeBuffer && !activeBuffer.isEditable);
+
+  if (activeInputWebContents === nextWebContents && activeWebModeWebContents === nextWebContents) {
+    if (shouldTrackWebMode) {
+      syncWebBufferModeWithFocusedElement(nextWebContents);
+    }
     buffers.focusActive();
     return;
   }
@@ -975,12 +1149,19 @@ function bindInputToActiveBuffer() {
     activeInputWebContents.removeListener("before-input-event", inputListener);
   }
 
+  unbindWebModeTracking();
+
   inputListener = (event, input) => {
     handleRawInput(event, input);
   };
 
   nextWebContents.on("before-input-event", inputListener);
   activeInputWebContents = nextWebContents;
+
+  if (shouldTrackWebMode) {
+    bindWebModeTracking(nextWebContents);
+  }
+
   buffers.focusActive();
 }
 

@@ -170,8 +170,8 @@ If you are looking for a first contribution, prioritize small improvements in do
 ## Roadmap themes
 
 - Stabilize keymap override and runtime reload behavior.
-- Improve fuzzy navigation across buffers/history/bookmarks/commands.
-- Expand side-tree navigation workflows.
+- Add in-page `/` search with a Neovim-like experience.
+- Build a unified fuzzy finder for history, bookmarks, and open web buffers/tabs.
 - Harden adapter boundaries for future multi-engine support.
 
 ## License

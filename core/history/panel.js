@@ -2418,6 +2418,7 @@ class HistoryPanel {
         };
       }
     } else if (key === "Enter") this.openCurrent(Boolean(input.shift));
+    else if (key === "o" || key === "O") this.openCurrent(key === "O");
     else if (key === "y") {
       if (isBookmarks) {
         this.copyOrMoveCurrentFavorite(false);

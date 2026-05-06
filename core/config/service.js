@@ -106,6 +106,14 @@ function addThemeComments(yamlText) {
       output.push("    # Supported override keys are prefilled below with dark defaults");
     }
 
+    if (/^    telescope:\s*$/.test(line)) {
+      output.push("    # Telescope overlay UI settings");
+    }
+
+    if (/^      prompt_position:\s*/.test(line)) {
+      output.push("      # Prompt position: top | bottom");
+    }
+
     if (/^browser:\s*$/.test(line)) {
       output.push("# Browser behavior");
       inBrowserSection = true;

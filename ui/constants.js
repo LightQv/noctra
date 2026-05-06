@@ -52,6 +52,20 @@ const UI_FONT_FACE_CSS = `
 const UI_SCROLLBAR_THUMB_COLOR = "rgba(137, 220, 235, 0.58)";
 const UI_SCROLLBAR_THUMB_ACTIVE_COLOR = "rgba(137, 220, 235, 0.92)";
 
+const UI_TREE_LAYOUT = Object.freeze({
+  rowMinHeight: 22,
+  rowLineHeight: 18,
+  cursorWidth: 6,
+  rightColWidth: 64,
+  namePaddingLeft: 6,
+  namePaddingRight: 8,
+  treeColWidthEm: 1.2,
+  treeColGapPx: 4,
+  fileIconWidthEm: 1,
+  nestIndentPx: 14,
+  guideOpticalOffsetPx: 3,
+});
+
 module.exports = {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_URLLINE_HEIGHT,
@@ -76,4 +90,5 @@ module.exports = {
   UI_FONT_FACE_CSS,
   UI_SCROLLBAR_THUMB_COLOR,
   UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
+  UI_TREE_LAYOUT,
 };

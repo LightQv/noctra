@@ -177,7 +177,7 @@ If you are looking for a first contribution, prioritize small improvements in do
 
 ### Next features
 
-- [ ] Build a unified fuzzy finder for history, bookmarks, and open web buffers/tabs.
+- [ ] Build a unified telescope for history, bookmarks, and open web buffers/tabs.
 - [ ] Add in-page `/` search with a Neovim-like experience.
 - [ ] Add extensions support (for example ad blockers).
 - [ ] Improve web-native behavior (download management, native app events like quit handling, and related integrations).

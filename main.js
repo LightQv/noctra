@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs");
+const net = require("net");
 const { app, BrowserWindow, ipcMain, clipboard, nativeTheme, screen, session } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
@@ -35,6 +36,8 @@ let webModeSyncTimer = null;
 let webModeSyncInFlight = false;
 let webModeSyncPending = false;
 let browserLanguageHooksRegistered = false;
+let sessionSecurityPolicyRegistered = false;
+let webContentsSecurityPolicyRegistered = false;
 
 function isFiniteInteger(value) {
   return Number.isFinite(value) && Number.isInteger(value);
@@ -146,6 +149,129 @@ function applyBrowserLanguagePreference() {
   });
 
   browserLanguageHooksRegistered = true;
+}
+
+function isLoopbackHost(hostname) {
+  if (typeof hostname !== "string") return false;
+  const normalized = hostname.trim().toLowerCase();
+  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
+}
+
+function isPrivateIpv4(hostname) {
+  if (net.isIP(hostname) !== 4) {
+    return false;
+  }
+
+  const octets = hostname.split(".").map((part) => Number.parseInt(part, 10));
+  if (octets.length !== 4 || octets.some((value) => Number.isNaN(value))) {
+    return false;
+  }
+
+  const [first, second] = octets;
+  if (first === 10) return true;
+  if (first === 192 && second === 168) return true;
+  if (first === 172 && second >= 16 && second <= 31) return true;
+  return false;
+}
+
+function isAllowedHttpHost(hostname) {
+  if (isLoopbackHost(hostname) || isPrivateIpv4(hostname)) {
+    return true;
+  }
+
+  const trustedHttpHosts = configService.getConfigValue("browser.trusted_http_hosts", []);
+  if (!Array.isArray(trustedHttpHosts)) {
+    return false;
+  }
+
+  const normalizedHost = typeof hostname === "string" ? hostname.trim().toLowerCase() : "";
+  if (!normalizedHost.length) {
+    return false;
+  }
+
+  return trustedHttpHosts.some((host) => {
+    if (typeof host !== "string") return false;
+    return host.trim().toLowerCase() === normalizedHost;
+  });
+}
+
+function isAllowedNavigationUrl(rawUrl) {
+  if (typeof rawUrl !== "string" || !rawUrl.length) {
+    return false;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol === "https:") {
+    return true;
+  }
+
+  if (parsed.protocol === "http:") {
+    return isAllowedHttpHost(parsed.hostname);
+  }
+
+  return parsed.protocol === "about:" && parsed.href === "about:blank";
+}
+
+function registerSessionSecurityPolicy() {
+  if (sessionSecurityPolicyRegistered) {
+    return;
+  }
+
+  const defaultSession = session.defaultSession;
+  defaultSession.setPermissionCheckHandler(() => false);
+  defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
+
+  sessionSecurityPolicyRegistered = true;
+}
+
+function registerWebContentsSecurityPolicy() {
+  if (webContentsSecurityPolicyRegistered) {
+    return;
+  }
+
+  app.on("web-contents-created", (_event, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+      if (typeof url === "string" && url.length) {
+        notificationsService.notify({
+          severity: "info",
+          code: "security_window_open_blocked",
+          message: "Blocked window.open request",
+          source: "security",
+          context: { url },
+          toast: false,
+          persist: false,
+        });
+      }
+      return { action: "deny" };
+    });
+
+    contents.on("will-navigate", (event, url) => {
+      if (isAllowedNavigationUrl(url)) {
+        return;
+      }
+
+      event.preventDefault();
+      notificationsService.notify({
+        severity: "info",
+        code: "security_navigation_blocked",
+        message: "Blocked navigation by security policy",
+        source: "security",
+        context: { url },
+        toast: false,
+        persist: false,
+      });
+    });
+  });
+
+  webContentsSecurityPolicyRegistered = true;
 }
 
 function resolveCurrentTheme() {
@@ -1537,7 +1663,11 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  registerSessionSecurityPolicy();
+  registerWebContentsSecurityPolicy();
+  createWindow();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

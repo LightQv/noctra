@@ -126,14 +126,19 @@ function handleLeaderSequence(state, input, now) {
   const node = getLeaderNode(state.leaderPath, buildLeaderContext());
   const exactChild = node?.children?.[key];
   const loweredChild = node?.children?.[loweredKey];
-  const child = exactChild || loweredChild;
+  const matchedKey = exactChild ? key : loweredChild ? loweredKey : null;
+  const child = matchedKey ? node?.children?.[matchedKey] : null;
 
   if (!child) {
     return hideWhichKeyAndReset(state);
   }
 
+  const nextNode = getLeaderNode([...state.leaderPath, matchedKey], buildLeaderContext());
+  if (!nextNode) {
+    return hideWhichKeyAndReset(state);
+  }
+
   if (child.children) {
-    const matchedKey = exactChild ? key : loweredKey;
     state.leaderPath = [...state.leaderPath, matchedKey];
     state.leaderLastKeyTime = now;
     return updateWhichKey(state);

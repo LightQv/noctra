@@ -258,6 +258,14 @@ function normalizeInput(input) {
   };
 }
 
+function isLeaderKey(key, leaderKey) {
+  if (leaderKey === "Space") {
+    return key === "Space" || key === " ";
+  }
+
+  return key === leaderKey;
+}
+
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
   const isPrimaryMod =
@@ -302,7 +310,13 @@ function handleRawInput(event, input) {
     }
   }
 
-  if (historyPanel.handleFocusedInput(normalized)) {
+  const leaderKey = state.leaderKey || "Space";
+  const shouldPrioritizeLeader =
+    normalized.type === "keyDown" &&
+    !historyPanel.isTextInputActive() &&
+    (state.leaderActive || isLeaderKey(normalized.key, leaderKey));
+
+  if (!shouldPrioritizeLeader && historyPanel.handleFocusedInput(normalized)) {
     event.preventDefault();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     updateTablineOptions();
@@ -1192,7 +1206,6 @@ function createWindow() {
   const config = configService.initConfig();
   state.applyConfig(config);
   applyBrowserLanguagePreference();
-  const chromiumPreferences = configService.getConfigValue("browser.chromium.web_preferences", {});
   const initialWidth = configService.getConfigValue("global.window.width", 1200);
   const initialHeight = configService.getConfigValue("global.window.height", 800);
   const initialX = configService.getConfigValue("global.window.x", null);
@@ -1205,14 +1218,10 @@ function createWindow() {
     width: initialWidth,
     height: initialHeight,
     webPreferences: {
-      contextIsolation:
-        typeof chromiumPreferences.context_isolation === "boolean"
-          ? chromiumPreferences.context_isolation
-          : true,
-      nodeIntegration:
-        typeof chromiumPreferences.node_integration === "boolean"
-          ? chromiumPreferences.node_integration
-          : false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webviewTag: false,
       preload: path.join(__dirname, "ui", "shell", "preload.js"),
     },
   };

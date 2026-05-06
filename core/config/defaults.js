@@ -289,12 +289,6 @@ const defaultConfig = {
   browser: {
     language: "en",
     copy_selection_to_clipboard: false,
-    chromium: {
-      web_preferences: {
-        context_isolation: true,
-        node_integration: false,
-      },
-    },
   },
 };
 

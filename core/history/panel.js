@@ -1404,6 +1404,10 @@ class HistoryPanel {
     return this.focused;
   }
 
+  isTextInputActive() {
+    return Boolean(this.filterEditState || this.bookmarkEditState || this.deleteAllArmed);
+  }
+
   getWidthPx() {
     if (!this.visible || !this.window) return 0;
     return Math.max(

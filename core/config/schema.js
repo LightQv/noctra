@@ -446,22 +446,6 @@ function normalizeConfig(rawConfig) {
     }
   }
 
-  if (isPlainObject(input.browser) && isPlainObject(input.browser.chromium)) {
-    const chromiumConfig = input.browser.chromium;
-
-    if (isPlainObject(chromiumConfig.web_preferences)) {
-      if (typeof chromiumConfig.web_preferences.context_isolation === "boolean") {
-        normalized.browser.chromium.web_preferences.context_isolation =
-          chromiumConfig.web_preferences.context_isolation;
-      }
-
-      if (typeof chromiumConfig.web_preferences.node_integration === "boolean") {
-        normalized.browser.chromium.web_preferences.node_integration =
-          chromiumConfig.web_preferences.node_integration;
-      }
-    }
-  }
-
   if (isPlainObject(input.browser)) {
     normalized.browser.language = normalizeBrowserLanguage(
       input.browser.language,

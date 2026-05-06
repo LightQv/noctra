@@ -495,17 +495,12 @@ class BufferManager {
     this.focusedPane = "left";
 
     if (!this.devtoolsView) {
-      const chromiumPreferences = getConfigValue("browser.chromium.web_preferences", {});
       this.devtoolsView = new BrowserView({
         webPreferences: {
-          contextIsolation:
-            typeof chromiumPreferences.context_isolation === "boolean"
-              ? chromiumPreferences.context_isolation
-              : true,
-          nodeIntegration:
-            typeof chromiumPreferences.node_integration === "boolean"
-              ? chromiumPreferences.node_integration
-              : false,
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+          webviewTag: false,
         },
       });
       this.window.addBrowserView(this.devtoolsView);

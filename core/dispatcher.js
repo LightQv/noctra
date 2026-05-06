@@ -16,6 +16,7 @@ const sessionService = require("./session/service");
 const { buildSettingsPageHtml } = require("./settings/page");
 const notificationsStore = require("./notifications/store");
 const notificationsService = require("./notifications/service");
+const { validateNavigableUrl } = require("./security/urlPolicy");
 const {
   resolveTheme,
   resolveThemeMode,
@@ -181,15 +182,20 @@ function openEditableFileBuffer(options = {}) {
   return buffer;
 }
 
+function getUrlPolicyConfig() {
+  return {
+    allowHttpLoopback: configService.getConfigValue("browser.allow_http_loopback", true),
+    allowHttpPrivateLan: configService.getConfigValue("browser.allow_http_private_lan", true),
+    trustedHttpHosts: configService.getConfigValue("browser.trusted_http_hosts", []),
+  };
+}
+
 function normalizeUrl(rawUrl) {
-  const value = rawUrl.trim();
+  const value = typeof rawUrl === "string" ? rawUrl.trim() : "";
   if (!value) return null;
-
-  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)) {
-    return value;
-  }
-
-  return `https://${value}`;
+  const validation = validateNavigableUrl(value, getUrlPolicyConfig());
+  if (!validation.ok) return null;
+  return validation.url;
 }
 
 function resolveCurrentThemeContext() {
@@ -421,14 +427,15 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.OPEN_URL: {
-      const normalized = normalizeUrl(intent.url || "");
+      const rawUrl = typeof intent.url === "string" ? intent.url : "";
+      const normalized = normalizeUrl(rawUrl);
       if (!normalized) {
         notificationsService.notify({
           severity: "warning",
-          code: "open_url_missing_url",
-          message: "Cannot open URL: missing target",
+          code: "open_url_blocked",
+          message: "Cannot open URL: blocked by URL security policy",
           source: "core.dispatcher",
-          context: { intent },
+          context: { intent, url: rawUrl },
           persist: false,
         });
         break;
@@ -456,7 +463,19 @@ function dispatch(win, intent, state) {
 
     case INTENTS.NEW_BUFFER: {
       if (intent.url) {
-        buffers.create(intent.url);
+        const normalized = normalizeUrl(intent.url);
+        if (!normalized) {
+          notificationsService.notify({
+            severity: "warning",
+            code: "new_buffer_url_blocked",
+            message: "Cannot open buffer: blocked by URL security policy",
+            source: "core.dispatcher",
+            context: { intent, url: intent.url },
+            persist: false,
+          });
+          break;
+        }
+        buffers.create(normalized);
       } else {
         buffers.openConfiguredBuffer();
       }

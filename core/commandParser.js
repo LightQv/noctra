@@ -1,5 +1,14 @@
 const { INTENTS } = require("./intents");
 const { resolveInputTarget } = require("./resolver");
+const configService = require("./config/service");
+
+function getUrlPolicyConfig() {
+  return {
+    allowHttpLoopback: configService.getConfigValue("browser.allow_http_loopback", true),
+    allowHttpPrivateLan: configService.getConfigValue("browser.allow_http_private_lan", true),
+    trustedHttpHosts: configService.getConfigValue("browser.trusted_http_hosts", []),
+  };
+}
 
 function parseCommand(raw) {
   const normalized = raw.trim();
@@ -21,6 +30,7 @@ function parseCommand(raw) {
       {
         const target = resolveInputTarget(arg, {
           defaultSearchEngine: "duckduckgo",
+          urlPolicy: getUrlPolicyConfig(),
         });
         if (target.kind === "invalid") {
           return { type: INTENTS.UNKNOWN_COMMAND, raw };
@@ -37,6 +47,7 @@ function parseCommand(raw) {
       {
         const target = resolveInputTarget(arg, {
           defaultSearchEngine: "duckduckgo",
+          urlPolicy: getUrlPolicyConfig(),
         });
         if (target.kind === "invalid") {
           return { type: INTENTS.UNKNOWN_COMMAND, raw };

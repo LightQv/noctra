@@ -289,6 +289,9 @@ const defaultConfig = {
   browser: {
     language: "en",
     copy_selection_to_clipboard: false,
+    allow_http_loopback: true,
+    allow_http_private_lan: true,
+    trusted_http_hosts: [],
   },
 };
 

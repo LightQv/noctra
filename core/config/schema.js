@@ -1,4 +1,5 @@
 const { defaultConfig } = require("./defaults");
+const { normalizeTrustedHosts } = require("../security/urlPolicy");
 
 const ACTION_IDS = new Set([
   "scroll_down",
@@ -454,6 +455,18 @@ function normalizeConfig(rawConfig) {
 
     if (typeof input.browser.copy_selection_to_clipboard === "boolean") {
       normalized.browser.copy_selection_to_clipboard = input.browser.copy_selection_to_clipboard;
+    }
+
+    if (typeof input.browser.allow_http_loopback === "boolean") {
+      normalized.browser.allow_http_loopback = input.browser.allow_http_loopback;
+    }
+
+    if (typeof input.browser.allow_http_private_lan === "boolean") {
+      normalized.browser.allow_http_private_lan = input.browser.allow_http_private_lan;
+    }
+
+    if (Array.isArray(input.browser.trusted_http_hosts)) {
+      normalized.browser.trusted_http_hosts = normalizeTrustedHosts(input.browser.trusted_http_hosts);
     }
   }
 

@@ -1,6 +1,5 @@
 const path = require("path");
 const fs = require("fs");
-const net = require("net");
 const { app, BrowserWindow, ipcMain, clipboard, nativeTheme, screen, session } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
@@ -26,6 +25,7 @@ const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const telescopeService = require("./core/telescope/service");
 const sessionService = require("./core/session/service");
 const notificationsService = require("./core/notifications/service");
+const { validateNavigableUrl } = require("./core/security/urlPolicy");
 const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
 let win;
 let activeInputWebContents = null;
@@ -151,71 +151,16 @@ function applyBrowserLanguagePreference() {
   browserLanguageHooksRegistered = true;
 }
 
-function isLoopbackHost(hostname) {
-  if (typeof hostname !== "string") return false;
-  const normalized = hostname.trim().toLowerCase();
-  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
-}
-
-function isPrivateIpv4(hostname) {
-  if (net.isIP(hostname) !== 4) {
-    return false;
-  }
-
-  const octets = hostname.split(".").map((part) => Number.parseInt(part, 10));
-  if (octets.length !== 4 || octets.some((value) => Number.isNaN(value))) {
-    return false;
-  }
-
-  const [first, second] = octets;
-  if (first === 10) return true;
-  if (first === 192 && second === 168) return true;
-  if (first === 172 && second >= 16 && second <= 31) return true;
-  return false;
-}
-
-function isAllowedHttpHost(hostname) {
-  if (isLoopbackHost(hostname) || isPrivateIpv4(hostname)) {
-    return true;
-  }
-
-  const trustedHttpHosts = configService.getConfigValue("browser.trusted_http_hosts", []);
-  if (!Array.isArray(trustedHttpHosts)) {
-    return false;
-  }
-
-  const normalizedHost = typeof hostname === "string" ? hostname.trim().toLowerCase() : "";
-  if (!normalizedHost.length) {
-    return false;
-  }
-
-  return trustedHttpHosts.some((host) => {
-    if (typeof host !== "string") return false;
-    return host.trim().toLowerCase() === normalizedHost;
-  });
+function getUrlPolicyConfig() {
+  return {
+    allowHttpLoopback: configService.getConfigValue("browser.allow_http_loopback", true),
+    allowHttpPrivateLan: configService.getConfigValue("browser.allow_http_private_lan", true),
+    trustedHttpHosts: configService.getConfigValue("browser.trusted_http_hosts", []),
+  };
 }
 
 function isAllowedNavigationUrl(rawUrl) {
-  if (typeof rawUrl !== "string" || !rawUrl.length) {
-    return false;
-  }
-
-  let parsed;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    return false;
-  }
-
-  if (parsed.protocol === "https:") {
-    return true;
-  }
-
-  if (parsed.protocol === "http:") {
-    return isAllowedHttpHost(parsed.hostname);
-  }
-
-  return parsed.protocol === "about:" && parsed.href === "about:blank";
+  return validateNavigableUrl(rawUrl, getUrlPolicyConfig()).ok;
 }
 
 function registerSessionSecurityPolicy() {

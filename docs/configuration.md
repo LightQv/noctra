@@ -57,6 +57,25 @@ keymap:
 browser:
   language: "en"
   copy_selection_to_clipboard: false
+  allow_http_loopback: true
+  allow_http_private_lan: true
+  trusted_http_hosts: []
+```
+
+## URL security policy
+
+- `https://` URLs are always allowed.
+- `http://` URLs are allowed for loopback and private LAN by default.
+- `trusted_http_hosts` allows specific extra HTTP hosts.
+- Unsafe schemes like `javascript:`, `data:`, and `file:` are blocked.
+
+Example trusted hosts:
+
+```yaml
+browser:
+  trusted_http_hosts:
+    - "casaos.local"
+    - "my-homelab-box"
 ```
 
 ## Theme modes

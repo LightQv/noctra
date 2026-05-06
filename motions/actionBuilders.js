@@ -93,6 +93,18 @@ const ACTION_BUILDERS = {
     })),
     (context = {}) => isBookmarkableBuffer(context.activeBuffer),
   ),
+  telescope_open_history: createActionBuilder("telescope_open_history", () => ({
+    type: INTENTS.TELESCOPE_OPEN_HISTORY,
+  })),
+  telescope_open_bookmarks: createActionBuilder("telescope_open_bookmarks", () => ({
+    type: INTENTS.TELESCOPE_OPEN_BOOKMARKS,
+  })),
+  telescope_open_buffers: createActionBuilder("telescope_open_buffers", () => ({
+    type: INTENTS.TELESCOPE_OPEN_BUFFERS,
+  })),
+  telescope_reopen_last: createActionBuilder("telescope_reopen_last", () => ({
+    type: INTENTS.TELESCOPE_REOPEN_LAST,
+  })),
   session_save: createActionBuilder("session_save", () => ({ type: INTENTS.SESSION_SAVE })),
   session_restore: createActionBuilder("session_restore", () => ({ type: INTENTS.SESSION_RESTORE })),
   close_buffer: createActionBuilder("close_buffer", () => ({ type: INTENTS.CLOSE_BUFFER })),

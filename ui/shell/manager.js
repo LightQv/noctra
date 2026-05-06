@@ -6,6 +6,7 @@ const {
   UI_SHELL_STATUSLINE_HEIGHT,
   UI_FONT_FAMILY,
   UI_FONT_FACE_CSS,
+  UI_TREE_LAYOUT,
 } = require("../constants");
 const { DEFAULT_THEME, toCssVars } = require("../theme");
 
@@ -460,6 +461,209 @@ const SELECTION_MODAL_OVERLAY_HTML = `
 </html>
 `;
 
+const TELESCOPE_OVERLAY_HTML = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      ${UI_FONT_FACE_CSS}
+
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
+      }
+
+      #telescope-shell {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        box-sizing: border-box;
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+      }
+
+      #telescope-prompt {
+        position: relative;
+        margin: 4px 0 0;
+        height: 38px;
+        min-inline-size: 0;
+        border: 1px solid var(--ui-accent, #89dceb);
+        border-radius: 6px;
+        background: var(--ui-bg-panel, #161b24);
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        box-sizing: border-box;
+      }
+
+      #telescope-results {
+        margin: 0;
+        min-inline-size: 0;
+        flex: 1;
+        min-height: 0;
+        border: 1px solid var(--ui-accent, #89dceb);
+        border-radius: 6px;
+        background: var(--ui-bg-panel, #161b24);
+        padding: 0 0 6px 0;
+        box-sizing: border-box;
+      }
+
+      #telescope-results-title,
+      #telescope-prompt-title {
+        margin: 0 auto;
+        padding: 0 8px;
+        color: var(--ui-text-muted, #7d8aa3);
+        background: var(--ui-bg-panel, #161b24);
+        font-size: 12px;
+      }
+
+      #telescope-prompt-title {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        line-height: 14px;
+        white-space: nowrap;
+      }
+
+      #telescope-list {
+        height: 100%;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        padding: 0;
+        margin: 0;
+      }
+
+      .telescope-empty {
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 12px;
+        padding: 4px 6px;
+      }
+
+      .telescope-row {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+        min-height: ${UI_TREE_LAYOUT.rowMinHeight}px;
+        line-height: ${UI_TREE_LAYOUT.rowLineHeight}px;
+        padding: 0;
+        border-radius: 0;
+        color: var(--ui-text-soft, #b6c7e8);
+        font-size: 12px;
+      }
+
+      .telescope-row.selected {
+        background: color-mix(in srgb, var(--ui-bg-subtle, #1f2735) 58%, transparent);
+        color: var(--ui-text-bright, #f4f7ff);
+      }
+
+      .telescope-cursor {
+        width: ${UI_TREE_LAYOUT.cursorWidth}px;
+        align-self: stretch;
+        border-radius: 1px;
+        background: transparent;
+        flex: 0 0 ${UI_TREE_LAYOUT.cursorWidth}px;
+      }
+
+      .telescope-row.selected .telescope-cursor {
+        background: var(--ui-editor-cursor, #89dceb);
+      }
+
+      .telescope-primary {
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        padding: 0 ${UI_TREE_LAYOUT.namePaddingRight}px 0 ${UI_TREE_LAYOUT.namePaddingLeft}px;
+        display: flex;
+        align-items: center;
+      }
+
+      .telescope-right {
+        color: var(--ui-text-muted, #7d8aa3);
+        white-space: nowrap;
+        text-align: right;
+        width: ${UI_TREE_LAYOUT.rightColWidth}px;
+        flex: 0 0 ${UI_TREE_LAYOUT.rightColWidth}px;
+        padding: 0 ${UI_TREE_LAYOUT.namePaddingRight}px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+      }
+
+      #telescope-prompt-content {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 13px;
+        min-height: 20px;
+        height: 20px;
+        line-height: 20px;
+        width: 100%;
+      }
+
+      #telescope-prefix {
+        color: var(--ui-accent, #89dceb);
+        font-size: 20px;
+        line-height: 20px;
+        min-width: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 20px;
+        transform: translateY(0.25px);
+      }
+
+      #telescope-query {
+        min-width: 0;
+        flex: 1;
+        color: var(--ui-text-bright, #f4f7ff);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      #telescope-counter {
+        color: var(--ui-accent, #89dceb);
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="telescope-shell">
+      <div id="telescope-prompt">
+        <div id="telescope-prompt-title">Find</div>
+        <div id="telescope-prompt-content">
+          <span id="telescope-prefix"></span>
+          <span id="telescope-query"></span>
+          <span id="telescope-counter">0 / 0</span>
+        </div>
+      </div>
+      <fieldset id="telescope-results">
+        <legend id="telescope-results-title">Results</legend>
+        <div id="telescope-list"></div>
+      </fieldset>
+    </div>
+  </body>
+</html>
+`;
+
 const STATUSLINE_OVERLAY_HTML = `
 <!doctype html>
 <html>
@@ -644,6 +848,10 @@ class UiShellManager {
     this.selectionModalReady = false;
     this.selectionModalVisible = false;
     this.selectionModalModel = null;
+    this.telescopeView = null;
+    this.telescopeReady = false;
+    this.telescopeVisible = false;
+    this.telescopeModel = null;
     this.statuslineView = null;
     this.statuslineReady = false;
     this.toastOverlayView = null;
@@ -761,6 +969,7 @@ class UiShellManager {
     this.initializeCommandOverlayView();
     this.initializeWhichKeyOverlayView();
     this.initializeSelectionModalView();
+    this.initializeTelescopeView();
     this.initializeStatuslineView();
     this.initializeToastOverlayView();
 
@@ -863,6 +1072,33 @@ class UiShellManager {
     this.relayout();
   }
 
+  initializeTelescopeView() {
+    if (!this.window) return;
+
+    this.telescopeView = new BrowserView({
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
+    this.telescopeView.setAutoResize({ width: false, height: false });
+    this.telescopeView.webContents.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(TELESCOPE_OVERLAY_HTML)}`,
+    );
+
+    this.telescopeView.webContents.on("did-finish-load", () => {
+      this.telescopeReady = true;
+      this.applyThemeToWebContents(this.telescopeView.webContents);
+      if (this.telescopeModel) {
+        this.updateTelescope(this.telescopeModel);
+      }
+    });
+
+    this.window.addBrowserView(this.telescopeView);
+    this.relayout();
+  }
+
   initializeStatuslineView() {
     if (!this.window) return;
 
@@ -953,6 +1189,9 @@ class UiShellManager {
     );
     this.applyThemeToWebContents(
       this.selectionModalView && this.selectionModalView.webContents,
+    );
+    this.applyThemeToWebContents(
+      this.telescopeView && this.telescopeView.webContents,
     );
     this.applyThemeToWebContents(
       this.statuslineView && this.statuslineView.webContents,
@@ -1079,6 +1318,7 @@ class UiShellManager {
       !this.commandOverlayView ||
       !this.whichKeyOverlayView ||
       !this.selectionModalView ||
+      !this.telescopeView ||
       !this.statuslineView ||
       !this.toastOverlayView
     )
@@ -1142,6 +1382,39 @@ class UiShellManager {
       height: modalHeight,
     });
 
+    const telescopeWidth = this.telescopeVisible
+      ? Math.min(1080, Math.max(bounds.width - 120, 520))
+      : 1;
+    const telescopeHeight = this.telescopeVisible
+      ? Math.max(
+          240,
+          Math.floor(
+            (bounds.height -
+              UI_SHELL_TABLINE_HEIGHT -
+              UI_SHELL_STATUSLINE_HEIGHT) *
+              0.68,
+          ),
+        )
+      : 1;
+    const telescopeX = this.telescopeVisible
+      ? Math.max(Math.floor((bounds.width - telescopeWidth) / 2), 0)
+      : -10000;
+    const telescopeY = this.telescopeVisible
+      ? Math.max(
+          UI_SHELL_TABLINE_HEIGHT + 10,
+          Math.floor(
+            (bounds.height - UI_SHELL_STATUSLINE_HEIGHT - telescopeHeight) / 2,
+          ),
+        )
+      : -10000;
+
+    this.telescopeView.setBounds({
+      x: telescopeX,
+      y: telescopeY,
+      width: telescopeWidth,
+      height: telescopeHeight,
+    });
+
     this.statuslineView.setBounds({
       x: 0,
       y: Math.max(
@@ -1189,6 +1462,10 @@ class UiShellManager {
 
     if (this.selectionModalVisible && this.selectionModalView) {
       this.window.setTopBrowserView(this.selectionModalView);
+    }
+
+    if (this.telescopeVisible && this.telescopeView) {
+      this.window.setTopBrowserView(this.telescopeView);
     }
 
     if (this.commandVisible && this.commandOverlayView) {
@@ -1414,6 +1691,90 @@ class UiShellManager {
         }
 
         footerNode.innerHTML = '<span>' + escapeHtml(model.footerLeft) + '</span><span>' + escapeHtml(model.footerRight) + '</span>';
+      })();
+    `);
+
+    this.relayout();
+  }
+
+  isTelescopeVisible() {
+    return this.telescopeVisible;
+  }
+
+  showTelescope(model) {
+    this.telescopeVisible = true;
+    this.telescopeModel = model || null;
+    this.syncOverlayStack();
+    this.updateTelescope(this.telescopeModel);
+  }
+
+  hideTelescope() {
+    this.telescopeVisible = false;
+    this.telescopeModel = null;
+    this.relayout();
+  }
+
+  updateTelescope(model) {
+    this.telescopeModel = model || this.telescopeModel || null;
+    if (!this.telescopeVisible) return;
+    if (!this.telescopeView || !this.telescopeReady) return;
+
+    const safeModel = {
+      title: String(this.telescopeModel?.title || "Find"),
+      query: String(this.telescopeModel?.query || ""),
+      counter: String(this.telescopeModel?.counter || "0 / 0"),
+      promptPosition: String(this.telescopeModel?.promptPosition || "top"),
+      items: Array.isArray(this.telescopeModel?.items)
+        ? this.telescopeModel.items.map((item) => ({
+            primary: String(item?.primary || ""),
+            rightText: String(item?.rightText || ""),
+            selected: Boolean(item?.selected),
+          }))
+        : [],
+    };
+
+    this.telescopeView.webContents.executeJavaScript(`
+      (function updateTelescope() {
+        const titleNode = document.getElementById('telescope-prompt-title');
+        const queryNode = document.getElementById('telescope-query');
+        const counterNode = document.getElementById('telescope-counter');
+        const listNode = document.getElementById('telescope-list');
+        if (!titleNode || !queryNode || !counterNode || !listNode) return;
+
+        const escapeHtml = (value) => String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+
+        const model = ${JSON.stringify(safeModel)};
+        const root = document.getElementById('telescope-shell');
+        titleNode.textContent = model.title;
+        queryNode.textContent = model.query;
+        counterNode.textContent = model.counter;
+        if (root) {
+          root.style.flexDirection = model.promptPosition === 'bottom' ? 'column-reverse' : 'column';
+        }
+
+        if (!Array.isArray(model.items) || model.items.length === 0) {
+          listNode.innerHTML = '<div class="telescope-empty">No match</div>';
+          return;
+        }
+
+        listNode.innerHTML = model.items.map((item) => {
+          const selected = item.selected ? ' selected' : '';
+          return '<div class="telescope-row' + selected + '">' +
+            '<span class="telescope-cursor"></span>' +
+            '<span class="telescope-primary">' + escapeHtml(item.primary) + '</span>' +
+            '<span class="telescope-right">' + escapeHtml(item.rightText) + '</span>' +
+          '</div>';
+        }).join('');
+
+        const active = listNode.querySelector('.telescope-row.selected');
+        if (active && typeof active.scrollIntoView === 'function') {
+          active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
       })();
     `);
 

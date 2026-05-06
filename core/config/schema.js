@@ -33,6 +33,10 @@ const ACTION_IDS = new Set([
   "bookmarks_toggle_focus",
   "bookmarks_add_root_active",
   "bookmarks_add_scoped_prompt",
+  "telescope_open_history",
+  "telescope_open_bookmarks",
+  "telescope_open_buffers",
+  "telescope_reopen_last",
   "session_save",
   "session_restore",
   "close_buffer",
@@ -141,8 +145,11 @@ function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
         : fallbackLabel,
   };
 
-  if (typeof node.action === "string" && ACTION_IDS.has(node.action)) {
-    normalized.action = node.action;
+  if (typeof node.action === "string") {
+    const rawActionId = node.action.trim();
+    if (ACTION_IDS.has(rawActionId)) {
+      normalized.action = rawActionId;
+    }
   }
 
   const sourceChildren = isPlainObject(node.children) ? node.children : null;
@@ -270,6 +277,13 @@ function normalizeConfig(rawConfig) {
 
     if (isPlainObject(uiSection.statusline) && typeof uiSection.statusline.enabled === "boolean") {
       normalizedGlobal.ui.statusline.enabled = uiSection.statusline.enabled;
+    }
+
+    if (isPlainObject(uiSection.telescope)) {
+      const promptPosition = String(uiSection.telescope.prompt_position || "").trim().toLowerCase();
+      if (promptPosition === "top" || promptPosition === "bottom") {
+        normalizedGlobal.ui.telescope.prompt_position = promptPosition;
+      }
     }
   }
 

@@ -49,13 +49,6 @@ const ACTION_IDS = new Set([
   "open_notifications",
 ]);
 
-const LEGACY_ACTION_ALIASES = Object.freeze({
-  fuzzy_open_history: "telescope_open_history",
-  fuzzy_open_bookmarks: "telescope_open_bookmarks",
-  fuzzy_open_buffers: "telescope_open_buffers",
-  fuzzy_reopen_last: "telescope_reopen_last",
-});
-
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -154,9 +147,8 @@ function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
 
   if (typeof node.action === "string") {
     const rawActionId = node.action.trim();
-    const resolvedActionId = LEGACY_ACTION_ALIASES[rawActionId] || rawActionId;
-    if (ACTION_IDS.has(resolvedActionId)) {
-      normalized.action = resolvedActionId;
+    if (ACTION_IDS.has(rawActionId)) {
+      normalized.action = rawActionId;
     }
   }
 

@@ -483,7 +483,7 @@ const TELESCOPE_OVERLAY_HTML = `
         --ui-font-family: ${UI_FONT_FAMILY};
       }
 
-      #fuzzyfinder-shell {
+      #telescope-shell {
         width: 100%;
         height: 100%;
         display: flex;
@@ -493,8 +493,10 @@ const TELESCOPE_OVERLAY_HTML = `
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
       }
 
-      #fuzzyfinder-prompt {
-        margin: 0;
+      #telescope-prompt {
+        position: relative;
+        margin: 4px 0 0;
+        height: 38px;
         min-inline-size: 0;
         border: 1px solid var(--ui-accent, #89dceb);
         border-radius: 6px;
@@ -505,7 +507,7 @@ const TELESCOPE_OVERLAY_HTML = `
         box-sizing: border-box;
       }
 
-      #fuzzyfinder-results {
+      #telescope-results {
         margin: 0;
         min-inline-size: 0;
         flex: 1;
@@ -513,12 +515,12 @@ const TELESCOPE_OVERLAY_HTML = `
         border: 1px solid var(--ui-accent, #89dceb);
         border-radius: 6px;
         background: var(--ui-bg-panel, #161b24);
-        padding: 6px 0;
+        padding: 0 0 6px 0;
         box-sizing: border-box;
       }
 
-      #fuzzyfinder-results-title,
-      #fuzzyfinder-prompt-title {
+      #telescope-results-title,
+      #telescope-prompt-title {
         margin: 0 auto;
         padding: 0 8px;
         color: var(--ui-text-muted, #7d8aa3);
@@ -526,7 +528,16 @@ const TELESCOPE_OVERLAY_HTML = `
         font-size: 12px;
       }
 
-      #fuzzyfinder-list {
+      #telescope-prompt-title {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        line-height: 14px;
+        white-space: nowrap;
+      }
+
+      #telescope-list {
         height: 100%;
         min-height: 0;
         overflow-y: auto;
@@ -538,13 +549,13 @@ const TELESCOPE_OVERLAY_HTML = `
         margin: 0;
       }
 
-      .fuzzyfinder-empty {
+      .telescope-empty {
         color: var(--ui-text-muted, #7d8aa3);
         font-size: 12px;
         padding: 4px 6px;
       }
 
-      .fuzzyfinder-row {
+      .telescope-row {
         display: flex;
         align-items: stretch;
         gap: 0;
@@ -556,12 +567,12 @@ const TELESCOPE_OVERLAY_HTML = `
         font-size: 12px;
       }
 
-      .fuzzyfinder-row.selected {
+      .telescope-row.selected {
         background: color-mix(in srgb, var(--ui-bg-subtle, #1f2735) 58%, transparent);
         color: var(--ui-text-bright, #f4f7ff);
       }
 
-      .fuzzyfinder-cursor {
+      .telescope-cursor {
         width: ${UI_TREE_LAYOUT.cursorWidth}px;
         align-self: stretch;
         border-radius: 1px;
@@ -569,11 +580,11 @@ const TELESCOPE_OVERLAY_HTML = `
         flex: 0 0 ${UI_TREE_LAYOUT.cursorWidth}px;
       }
 
-      .fuzzyfinder-row.selected .fuzzyfinder-cursor {
+      .telescope-row.selected .telescope-cursor {
         background: var(--ui-editor-cursor, #89dceb);
       }
 
-      .fuzzyfinder-primary {
+      .telescope-primary {
         min-width: 0;
         flex: 1;
         overflow: hidden;
@@ -584,7 +595,7 @@ const TELESCOPE_OVERLAY_HTML = `
         align-items: center;
       }
 
-      .fuzzyfinder-right {
+      .telescope-right {
         color: var(--ui-text-muted, #7d8aa3);
         white-space: nowrap;
         text-align: right;
@@ -596,7 +607,7 @@ const TELESCOPE_OVERLAY_HTML = `
         justify-content: flex-end;
       }
 
-      #fuzzyfinder-prompt-content {
+      #telescope-prompt-content {
         display: flex;
         align-items: center;
         gap: 5px;
@@ -607,7 +618,7 @@ const TELESCOPE_OVERLAY_HTML = `
         width: 100%;
       }
 
-      #fuzzyfinder-prefix {
+      #telescope-prefix {
         color: var(--ui-accent, #89dceb);
         font-size: 20px;
         line-height: 20px;
@@ -619,7 +630,7 @@ const TELESCOPE_OVERLAY_HTML = `
         transform: translateY(0.25px);
       }
 
-      #fuzzyfinder-query {
+      #telescope-query {
         min-width: 0;
         flex: 1;
         color: var(--ui-text-bright, #f4f7ff);
@@ -628,25 +639,25 @@ const TELESCOPE_OVERLAY_HTML = `
         text-overflow: ellipsis;
       }
 
-      #fuzzyfinder-counter {
+      #telescope-counter {
         color: var(--ui-accent, #89dceb);
         white-space: nowrap;
       }
     </style>
   </head>
   <body>
-    <div id="fuzzyfinder-shell">
-      <fieldset id="fuzzyfinder-prompt">
-        <legend id="fuzzyfinder-prompt-title">Find</legend>
-        <div id="fuzzyfinder-prompt-content">
-          <span id="fuzzyfinder-prefix"></span>
-          <span id="fuzzyfinder-query"></span>
-          <span id="fuzzyfinder-counter">0 / 0</span>
+    <div id="telescope-shell">
+      <div id="telescope-prompt">
+        <div id="telescope-prompt-title">Find</div>
+        <div id="telescope-prompt-content">
+          <span id="telescope-prefix"></span>
+          <span id="telescope-query"></span>
+          <span id="telescope-counter">0 / 0</span>
         </div>
-      </fieldset>
-      <fieldset id="fuzzyfinder-results">
-        <legend id="fuzzyfinder-results-title">Results</legend>
-        <div id="fuzzyfinder-list"></div>
+      </div>
+      <fieldset id="telescope-results">
+        <legend id="telescope-results-title">Results</legend>
+        <div id="telescope-list"></div>
       </fieldset>
     </div>
   </body>
@@ -1371,27 +1382,37 @@ class UiShellManager {
       height: modalHeight,
     });
 
-    const fuzzyWidth = this.telescopeVisible
+    const telescopeWidth = this.telescopeVisible
       ? Math.min(1080, Math.max(bounds.width - 120, 520))
       : 1;
-    const fuzzyHeight = this.telescopeVisible
-      ? Math.max(240, Math.floor((bounds.height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT) * 0.68))
+    const telescopeHeight = this.telescopeVisible
+      ? Math.max(
+          240,
+          Math.floor(
+            (bounds.height -
+              UI_SHELL_TABLINE_HEIGHT -
+              UI_SHELL_STATUSLINE_HEIGHT) *
+              0.68,
+          ),
+        )
       : 1;
-    const fuzzyX = this.telescopeVisible
-      ? Math.max(Math.floor((bounds.width - fuzzyWidth) / 2), 0)
+    const telescopeX = this.telescopeVisible
+      ? Math.max(Math.floor((bounds.width - telescopeWidth) / 2), 0)
       : -10000;
-    const fuzzyY = this.telescopeVisible
+    const telescopeY = this.telescopeVisible
       ? Math.max(
           UI_SHELL_TABLINE_HEIGHT + 10,
-          Math.floor((bounds.height - UI_SHELL_STATUSLINE_HEIGHT - fuzzyHeight) / 2),
+          Math.floor(
+            (bounds.height - UI_SHELL_STATUSLINE_HEIGHT - telescopeHeight) / 2,
+          ),
         )
       : -10000;
 
     this.telescopeView.setBounds({
-      x: fuzzyX,
-      y: fuzzyY,
-      width: fuzzyWidth,
-      height: fuzzyHeight,
+      x: telescopeX,
+      y: telescopeY,
+      width: telescopeWidth,
+      height: telescopeHeight,
     });
 
     this.statuslineView.setBounds({
@@ -1713,11 +1734,11 @@ class UiShellManager {
     };
 
     this.telescopeView.webContents.executeJavaScript(`
-      (function updateFuzzyFinder() {
-        const titleNode = document.getElementById('fuzzyfinder-prompt-title');
-        const queryNode = document.getElementById('fuzzyfinder-query');
-        const counterNode = document.getElementById('fuzzyfinder-counter');
-        const listNode = document.getElementById('fuzzyfinder-list');
+      (function updateTelescope() {
+        const titleNode = document.getElementById('telescope-prompt-title');
+        const queryNode = document.getElementById('telescope-query');
+        const counterNode = document.getElementById('telescope-counter');
+        const listNode = document.getElementById('telescope-list');
         if (!titleNode || !queryNode || !counterNode || !listNode) return;
 
         const escapeHtml = (value) => String(value)
@@ -1728,7 +1749,7 @@ class UiShellManager {
           .replaceAll("'", '&#39;');
 
         const model = ${JSON.stringify(safeModel)};
-        const root = document.getElementById('fuzzyfinder-shell');
+        const root = document.getElementById('telescope-shell');
         titleNode.textContent = model.title;
         queryNode.textContent = model.query;
         counterNode.textContent = model.counter;
@@ -1737,20 +1758,20 @@ class UiShellManager {
         }
 
         if (!Array.isArray(model.items) || model.items.length === 0) {
-          listNode.innerHTML = '<div class="fuzzyfinder-empty">No match</div>';
+          listNode.innerHTML = '<div class="telescope-empty">No match</div>';
           return;
         }
 
         listNode.innerHTML = model.items.map((item) => {
           const selected = item.selected ? ' selected' : '';
-          return '<div class="fuzzyfinder-row' + selected + '">' +
-            '<span class="fuzzyfinder-cursor"></span>' +
-            '<span class="fuzzyfinder-primary">' + escapeHtml(item.primary) + '</span>' +
-            '<span class="fuzzyfinder-right">' + escapeHtml(item.rightText) + '</span>' +
+          return '<div class="telescope-row' + selected + '">' +
+            '<span class="telescope-cursor"></span>' +
+            '<span class="telescope-primary">' + escapeHtml(item.primary) + '</span>' +
+            '<span class="telescope-right">' + escapeHtml(item.rightText) + '</span>' +
           '</div>';
         }).join('');
 
-        const active = listNode.querySelector('.fuzzyfinder-row.selected');
+        const active = listNode.querySelector('.telescope-row.selected');
         if (active && typeof active.scrollIntoView === 'function') {
           active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         }

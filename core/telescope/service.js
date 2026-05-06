@@ -7,7 +7,7 @@ function normalizeText(value) {
   return String(value || "").toLowerCase();
 }
 
-function fuzzyScore(query, candidate) {
+function telescopeScore(query, candidate) {
   const needle = normalizeText(query).trim();
   const haystack = normalizeText(candidate);
   if (!needle) return 0;
@@ -142,7 +142,7 @@ class TelescopeService {
     const scored = [];
     for (let index = 0; index < this.items.length; index += 1) {
       const item = this.items[index];
-      const score = fuzzyScore(this.query, `${item.title} ${item.subtitle} ${item.rightText}`);
+      const score = telescopeScore(this.query, `${item.title} ${item.subtitle} ${item.rightText}`);
       if (score === Number.NEGATIVE_INFINITY) continue;
       scored.push({ item, score, index });
     }

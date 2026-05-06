@@ -21,12 +21,12 @@ function looksLikeUrlTarget(value) {
 }
 
 function normalizeUrlCandidate(value) {
-  if (hasScheme(value)) {
-    return value;
-  }
-
   if (isLocalHostLike(value) || isIpLike(value)) {
     return `http://${value}`;
+  }
+
+  if (hasScheme(value)) {
+    return value;
   }
 
   return `https://${value}`;

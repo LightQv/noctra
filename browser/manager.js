@@ -46,7 +46,14 @@ class BufferManager {
       this.window.on("maximize", () => this.layoutViews());
       this.window.on("unmaximize", () => this.layoutViews());
       this.window.on("focus", () => this.focusActive());
+      this.window.on("closed", () => {
+        this.window = null;
+      });
     }
+  }
+
+  isWindowAlive() {
+    return Boolean(this.window && !this.window.isDestroyed());
   }
 
   create(url = "about:blank", options = {}) {
@@ -661,7 +668,7 @@ class BufferManager {
   }
 
   getUrllineRenderModel() {
-    if (!this.window) {
+    if (!this.isWindowAlive()) {
       return { panes: [] };
     }
 
@@ -1252,7 +1259,7 @@ class BufferManager {
 
   focusActive() {
     const target = this.getActiveWebContents();
-    if (!this.window || !target) return;
+    if (!this.isWindowAlive() || !target) return;
     this.window.focus();
     target.focus();
   }

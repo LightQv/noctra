@@ -19,22 +19,22 @@ Decompose monolithic dispatcher into domain action modules behind unchanged disp
 - `ui/*`
 
 ## Steps
-1. Partition current switch cases by domain.
-2. Move case handlers into modules with identical behavior.
-3. Keep single `dispatch(win, intent, state)` API stable.
-4. Preserve unknown-intent warning behavior.
-5. Re-run parity checks.
+1. [x] Partition current switch cases by domain.
+2. [x] Move case handlers into modules with identical behavior.
+3. [x] Keep single `dispatch(win, intent, state)` API stable.
+4. [x] Preserve unknown-intent warning behavior.
+5. [x] Re-run parity checks.
 
 ## Behavior Parity Checklist
-- [ ] Every current intent still resolves identically
-- [ ] `intent.next` chain behavior unchanged
-- [ ] statusline/tabline post-dispatch updates unchanged
-- [ ] notifications behavior unchanged
+- [x] Every current intent still resolves identically
+- [x] `intent.next` chain behavior unchanged
+- [x] statusline/tabline post-dispatch updates unchanged
+- [x] notifications behavior unchanged
 
 ## Validation
-- [ ] Intent-by-intent smoke checklist
-- [ ] Command parser -> intent -> action path checks
-- [ ] Sidepanel/telescope/session flows checks
+- [x] Intent-by-intent smoke checklist
+- [x] Command parser -> intent -> action path checks
+- [x] Sidepanel/telescope/session flows checks
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -43,6 +43,19 @@ Decompose monolithic dispatcher into domain action modules behind unchanged disp
 | ordering change in chained intents | async/sync mismatch | preserve call order and sync semantics |
 
 ## Exit Criteria
-- [ ] Dispatcher split complete
-- [ ] Public API unchanged
-- [ ] Intent parity confirmed
+- [x] Dispatcher split complete
+- [x] Public API unchanged
+- [x] Intent parity confirmed
+
+## Handoff Notes
+- Done:
+  - Partitioned dispatcher intent handling into domain modules under `core/dispatcher/handlers/`.
+  - Added dedicated handler modules for `telescope`, `session`, and `misc` intents.
+  - Replaced monolithic `switch` in `core/dispatcher.js` with a handler registry while keeping `dispatch(win, intent, state)` unchanged.
+  - Preserved unknown-intent warning guard before active-buffer checks.
+  - Preserved post-dispatch statusline/tabline updates and `intent.next` chaining in root dispatcher.
+- Remaining:
+  - none.
+
+## Validation Result
+- Manual parity validation passed for intent smoke coverage, parser-to-action paths, and sidepanel/telescope/session workflows.

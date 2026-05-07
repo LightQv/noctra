@@ -25,6 +25,15 @@ const {
 } = require("../ui/theme");
 const { resolveSemanticContext } = require("./semanticContextResolver");
 const { enterCommandMode } = require("./modeTransitionService");
+const { createNavigationHandlers } = require("./dispatcher/handlers/navigation");
+const { createCommandUiHandlers } = require("./dispatcher/handlers/commandUi");
+const { createBufferHandlers } = require("./dispatcher/handlers/buffers");
+const { createConfigHandlers } = require("./dispatcher/handlers/config");
+const { createEditorHandlers } = require("./dispatcher/handlers/editor");
+const { createHistoryBookmarksHandlers } = require("./dispatcher/handlers/historyBookmarks");
+const { createTelescopeHandlers } = require("./dispatcher/handlers/telescope");
+const { createSessionHandlers } = require("./dispatcher/handlers/session");
+const { createMiscHandlers } = require("./dispatcher/handlers/misc");
 
 function computeStatuslineModeLabel(state) {
   if (telescopeService.isActive()) {
@@ -288,6 +297,60 @@ function getActiveBookmarkCandidate() {
   return { title, url };
 }
 
+function createIntentHandlers(dispatch) {
+  const deps = {
+    app,
+    buffers,
+    uiShell,
+    configService,
+    buildSearchUrl,
+    historyService,
+    historyPanel,
+    bookmarksService,
+    bookmarkInsertScopeModal,
+    telescopeService,
+    sessionService,
+    notificationsService,
+    enterCommandMode,
+    dispatch,
+    focusEditableBufferSurface,
+    blurEditableBufferSurface,
+    runEditableExCommand,
+    blurFocusedWebInput,
+    openSettingsBuffer,
+    openNotificationsBuffer,
+    normalizeUrl,
+    applyThemeEverywhere,
+    reloadReloadableBuffers,
+    getActiveBookmarkCandidate,
+  };
+
+  return {
+    ...createNavigationHandlers(deps),
+    ...createCommandUiHandlers(deps),
+    ...createBufferHandlers(deps),
+    ...createConfigHandlers(deps),
+    ...createEditorHandlers(deps),
+    ...createHistoryBookmarksHandlers(deps),
+    ...createTelescopeHandlers(deps),
+    ...createSessionHandlers(deps),
+    ...createMiscHandlers(deps),
+  };
+}
+
+let intentHandlers = null;
+
+function warnOnIntentCoverageGaps(handlers) {
+  const missing = Object.values(INTENTS).filter((type) => typeof handlers[type] !== "function");
+  if (!missing.length) {
+    return;
+  }
+
+  console.warn(
+    `[dispatcher] Missing handler(s) for known intent types: ${missing.join(", ")}`,
+  );
+}
+
 function dispatch(win, intent, state) {
   if (!intent) return;
 
@@ -304,569 +367,16 @@ function dispatch(win, intent, state) {
   }
 
   const buf = buffers.getActive();
-
   if (!buf) return;
 
-  switch (intent.type) {
-    case INTENTS.NOOP:
-      break;
-
-    case INTENTS.SCROLL:
-      buf.webContents.executeJavaScript(`
-        (function applyScroll() {
-          const amount = ${Math.max(0, Number(intent.amount) || 0)};
-          if (${JSON.stringify(intent.direction)} === "left") {
-            window.scrollBy(-amount, 0);
-            return;
-          }
-          if (${JSON.stringify(intent.direction)} === "right") {
-            window.scrollBy(amount, 0);
-            return;
-          }
-          window.scrollBy(0, ${JSON.stringify(intent.direction)} === "down" ? amount : -amount);
-        })();
-      `);
-      break;
-
-    case INTENTS.SCROLL_TOP:
-      buf.webContents.executeJavaScript(
-        `window.scrollTo({top: 0, behavior: "instant"})`,
-      );
-      break;
-
-    case INTENTS.SCROLL_BOTTOM:
-      buf.webContents.executeJavaScript(`
-				window.scrollTo({
-					top: document.documentElement.scrollHeight,
-					behavior: "instant"
-				});
-			`);
-      break;
-
-    case INTENTS.PAGE_DOWN:
-      buf.webContents.executeJavaScript(
-        `window.scrollBy(0, Math.floor(window.innerHeight * 0.9))`,
-      );
-      break;
-
-    case INTENTS.PAGE_UP:
-      buf.webContents.executeJavaScript(
-        `window.scrollBy(0, -Math.floor(window.innerHeight * 0.9))`,
-      );
-      break;
-
-    case INTENTS.NAV_BACK:
-      buf.webContents.navigationHistory.goBack();
-      break;
-
-    case INTENTS.NAV_FORWARD:
-      buf.webContents.navigationHistory.goForward();
-      break;
-
-    case INTENTS.RELOAD_PAGE:
-      buf.webContents.reload();
-      break;
-
-    case INTENTS.ENTER_INSERT:
-      // state already changed in motion layer
-      break;
-
-    case INTENTS.ENTER_NORMAL:
-      blurFocusedWebInput(buf);
-      break;
-
-    case INTENTS.SHOW_COMMAND:
-      uiShell.showCommand(
-        state.commandBuffer,
-        state.commandCursorIndex,
-        state.commandTarget === "EDITOR" ? "editor" : "shell",
-      );
-      buffers.focusActive();
-      break;
-
-    case INTENTS.HIDE_COMMAND:
-      state.commandTarget = "SHELL";
-      uiShell.hideCommand();
-      buffers.focusActive();
-      if (state.interactionContext === "EDITOR") {
-        focusEditableBufferSurface(buffers.getActive());
-      }
-      break;
-
-    case INTENTS.COMMAND_INPUT:
-      uiShell.updateCommand(
-        state.commandBuffer,
-        state.commandCursorIndex,
-        state.commandTarget === "EDITOR" ? "editor" : "shell",
-      );
-      break;
-
-    case INTENTS.SUBMIT_EDITOR_COMMAND: {
-      const activeEditableBuffer = buffers.getActive();
-      runEditableExCommand(activeEditableBuffer, intent.command);
-      break;
-    }
-
-    case INTENTS.SHOW_WHICHKEY:
-      uiShell.showWhichKey(intent.model || null, intent.timeoutMs, intent.delayMs);
-      break;
-
-    case INTENTS.UPDATE_WHICHKEY:
-      uiShell.updateWhichKey(intent.model || null, intent.timeoutMs, intent.delayMs);
-      break;
-
-    case INTENTS.HIDE_WHICHKEY:
-      uiShell.hideWhichKey();
-      break;
-
-    case INTENTS.OPEN_URL_PROMPT:
-      enterCommandMode(state, {
-        target: "SHELL",
-        initialText: "open ",
-        reason: "dispatcher-open-url-prompt",
-      });
-      dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
-      dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
-      break;
-
-    case INTENTS.OPEN_URL: {
-      const rawUrl = typeof intent.url === "string" ? intent.url : "";
-      const normalized = normalizeUrl(rawUrl);
-      if (!normalized) {
-        notificationsService.notify({
-          severity: "warning",
-          code: "open_url_blocked",
-          message: "Cannot open URL: blocked by URL security policy",
-          source: "core.dispatcher",
-          context: { intent, url: rawUrl },
-          persist: false,
-        });
-        break;
-      }
-      buf.load(normalized);
-      break;
-    }
-
-    case INTENTS.SEARCH_WEB: {
-      const searchUrl = buildSearchUrl(intent.engine, intent.query);
-      if (!searchUrl) {
-        notificationsService.notify({
-          severity: "warning",
-          code: "search_web_unknown_engine",
-          message: "Cannot search web: unknown engine",
-          source: "core.dispatcher",
-          context: { intent },
-          persist: false,
-        });
-        break;
-      }
-      buf.load(searchUrl);
-      break;
-    }
-
-    case INTENTS.NEW_BUFFER: {
-      if (intent.url) {
-        const normalized = normalizeUrl(intent.url);
-        if (!normalized) {
-          notificationsService.notify({
-            severity: "warning",
-            code: "new_buffer_url_blocked",
-            message: "Cannot open buffer: blocked by URL security policy",
-            source: "core.dispatcher",
-            context: { intent, url: intent.url },
-            persist: false,
-          });
-          break;
-        }
-        buffers.create(normalized);
-      } else {
-        buffers.openConfiguredBuffer();
-      }
-      break;
-    }
-
-    case INTENTS.BUFFER_NEXT:
-      buffers.switchByOffset(1);
-      break;
-
-    case INTENTS.BUFFER_PREV:
-      buffers.switchByOffset(-1);
-      break;
-
-    case INTENTS.SWITCH_BUFFER:
-      buffers.switchTo(intent.id);
-      break;
-
-    case INTENTS.CLOSE_BUFFER:
-      buffers.close(intent.id ?? null);
-      break;
-
-    case INTENTS.REOPEN_BUFFER:
-      buffers.reopenLastClosed();
-      break;
-
-    case INTENTS.CLOSE_FOCUSED:
-      if (buffers.isSplitEnabled()) {
-        buffers.closeRightSplit();
-      } else {
-        buffers.close();
-      }
-      break;
-
-    case INTENTS.CLOSE_LEFT_BUFFERS:
-      buffers.closeLeftOfActive();
-      break;
-
-    case INTENTS.CLOSE_RIGHT_BUFFERS:
-      buffers.closeRightOfActive();
-      break;
-
-    case INTENTS.SPLIT_VERTICAL: {
-      const ratio = configService.getConfigValue("global.split.regular_ratio", 0.5);
-      buffers.openVerticalSplit(ratio);
-      break;
-    }
-
-    case INTENTS.SPLIT_CLOSE_RIGHT:
-      buffers.closeRightSplit();
-      break;
-
-    case INTENTS.SPLIT_DEVTOOLS: {
-      const ratio = configService.getConfigValue("global.split.devtools_ratio", 0.25);
-      buffers.openDevtoolsSplit(ratio);
-      break;
-    }
-
-    case INTENTS.FOCUS_SPLIT_LEFT:
-      buffers.focusSplitLeft();
-      break;
-
-    case INTENTS.FOCUS_SPLIT_RIGHT:
-      buffers.focusSplitRight();
-      break;
-
-    case INTENTS.CONFIG_RELOAD: {
-      const config = configService.reloadConfig();
-      if (typeof state.applyConfig === "function") {
-        state.applyConfig(config);
-      }
-      applyThemeEverywhere(win);
-      uiShell.setTablineOptions({
-        showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
-      });
-      buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
-      historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
-      historyPanel.setTreeScrollContextLines(
-        configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
-      );
-      historyPanel.setTreeDeleteOperatorTimeoutMs(
-        configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
-      );
-      historyPanel.layout();
-      buffers.layoutViews();
-      uiShell.updateSplitDivider(buffers.getSplitStatus());
-      notificationsService.notify({
-        severity: "info",
-        code: "config_reloaded",
-        message: "Configuration reloaded",
-        source: "core.dispatcher",
-        context: { path: configService.getConfigPath() },
-        persist: false,
-      });
-      break;
-    }
-
-    case INTENTS.SET_THEME_MODE: {
-      const mode = typeof intent.mode === "string" ? intent.mode : "";
-      if (!["dark", "light", "auto", "custom"].includes(mode)) {
-        notificationsService.notify({
-          severity: "warning",
-          code: "unknown_theme_mode",
-          message: `Unknown theme mode: ${String(intent.mode || "")}`,
-          source: "core.dispatcher",
-          persist: false,
-        });
-        break;
-      }
-
-      const config = configService.updateThemeMode(mode);
-      if (typeof state.applyConfig === "function") {
-        state.applyConfig(config);
-      }
-
-      applyThemeEverywhere(win);
-      notificationsService.notify({
-        severity: "info",
-        code: "theme_mode_set",
-        message: `Theme mode set to ${mode}`,
-        source: "core.dispatcher",
-        persist: false,
-      });
-      break;
-    }
-
-    case INTENTS.SET_BROWSER_LANGUAGE: {
-      const language = typeof intent.language === "string" ? intent.language.trim().toLowerCase() : "";
-      if (!["en", "fr"].includes(language)) {
-        notificationsService.notify({
-          severity: "warning",
-          code: "unknown_browser_language",
-          message: `Unknown browser language: ${String(intent.language || "")}`,
-          source: "core.dispatcher",
-          persist: false,
-        });
-        break;
-      }
-
-      const config = configService.updateBrowserLanguage(language);
-      if (typeof state.applyConfig === "function") {
-        state.applyConfig(config);
-      }
-
-      if (intent.reload) {
-        reloadReloadableBuffers();
-      }
-
-      notificationsService.notify({
-        severity: "info",
-        code: "browser_language_set",
-        message: intent.reload
-          ? `Browser language set to ${language}. Reloaded web buffers.`
-          : `Browser language set to ${language}. Reload with :lang ${language}! to apply on current pages.`,
-        source: "core.dispatcher",
-        persist: false,
-      });
-      break;
-    }
-
-    case INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD: {
-      const current = Boolean(configService.getConfigValue("browser.copy_selection_to_clipboard", false));
-      const nextEnabled =
-        typeof intent.enabled === "boolean" ? intent.enabled : !current;
-      const config = configService.updateCopySelectionToClipboard(nextEnabled);
-      if (typeof state.applyConfig === "function") {
-        state.applyConfig(config);
-      }
-
-      notificationsService.notify({
-        severity: "info",
-        code: "copy_selection_toggle",
-        message: nextEnabled ? "Selection auto-copy enabled" : "Selection auto-copy disabled",
-        source: "core.dispatcher",
-        persist: false,
-      });
-      break;
-    }
-
-    case INTENTS.OPEN_SETTINGS_BUFFER:
-      focusEditableBufferSurface(openSettingsBuffer());
-      buffers.focusActive();
-      state.interactionContext = "EDITOR";
-      state.editorMode = "NORMAL";
-      break;
-
-    case INTENTS.OPEN_NOTIFICATIONS_BUFFER:
-      focusEditableBufferSurface(openNotificationsBuffer());
-      buffers.focusActive();
-      state.interactionContext = "EDITOR";
-      state.editorMode = "NORMAL";
-      break;
-
-    case INTENTS.TOGGLE_FOCUS_CONTEXT: {
-      const active = buffers.getActive();
-      if (!active || !active.isEditable) {
-        break;
-      }
-
-      state.interactionContext =
-        state.interactionContext === "EDITOR" ? "SHELL" : "EDITOR";
-      if (state.interactionContext === "EDITOR") {
-        state.editorMode = "NORMAL";
-        focusEditableBufferSurface(active);
-      } else {
-        blurEditableBufferSurface(active);
-      }
-      break;
-    }
-
-    case INTENTS.TOGGLE_URLLINE: {
-      const nextVisible = !buffers.isUrllineVisible();
-      buffers.setUrllineVisible(nextVisible);
-      break;
-    }
-
-    case INTENTS.SET_URLLINE_VISIBILITY: {
-      buffers.setUrllineVisible(Boolean(intent.enabled));
-      break;
-    }
-
-    case INTENTS.HISTORY_SHOW:
-      historyPanel.setTreeKind("history");
-      historyPanel.show();
-      historyPanel.focus();
-      break;
-
-    case INTENTS.HISTORY_HIDE:
-      historyPanel.hide();
-      break;
-
-    case INTENTS.HISTORY_TOGGLE:
-      historyPanel.toggle();
-      break;
-
-    case INTENTS.HISTORY_TOGGLE_FOCUS:
-      historyPanel.toggleFocus();
-      break;
-
-    case INTENTS.HISTORY_DELETE_ALL:
-      historyService.deleteAll();
-      historyPanel.reloadData();
-      historyPanel.render();
-      break;
-
-    case INTENTS.HISTORY_DELETE_TODAY:
-      historyService.deleteToday();
-      historyPanel.reloadData();
-      historyPanel.render();
-      break;
-
-    case INTENTS.BOOKMARKS_SHOW:
-      historyPanel.showTree("bookmarks");
-      break;
-
-    case INTENTS.BOOKMARKS_HIDE:
-      historyPanel.hide();
-      break;
-
-    case INTENTS.BOOKMARKS_TOGGLE:
-      if (historyPanel.isVisible() && historyPanel.treeKind === "bookmarks") {
-        historyPanel.hide();
-      } else {
-        historyPanel.showTree("bookmarks");
-      }
-      break;
-
-    case INTENTS.BOOKMARKS_TOGGLE_FOCUS:
-      historyPanel.setTreeKind("bookmarks");
-      historyPanel.toggleFocus();
-      break;
-
-    case INTENTS.BOOKMARKS_DELETE_ALL:
-      bookmarksService.deleteAll();
-      historyPanel.reloadData();
-      historyPanel.render();
-      break;
-
-    case INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE: {
-      const candidate = getActiveBookmarkCandidate();
-      if (!candidate) {
-        break;
-      }
-      const result = bookmarksService.appendEntryAtRoot({
-        id: bookmarksService.makeEntryId(),
-        title: candidate.title,
-        url: candidate.url,
-      });
-      if (result?.status === "inserted" && historyPanel.isVisible()) {
-        historyPanel.reloadData();
-        historyPanel.render();
-      }
-      break;
-    }
-
-    case INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT: {
-      const candidate = getActiveBookmarkCandidate();
-      if (!candidate) {
-        break;
-      }
-      bookmarkInsertScopeModal.open(candidate);
-      break;
-    }
-
-    case INTENTS.TELESCOPE_OPEN_HISTORY:
-      uiShell.showTelescope(
-        telescopeService.open("history", {
-          promptPosition: configService.getConfigValue("global.ui.telescope.prompt_position", "top"),
-        }),
-      );
-      break;
-
-    case INTENTS.TELESCOPE_OPEN_BOOKMARKS:
-      uiShell.showTelescope(
-        telescopeService.open("bookmarks", {
-          promptPosition: configService.getConfigValue("global.ui.telescope.prompt_position", "top"),
-        }),
-      );
-      break;
-
-    case INTENTS.TELESCOPE_OPEN_BUFFERS:
-      uiShell.showTelescope(
-        telescopeService.open("buffers", {
-          promptPosition: configService.getConfigValue("global.ui.telescope.prompt_position", "top"),
-        }),
-      );
-      break;
-
-    case INTENTS.TELESCOPE_REOPEN_LAST: {
-      const model = telescopeService.reopenLast(
-        configService.getConfigValue("global.ui.telescope.prompt_position", "top"),
-      );
-      if (!model) {
-        notificationsService.notify({
-          severity: "info",
-          code: "telescope_reopen_empty",
-          message: "No previous telescope query",
-          source: "core.dispatcher",
-          persist: false,
-        });
-        break;
-      }
-      uiShell.showTelescope(model);
-      break;
-    }
-
-    case INTENTS.SESSION_SAVE: {
-      const snapshot = buffers.exportSessionSnapshot();
-      sessionService.writeSessionSnapshot(snapshot);
-      notificationsService.notify({
-        severity: "info",
-        code: "session_snapshot_saved",
-        message: "Session snapshot saved",
-        source: "core.dispatcher",
-        context: { path: sessionService.getSessionsFilePath() },
-        persist: false,
-      });
-      break;
-    }
-
-    case INTENTS.SESSION_RESTORE: {
-      const snapshot = sessionService.readSessionSnapshot();
-      const restored = buffers.restoreSessionSnapshot(snapshot);
-      if (!restored) {
-        notificationsService.notify({
-          severity: "warning",
-          code: "session_snapshot_not_found",
-          message: "No restorable session snapshot found",
-          source: "core.dispatcher",
-          persist: false,
-        });
-      }
-      break;
-    }
-
-    case INTENTS.QUIT:
-      app.quit();
-      break;
-
-    case INTENTS.UNKNOWN_COMMAND:
-      notificationsService.notify({
-        severity: "warning",
-        code: "unknown_command",
-        message: `Unknown command: ${String(intent.raw || "")}`,
-        source: "core.dispatcher",
-        persist: false,
-      });
-      break;
+  if (!intentHandlers) {
+    intentHandlers = createIntentHandlers(dispatch);
+    warnOnIntentCoverageGaps(intentHandlers);
+  }
+
+  const handler = intentHandlers[intent.type];
+  if (typeof handler === "function") {
+    handler({ win, intent, state });
   }
 
   const activeAfterDispatch = buffers.getActive();

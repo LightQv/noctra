@@ -36,8 +36,8 @@ Migrate current architecture toward `modal_browser_architecture_v_2.md` while pr
 | 02 | Context layer normalization | done | 01 | 2026-05-07 |
 | 03 | Mode boundary hardening | done | 01, 02 | 2026-05-07 |
 | 04 | Grammar extraction/alignment | done | 03 | 2026-05-07 |
-| 05 | Dispatcher decomposition | in progress | 02, 03 | 2026-05-07 |
-| 06 | Renderer/platform adapter boundaries | not started | 05 | - |
+| 05 | Dispatcher decomposition | done | 02, 03 | 2026-05-07 |
+| 06 | Renderer/platform adapter boundaries | in progress | 05 | 2026-05-07 |
 | 07 | Cleanup + invariants enforcement | not started | all | - |
 
 Status values: `not started | in progress | blocked | done`
@@ -94,7 +94,7 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## Session Handoff
-- Last completed phase: 04
-- Active phase: 05
+- Last completed phase: 05
+- Active phase: 06
 - Blockers: none
-- Next action: Phase 05 step 1 - partition dispatcher switch cases by domain with unchanged dispatch API
+- Next action: Phase 06 step 1 - inventory direct renderer/platform calls.

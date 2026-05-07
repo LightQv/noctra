@@ -173,3 +173,50 @@
 
 ### Next Session Start Here
 - Execute `phase-05-dispatcher-decomposition.md` step 1: partition dispatcher switch cases by domain.
+
+## Session 2026-05-07 #10
+### Objective
+- Execute Phase 05 dispatcher decomposition step 1-2 with domain handler extraction.
+
+### Completed
+- Added domain handler modules under `core/dispatcher/handlers/`:
+  - `navigation.js`
+  - `commandUi.js`
+  - `buffers.js`
+  - `config.js`
+  - `editor.js`
+  - `historyBookmarks.js`
+  - `telescope.js`
+  - `session.js`
+  - `misc.js`
+- Replaced `core/dispatcher.js` monolithic switch with an intent handler registry composition.
+- Kept dispatcher API stable as `dispatch(win, intent, state)`.
+- Preserved unknown-intent warning behavior, post-dispatch statusline/tabline updates, and `intent.next` chaining semantics.
+- Updated Phase 05 doc progress and handoff notes.
+
+### Verification
+- Passed: module load sanity check for `core/dispatcher.js` (`node -e "require('./core/dispatcher')"`)
+- Failed: n/a
+- Not run: full manual Phase 05 intent parity smoke checklist
+
+### Next Session Start Here
+- Execute Phase 05 validation checklist in `phase-05-dispatcher-decomposition.md` (intent-by-intent smoke checks, command parser path checks, sidepanel/telescope/session flows).
+
+## Session 2026-05-07 #11
+### Objective
+- Close Phase 05 after parity validation and hand off to Phase 06.
+
+### Completed
+- Marked Phase 05 dispatcher checklist items complete in `phase-05-dispatcher-decomposition.md` (steps, parity, validation, and exit criteria).
+- Recorded manual validation pass for intent smoke checks, parser-to-action checks, and sidepanel/telescope/session flows.
+- Added a dispatcher startup coverage warning for known intent handler gaps in `core/dispatcher.js`.
+- Updated master plan phase status: Phase 05 `done`, Phase 06 `in progress`.
+- Updated master plan session handoff to Phase 06 step 1.
+
+### Verification
+- Passed: manual Phase 05 parity validation (all checklist categories)
+- Failed: n/a
+- Not run: automated regression suite
+
+### Next Session Start Here
+- Execute `phase-06-renderer-platform-adapters.md` step 1: inventory direct renderer/platform calls.

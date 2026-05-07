@@ -27,15 +27,15 @@ Separate focus scope from semantic context and introduce capability-driven conte
 5. Keep compatibility path until later cleanup phase.
 
 ## Behavior Parity Checklist
-- [ ] Settings editor context behavior unchanged
-- [ ] Tree context behavior unchanged
-- [ ] Shell context behavior unchanged
-- [ ] Statusline labels remain unchanged
+- [x] Settings editor context behavior unchanged
+- [x] Tree context behavior unchanged
+- [x] Shell context behavior unchanged
+- [x] Statusline labels remain unchanged
 
 ## Validation
-- [ ] Manual context transition matrix
-- [ ] Editor focus toggle checks
-- [ ] Sidepanel focus/unfocus checks
+- [x] Manual context transition matrix
+- [x] Editor focus toggle checks
+- [x] Sidepanel focus/unfocus checks
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -44,6 +44,18 @@ Separate focus scope from semantic context and introduce capability-driven conte
 | Hidden state drift | legacy writes remain | log all context writes during migration |
 
 ## Exit Criteria
-- [ ] Semantic context resolver in place
-- [ ] Existing flows unchanged
-- [ ] Transition docs updated
+- [x] Semantic context resolver in place
+- [x] Existing flows unchanged
+- [x] Transition docs updated
+
+## Handoff Notes
+- Done:
+  - Added semantic context resolver in `core/semanticContextResolver.js`.
+  - Resolver now distinguishes focused sidepanel semantic context as `history` vs `bookmarks` (not generic tree).
+  - Integrated resolver-backed editor semantic checks in `core/input.js`, `main.js`, and `core/dispatcher.js` while preserving current statusline labels and compatibility behavior.
+  - Added `historyPanel.getTreeKind()` accessor for context resolution.
+- Remaining:
+  - none.
+
+## Validation Result
+- Manual checks passed for editor focus toggle, sidepanel focus/unfocus, and shell path.

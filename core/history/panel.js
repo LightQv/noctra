@@ -1404,6 +1404,10 @@ class HistoryPanel {
     return this.focused;
   }
 
+  getTreeKind() {
+    return this.treeKind === "bookmarks" ? "bookmarks" : "history";
+  }
+
   isTextInputActive() {
     return Boolean(this.filterEditState || this.bookmarkEditState || this.deleteAllArmed);
   }

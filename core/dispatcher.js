@@ -23,6 +23,7 @@ const {
   resolveContentColorScheme,
   toCssVars,
 } = require("../ui/theme");
+const { resolveSemanticContext } = require("./semanticContextResolver");
 
 function computeStatuslineModeLabel(state) {
   if (telescopeService.isActive()) {
@@ -42,7 +43,7 @@ function computeStatuslineModeLabel(state) {
     return state.mode;
   }
 
-  if (state.interactionContext === "EDITOR") {
+  if (resolveSemanticContext({ state, buffers, historyPanel }) === "editor") {
     return `EDITOR:${state.editorMode || "NORMAL"}`;
   }
 

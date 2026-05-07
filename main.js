@@ -25,6 +25,7 @@ const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const telescopeService = require("./core/telescope/service");
 const { resolveFocusSnapshot } = require("./core/focusResolver");
 const { resolveInputPriority } = require("./core/inputPriorityResolver");
+const { resolveSemanticContext } = require("./core/semanticContextResolver");
 const sessionService = require("./core/session/service");
 const notificationsService = require("./core/notifications/service");
 const { validateNavigableUrl } = require("./core/security/urlPolicy");
@@ -785,7 +786,7 @@ function getStatuslineModeLabel() {
     return state.mode;
   }
 
-  if (state.interactionContext === "EDITOR") {
+  if (resolveSemanticContext({ state, buffers, historyPanel }) === "editor") {
     return `EDITOR:${state.editorMode || "NORMAL"}`;
   }
 

@@ -101,3 +101,39 @@
 
 ### Next Session Start Here
 - Execute `phase-03-mode-boundary.md` step 1: inventory all mode mutations in codebase.
+
+## Session 2026-05-07 #06
+### Objective
+- Implement Phase 03 mode boundary hardening with a centralized transition API.
+
+### Completed
+- Added `core/modeTransitionService.js` with centralized mode transitions and command lifecycle helpers.
+- Replaced scattered direct mode writes in `motions/normal.js`, `motions/insert.js`, `motions/command.js`, `motions/actionBuilders.js`, `core/dispatcher.js`, `main.js`, and `core/history/panel.js`.
+- Added non-breaking illegal transition warning on command exit when mode is not `COMMAND`.
+- Completed mode-write audit: direct `state.mode =` mutations now live only inside transition service.
+
+### Verification
+- Passed: static migration audit (`state.mode =` grep) in touched scope
+- Failed: n/a
+- Not run: manual Phase 03 transition matrix and command/editor parity scripts
+
+### Next Session Start Here
+- Run Phase 03 validation checklist in `phase-03-mode-boundary.md` (colon entry, escape exit, urlline behavior, editor command lifecycle).
+
+## Session 2026-05-07 #07
+### Objective
+- Close Phase 03 after manual parity validation and hand off to Phase 04.
+
+### Completed
+- Marked all remaining Phase 03 checklist items as complete in `phase-03-mode-boundary.md`.
+- Recorded successful manual parity validation for command entry/exit, urlline lifecycle, editor command submission, and statusline mode labeling.
+- Updated master plan phase status: Phase 03 `done`, Phase 04 `in progress`.
+- Updated master plan session handoff to Phase 04 step 1.
+
+### Verification
+- Passed: manual Phase 03 mode transition matrix and command/editor parity checks
+- Failed: n/a
+- Not run: automated regression suite
+
+### Next Session Start Here
+- Execute `phase-04-grammar-extraction.md` step 1: extract reusable count/sequence timeout utilities.

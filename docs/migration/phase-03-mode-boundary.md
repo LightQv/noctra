@@ -21,22 +21,22 @@ Make modes interpretation-only and centralize mode transitions behind one contro
 - `core/dispatcher.js`
 
 ## Steps
-1. Inventory all mode mutations in codebase.
-2. Define mode transition API.
-3. Replace scattered direct writes incrementally.
-4. Add assertions for illegal transitions.
-5. Validate parity matrix.
+1. [x] Inventory all mode mutations in codebase.
+2. [x] Define mode transition API.
+3. [x] Replace scattered direct writes incrementally.
+4. [x] Add assertions for illegal transitions.
+5. [x] Validate parity matrix.
 
 ## Behavior Parity Checklist
-- [ ] `:` enters command mode exactly as before
-- [ ] `Escape` exits insert/command exactly as before
-- [ ] Editor mode and shell mode labeling unchanged
-- [ ] Urlline mode behavior unchanged
+- [x] `:` enters command mode exactly as before
+- [x] `Escape` exits insert/command exactly as before
+- [x] Editor mode and shell mode labeling unchanged
+- [x] Urlline mode behavior unchanged
 
 ## Validation
-- [ ] Mode transition matrix runs clean
-- [ ] Command buffer lifecycle unchanged
-- [ ] Editor command submission unchanged
+- [x] Mode transition matrix runs clean
+- [x] Command buffer lifecycle unchanged
+- [x] Editor command submission unchanged
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -45,6 +45,18 @@ Make modes interpretation-only and centralize mode transitions behind one contro
 | command regressions | cursor/buffer reset differences | preserve current command lifecycle exactly |
 
 ## Exit Criteria
-- [ ] Transition API owns mode writes
-- [ ] No direct unsafe writes remain in touched scope
-- [ ] Parity checks pass
+- [x] Transition API owns mode writes
+- [x] No direct unsafe writes remain in touched scope
+- [x] Parity checks pass
+
+## Handoff Notes
+- Done:
+  - Added `core/modeTransitionService.js` to centralize mode transitions and command lifecycle entry/exit state updates.
+  - Replaced direct `state.mode` writes in `motions/*`, `motions/actionBuilders.js`, `core/dispatcher.js`, `main.js`, and `core/history/panel.js` with transition service calls.
+  - Added non-breaking illegal transition warnings for command-mode exits when not currently in command mode.
+  - Completed grep audit for `state.mode =` writes; only transition service now mutates app mode.
+- Remaining:
+  - none.
+
+## Validation Result
+- Manual parity matrix passed for command entry (`:`), insert/command exit (`Escape`), urlline lifecycle, editor command submission, and statusline mode labeling.

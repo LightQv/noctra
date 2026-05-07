@@ -1,5 +1,6 @@
 const { parseCommand } = require("../core/commandParser");
 const { INTENTS } = require("../core/intents");
+const { exitCommandMode } = require("../core/modeTransitionService");
 
 function toCommandChar(input) {
   if (input.ctrl || input.alt || input.meta) {
@@ -61,20 +62,14 @@ function handleCommand(state, input) {
   }
 
   if (input.key === "Escape") {
-    state.mode = "NORMAL";
-    state.commandBuffer = "";
-    state.commandCursorIndex = 0;
-    state.commandTarget = "SHELL";
+    exitCommandMode(state, { reason: "command-escape" });
     return { type: INTENTS.HIDE_COMMAND };
   }
 
   if (input.key === "Enter") {
     const cmd = state.commandBuffer;
     const target = state.commandTarget === "EDITOR" ? "EDITOR" : "SHELL";
-    state.mode = "NORMAL";
-    state.commandBuffer = "";
-    state.commandCursorIndex = 0;
-    state.commandTarget = "SHELL";
+    exitCommandMode(state, { reason: "command-enter" });
 
     if (target === "EDITOR") {
       return {

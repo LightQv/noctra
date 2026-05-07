@@ -26,6 +26,7 @@ const telescopeService = require("./core/telescope/service");
 const { resolveFocusSnapshot } = require("./core/focusResolver");
 const { resolveInputPriority } = require("./core/inputPriorityResolver");
 const { resolveSemanticContext } = require("./core/semanticContextResolver");
+const { setMode, enterInsertMode, enterNormalMode, enterCommandMode } = require("./core/modeTransitionService");
 const sessionService = require("./core/session/service");
 const notificationsService = require("./core/notifications/service");
 const { validateNavigableUrl } = require("./core/security/urlPolicy");
@@ -493,7 +494,7 @@ function syncWebBufferModeWithFocusedElement(webContents) {
         return;
       }
 
-      state.mode = nextMode;
+      setMode(state, nextMode, "web-focus-sync");
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
     })
     .catch(() => {});
@@ -806,7 +807,7 @@ function startUrllineEdit(pane, initialUrl) {
   state.urllinePane = pane === "right" ? "right" : "left";
   state.urllineBuffer = String(initialUrl || "");
   state.urllineCursorIndex = state.urllineBuffer.length;
-  state.mode = "INSERT";
+  enterInsertMode(state, "urlline-start-edit");
   uiShell.updateStatuslineMode(getStatuslineModeLabel());
   updateUrllineRender();
 }
@@ -816,7 +817,7 @@ function stopUrllineEdit() {
   state.urllinePane = "left";
   state.urllineBuffer = "";
   state.urllineCursorIndex = 0;
-  state.mode = "NORMAL";
+  enterNormalMode(state, "urlline-stop-edit");
   uiShell.updateStatuslineMode(getStatuslineModeLabel());
   updateUrllineRender();
 }
@@ -1047,10 +1048,11 @@ function registerUiShellEvents() {
     if (type === "editor:open-command") {
       const initialText =
         typeof payload?.initialText === "string" ? payload.initialText : "";
-      state.mode = "COMMAND";
-      state.commandTarget = "EDITOR";
-      state.commandBuffer = initialText;
-      state.commandCursorIndex = initialText.length;
+      enterCommandMode(state, {
+        target: "EDITOR",
+        initialText,
+        reason: "editor-open-command",
+      });
       dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
       dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
       return;

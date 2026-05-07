@@ -2,6 +2,7 @@ const { BrowserView, clipboard } = require("electron");
 const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
 const notificationsService = require("../notifications/service");
+const { enterNormalMode } = require("../modeTransitionService");
 const { getNormalKeymap, getModAction } = require("../../motions/keymap");
 const { isModPressed } = require("../../motions/modifiers");
 const {
@@ -1364,7 +1365,7 @@ class HistoryPanel {
     this.focused = true;
     if (this.state) {
       this.state.interactionContext = "TREE";
-      this.state.mode = "NORMAL";
+      enterNormalMode(this.state, "history-panel-focus");
     }
     if (
       this.window &&

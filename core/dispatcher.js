@@ -24,6 +24,7 @@ const {
   toCssVars,
 } = require("../ui/theme");
 const { resolveSemanticContext } = require("./semanticContextResolver");
+const { enterCommandMode } = require("./modeTransitionService");
 
 function computeStatuslineModeLabel(state) {
   if (telescopeService.isActive()) {
@@ -419,10 +420,11 @@ function dispatch(win, intent, state) {
       break;
 
     case INTENTS.OPEN_URL_PROMPT:
-      state.mode = "COMMAND";
-      state.commandBuffer = "open ";
-      state.commandCursorIndex = state.commandBuffer.length;
-      state.commandTarget = "SHELL";
+      enterCommandMode(state, {
+        target: "SHELL",
+        initialText: "open ",
+        reason: "dispatcher-open-url-prompt",
+      });
       dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
       dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
       break;

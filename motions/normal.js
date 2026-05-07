@@ -1,6 +1,7 @@
 const { getNormalKeymap } = require("./keymap");
 const { handleMod, isModPressed } = require("./modifiers");
 const { INTENTS } = require("../core/intents");
+const { enterCommandMode } = require("../core/modeTransitionService");
 const { getLeaderNode, getWhichKeyModel } = require("./leaderMap");
 const { rememberRepeatableIntent } = require("./repeat");
 const buffers = require("../browser/manager");
@@ -188,10 +189,12 @@ function handleNormal(state, input) {
   }
 
   if (key === ":") {
-    state.mode = "COMMAND";
-    state.commandBuffer = "";
-    state.commandCursorIndex = 0;
-    state.commandTarget = "SHELL";
+    enterCommandMode(state, {
+      target: "SHELL",
+      initialText: "",
+      cursorIndex: 0,
+      reason: "normal-colon",
+    });
     return { type: INTENTS.SHOW_COMMAND };
   }
 

@@ -1,6 +1,7 @@
 const { INTENTS } = require("../core/intents");
 const { cloneIntent } = require("./repeat");
 const { isBookmarkableBuffer } = require("../core/bookmarks/eligibility");
+const { enterInsertMode } = require("../core/modeTransitionService");
 
 function createActionBuilder(actionId, buildIntent) {
   const builder = (state, count) => buildIntent(state, count);
@@ -47,7 +48,7 @@ const ACTION_BUILDERS = {
   buffer_prev: createActionBuilder("buffer_prev", () => ({ type: INTENTS.BUFFER_PREV })),
   buffer_next: createActionBuilder("buffer_next", () => ({ type: INTENTS.BUFFER_NEXT })),
   enter_insert: createActionBuilder("enter_insert", (state) => {
-    state.mode = "INSERT";
+    enterInsertMode(state, "action-enter-insert");
     return { type: INTENTS.ENTER_INSERT };
   }),
   open_url_prompt: createActionBuilder("open_url_prompt", () => ({ type: INTENTS.OPEN_URL_PROMPT })),

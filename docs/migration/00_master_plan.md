@@ -32,8 +32,8 @@ Migrate current architecture toward `modal_browser_architecture_v_2.md` while pr
 ## Phase Overview
 | Phase | Name | Status | Depends On | Last Update |
 |---|---|---|---|---|
-| 01 | Input/Priority/Focus extraction | not started | - | - |
-| 02 | Context layer normalization | not started | 01 | - |
+| 01 | Input/Priority/Focus extraction | done | - | 2026-05-07 |
+| 02 | Context layer normalization | in progress | 01 | 2026-05-07 |
 | 03 | Mode boundary hardening | not started | 01, 02 | - |
 | 04 | Grammar extraction/alignment | not started | 03 | - |
 | 05 | Dispatcher decomposition | not started | 02, 03 | - |
@@ -94,7 +94,7 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## Session Handoff
-- Last completed phase: none
-- Active phase: none
+- Last completed phase: 01
+- Active phase: 02
 - Blockers: none
-- Next action: start phase 01 and update status to `in progress`
+- Next action: Phase 02 step 1 - document current `interactionContext` transitions

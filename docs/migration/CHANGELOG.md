@@ -25,3 +25,43 @@
 - Set Phase 01 status to `in progress` in `00_master_plan.md`.
 - Create a concrete precedence truth table from current `main.js::handleRawInput`.
 - Begin extracting priority resolver without reordering logic.
+
+## Session 2026-05-07 #02
+### Objective
+- Start Phase 01 extraction of input priority and focus ownership.
+
+### Completed
+- Added `core/focusResolver.js` to centralize focus snapshot queries.
+- Added `core/inputPriorityResolver.js` to preserve `handleRawInput` precedence decisions.
+- Integrated resolvers into `main.js` while keeping branch order and behavior unchanged.
+- Updated migration master plan phase status to `in progress`.
+
+### Verification
+- Passed: code-level parity inspection of raw input gate ordering
+- Failed: n/a
+- Not run: manual keyflow scripts A/B/C
+
+### Risks/Notes
+- Manual parity scripts still required before marking phase complete.
+
+## Session 2026-05-07 #03
+### Objective
+- Close Phase 01 and prepare clean handoff into Phase 02.
+
+### Completed
+- Manual parity confirmation recorded for keyflow scripts A/B/C.
+- Phase 01 validation and exit criteria checkboxes marked complete.
+- Master plan updated: Phase 01 marked `done`, Phase 02 marked `in progress`.
+- Session handoff updated to Phase 02 context transition work.
+
+### Verification
+- Passed: manual keyflow parity A/B/C (normal browsing, history/bookmark panel, telescope/command/urlline)
+- Failed: n/a
+- Not run: automated regression suite
+
+### Risks/Notes
+- Phase 01 extraction complete with preserved behavior; Phase 02 still carries context-mismatch risk during normalization.
+
+### Next Session Start Here
+- Execute `phase-02-context-layer.md` step 1: document current `interactionContext` transitions.
+- Introduce semantic context interface/contracts behind compatibility path.

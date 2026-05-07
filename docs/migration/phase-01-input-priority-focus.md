@@ -33,16 +33,16 @@ Extract explicit input priority and focus resolution modules without behavior ch
 5. Validate full parity matrix.
 
 ## Behavior Parity Checklist
-- [ ] Leader key still preempts focused tree when expected
-- [ ] History panel focused key handling unchanged
-- [ ] Telescope input handling unchanged
-- [ ] Urlline and command paste shortcuts unchanged
-- [ ] Cmd/Ctrl shortcuts unchanged
+- [x] Leader key still preempts focused tree when expected
+- [x] History panel focused key handling unchanged
+- [x] Telescope input handling unchanged
+- [x] Urlline and command paste shortcuts unchanged
+- [x] Cmd/Ctrl shortcuts unchanged
 
 ## Validation
-- [ ] Manual: baseline keyflow script A (normal browsing)
-- [ ] Manual: keyflow script B (history/bookmark panel)
-- [ ] Manual: keyflow script C (telescope + command + urlline)
+- [x] Manual: baseline keyflow script A (normal browsing)
+- [x] Manual: keyflow script B (history/bookmark panel)
+- [x] Manual: keyflow script C (telescope + command + urlline)
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -51,12 +51,18 @@ Extract explicit input priority and focus resolution modules without behavior ch
 | Focus race around active buffer | stale webContents refs | preserve existing bind/unbind flow |
 
 ## Exit Criteria
-- [ ] Resolver modules exist and are wired
-- [ ] No behavior change observed
-- [ ] Master phase status updated
+- [x] Resolver modules exist and are wired
+- [x] No behavior change observed
+- [x] Master phase status updated
 
 ## Handoff Notes
 - Done:
+  - Added focus snapshot resolver in `core/focusResolver.js`.
+  - Added priority resolver in `core/inputPriorityResolver.js`.
+  - Integrated both into `main.js::handleRawInput` with original precedence preserved.
 - Remaining:
+  - none.
 - Known pitfalls:
+  - Any subtle change in branch order inside `handleRawInput` can regress focused tree and leader precedence.
 - Next exact step:
+  - Start Phase 02 step 1: document current `interactionContext` transitions.

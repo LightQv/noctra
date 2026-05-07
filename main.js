@@ -23,6 +23,8 @@ const historyService = require("./core/history/service");
 const historyPanel = require("./core/history/panel");
 const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const telescopeService = require("./core/telescope/service");
+const { resolveFocusSnapshot } = require("./core/focusResolver");
+const { resolveInputPriority } = require("./core/inputPriorityResolver");
 const sessionService = require("./core/session/service");
 const notificationsService = require("./core/notifications/service");
 const { validateNavigableUrl } = require("./core/security/urlPolicy");
@@ -329,27 +331,23 @@ function normalizeInput(input) {
   };
 }
 
-function isLeaderKey(key, leaderKey) {
-  if (leaderKey === "Space") {
-    return key === "Space" || key === " ";
-  }
-
-  return key === leaderKey;
-}
-
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
-  const isPrimaryMod =
-    process.platform === "darwin"
-      ? normalized.meta && !normalized.ctrl
-      : normalized.ctrl && !normalized.meta;
+  const focusSnapshot = resolveFocusSnapshot({
+    state,
+    buffers,
+    historyPanel,
+    bookmarkInsertScopeModal,
+    telescopeService,
+  });
+  const priority = resolveInputPriority(normalized, focusSnapshot, state, process.platform);
 
-  if (bookmarkInsertScopeModal.isActive()) {
+  if (focusSnapshot.bookmarkModalActive) {
     const wasActive = true;
     const consumed = bookmarkInsertScopeModal.handleInput(normalized);
     if (consumed) {
       event.preventDefault();
-      if (wasActive && !bookmarkInsertScopeModal.isActive() && historyPanel.isVisible()) {
+      if (wasActive && !bookmarkInsertScopeModal.isActive() && focusSnapshot.historyPanelVisible) {
         historyPanel.reloadData();
         historyPanel.render();
       }
@@ -359,7 +357,7 @@ function handleRawInput(event, input) {
     }
   }
 
-  if (telescopeService.isActive()) {
+  if (focusSnapshot.telescopeActive) {
     const result = telescopeService.handleInput(normalized);
     if (result.consumed) {
       event.preventDefault();
@@ -381,27 +379,14 @@ function handleRawInput(event, input) {
     }
   }
 
-  const leaderKey = state.leaderKey || "Space";
-  const shouldPrioritizeLeader =
-    normalized.type === "keyDown" &&
-    !historyPanel.isTextInputActive() &&
-    (state.leaderActive || isLeaderKey(normalized.key, leaderKey));
-
-  if (!shouldPrioritizeLeader && historyPanel.handleFocusedInput(normalized)) {
+  if (priority.shouldRouteFocusedTreeInput && historyPanel.handleFocusedInput(normalized)) {
     event.preventDefault();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     updateTablineOptions();
     return;
   }
 
-  const isUrllinePasteShortcut =
-    state.urllineEditing &&
-    normalized.type === "keyDown" &&
-    (normalized.key === "v" || normalized.key === "V") &&
-    ((process.platform === "darwin" && normalized.meta && !normalized.ctrl) ||
-      (process.platform !== "darwin" && normalized.ctrl && !normalized.meta));
-
-  if (isUrllinePasteShortcut) {
+  if (priority.isUrllinePasteShortcut) {
     event.preventDefault();
     handleUrllineInput(event, {
       ...normalized,
@@ -410,20 +395,13 @@ function handleRawInput(event, input) {
     return;
   }
 
-  if (state.urllineEditing) {
+  if (priority.shouldRouteUrllineInput) {
     event.preventDefault();
     handleUrllineInput(event, normalized);
     return;
   }
 
-  const isCommandPasteShortcut =
-    state.mode === "COMMAND" &&
-    normalized.type === "keyDown" &&
-    (normalized.key === "v" || normalized.key === "V") &&
-    ((process.platform === "darwin" && normalized.meta && !normalized.ctrl) ||
-      (process.platform !== "darwin" && normalized.ctrl && !normalized.meta));
-
-  if (isCommandPasteShortcut) {
+  if (priority.isCommandPasteShortcut) {
     event.preventDefault();
     handleInput(win, {
       ...normalized,
@@ -432,25 +410,13 @@ function handleRawInput(event, input) {
     return;
   }
 
-  const isOpenSettingsShortcut =
-    normalized.type === "keyDown" &&
-    (normalized.key === "," || normalized.key === "Comma") &&
-    ((process.platform === "darwin" && normalized.meta) ||
-      (process.platform !== "darwin" && normalized.ctrl));
-
-  if (isOpenSettingsShortcut) {
+  if (priority.isOpenSettingsShortcut) {
     event.preventDefault();
     dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
     return;
   }
 
-  const isBufferShortcut =
-    normalized.type === "keyDown" &&
-    isPrimaryMod &&
-    !normalized.alt &&
-    (normalized.key === "t" || normalized.key === "T");
-
-  if (isBufferShortcut) {
+  if (priority.isBufferShortcut) {
     event.preventDefault();
     if (normalized.key === "T" || normalized.shift) {
       dispatch(win, { type: INTENTS.REOPEN_BUFFER }, state);

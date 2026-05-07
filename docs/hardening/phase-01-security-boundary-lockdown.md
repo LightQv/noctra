@@ -29,26 +29,26 @@ Eliminate high-risk trust-boundary issues before further architectural work.
 - Hardened BrowserView preferences consistently applied
 
 ## Steps
-1. [ ] Audit all BrowserView/Window creation sites and classify trusted vs untrusted surfaces.
-2. [ ] Remove preload bridge from untrusted web buffers (including reopen/split paths).
-3. [ ] Replace generic renderer bridge (`emit/invoke`) with explicit IPC contracts.
-4. [ ] Add sender allowlist enforcement for internal IPC channels.
-5. [ ] Vendor internal settings editor assets locally; remove CDN runtime dependencies.
-6. [ ] Add strict CSP for internal UI surfaces.
-7. [ ] Apply consistent hardened `webPreferences` everywhere applicable.
-8. [ ] Run targeted manual exploit checks and baseline behavior parity checks.
+1. [x] Audit all BrowserView/Window creation sites and classify trusted vs untrusted surfaces.
+2. [x] Remove preload bridge from untrusted web buffers (including reopen/split paths).
+3. [x] Replace generic renderer bridge (`emit/invoke`) with explicit IPC contracts.
+4. [x] Add sender allowlist enforcement for internal IPC channels.
+5. [x] Vendor internal settings editor assets locally; remove CDN runtime dependencies.
+6. [x] Add strict CSP for internal UI surfaces.
+7. [x] Apply consistent hardened `webPreferences` everywhere applicable.
+8. [x] Run targeted manual exploit checks and baseline behavior parity checks.
 
 ## Behavior Parity Checklist
-- [ ] Normal browsing and tab operations unchanged
-- [ ] Command mode, urlline, and telescope workflows unchanged
-- [ ] Sidepanel history/bookmark workflows unchanged
-- [ ] Settings editor still works offline without remote runtime loads
+- [x] Normal browsing and tab operations unchanged
+- [x] Command mode, urlline, and telescope workflows unchanged
+- [x] Sidepanel history/bookmark workflows unchanged
+- [x] Settings editor still works offline without remote runtime loads
 
 ## Validation
-- [ ] Manual: untrusted page cannot access privileged bridge (`window.uiShell` absent)
-- [ ] Manual: unauthorized sender rejected by IPC handlers
-- [ ] Manual: settings/internal surfaces load without remote script/css requests
-- [ ] Manual: baseline keyflow scripts A/B/C still pass
+- [x] Manual: untrusted page cannot access privileged bridge (`window.uiShell` absent)
+- [x] Manual: unauthorized sender rejected by IPC handlers
+- [x] Manual: settings/internal surfaces load without remote script/css requests
+- [x] Manual: baseline keyflow scripts A/B/C still pass
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -58,18 +58,24 @@ Eliminate high-risk trust-boundary issues before further architectural work.
 | CSP blocks required scripts/styles | overly strict policy | start report-only or staged policy in dev, then enforce |
 
 ## Exit Criteria
-- [ ] No privileged bridge exposed to untrusted content
-- [ ] IPC contract surface explicit and sender-validated
-- [ ] No remote runtime assets in internal privileged pages
-- [ ] BrowserView hardening baseline applied consistently
-- [ ] Phase status updated in master plan
+- [x] No privileged bridge exposed to untrusted content
+- [x] IPC contract surface explicit and sender-validated
+- [x] No remote runtime assets in internal privileged pages
+- [x] BrowserView hardening baseline applied consistently
+- [x] Phase status updated in master plan
 
 ## Handoff Notes
 - Done:
-  - none.
+  - Completed trusted/untrusted surface inventory for all BrowserWindow/BrowserView creation sites.
+  - Removed privileged preload from untrusted web buffer paths, including reopen and split flows.
+  - Replaced generic preload bridge and IPC channels with explicit APIs/channels.
+  - Added sender checks scoped to window shell vs editable settings surfaces.
+  - Replaced remote settings editor runtime assets with local vendored assets.
+  - Added strict CSP to internal UI surfaces and hardened BrowserView webPreferences consistently.
+  - Passed manual exploit checks and baseline behavior parity checks.
 - Remaining:
-  - all steps.
+  - none.
 - Known pitfalls:
-  - Reopen/split buffer paths can silently reintroduce privileged preload.
+  - Reopen/split buffer paths can silently reintroduce privileged preload if future buffer creation bypasses centralized defaults.
 - Next exact step:
-  - Complete step 1 with a file-by-file trusted/untrusted surface inventory.
+  - Execute `phase-02-keymap-architecture-completion.md` step 1: keymap source inventory by mode/context.

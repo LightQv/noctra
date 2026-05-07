@@ -155,12 +155,14 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
             const action = node.getAttribute('data-urlline-action');
             const pane = node.getAttribute('data-pane') || 'left';
 
-            if (!action || !window.uiShell || typeof window.uiShell.emit !== 'function') {
+            if (!action || !window.uiShell) {
               return;
             }
 
             if (action === 'start-edit') {
-              window.uiShell.emit('urlline:start-edit', { pane });
+              if (typeof window.uiShell.startUrllineEdit === 'function') {
+                window.uiShell.startUrllineEdit(pane);
+              }
               return;
             }
 
@@ -168,7 +170,9 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
               return;
             }
 
-            window.uiShell.emit('urlline:action', { pane, action });
+            if (typeof window.uiShell.urllineAction === 'function') {
+              window.uiShell.urllineAction(pane, action);
+            }
           });
           root.dataset.boundClick = 'true';
         }

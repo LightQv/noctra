@@ -10,11 +10,15 @@ const {
 } = require("../constants");
 const { DEFAULT_THEME, toCssVars } = require("../theme");
 
+const INTERNAL_UI_CSP =
+  "default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+
 const SHELL_HTML = `
 <!doctype html>
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
     <style>
       ${UI_FONT_FACE_CSS}
 
@@ -55,6 +59,7 @@ const COMMAND_OVERLAY_HTML = `
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
     <style>
       html,
       body {
@@ -177,6 +182,7 @@ const WHICHKEY_OVERLAY_HTML = `
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
     <style>
       html,
       body {
@@ -316,6 +322,7 @@ const SELECTION_MODAL_OVERLAY_HTML = `
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
     <style>
       html,
       body {
@@ -466,6 +473,7 @@ const TELESCOPE_OVERLAY_HTML = `
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
     <style>
       html,
       body {
@@ -669,6 +677,7 @@ const STATUSLINE_OVERLAY_HTML = `
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
     <style>
       html,
       body {
@@ -765,6 +774,7 @@ const TOAST_OVERLAY_HTML = `
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
     <style>
       html,
       body {
@@ -1002,6 +1012,8 @@ class UiShellManager {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
       },
     });
 
@@ -1027,6 +1039,8 @@ class UiShellManager {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
       },
     });
 
@@ -1052,6 +1066,8 @@ class UiShellManager {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
       },
     });
 
@@ -1079,6 +1095,8 @@ class UiShellManager {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
       },
     });
 
@@ -1106,6 +1124,8 @@ class UiShellManager {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
       },
     });
 
@@ -1133,6 +1153,8 @@ class UiShellManager {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
       },
     });
 

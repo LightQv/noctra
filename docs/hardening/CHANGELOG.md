@@ -1,5 +1,34 @@
 # Hardening Session Changelog
 
+## Session 2026-05-07 #02
+### Objective
+- Complete Phase 01 security boundary lockdown for OSS-readiness gate items.
+
+### Completed
+- Completed trusted/untrusted surface inventory across BrowserWindow/BrowserView creation paths.
+- Removed privileged preload bridge exposure from untrusted web buffers, including reopen/split paths.
+- Replaced generic renderer bridge (`emit/invoke`) and generic IPC request/event channels with explicit contracts.
+- Added sender-scoped checks for internal shell channels and editable settings channels.
+- Switched settings editor to local vendored CodeMirror runtime assets; removed CDN runtime dependencies.
+- Added strict CSP to internal shell/settings surfaces.
+- Applied consistent BrowserView hardening (`contextIsolation`, `nodeIntegration`, `sandbox`, `webviewTag`) on internal surfaces.
+- Updated phase/master artifacts to mark Phase 01 complete and activate Phase 02.
+
+### Decisions
+- Continue enforcing explicit IPC contracts and sender scoping as a hard requirement for future internal surfaces.
+
+### Verification
+- Passed: manual exploit checks (bridge absence on untrusted pages, unauthorized sender rejection).
+- Passed: baseline behavior parity checks (browsing/tab ops, command/urlline/telescope, sidepanel workflows).
+- Passed: settings editor offline behavior without remote runtime asset requests.
+- Failed: n/a.
+
+### Risks/Notes
+- Reopen/split/new buffer creation paths remain a high-sensitivity area for accidental privileged preload regressions.
+
+### Next Session Start Here
+- Execute `phase-02-keymap-architecture-completion.md` step 1: produce keymap source inventory table by mode/context.
+
 ## Session 2026-05-07 #01
 ### Objective
 - Initialize post-migration hardening tracking using the same structure as `docs/migration/`.

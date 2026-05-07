@@ -118,7 +118,7 @@ function openEditableFileBuffer(options = {}) {
   const buffer = buffers.create(null, {
     kind: "editable",
     activate: true,
-    preloadPath: path.join(__dirname, "..", "ui", "shell", "preload.js"),
+    preloadPath: path.join(__dirname, "..", "ui", "settings", "preload.js"),
   });
 
   buffer.loadVirtualDocument({

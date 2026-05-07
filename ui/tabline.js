@@ -156,8 +156,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
 
           if (actionButton) {
             const action = actionButton.getAttribute('data-window-action');
-            if (action && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('window:action', { action });
+            if (action && window.uiShell && typeof window.uiShell.windowAction === 'function') {
+              window.uiShell.windowAction(action);
             }
             return;
           }
@@ -165,15 +165,15 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           const tablineActionButton = target.closest('[data-tabline-action]');
           if (tablineActionButton) {
             const tablineAction = tablineActionButton.getAttribute('data-tabline-action');
-            if (tablineAction === 'new-tab' && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('tabline:new-tab');
+            if (tablineAction === 'new-tab' && window.uiShell && typeof window.uiShell.newTab === 'function') {
+              window.uiShell.newTab();
               return;
             }
-            if (tablineAction === 'open-settings' && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('tabline:open-settings');
+            if (tablineAction === 'open-settings' && window.uiShell && typeof window.uiShell.openSettings === 'function') {
+              window.uiShell.openSettings();
             }
-            if (tablineAction === 'open-history' && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('tabline:open-history');
+            if (tablineAction === 'open-history' && window.uiShell && typeof window.uiShell.openHistory === 'function') {
+              window.uiShell.openHistory();
             }
             return;
           }
@@ -182,8 +182,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
 
           if (closeButton) {
             const closeId = Number.parseInt(closeButton.dataset.tabId, 10);
-            if (Number.isInteger(closeId) && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('tab:close', { id: closeId });
+            if (Number.isInteger(closeId) && window.uiShell && typeof window.uiShell.closeTab === 'function') {
+              window.uiShell.closeTab(closeId);
             }
             return;
           }
@@ -192,8 +192,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           if (!tab) return;
 
           const tabId = Number.parseInt(tab.dataset.tabId, 10);
-          if (Number.isInteger(tabId) && window.uiShell && window.uiShell.emit) {
-            window.uiShell.emit('tab:activate', { id: tabId });
+          if (Number.isInteger(tabId) && window.uiShell && typeof window.uiShell.activateTab === 'function') {
+            window.uiShell.activateTab(tabId);
           }
         });
 

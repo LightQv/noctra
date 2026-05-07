@@ -8,14 +8,26 @@ const {
   UI_CHROME_EDITOR_HEADER_HORIZONTAL_PADDING,
   UI_CHROME_ICON_GLYPH_SIZE,
 } = require("../../ui/constants");
+const fs = require("fs");
 const { resolveTheme, toCssVars } = require("../../ui/theme");
 
-const CODEMIRROR_CSS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css";
-const CODEMIRROR_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js";
-const CODEMIRROR_SEARCH_CURSOR_JS_URL =
-  "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/search/searchcursor.js";
-const CODEMIRROR_VIM_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/keymap/vim.js";
-const CODEMIRROR_YAML_JS_URL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/yaml/yaml.js";
+function readCodeMirrorAsset(assetPath) {
+  try {
+    const resolved = require.resolve(assetPath);
+    return fs.readFileSync(resolved, "utf8").replace(/<\/script/gi, "<\\/script");
+  } catch {
+    return "";
+  }
+}
+
+const CODEMIRROR_CSS = readCodeMirrorAsset("codemirror/lib/codemirror.css");
+const CODEMIRROR_JS = readCodeMirrorAsset("codemirror/lib/codemirror.js");
+const CODEMIRROR_SEARCH_CURSOR_JS = readCodeMirrorAsset("codemirror/addon/search/searchcursor.js");
+const CODEMIRROR_VIM_JS = readCodeMirrorAsset("codemirror/keymap/vim.js");
+const CODEMIRROR_YAML_JS = readCodeMirrorAsset("codemirror/mode/yaml/yaml.js");
+
+const SETTINGS_CSP =
+  "default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
 function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "", options = {}) {
   const viewTitle =
@@ -47,9 +59,11 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${SETTINGS_CSP}" />
     <title>${viewTitle}</title>
-    <link rel="stylesheet" href="${CODEMIRROR_CSS_URL}" />
     <style>
+      ${CODEMIRROR_CSS}
+
       ${UI_FONT_FACE_CSS}
 
       :root {
@@ -285,10 +299,18 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
         </div>
       </div>
     <div id="editor-root"></div>
-    <script src="${CODEMIRROR_JS_URL}"></script>
-    <script src="${CODEMIRROR_SEARCH_CURSOR_JS_URL}"></script>
-    <script src="${CODEMIRROR_VIM_JS_URL}"></script>
-    <script src="${CODEMIRROR_YAML_JS_URL}"></script>
+    <script>
+      ${CODEMIRROR_JS}
+    </script>
+    <script>
+      ${CODEMIRROR_SEARCH_CURSOR_JS}
+    </script>
+    <script>
+      ${CODEMIRROR_VIM_JS}
+    </script>
+    <script>
+      ${CODEMIRROR_YAML_JS}
+    </script>
     <script>
       (function settingsEditorBoot() {
         const initialThemeVars = ${initialThemeVars};
@@ -299,20 +321,52 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
 
         if (!root || typeof window.CodeMirror === "undefined") return;
 
-        const shell = window.uiShell && typeof window.uiShell === "object" ? window.uiShell : null;
+        const shell =
+          window.settingsBridge && typeof window.settingsBridge === "object"
+            ? window.settingsBridge
+            : null;
         const invokeShell = (type, payload) => {
-          if (!shell || typeof shell.invoke !== "function") {
+          if (!shell) {
             return Promise.resolve({ ok: false });
           }
-          return shell.invoke(type, payload);
+          if (type === "settings:get" && typeof shell.get === "function") {
+            return shell.get();
+          }
+          if (type === "settings:save" && typeof shell.save === "function") {
+            return shell.save(payload?.content || "");
+          }
+          if (type === "settings:close" && typeof shell.close === "function") {
+            return shell.close();
+          }
+          return Promise.resolve({ ok: false });
         };
         const emitShell = (type, payload) => {
-          if (!shell || typeof shell.emit !== "function") return;
-          shell.emit(type, payload);
+          if (!shell) return;
+          if (type === "editor:ready" && typeof shell.editorReady === "function") {
+            shell.editorReady();
+            return;
+          }
+          if (type === "editor:mode-change" && typeof shell.editorModeChange === "function") {
+            shell.editorModeChange(payload?.mode);
+            return;
+          }
+          if (type === "editor:focus-request" && typeof shell.editorFocusRequest === "function") {
+            shell.editorFocusRequest();
+            return;
+          }
+          if (type === "editor:open-command" && typeof shell.editorOpenCommand === "function") {
+            shell.editorOpenCommand(payload?.initialText || "");
+            return;
+          }
+          if (type === "editor:toggle-context" && typeof shell.editorToggleContext === "function") {
+            shell.editorToggleContext();
+          }
         };
         const onShell = (type, handler) => {
-          if (!shell || typeof shell.on !== "function") return;
-          shell.on(type, handler);
+          if (!shell || typeof shell.onThemeUpdate !== "function") return;
+          if (type === "theme:update") {
+            shell.onThemeUpdate(handler);
+          }
         };
 
         const applyThemeVars = (vars) => {
@@ -680,7 +734,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
           ensureCursorVisibleWithScrolloff();
         });
 
-        if (shell && typeof shell.invoke === "function") {
+        if (shell && typeof shell.get === "function") {
           reloadContent().then(() => {
             focusEditorSurface();
             notifyReady();

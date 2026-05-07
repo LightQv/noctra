@@ -33,8 +33,8 @@ Close post-migration gaps identified in architecture and security reviews while 
 ## Phase Overview
 | Phase | Name | Status | Depends On | Last Update |
 |---|---|---|---|---|
-| 01 | Security boundary lockdown | in progress | - | 2026-05-07 |
-| 02 | Keymap architecture completion | not started | 01 | 2026-05-07 |
+| 01 | Security boundary lockdown | done | - | 2026-05-07 |
+| 02 | Keymap architecture completion | in progress | 01 | 2026-05-07 |
 | 03 | Invariants, tests, and CI gates | not started | 01, 02 | 2026-05-07 |
 | 04 | Adapter deepening + monolith split | not started | 03 | 2026-05-07 |
 
@@ -94,7 +94,7 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## Session Handoff
-- Last completed phase: none
-- Active phase: 01
+- Last completed phase: 01
+- Active phase: 02
 - Blockers: none
-- Next action: Execute `phase-01-security-boundary-lockdown.md` step 1.
+- Next action: Execute `phase-02-keymap-architecture-completion.md` step 1.

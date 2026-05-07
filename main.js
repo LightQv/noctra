@@ -932,220 +932,235 @@ function handleUrllineInput(event, input) {
 }
 
 function registerUiShellEvents() {
-  const onShellEvent = (event, message) => {
-    if (!win) return;
-    const sender = event.sender;
-    const fromShellHost = sender === win.webContents;
-    const fromActiveBuffer = sender === buffers.getActiveWebContents();
-    if (!fromShellHost && !fromActiveBuffer) return;
-    if (!message || typeof message !== "object") return;
+  const isWindowSender = (event) => Boolean(win && event && event.sender === win.webContents);
+  const isEditableSender = (event) => Boolean(event && buffers.isEditableWebContents(event.sender));
 
-    const { type, payload } = message;
+  const onWindowAction = (event, payload) => {
+    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
+    const action = payload.action;
+    performWindowAction(win, action);
+  };
 
-    if (type === "window:action") {
-      const action = payload?.action;
-      performWindowAction(win, action);
-      return;
-    }
+  const onOpenSettings = (event) => {
+    if (!win || !isWindowSender(event)) return;
+    dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
+  };
 
-    if (type === "tabline:open-settings") {
-      dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
-      return;
-    }
+  const onNewTab = (event) => {
+    if (!win || !isWindowSender(event)) return;
+    dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
+  };
 
-    if (type === "tabline:new-tab") {
-      dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
-      return;
-    }
+  const onOpenHistory = (event) => {
+    if (!win || !isWindowSender(event)) return;
+    dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  };
 
-    if (type === "tabline:open-history") {
-      dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
-      uiShell.updateStatuslineMode(getStatuslineModeLabel());
-      return;
-    }
-
-    if (type === "editor:toggle-context") {
-      dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
-      uiShell.updateStatuslineMode(getStatuslineModeLabel());
-      return;
-    }
-
-    if (type === "editor:mode-change") {
-      const nextMode =
-        payload?.mode === "INSERT" || payload?.mode === "NORMAL"
-          ? payload.mode
-          : "NORMAL";
-      state.editorMode = nextMode;
-      uiShell.updateStatuslineMode(getStatuslineModeLabel());
-      return;
-    }
-
-    if (type === "editor:focus-request") {
-      setEditorFocused(state, true);
-      focusActiveEditorSurface();
-      uiShell.updateStatuslineMode(getStatuslineModeLabel());
-      return;
-    }
-
-    if (type === "editor:open-command") {
-      const initialText =
-        typeof payload?.initialText === "string" ? payload.initialText : "";
-      enterCommandMode(state, {
-        target: "EDITOR",
-        initialText,
-        reason: "editor-open-command",
-      });
-      dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
-      dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
-      return;
-    }
-
-    if (type === "editor:ready") {
-      setEditorFocused(state, true);
-      state.editorMode = "NORMAL";
-      focusActiveEditorSurface({ forceNormal: true });
-      uiShell.updateStatuslineMode(getStatuslineModeLabel());
-      return;
-    }
-
-    if (type === "urlline:start-edit") {
-      const pane = payload?.pane === "right" ? "right" : "left";
-      buffers.focusPane(pane);
-      const paneBuffer = buffers.getPaneBuffer(pane);
-      if (!paneBuffer || paneBuffer.isEditable) {
-        return;
-      }
-      startUrllineEdit(pane, paneBuffer.url || "about:blank");
-      return;
-    }
-
-    if (type === "urlline:action") {
-      const pane = payload?.pane === "right" ? "right" : "left";
-      const action = payload?.action;
-      const paneBuffer = buffers.getPaneBuffer(pane);
-      if (!paneBuffer || paneBuffer.isEditable) {
-        return;
-      }
-
-      buffers.focusPane(pane);
-
-      if (action === "back") {
-        webContentsActions.goBack(paneBuffer.webContents);
-        return;
-      }
-
-      if (action === "forward") {
-        webContentsActions.goForward(paneBuffer.webContents);
-        return;
-      }
-
-      if (action === "reload") {
-        webContentsActions.reload(paneBuffer.webContents);
-      }
-      return;
-    }
-
-    const bufferId = Number.parseInt(payload?.id, 10);
-
+  const onTabActivate = (event, payload) => {
+    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
+    const bufferId = Number.parseInt(payload.id, 10);
     if (!Number.isInteger(bufferId)) return;
+    buffers.switchTo(bufferId);
+    historyPanel.unfocus();
+    buffers.focusActive();
+    updateTablineOptions();
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  };
 
-    if (type === "tab:activate") {
-      buffers.switchTo(bufferId);
-      historyPanel.unfocus();
-      buffers.focusActive();
-      updateTablineOptions();
-      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  const onTabClose = (event, payload) => {
+    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
+    const bufferId = Number.parseInt(payload.id, 10);
+    if (!Number.isInteger(bufferId)) return;
+    buffers.close(bufferId);
+  };
+
+  const onUrllineStartEdit = (event, payload) => {
+    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
+    const pane = payload.pane === "right" ? "right" : "left";
+    buffers.focusPane(pane);
+    const paneBuffer = buffers.getPaneBuffer(pane);
+    if (!paneBuffer || paneBuffer.isEditable) {
+      return;
+    }
+    startUrllineEdit(pane, paneBuffer.url || "about:blank");
+  };
+
+  const onUrllineAction = (event, payload) => {
+    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
+    const pane = payload.pane === "right" ? "right" : "left";
+    const action = payload.action;
+    const paneBuffer = buffers.getPaneBuffer(pane);
+    if (!paneBuffer || paneBuffer.isEditable) {
       return;
     }
 
-    if (type === "tab:close") {
-      buffers.close(bufferId);
+    buffers.focusPane(pane);
+
+    if (action === "back") {
+      webContentsActions.goBack(paneBuffer.webContents);
+      return;
+    }
+
+    if (action === "forward") {
+      webContentsActions.goForward(paneBuffer.webContents);
+      return;
+    }
+
+    if (action === "reload") {
+      webContentsActions.reload(paneBuffer.webContents);
     }
   };
 
-  ipcMain.on("ui-shell:event", onShellEvent);
+  const onEditorToggleContext = (event) => {
+    if (!win || !isEditableSender(event)) return;
+    dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  };
 
-  const onShellRequest = async (event, message) => {
-    if (!win || event.sender !== buffers.getActiveWebContents()) return { ok: false };
-    if (!message || typeof message !== "object") return { ok: false };
+  const onEditorModeChange = (event, payload) => {
+    if (!win || !isEditableSender(event) || !payload || typeof payload !== "object") return;
+    const nextMode = payload.mode === "INSERT" || payload.mode === "NORMAL" ? payload.mode : "NORMAL";
+    state.editorMode = nextMode;
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  };
 
-    const { type, payload } = message;
+  const onEditorFocusRequest = (event) => {
+    if (!win || !isEditableSender(event)) return;
+    setEditorFocused(state, true);
+    focusActiveEditorSurface();
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  };
 
-    if (type === "settings:get") {
-      const activeBuffer = buffers.getActive();
-      const configPath =
-        activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
-          ? activeBuffer.editableFilePath
-          : configService.getConfigPath();
-      try {
-        const content = fs.readFileSync(configPath, "utf8");
-        const themeContext = resolveCurrentTheme();
-        return {
-          ok: true,
-          content,
-          leaderKey: configService.getConfigValue("global.input.leader_key", "Space"),
-          relativeLineNumbers: configService.getConfigValue(
-            "global.editor.relative_line_numbers",
-            true,
-          ),
-          scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
-          ...buildThemePayload(themeContext),
-        };
-      } catch (error) {
-        return { ok: false, error: error.message };
-      }
+  const onEditorOpenCommand = (event, payload) => {
+    if (!win || !isEditableSender(event) || !payload || typeof payload !== "object") return;
+    const initialText = typeof payload.initialText === "string" ? payload.initialText : "";
+    enterCommandMode(state, {
+      target: "EDITOR",
+      initialText,
+      reason: "editor-open-command",
+    });
+    dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
+    dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
+  };
+
+  const onEditorReady = (event) => {
+    if (!win || !isEditableSender(event)) return;
+    setEditorFocused(state, true);
+    state.editorMode = "NORMAL";
+    focusActiveEditorSurface({ forceNormal: true });
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  };
+
+  const onSettingsGet = async (event) => {
+    if (!win || !isEditableSender(event) || event.sender !== buffers.getActiveWebContents()) {
+      return { ok: false };
     }
+    const activeBuffer = buffers.getActive();
+    const configPath =
+      activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+        ? activeBuffer.editableFilePath
+        : configService.getConfigPath();
+    try {
+      const content = fs.readFileSync(configPath, "utf8");
+      const themeContext = resolveCurrentTheme();
+      return {
+        ok: true,
+        content,
+        leaderKey: configService.getConfigValue("global.input.leader_key", "Space"),
+        relativeLineNumbers: configService.getConfigValue("global.editor.relative_line_numbers", true),
+        scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
+        ...buildThemePayload(themeContext),
+      };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  };
 
-    if (type === "settings:save") {
-      const activeBuffer = buffers.getActive();
-      const configPath =
-        activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
-          ? activeBuffer.editableFilePath
-          : configService.getConfigPath();
-      try {
-        fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
-        if (configPath !== configService.getConfigPath()) {
-          return { ok: true };
-        }
-        const config = configService.reloadConfig();
-        state.applyConfig(config);
-        applyBrowserLanguagePreference();
-        buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
-        historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
-        historyPanel.setTreeScrollContextLines(
-          configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
-        );
-        historyPanel.setTreeDeleteOperatorTimeoutMs(
-          configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
-        );
-        historyPanel.layout();
-        buffers.layoutViews();
-        const themeContext = resolveCurrentTheme();
-        applyTheme(themeContext, { broadcast: true });
-        uiShell.updateSplitDivider(buffers.getSplitStatus());
-        updateTablineActions();
-        updateTablineOptions();
-        updateUrllineActions();
-        updateUrllineRender();
+  const onSettingsSave = async (event, payload) => {
+    if (!win || !isEditableSender(event) || event.sender !== buffers.getActiveWebContents()) {
+      return { ok: false };
+    }
+    const activeBuffer = buffers.getActive();
+    const configPath =
+      activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+        ? activeBuffer.editableFilePath
+        : configService.getConfigPath();
+    try {
+      fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
+      if (configPath !== configService.getConfigPath()) {
         return { ok: true };
-      } catch (error) {
-        return { ok: false, error: error.message };
       }
-    }
-
-    if (type === "settings:close") {
-      dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
+      const config = configService.reloadConfig();
+      state.applyConfig(config);
+      applyBrowserLanguagePreference();
+      buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+      historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+      historyPanel.setTreeScrollContextLines(
+        configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+      );
+      historyPanel.setTreeDeleteOperatorTimeoutMs(
+        configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+      );
+      historyPanel.layout();
+      buffers.layoutViews();
+      const themeContext = resolveCurrentTheme();
+      applyTheme(themeContext, { broadcast: true });
+      uiShell.updateSplitDivider(buffers.getSplitStatus());
+      updateTablineActions();
+      updateTablineOptions();
+      updateUrllineActions();
+      updateUrllineRender();
       return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error.message };
     }
-
-    return { ok: false };
   };
 
-  ipcMain.handle("ui-shell:request", onShellRequest);
+  const onSettingsClose = async (event) => {
+    if (!win || !isEditableSender(event) || event.sender !== buffers.getActiveWebContents()) {
+      return { ok: false };
+    }
+    dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
+    return { ok: true };
+  };
+
+  ipcMain.on("ui-shell:window-action", onWindowAction);
+  ipcMain.on("ui-shell:open-settings", onOpenSettings);
+  ipcMain.on("ui-shell:new-tab", onNewTab);
+  ipcMain.on("ui-shell:open-history", onOpenHistory);
+  ipcMain.on("ui-shell:tab-activate", onTabActivate);
+  ipcMain.on("ui-shell:tab-close", onTabClose);
+  ipcMain.on("ui-shell:urlline-start-edit", onUrllineStartEdit);
+  ipcMain.on("ui-shell:urlline-action", onUrllineAction);
+
+  ipcMain.on("settings:editor-toggle-context", onEditorToggleContext);
+  ipcMain.on("settings:editor-mode-change", onEditorModeChange);
+  ipcMain.on("settings:editor-focus-request", onEditorFocusRequest);
+  ipcMain.on("settings:editor-open-command", onEditorOpenCommand);
+  ipcMain.on("settings:editor-ready", onEditorReady);
+
+  ipcMain.handle("settings:get", onSettingsGet);
+  ipcMain.handle("settings:save", onSettingsSave);
+  ipcMain.handle("settings:close", onSettingsClose);
 
   win.on("closed", () => {
-    ipcMain.removeListener("ui-shell:event", onShellEvent);
-    ipcMain.removeHandler("ui-shell:request");
+    ipcMain.removeListener("ui-shell:window-action", onWindowAction);
+    ipcMain.removeListener("ui-shell:open-settings", onOpenSettings);
+    ipcMain.removeListener("ui-shell:new-tab", onNewTab);
+    ipcMain.removeListener("ui-shell:open-history", onOpenHistory);
+    ipcMain.removeListener("ui-shell:tab-activate", onTabActivate);
+    ipcMain.removeListener("ui-shell:tab-close", onTabClose);
+    ipcMain.removeListener("ui-shell:urlline-start-edit", onUrllineStartEdit);
+    ipcMain.removeListener("ui-shell:urlline-action", onUrllineAction);
+    ipcMain.removeListener("settings:editor-toggle-context", onEditorToggleContext);
+    ipcMain.removeListener("settings:editor-mode-change", onEditorModeChange);
+    ipcMain.removeListener("settings:editor-focus-request", onEditorFocusRequest);
+    ipcMain.removeListener("settings:editor-open-command", onEditorOpenCommand);
+    ipcMain.removeListener("settings:editor-ready", onEditorReady);
+    ipcMain.removeHandler("settings:get");
+    ipcMain.removeHandler("settings:save");
+    ipcMain.removeHandler("settings:close");
   });
 }
 

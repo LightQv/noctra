@@ -1228,6 +1228,8 @@ class HistoryPanel {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
       },
     });
     this.window.addBrowserView(this.view);

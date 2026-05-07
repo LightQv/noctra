@@ -1,5 +1,4 @@
 const { BrowserView, nativeTheme, clipboard } = require("electron");
-const path = require("path");
 const Buffer = require("./buffers");
 const {
   UI_SHELL_TABLINE_HEIGHT,
@@ -375,7 +374,6 @@ class BufferManager {
     const buffer = new Buffer(0, {
       kind: snapshot.kind || "web",
       activate: false,
-      preloadPath: path.join(__dirname, "..", "ui", "shell", "preload.js"),
     });
     buffer.setContentUiOptions(this.contentUiOptions);
     buffer.on("updated", (event = {}) => {
@@ -850,6 +848,29 @@ class BufferManager {
     return items;
   }
 
+  getBufferByWebContents(webContents) {
+    if (!webContents || webContents.isDestroyed()) {
+      return null;
+    }
+
+    for (const buffer of this.buffers) {
+      if (buffer && buffer.webContents === webContents) {
+        return buffer;
+      }
+    }
+
+    if (this.split.rightPaneBuffer && this.split.rightPaneBuffer.webContents === webContents) {
+      return this.split.rightPaneBuffer;
+    }
+
+    return null;
+  }
+
+  isEditableWebContents(webContents) {
+    const buffer = this.getBufferByWebContents(webContents);
+    return Boolean(buffer && buffer.isEditable);
+  }
+
   subscribe(listener) {
     this.subscribers.add(listener);
     return () => this.subscribers.delete(listener);
@@ -864,9 +885,7 @@ class BufferManager {
   ensureRightPaneBuffer() {
     if (this.split.rightPaneBuffer || !this.window) return;
 
-    const rightPane = new Buffer(0, {
-      preloadPath: path.join(__dirname, "..", "ui", "shell", "preload.js"),
-    });
+    const rightPane = new Buffer(0);
     rightPane.setContentUiOptions(this.contentUiOptions);
     rightPane.on("updated", (event = {}) => {
       this.notify({ kind: event.kind || "metadata", activeChanged: false });

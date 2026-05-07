@@ -1,6 +1,6 @@
 const state = {
   mode: "NORMAL",
-  interactionContext: "SHELL",
+  editorFocus: false,
   editorMode: "NORMAL",
   keyBuffer: "",
   countBuffer: "",

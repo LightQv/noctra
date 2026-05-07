@@ -1,3 +1,5 @@
+const { isEditorFocused } = require("./editorFocusState");
+
 function resolveFocusOwner(snapshot = {}) {
   if (snapshot.bookmarkModalActive) {
     return "BOOKMARK_MODAL";
@@ -19,7 +21,7 @@ function resolveFocusOwner(snapshot = {}) {
     return "COMMAND";
   }
 
-  if (snapshot.interactionContext === "EDITOR" && snapshot.activeBufferEditable) {
+  if (snapshot.editorFocused && snapshot.activeBufferEditable) {
     return "EDITOR";
   }
 
@@ -37,7 +39,7 @@ function resolveFocusSnapshot({ state, buffers, historyPanel, bookmarkInsertScop
     historyPanelTextInputActive: Boolean(historyPanel && historyPanel.isTextInputActive()),
     urllineEditing: Boolean(state && state.urllineEditing),
     commandMode: Boolean(state && state.mode === "COMMAND"),
-    interactionContext: state && state.interactionContext ? state.interactionContext : "SHELL",
+    editorFocused: isEditorFocused(state),
     activeBufferEditable: Boolean(activeBuffer && activeBuffer.isEditable),
   };
 }

@@ -3,6 +3,7 @@ const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
 const notificationsService = require("../notifications/service");
 const { enterNormalMode } = require("../modeTransitionService");
+const { isEditorFocused, setEditorFocused } = require("../editorFocusState");
 const { getNormalKeymap, getModAction } = require("../../motions/keymap");
 const { isModPressed } = require("../../motions/modifiers");
 const {
@@ -65,7 +66,7 @@ class HistoryPanel {
     this.treeKind = "history";
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
-    this.previousContext = "SHELL";
+    this.previousEditorFocus = false;
     this.treeCountBuffer = "";
     this.treeKeyBuffer = "";
     this.treeDeletePending = false;
@@ -1340,8 +1341,9 @@ class HistoryPanel {
     this.clearTreeNormalState();
     this.clearTreeDeletePendingTimer();
     this.resetTreeScrollState();
-    if (this.state)
-      this.state.interactionContext = this.previousContext || "SHELL";
+    if (this.state) {
+      setEditorFocused(this.state, this.previousEditorFocus);
+    }
     this.buffers.setLeftInset(0);
     this.applyHiddenBounds();
     this.clearRenderTimer();
@@ -1365,10 +1367,10 @@ class HistoryPanel {
 
   focus() {
     if (!this.visible || this.focused) return;
-    this.previousContext = this.state ? this.state.interactionContext : "SHELL";
+    this.previousEditorFocus = this.state ? isEditorFocused(this.state) : false;
     this.focused = true;
     if (this.state) {
-      this.state.interactionContext = "TREE";
+      setEditorFocused(this.state, false);
       enterNormalMode(this.state, "history-panel-focus");
     }
     if (
@@ -1385,8 +1387,9 @@ class HistoryPanel {
   unfocus() {
     if (!this.focused) return;
     this.focused = false;
-    if (this.state)
-      this.state.interactionContext = this.previousContext || "SHELL";
+    if (this.state) {
+      setEditorFocused(this.state, this.previousEditorFocus);
+    }
     this.render();
     this.emitFocusChange();
   }

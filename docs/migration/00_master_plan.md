@@ -38,7 +38,7 @@ Migrate current architecture toward `modal_browser_architecture_v_2.md` while pr
 | 04 | Grammar extraction/alignment | done | 03 | 2026-05-07 |
 | 05 | Dispatcher decomposition | done | 02, 03 | 2026-05-07 |
 | 06 | Renderer/platform adapter boundaries | done | 05 | 2026-05-07 |
-| 07 | Cleanup + invariants enforcement | in progress | all | 2026-05-07 |
+| 07 | Cleanup + invariants enforcement | done | all | 2026-05-07 |
 
 Status values: `not started | in progress | blocked | done`
 
@@ -63,23 +63,23 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## Behavior Parity Gates (required each phase)
-- [ ] Normal/modifier/leader keybindings unchanged
-- [ ] Command mode behavior unchanged
-- [ ] Urlline editing behavior unchanged
-- [ ] Sidepanel history/bookmark workflows unchanged
-- [ ] Telescope behavior unchanged
-- [ ] Settings/notifications editor workflows unchanged
-- [ ] Visual UI unchanged (tabline/urlline/statusline/panels/overlays)
+- [x] Normal/modifier/leader keybindings unchanged
+- [x] Command mode behavior unchanged
+- [x] Urlline editing behavior unchanged
+- [x] Sidepanel history/bookmark workflows unchanged
+- [x] Telescope behavior unchanged
+- [x] Settings/notifications editor workflows unchanged
+- [x] Visual UI unchanged (tabline/urlline/statusline/panels/overlays)
 
 ---
 
 ## Risk Register
 | Risk | Impact | Probability | Detection | Mitigation | Status |
 |---|---|---|---|---|---|
-| Input precedence regression | High | Medium | manual keyflow script | extract resolver with same order first | open |
-| Focus/z-order conflict | High | Medium | split + overlays checks | centralize focus ownership | open |
-| Mode/context drift | High | Medium | mode transition matrix | single transition API | open |
-| Sidepanel modal breakage | High | High | tree interaction checklist | migrate sidepanel last in grammar phase | open |
+| Input precedence regression | High | Medium | manual keyflow script | extract resolver with same order first | closed |
+| Focus/z-order conflict | High | Medium | split + overlays checks | centralize focus ownership | closed |
+| Mode/context drift | High | Medium | mode transition matrix | single transition API | closed |
+| Sidepanel modal breakage | High | High | tree interaction checklist | migrate sidepanel last in grammar phase | closed |
 
 ---
 
@@ -94,7 +94,7 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## Session Handoff
-- Last completed phase: 06
-- Active phase: 07
+- Last completed phase: 07
+- Active phase: none
 - Blockers: none
-- Next action: Phase 07 step 1 - remove compatibility leftovers from earlier phases after usage audit.
+- Next action: Migration complete. Treat future changes as post-migration enhancements.

@@ -23,8 +23,10 @@ const {
   resolveContentColorScheme,
   toCssVars,
 } = require("../ui/theme");
-const { resolveSemanticContext } = require("./semanticContextResolver");
 const { enterCommandMode } = require("./modeTransitionService");
+const { setEditorFocused, isEditorFocused } = require("./editorFocusState");
+const { computeStatuslineModeLabel } = require("./statuslineModeLabel");
+const { assertIntentShape } = require("./invariants");
 const editorSurface = require("./adapters/renderer/editorSurface");
 const { broadcastUiShellPush } = require("./adapters/renderer/uiShellPush");
 const webContentsActions = require("./adapters/platform/webContentsActions");
@@ -37,31 +39,6 @@ const { createHistoryBookmarksHandlers } = require("./dispatcher/handlers/histor
 const { createTelescopeHandlers } = require("./dispatcher/handlers/telescope");
 const { createSessionHandlers } = require("./dispatcher/handlers/session");
 const { createMiscHandlers } = require("./dispatcher/handlers/misc");
-
-function computeStatuslineModeLabel(state) {
-  if (telescopeService.isActive()) {
-    return telescopeService.getMode();
-  }
-
-  if (state.mode === "COMMAND") {
-    return "COMMAND";
-  }
-
-  if (historyPanel.isVisible() && historyPanel.isFocused()) {
-    return "TREE:NORMAL";
-  }
-
-  const active = buffers.getActive();
-  if (!active || !active.isEditable) {
-    return state.mode;
-  }
-
-  if (resolveSemanticContext({ state, buffers, historyPanel }) === "editor") {
-    return `EDITOR:${state.editorMode || "NORMAL"}`;
-  }
-
-  return `SHELL:${state.mode}`;
-}
 
 function blurFocusedWebInput(buffer) {
   if (!buffer || buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
@@ -296,6 +273,7 @@ function warnOnIntentCoverageGaps(handlers) {
 
 function dispatch(win, intent, state) {
   if (!intent) return;
+  assertIntentShape(intent);
 
   if (!isKnownIntentType(intent.type)) {
     notificationsService.notify({
@@ -323,8 +301,8 @@ function dispatch(win, intent, state) {
   }
 
   const activeAfterDispatch = buffers.getActive();
-  if (!activeAfterDispatch?.isEditable && state.interactionContext === "EDITOR") {
-    state.interactionContext = "SHELL";
+  if (!activeAfterDispatch?.isEditable && isEditorFocused(state)) {
+    setEditorFocused(state, false);
   }
 
   uiShell.updateStatuslineMode(computeStatuslineModeLabel(state));

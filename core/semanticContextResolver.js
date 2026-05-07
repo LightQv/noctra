@@ -1,3 +1,5 @@
+const { isEditorFocused } = require("./editorFocusState");
+
 function normalizeTreeKind(treeKind) {
   return treeKind === "bookmarks" ? "bookmarks" : "history";
 }
@@ -18,9 +20,7 @@ function resolveSemanticContext({ state, buffers, historyPanel, focusSnapshot } 
     return normalizeTreeKind(treeKind);
   }
 
-  const inEditorContext =
-    Boolean(state && state.interactionContext === "EDITOR") &&
-    Boolean(activeBuffer && activeBuffer.isEditable);
+  const inEditorContext = isEditorFocused(state) && Boolean(activeBuffer && activeBuffer.isEditable);
   if (inEditorContext) {
     return "editor";
   }

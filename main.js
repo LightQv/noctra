@@ -25,8 +25,10 @@ const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const telescopeService = require("./core/telescope/service");
 const { resolveFocusSnapshot } = require("./core/focusResolver");
 const { resolveInputPriority } = require("./core/inputPriorityResolver");
-const { resolveSemanticContext } = require("./core/semanticContextResolver");
 const { setMode, enterInsertMode, enterNormalMode, enterCommandMode } = require("./core/modeTransitionService");
+const { setEditorFocused, isEditorFocused } = require("./core/editorFocusState");
+const { computeStatuslineModeLabel } = require("./core/statuslineModeLabel");
+const { assertInputPipelinePreconditions, assertModeWriteBoundary } = require("./core/invariants");
 const sessionService = require("./core/session/service");
 const notificationsService = require("./core/notifications/service");
 const { validateNavigableUrl } = require("./core/security/urlPolicy");
@@ -318,6 +320,7 @@ function handleRawInput(event, input) {
     telescopeService,
   });
   const priority = resolveInputPriority(normalized, focusSnapshot, state, process.platform);
+  assertInputPipelinePreconditions({ input: normalized, priority, focusSnapshot });
 
   if (focusSnapshot.bookmarkModalActive) {
     const wasActive = true;
@@ -420,6 +423,7 @@ function syncWebBufferModeWithFocusedElement(webContents) {
   }
 
   const activeBuffer = buffers.getActive();
+  const editorFocused = isEditorFocused(state) && Boolean(activeBuffer && activeBuffer.isEditable);
   if (!activeBuffer || activeBuffer.webContents !== webContents || activeBuffer.isEditable) {
     return Promise.resolve();
   }
@@ -427,7 +431,8 @@ function syncWebBufferModeWithFocusedElement(webContents) {
   if (
     state.mode === "COMMAND" ||
     state.urllineEditing ||
-    state.interactionContext !== "SHELL" ||
+    historyPanel.isFocused() ||
+    editorFocused ||
     (state.mode !== "NORMAL" && state.mode !== "INSERT")
   ) {
     return Promise.resolve();
@@ -447,7 +452,8 @@ function syncWebBufferModeWithFocusedElement(webContents) {
       if (
         state.mode === "COMMAND" ||
         state.urllineEditing ||
-        state.interactionContext !== "SHELL" ||
+        historyPanel.isFocused() ||
+        (isEditorFocused(state) && Boolean(latestActive && latestActive.isEditable)) ||
         (state.mode !== "NORMAL" && state.mode !== "INSERT")
       ) {
         return;
@@ -460,6 +466,7 @@ function syncWebBufferModeWithFocusedElement(webContents) {
       }
 
       setMode(state, nextMode, "web-focus-sync");
+      assertModeWriteBoundary({ mode: nextMode, state, source: "web-focus-sync" });
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
     })
     .catch(() => {});
@@ -743,20 +750,7 @@ function updateUrllineActions() {
 }
 
 function getStatuslineModeLabel() {
-  if (historyPanel.isVisible() && historyPanel.isFocused()) {
-    return "TREE:NORMAL";
-  }
-
-  const active = buffers.getActive();
-  if (!active || !active.isEditable) {
-    return state.mode;
-  }
-
-  if (resolveSemanticContext({ state, buffers, historyPanel }) === "editor") {
-    return `EDITOR:${state.editorMode || "NORMAL"}`;
-  }
-
-  return `SHELL:${state.mode}`;
+  return computeStatuslineModeLabel(state);
 }
 
 function clampUrllineCursor() {
@@ -987,7 +981,7 @@ function registerUiShellEvents() {
     }
 
     if (type === "editor:focus-request") {
-      state.interactionContext = "EDITOR";
+      setEditorFocused(state, true);
       focusActiveEditorSurface();
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       return;
@@ -1007,7 +1001,7 @@ function registerUiShellEvents() {
     }
 
     if (type === "editor:ready") {
-      state.interactionContext = "EDITOR";
+      setEditorFocused(state, true);
       state.editorMode = "NORMAL";
       focusActiveEditorSurface({ forceNormal: true });
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
@@ -1279,7 +1273,7 @@ function createWindow() {
     isMaximized: win.isMaximized(),
     isFullScreen: win.isFullScreen(),
   });
-  uiShell.updateStatuslineMode(state.mode);
+  uiShell.updateStatuslineMode(getStatuslineModeLabel());
   uiShell.updateStatuslineScroll(0);
   uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
   uiShell.updateSplitDivider(buffers.getSplitStatus());

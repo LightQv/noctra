@@ -137,3 +137,39 @@
 
 ### Next Session Start Here
 - Execute `phase-04-grammar-extraction.md` step 1: extract reusable count/sequence timeout utilities.
+
+## Session 2026-05-07 #08
+### Objective
+- Start Phase 04 grammar extraction by introducing shared grammar primitives.
+
+### Completed
+- Added `motions/grammarPrimitives.js` with shared sequence-timeout, count parsing, and key-sequence matching helpers.
+- Updated `motions/normal.js` to use shared timeout/count helpers without changing key behavior.
+- Updated `core/history/panel.js` to use shared timeout/count/sequence helpers for focused tree input handling.
+- Updated Phase 04 doc checkboxes for completed extraction steps and added handoff notes.
+
+### Verification
+- Passed: static parity inspection of timeout/count/key-sequence branch behavior in normal + tree handlers
+- Failed: n/a
+- Not run: manual Phase 04 motion/tree parity checklist
+
+### Next Session Start Here
+- Execute Phase 04 validation checklist in `phase-04-grammar-extraction.md` (motions, tree delete pending flows, sequence timing, repeat behavior).
+
+## Session 2026-05-07 #09
+### Objective
+- Close Phase 04 after manual parity validation and hand off to Phase 05.
+
+### Completed
+- Marked all remaining Phase 04 checklist items complete in `phase-04-grammar-extraction.md` (behavior parity, validation, and exit criteria).
+- Recorded successful manual Phase 04 validation result covering motion grammar, leader flows, tree delete pending flows, sequence timeout behavior, and repeat action behavior.
+- Updated master plan phase status: Phase 04 `done`, Phase 05 `in progress`.
+- Updated master plan session handoff to Phase 05 step 1.
+
+### Verification
+- Passed: manual Phase 04 parity checklist (motions, tree workflows, sequence timing, repeat behavior)
+- Failed: n/a
+- Not run: automated regression suite
+
+### Next Session Start Here
+- Execute `phase-05-dispatcher-decomposition.md` step 1: partition dispatcher switch cases by domain.

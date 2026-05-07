@@ -4,6 +4,7 @@ const { INTENTS } = require("../core/intents");
 const { enterCommandMode } = require("../core/modeTransitionService");
 const { getLeaderNode, getWhichKeyModel } = require("./leaderMap");
 const { rememberRepeatableIntent } = require("./repeat");
+const { hasSequenceTimedOut, consumePositiveCount } = require("./grammarPrimitives");
 const buffers = require("../browser/manager");
 
 function buildLeaderContext() {
@@ -173,7 +174,7 @@ function handleNormal(state, input) {
     }
   }
 
-  if (now - state.lastKeyTime > state.sequenceTimeout) {
+  if (hasSequenceTimedOut(now, state.lastKeyTime, state.sequenceTimeout)) {
     state.keyBuffer = "";
     state.countBuffer = "";
   }
@@ -223,7 +224,7 @@ function handleNormal(state, input) {
   const match = keymap[state.keyBuffer];
 
   if (match) {
-    const count = parseInt(state.countBuffer || "1", 10);
+    const count = consumePositiveCount(state.countBuffer, 1);
     state.countBuffer = "";
     state.keyBuffer = "";
 

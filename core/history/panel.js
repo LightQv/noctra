@@ -6,6 +6,11 @@ const { enterNormalMode } = require("../modeTransitionService");
 const { getNormalKeymap, getModAction } = require("../../motions/keymap");
 const { isModPressed } = require("../../motions/modifiers");
 const {
+  hasSequenceTimedOut,
+  consumePositiveCount,
+  resolveKeySequenceMatch,
+} = require("../../motions/grammarPrimitives");
+const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
   UI_TREE_LAYOUT,
@@ -182,9 +187,9 @@ class HistoryPanel {
   }
 
   consumeTreeCount(defaultCount = 1) {
-    const count = Number.parseInt(this.treeCountBuffer || String(defaultCount), 10);
+    const count = consumePositiveCount(this.treeCountBuffer, defaultCount);
     this.treeCountBuffer = "";
-    return Number.isFinite(count) && count > 0 ? count : defaultCount;
+    return count;
   }
 
   executeSharedTreeAction(actionId, count = 1) {
@@ -242,7 +247,7 @@ class HistoryPanel {
 
     this.treeKeyBuffer += key;
     const keymap = getNormalKeymap();
-    const exactBuilder = keymap[this.treeKeyBuffer];
+    const { exact: exactBuilder, hasPrefix } = resolveKeySequenceMatch(keymap, this.treeKeyBuffer);
     if (exactBuilder) {
       const count = this.consumeTreeCount(1);
       this.treeKeyBuffer = "";
@@ -251,7 +256,6 @@ class HistoryPanel {
       return { consumed: true, shouldRender: true };
     }
 
-    const hasPrefix = Object.keys(keymap).some((mapped) => mapped.startsWith(this.treeKeyBuffer));
     if (hasPrefix) {
       return { consumed: true, shouldRender: false };
     }
@@ -2178,8 +2182,7 @@ class HistoryPanel {
       : null;
 
     const now = Date.now();
-    const timeout = this.state?.sequenceTimeout;
-    if (Number.isFinite(timeout) && this.treeLastKeyTime && now - this.treeLastKeyTime > timeout) {
+    if (hasSequenceTimedOut(now, this.treeLastKeyTime, this.state?.sequenceTimeout)) {
       this.treeCountBuffer = "";
       this.treeKeyBuffer = "";
     }

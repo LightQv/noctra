@@ -25,6 +25,9 @@ const {
 } = require("../ui/theme");
 const { resolveSemanticContext } = require("./semanticContextResolver");
 const { enterCommandMode } = require("./modeTransitionService");
+const editorSurface = require("./adapters/renderer/editorSurface");
+const { broadcastUiShellPush } = require("./adapters/renderer/uiShellPush");
+const webContentsActions = require("./adapters/platform/webContentsActions");
 const { createNavigationHandlers } = require("./dispatcher/handlers/navigation");
 const { createCommandUiHandlers } = require("./dispatcher/handlers/commandUi");
 const { createBufferHandlers } = require("./dispatcher/handlers/buffers");
@@ -60,56 +63,14 @@ function computeStatuslineModeLabel(state) {
   return `SHELL:${state.mode}`;
 }
 
-function focusEditableBufferSurface(buffer) {
-  if (!buffer || !buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
-    return;
-  }
-
-  buffer.webContents.executeJavaScript(
-    `if (typeof window.__settingsEditorFocus__ === "function") { window.__settingsEditorFocus__(); }`,
-  ).catch(() => {});
-
-  if (buffer.webContents.isLoadingMainFrame()) {
-    buffer.webContents.once("did-finish-load", () => {
-      if (buffer.webContents.isDestroyed()) return;
-      buffer.webContents.executeJavaScript(
-        `if (typeof window.__settingsEditorFocus__ === "function") { window.__settingsEditorFocus__(); }`,
-      ).catch(() => {});
-    });
-  }
-}
-
-function blurEditableBufferSurface(buffer) {
-  if (!buffer || !buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
-    return;
-  }
-
-  buffer.webContents.executeJavaScript(
-    `if (typeof window.__settingsEditorBlur__ === "function") { window.__settingsEditorBlur__(); }`,
-  ).catch(() => {});
-}
-
-function runEditableExCommand(buffer, commandText) {
-  if (!buffer || !buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
-    return;
-  }
-
-  buffer.webContents.executeJavaScript(
-    `
-      if (typeof window.__settingsEditorRunCommand__ === "function") {
-        window.__settingsEditorRunCommand__(${JSON.stringify(String(commandText || ""))});
-      }
-    `,
-  ).catch(() => {});
-}
-
 function blurFocusedWebInput(buffer) {
   if (!buffer || buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
     return;
   }
 
-  buffer.webContents
-    .executeJavaScript(
+  webContentsActions
+    .executeScript(
+      buffer.webContents,
       `(function blurFocusedEditable() {
         const element = document.activeElement;
         if (!element || !(element instanceof Element)) return false;
@@ -239,25 +200,6 @@ function buildThemePayload(themeContext = {}) {
   };
 }
 
-function broadcastUiShellPush(win, type, payload = {}) {
-  if (!win || typeof type !== "string" || !type.length) return;
-
-  const targets = new Map();
-  const addTarget = (webContents) => {
-    if (!webContents || webContents.isDestroyed()) return;
-    targets.set(webContents.id, webContents);
-  };
-
-  addTarget(win.webContents);
-  for (const webContents of buffers.getAllWebContents()) {
-    addTarget(webContents);
-  }
-
-  for (const webContents of targets.values()) {
-    webContents.send("ui-shell:push", { type, payload });
-  }
-}
-
 function applyThemeEverywhere(win) {
   const themeContext = resolveCurrentThemeContext();
   const payload = buildThemePayload(themeContext);
@@ -268,7 +210,7 @@ function applyThemeEverywhere(win) {
     contentColorScheme: themeContext.contentColorScheme === "light" ? "light" : "dark",
   });
   buffers.refreshDashboardBuffers();
-  broadcastUiShellPush(win, "theme:update", payload);
+  broadcastUiShellPush({ win, buffers, type: "theme:update", payload });
 }
 
 function isReloadableWebBuffer(buffer) {
@@ -313,9 +255,9 @@ function createIntentHandlers(dispatch) {
     notificationsService,
     enterCommandMode,
     dispatch,
-    focusEditableBufferSurface,
-    blurEditableBufferSurface,
-    runEditableExCommand,
+    focusEditableBufferSurface: editorSurface.focus,
+    blurEditableBufferSurface: editorSurface.blur,
+    runEditableExCommand: editorSurface.runCommand,
     blurFocusedWebInput,
     openSettingsBuffer,
     openNotificationsBuffer,
@@ -323,6 +265,7 @@ function createIntentHandlers(dispatch) {
     applyThemeEverywhere,
     reloadReloadableBuffers,
     getActiveBookmarkCandidate,
+    webContentsActions,
   };
 
   return {

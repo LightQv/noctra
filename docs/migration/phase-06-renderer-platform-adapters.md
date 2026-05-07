@@ -19,21 +19,21 @@ Harden boundaries so engine/platform details stay behind adapter interfaces.
 - `browser/manager.js`
 
 ## Steps
-1. Inventory direct renderer/platform calls.
-2. Define adapter interfaces preserving current capabilities.
-3. Route callers through adapters.
-4. Keep behavior and timing unchanged.
+1. [x] Inventory direct renderer/platform calls.
+2. [x] Define adapter interfaces preserving current capabilities.
+3. [x] Route callers through adapters.
+4. [x] Keep behavior and timing unchanged.
 
 ## Behavior Parity Checklist
-- [ ] Overlay visibility/order unchanged
-- [ ] Editor focus/blur hooks unchanged
-- [ ] Window/platform actions unchanged
-- [ ] Theme propagation unchanged
+- [x] Overlay visibility/order unchanged
+- [x] Editor focus/blur hooks unchanged
+- [x] Window/platform actions unchanged
+- [x] Theme propagation unchanged
 
 ## Validation
-- [ ] Overlay stack checks with splits
-- [ ] Editor lifecycle checks
-- [ ] Startup/shutdown checks
+- [x] Overlay stack checks with splits
+- [x] Editor lifecycle checks
+- [x] Startup/shutdown checks
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -42,6 +42,29 @@ Harden boundaries so engine/platform details stay behind adapter interfaces.
 | platform shortcut regressions | adapter normalization drift | preserve existing normalized input contract |
 
 ## Exit Criteria
-- [ ] Adapters in place and used
-- [ ] Cross-layer direct calls reduced in orchestrators
-- [ ] Parity checks pass
+- [x] Adapters in place and used
+- [x] Cross-layer direct calls reduced in orchestrators
+- [x] Parity checks pass
+
+## Handoff Notes
+- Done:
+  - Added platform adapters:
+    - `core/adapters/platform/windowActions.js`
+    - `core/adapters/platform/webContentsActions.js`
+  - Added renderer adapters:
+    - `core/adapters/renderer/editorSurface.js`
+    - `core/adapters/renderer/uiShellPush.js`
+  - Routed direct orchestrator calls in `main.js` through adapters:
+    - window actions (`minimize`, `toggleMaximize`, `close`)
+    - urlline navigation actions (`back`, `forward`, `reload`)
+    - editor surface focus bridge calls
+    - web-mode focused editable detection
+    - statusline scroll polling script execution
+    - theme broadcast push fanout
+  - Routed dispatcher calls through adapters in `core/dispatcher.js` and `core/dispatcher/handlers/navigation.js`.
+- Remaining:
+  - none.
+
+## Validation Result
+- Passed: module load/syntax sanity for modified modules.
+- Passed: manual Phase 06 parity checklist (overlay order/stack with splits, editor focus/blur and command lifecycle hooks, startup/shutdown behavior).

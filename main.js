@@ -30,6 +30,10 @@ const { setMode, enterInsertMode, enterNormalMode, enterCommandMode } = require(
 const sessionService = require("./core/session/service");
 const notificationsService = require("./core/notifications/service");
 const { validateNavigableUrl } = require("./core/security/urlPolicy");
+const { performWindowAction } = require("./core/adapters/platform/windowActions");
+const webContentsActions = require("./core/adapters/platform/webContentsActions");
+const editorSurface = require("./core/adapters/renderer/editorSurface");
+const { broadcastUiShellPush } = require("./core/adapters/renderer/uiShellPush");
 const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
 let win;
 let activeInputWebContents = null;
@@ -279,47 +283,18 @@ function applyTheme(themeContext, options = {}) {
   });
   buffers.refreshDashboardBuffers();
   if (shouldBroadcast) {
-    broadcastUiShellPush("theme:update", payload);
-  }
-}
-
-function broadcastUiShellPush(type, payload = {}) {
-  if (!win || typeof type !== "string" || !type.length) return;
-
-  const targets = new Map();
-  const addTarget = (webContents) => {
-    if (!webContents || webContents.isDestroyed()) return;
-    targets.set(webContents.id, webContents);
-  };
-
-  addTarget(win.webContents);
-  for (const webContents of buffers.getAllWebContents()) {
-    addTarget(webContents);
-  }
-
-  for (const webContents of targets.values()) {
-    webContents.send("ui-shell:push", { type, payload });
+    broadcastUiShellPush({ win, buffers, type: "theme:update", payload });
   }
 }
 
 function focusActiveEditorSurface(options = {}) {
-  const forceNormal = Boolean(options.forceNormal);
   const active = buffers.getActive();
-  if (!active || !active.isEditable || !active.webContents || active.webContents.isDestroyed()) {
+  if (!active || !active.isEditable) {
     return;
   }
 
   buffers.focusActive();
-  active.webContents.executeJavaScript(
-    `
-      if (${JSON.stringify(forceNormal)} && typeof window.__settingsEditorSetNormal__ === "function") {
-        window.__settingsEditorSetNormal__();
-      }
-      if (typeof window.__settingsEditorFocus__ === "function") {
-        window.__settingsEditorFocus__();
-      }
-    `,
-  ).catch(() => {});
+  editorSurface.focus(active, options);
 }
 
 function normalizeInput(input) {
@@ -458,18 +433,8 @@ function syncWebBufferModeWithFocusedElement(webContents) {
     return Promise.resolve();
   }
 
-  return webContents
-    .executeJavaScript(
-      `(function resolveEditableFocus() {
-        const element = document.activeElement;
-        if (!element || !(element instanceof Element)) return false;
-        if (typeof element.matches === "function" && element.matches("input, textarea, select, [contenteditable]")) {
-          return true;
-        }
-        return element.isContentEditable === true;
-      })();`,
-      true,
-    )
+  return webContentsActions
+    .detectFocusedEditable(webContents)
     .then((isEditableFocused) => {
       if (!webContents || webContents.isDestroyed()) {
         return;
@@ -985,24 +950,7 @@ function registerUiShellEvents() {
 
     if (type === "window:action") {
       const action = payload?.action;
-
-      if (action === "minimize") {
-        win.minimize();
-        return;
-      }
-
-      if (action === "toggleMaximize") {
-        if (win.isMaximized()) {
-          win.unmaximize();
-        } else {
-          win.maximize();
-        }
-        return;
-      }
-
-      if (action === "close") {
-        win.close();
-      }
+      performWindowAction(win, action);
       return;
     }
 
@@ -1088,17 +1036,17 @@ function registerUiShellEvents() {
       buffers.focusPane(pane);
 
       if (action === "back") {
-        paneBuffer.webContents.navigationHistory.goBack();
+        webContentsActions.goBack(paneBuffer.webContents);
         return;
       }
 
       if (action === "forward") {
-        paneBuffer.webContents.navigationHistory.goForward();
+        webContentsActions.goForward(paneBuffer.webContents);
         return;
       }
 
       if (action === "reload") {
-        paneBuffer.webContents.reload();
+        webContentsActions.reload(paneBuffer.webContents);
       }
       return;
     }
@@ -1432,20 +1380,8 @@ function createWindow() {
 
     statusPollInFlight = true;
 
-    activeWebContents
-      .executeJavaScript(
-        `
-        (function getScrollPercent() {
-          const doc = document.documentElement;
-          const body = document.body;
-          const top = window.scrollY || doc.scrollTop || body.scrollTop || 0;
-          const scrollHeight = Math.max(doc.scrollHeight || 0, body.scrollHeight || 0);
-          const clientHeight = Math.max(doc.clientHeight || 0, window.innerHeight || 0);
-          const range = Math.max(scrollHeight - clientHeight, 1);
-          return Math.max(0, Math.min(100, Math.round((top / range) * 100)));
-        })();
-      `,
-      )
+    webContentsActions
+      .readScrollPercent(activeWebContents)
       .then((percent) => {
         if (typeof percent === "number") {
           uiShell.updateStatuslineScroll(percent);

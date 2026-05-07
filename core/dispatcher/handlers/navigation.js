@@ -1,64 +1,40 @@
 const { INTENTS } = require("../../intents");
 
 function createNavigationHandlers(deps) {
-  const { buffers, notificationsService, buildSearchUrl, normalizeUrl } = deps;
+  const { buffers, notificationsService, buildSearchUrl, normalizeUrl, webContentsActions } = deps;
 
   return {
     [INTENTS.SCROLL]: ({ intent }) => {
       const buf = buffers.getActive();
-      buf.webContents.executeJavaScript(`
-        (function applyScroll() {
-          const amount = ${Math.max(0, Number(intent.amount) || 0)};
-          if (${JSON.stringify(intent.direction)} === "left") {
-            window.scrollBy(-amount, 0);
-            return;
-          }
-          if (${JSON.stringify(intent.direction)} === "right") {
-            window.scrollBy(amount, 0);
-            return;
-          }
-          window.scrollBy(0, ${JSON.stringify(intent.direction)} === "down" ? amount : -amount);
-        })();
-      `);
+      webContentsActions.scrollByIntent(buf.webContents, intent.direction, intent.amount).catch(() => {});
     },
     [INTENTS.SCROLL_TOP]: () => {
       const buf = buffers.getActive();
-      buf.webContents.executeJavaScript(
-        `window.scrollTo({top: 0, behavior: "instant"})`,
-      );
+      webContentsActions.scrollTop(buf.webContents).catch(() => {});
     },
     [INTENTS.SCROLL_BOTTOM]: () => {
       const buf = buffers.getActive();
-      buf.webContents.executeJavaScript(`
-        window.scrollTo({
-          top: document.documentElement.scrollHeight,
-          behavior: "instant"
-        });
-      `);
+      webContentsActions.scrollBottom(buf.webContents).catch(() => {});
     },
     [INTENTS.PAGE_DOWN]: () => {
       const buf = buffers.getActive();
-      buf.webContents.executeJavaScript(
-        `window.scrollBy(0, Math.floor(window.innerHeight * 0.9))`,
-      );
+      webContentsActions.pageDown(buf.webContents).catch(() => {});
     },
     [INTENTS.PAGE_UP]: () => {
       const buf = buffers.getActive();
-      buf.webContents.executeJavaScript(
-        `window.scrollBy(0, -Math.floor(window.innerHeight * 0.9))`,
-      );
+      webContentsActions.pageUp(buf.webContents).catch(() => {});
     },
     [INTENTS.NAV_BACK]: () => {
       const buf = buffers.getActive();
-      buf.webContents.navigationHistory.goBack();
+      webContentsActions.goBack(buf.webContents);
     },
     [INTENTS.NAV_FORWARD]: () => {
       const buf = buffers.getActive();
-      buf.webContents.navigationHistory.goForward();
+      webContentsActions.goForward(buf.webContents);
     },
     [INTENTS.RELOAD_PAGE]: () => {
       const buf = buffers.getActive();
-      buf.webContents.reload();
+      webContentsActions.reload(buf.webContents);
     },
     [INTENTS.OPEN_URL]: ({ intent }) => {
       const rawUrl = typeof intent.url === "string" ? intent.url : "";

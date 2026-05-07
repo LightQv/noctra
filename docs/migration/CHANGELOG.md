@@ -220,3 +220,47 @@
 
 ### Next Session Start Here
 - Execute `phase-06-renderer-platform-adapters.md` step 1: inventory direct renderer/platform calls.
+
+## Session 2026-05-07 #12
+### Objective
+- Execute Phase 06 adapter boundary implementation (steps 1-3) with no intentional behavior changes.
+
+### Completed
+- Added platform adapters:
+  - `core/adapters/platform/windowActions.js`
+  - `core/adapters/platform/webContentsActions.js`
+- Added renderer adapters:
+  - `core/adapters/renderer/editorSurface.js`
+  - `core/adapters/renderer/uiShellPush.js`
+- Routed direct platform/renderer calls in `main.js` through adapters (window actions, urlline navigation, editor surface focus bridge, focused-editable detection, statusline scroll probe, theme broadcast).
+- Routed dispatcher and navigation handler direct calls through adapters in `core/dispatcher.js` and `core/dispatcher/handlers/navigation.js`.
+- Updated `phase-06-renderer-platform-adapters.md` checkboxes and handoff notes for completed steps.
+
+### Verification
+- Passed: module load sanity check for modified modules via Node `require(...)`.
+- Failed: n/a
+- Not run: manual Phase 06 parity checklist (overlay stack, editor lifecycle, startup/shutdown).
+
+### Risks/Notes
+- Overlay z-order and editor lifecycle timing still need manual parity confirmation before marking Step 4/phase validation complete.
+
+### Next Session Start Here
+- Execute manual Phase 06 validation checklist in `phase-06-renderer-platform-adapters.md`.
+
+## Session 2026-05-07 #13
+### Objective
+- Close Phase 06 after manual parity validation and hand off to Phase 07.
+
+### Completed
+- Marked remaining Phase 06 checklist items complete in `phase-06-renderer-platform-adapters.md` (step 4, behavior parity, validation, and exit criteria).
+- Recorded successful manual parity validation for overlay order/stack with splits, editor focus/blur and command lifecycle hooks, and startup/shutdown behavior.
+- Updated master plan phase status: Phase 06 `done`, Phase 07 `in progress`.
+- Updated master plan session handoff to Phase 07 step 1.
+
+### Verification
+- Passed: manual Phase 06 parity validation (overlay stack, editor lifecycle, startup/shutdown)
+- Failed: n/a
+- Not run: automated regression suite
+
+### Next Session Start Here
+- Execute `phase-07-cleanup-invariants.md` step 1: remove compatibility leftovers from earlier phases after usage audit.

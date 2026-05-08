@@ -26,7 +26,7 @@ const {
 const { enterCommandMode } = require("./modeTransitionService");
 const { setEditorFocused, isEditorFocused } = require("./editorFocusState");
 const { computeStatuslineModeLabel } = require("./statuslineModeLabel");
-const { assertIntentShape } = require("./invariants");
+const { assertIntentShape, enforceInvariant } = require("./invariants");
 const editorSurface = require("./adapters/renderer/editorSurface");
 const { broadcastUiShellPush } = require("./adapters/renderer/uiShellPush");
 const webContentsActions = require("./adapters/platform/webContentsActions");
@@ -262,12 +262,10 @@ let intentHandlers = null;
 
 function warnOnIntentCoverageGaps(handlers) {
   const missing = Object.values(INTENTS).filter((type) => typeof handlers[type] !== "function");
-  if (!missing.length) {
-    return;
-  }
-
-  console.warn(
-    `[dispatcher] Missing handler(s) for known intent types: ${missing.join(", ")}`,
+  enforceInvariant(
+    missing.length === 0,
+    "missing dispatcher handlers for known intent types",
+    { missing },
   );
 }
 

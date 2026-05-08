@@ -30,11 +30,11 @@ Turn architecture and security expectations into enforceable regression gates.
 - CI pipeline running lint/test/build/smoke gates
 
 ## Steps
-1. [ ] Classify invariants as critical vs advisory.
-2. [ ] Promote critical invariants to fail-fast behavior in dev/CI.
-3. [ ] Add unit tests for resolver + grammar + dispatch contracts.
-4. [ ] Add Electron smoke tests for key interactive flows.
-5. [ ] Add CI workflows and required checks for merge safety.
+1. [x] Classify invariants as critical vs advisory.
+2. [x] Promote critical invariants to fail-fast behavior in dev/CI.
+3. [x] Add unit tests for resolver + grammar + dispatch contracts.
+4. [x] Add Electron smoke tests for key interactive flows.
+5. [x] Add CI workflows and required checks for merge safety.
 6. [ ] Stabilize flaky checks and document troubleshooting.
 
 ## Behavior Parity Checklist
@@ -44,8 +44,28 @@ Turn architecture and security expectations into enforceable regression gates.
 
 ## Validation
 - [ ] CI run passes on clean branch
-- [ ] Local runbook verifies lint/test/build/smoke sequence
-- [ ] At least one intentional invariant violation fails as expected
+- [x] Local runbook verifies test/smoke sequence (`npm test`, `npm run test:smoke`)
+- [x] At least one intentional invariant violation fails as expected (covered in `tests/invariants-enforcement.test.js`)
+
+## Invariant Classification Table
+| Invariant | Severity | Dev/CI behavior | Production behavior | Owner location |
+|---|---|---|---|---|
+| Input must be normalized `keyDown` | critical | throw | warn | `core/invariants.js#assertInputPipelinePreconditions` |
+| Priority resolver output must exist/object | critical | throw | warn | `core/invariants.js#assertInputPipelinePreconditions` |
+| Focus snapshot must exist/object | critical | throw | warn | `core/invariants.js#assertInputPipelinePreconditions` |
+| Intent must include string `type` | critical | throw | warn | `core/invariants.js#assertIntentShape` |
+| Known intents must have handlers | critical | throw | warn | `core/dispatcher.js#warnOnIntentCoverageGaps` |
+| Mode write boundary desync | advisory | warn | warn | `core/invariants.js#assertModeWriteBoundary` |
+
+## CI Gate Scope (current)
+- Unit contracts: `npm test`
+- Electron startup smoke: `npm run test:smoke`
+- GitHub Actions workflow: `.github/workflows/ci.yml`
+
+## Troubleshooting (initial)
+- Linux CI smoke tests require a display server wrapper (`xvfb-run -a`).
+- If invariant failures block local debugging, keep production-like behavior with `NODE_ENV=production` and no `NOCTRA_INVARIANTS=strict`.
+- To force fail-fast locally outside CI, set `NOCTRA_INVARIANTS=strict`.
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -62,10 +82,13 @@ Turn architecture and security expectations into enforceable regression gates.
 
 ## Handoff Notes
 - Done:
-  - none.
+  - Classified invariants into critical/advisory and documented env-specific behavior.
+  - Promoted critical invariants to fail-fast in dev/CI with advisory invariants warn-only.
+  - Added contract tests for invariants enforcement, resolver behavior, and grammar primitive boundaries.
+  - Added Electron startup smoke test and wired CI workflow gates.
 - Remaining:
-  - all steps.
+  - Step 6 stabilization pass after first CI feedback loop.
 - Known pitfalls:
   - If critical/advisory split is unclear, CI noise can hide real regressions.
 - Next exact step:
-  - Execute step 1 and produce invariant classification table.
+  - Execute step 6: run CI feedback loop, stabilize flakes, and expand troubleshooting notes.

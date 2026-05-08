@@ -1541,10 +1541,21 @@ function createWindow() {
   });
 }
 
+function maybeScheduleSmokeExit() {
+  if (process.env.NOCTRA_SMOKE_TEST !== "1") {
+    return;
+  }
+
+  setTimeout(() => {
+    app.quit();
+  }, 1500);
+}
+
 app.whenReady().then(() => {
   registerSessionSecurityPolicy();
   registerWebContentsSecurityPolicy();
   createWindow();
+  maybeScheduleSmokeExit();
 });
 
 app.on("window-all-closed", () => {

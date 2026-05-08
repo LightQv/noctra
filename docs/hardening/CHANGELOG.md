@@ -1,5 +1,39 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #03
+### Objective
+- Start and implement core Phase 03 gates: invariant enforcement, contract tests, smoke test, and CI wiring.
+
+### Completed
+- Introduced invariant severity/enforcement policy in `core/invariants.js`:
+  - critical invariants fail-fast in dev/CI (`NODE_ENV=development`, `CI=true`, or `NOCTRA_INVARIANTS=strict`)
+  - advisory invariants remain warn-only.
+- Promoted dispatcher intent coverage gap detection to invariant enforcement in `core/dispatcher.js`.
+- Added focused contract tests:
+  - `tests/invariants-enforcement.test.js`
+  - `tests/resolver-contracts.test.js`
+  - `tests/grammar-primitives-contracts.test.js`
+- Added Electron startup smoke test:
+  - `tests/smoke/electron-startup.smoke.js`
+  - `main.js` smoke auto-exit path gated by `NOCTRA_SMOKE_TEST=1`.
+- Added CI scripts in `package.json`: `test:smoke`, `ci:test`.
+- Added GitHub Actions workflow: `.github/workflows/ci.yml` (unit + smoke).
+- Updated Phase 03 artifact with classification table, completed steps 1-5, and initial troubleshooting notes.
+
+### Decisions
+- Keep OSS readiness gates dependency-light for now using Node built-in tests and a minimal Electron smoke harness.
+
+### Verification
+- Passed: `npm test`.
+- Passed: `npm run test:smoke`.
+- Failed: n/a.
+
+### Risks/Notes
+- CI smoke stability still needs first feedback loop on hosted runners (Phase 03 step 6 remains open).
+
+### Next Session Start Here
+- Execute `phase-03-invariants-tests-ci.md` step 6: stabilize flaky checks and refine troubleshooting.
+
 ## Session 2026-05-08 #02
 ### Objective
 - Complete remaining Phase 02 work: runtime reload determinism, tests, and parity validation.

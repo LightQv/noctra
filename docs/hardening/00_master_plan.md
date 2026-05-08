@@ -96,4 +96,4 @@ Status values: `not started | in progress | blocked | done`
 - Last completed phase: 02
 - Active phase: 03
 - Blockers: none
-- Next action: Execute `phase-03-invariants-tests-ci.md` step 1.
+- Next action: Execute `phase-03-invariants-tests-ci.md` step 6.

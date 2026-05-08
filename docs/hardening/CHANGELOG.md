@@ -1,5 +1,63 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #06
+### Objective
+- Execute Phase 04 step 2 by defining the target ownership map for orchestration, platform adapters, renderer adapters, and UI domain services.
+
+### Completed
+- Completed Phase 04 step 2 in `docs/hardening/phase-04-adapter-deepening-monolith-split.md`.
+- Added Step 2 ownership table with explicit mapping for:
+  - current module responsibility slices,
+  - target owner,
+  - proposed module path,
+  - public contract shape,
+  - lifecycle sensitivity and dependencies.
+- Added no-crossing rules to prevent adapter leakage and preserve clean boundaries during extraction.
+- Added step-2 outcome extraction order for step 3+.
+- Updated Phase 04 handoff to step 3.
+- Updated master plan handoff next action to Phase 04 step 3.
+
+### Decisions
+- Keep `main.js` as orchestration-only after extraction; move Electron policy and transport concerns into adapters with explicit register/unregister contracts.
+
+### Verification
+- Passed: hardening documentation consistency check (phase file + master plan + changelog aligned).
+- Failed: n/a.
+
+### Risks/Notes
+- High-risk slices remain unchanged (`ui/shell/manager.js` overlay stack/layout and `browser/manager.js` split/devtools host). Keep those after low-risk panel extraction.
+
+### Next Session Start Here
+- Execute `phase-04-adapter-deepening-monolith-split.md` step 3: extract first decomposition slice (`core/history/panel.js` BrowserView host boundary) and validate parity.
+
+## Session 2026-05-08 #05
+### Objective
+- Execute Phase 04 step 1 by producing a direct Electron/WebContents/BrowserView call inventory and selecting the first low-risk decomposition slice.
+
+### Completed
+- Completed Phase 04 step 1 in `docs/hardening/phase-04-adapter-deepening-monolith-split.md`.
+- Added a migration-oriented inventory table grouped by module with:
+  - representative direct callsites,
+  - target ownership (orchestration vs adapter/domain),
+  - migration priority,
+  - parity risk notes.
+- Added step-1 outcome note selecting `core/history/panel.js` BrowserView host boundary as the first low-risk extraction candidate for step 3.
+- Updated Phase 04 handoff to step 2.
+- Updated master plan handoff next action to Phase 04 step 2.
+
+### Decisions
+- Use a migration-oriented inventory format (module -> callsite -> target owner -> risk) rather than API-count-only audit format to guide safe incremental split ordering.
+
+### Verification
+- Passed: documentation parity check across hardening artifacts (phase file + master plan + changelog updated consistently).
+- Failed: n/a.
+
+### Risks/Notes
+- `ui/shell/manager.js` and split/devtools paths in `browser/manager.js` remain highest-risk slices due to z-order and lifecycle timing sensitivity.
+
+### Next Session Start Here
+- Execute `phase-04-adapter-deepening-monolith-split.md` step 2: define target ownership map (orchestration vs adapter vs UI domain service).
+
 ## Session 2026-05-08 #04
 ### Objective
 - Close Phase 03 by finalizing stabilization evidence, checklists, and handoff to Phase 04.

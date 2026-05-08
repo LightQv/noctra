@@ -96,4 +96,4 @@ Status values: `not started | in progress | blocked | done`
 - Last completed phase: 03
 - Active phase: 04
 - Blockers: none
-- Next action: Execute `phase-04-adapter-deepening-monolith-split.md` step 1.
+- Next action: Execute `phase-04-adapter-deepening-monolith-split.md` step 3.

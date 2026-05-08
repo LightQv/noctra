@@ -1,5 +1,36 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #07
+### Objective
+- Execute Phase 04 step 3 by extracting the first low-risk decomposition slice from `core/history/panel.js` behind adapter boundaries.
+
+### Completed
+- Added platform adapter `core/adapters/platform/panelViewHost.js` for sidepanel BrowserView lifecycle concerns:
+  - hardened BrowserView creation,
+  - attach/show/hide/focusTop operations,
+  - host teardown.
+- Added renderer adapter `core/adapters/renderer/panelRenderTransport.js` for debounced data-URL render transport.
+- Refactored `core/history/panel.js` to consume `viewHost` and `renderTransport` adapters instead of direct BrowserView/render timer wiring.
+- Updated Phase 04 artifact:
+  - marked step 3 complete,
+  - documented implementation and validation evidence,
+  - advanced handoff to step 4.
+- Updated master plan handoff next action to Phase 04 step 4.
+
+### Decisions
+- Keep history/bookmark tree state machine and key handling in `core/history/panel.js` for this slice; extract only Electron host + render transport concerns.
+
+### Verification
+- Passed: `npm test`.
+- Passed: `npm run test:smoke`.
+- Failed: n/a.
+
+### Risks/Notes
+- Manual parity checks for panel/overlay z-order and startup/shutdown are still required before marking broader parity checklist items complete.
+
+### Next Session Start Here
+- Execute `phase-04-adapter-deepening-monolith-split.md` step 4: continue incremental splits, starting with `main.js` security policy + IPC registry extraction.
+
 ## Session 2026-05-08 #06
 ### Objective
 - Execute Phase 04 step 2 by defining the target ownership map for orchestration, platform adapters, renderer adapters, and UI domain services.

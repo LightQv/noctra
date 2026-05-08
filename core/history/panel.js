@@ -1,7 +1,13 @@
-const { BrowserView, clipboard } = require("electron");
+const { clipboard } = require("electron");
 const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
 const notificationsService = require("../notifications/service");
+const {
+  createPanelViewHost,
+} = require("../adapters/platform/panelViewHost");
+const {
+  createPanelRenderTransport,
+} = require("../adapters/renderer/panelRenderTransport");
 const { enterNormalMode } = require("../modeTransitionService");
 const { isEditorFocused, setEditorFocused } = require("../editorFocusState");
 const { getNormalKeymap, getModAction } = require("../../motions/keymap");
@@ -78,10 +84,9 @@ class HistoryPanel {
     this.treeScrollContextLines = 3;
     this.lastSelectedTreeIndex = -1;
     this.treeFirstVisibleIndex = 0;
-    this.view = null;
+    this.viewHost = null;
     this.onFocusChange = null;
-    this.renderTimer = null;
-    this.lastRenderedHtml = "";
+    this.renderTransport = null;
   }
 
   clearFavoriteEdit() {
@@ -1224,21 +1229,18 @@ class HistoryPanel {
     this.window = window;
     this.buffers = buffers;
     this.state = state;
-    this.view = new BrowserView({
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webviewTag: false,
+    this.viewHost = createPanelViewHost({
+      windowRef: this.window,
+      onMouseDown: () => {
+        this.focus();
+      },
+      onFocus: () => {
+        this.focus();
       },
     });
-    this.window.addBrowserView(this.view);
-    this.view.webContents.on("before-mouse-event", (_event, input) => {
-      if (!input || input.type !== "mouseDown") return;
-      this.focus();
-    });
-    this.view.webContents.on("focus", () => {
-      this.focus();
+    this.renderTransport = createPanelRenderTransport({
+      resolveWebContents: () => this.getWebContents(),
+      delayMs: 16,
     });
     this.applyHiddenBounds();
     this.render();
@@ -1259,13 +1261,8 @@ class HistoryPanel {
   }
 
   getWebContents() {
-    if (
-      !this.view ||
-      !this.view.webContents ||
-      this.view.webContents.isDestroyed()
-    )
-      return null;
-    return this.view.webContents;
+    if (!this.viewHost) return null;
+    return this.viewHost.getWebContents();
   }
 
   setWidthRatio(ratio) {
@@ -1375,12 +1372,8 @@ class HistoryPanel {
       setEditorFocused(this.state, false);
       enterNormalMode(this.state, "history-panel-focus");
     }
-    if (
-      this.window &&
-      this.view &&
-      typeof this.window.setTopBrowserView === "function"
-    ) {
-      this.window.setTopBrowserView(this.view);
+    if (this.viewHost) {
+      this.viewHost.focusTop();
     }
     this.render();
     this.emitFocusChange();
@@ -1431,7 +1424,7 @@ class HistoryPanel {
   }
 
   layout() {
-    if (!this.window || !this.view) return;
+    if (!this.window || !this.viewHost) return;
     if (!this.visible) return this.applyHiddenBounds();
 
     const bounds = this.window.getContentBounds();
@@ -1443,17 +1436,15 @@ class HistoryPanel {
     );
 
     this.buffers.setLeftInset(width);
-    this.view.setBounds({ x: 0, y, width, height });
-    this.view.setAutoResize({ width: false, height: true });
-    if (this.focused && typeof this.window.setTopBrowserView === "function") {
-      this.window.setTopBrowserView(this.view);
+    this.viewHost.show({ x: 0, y, width, height });
+    if (this.focused) {
+      this.viewHost.focusTop();
     }
   }
 
   applyHiddenBounds() {
-    if (!this.view) return;
-    this.view.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
-    this.view.setAutoResize({ width: false, height: false });
+    if (!this.viewHost) return;
+    this.viewHost.hide();
   }
 
   getFlatNodes() {
@@ -1626,7 +1617,7 @@ class HistoryPanel {
   }
 
   render() {
-    if (!this.view || this.view.webContents.isDestroyed()) return;
+    if (!this.getWebContents()) return;
     const isBookmarks = this.treeKind === "bookmarks";
     const rows = isBookmarks
       ? this.renderFavoriteRows()
@@ -2155,23 +2146,13 @@ class HistoryPanel {
   }
 
   clearRenderTimer() {
-    if (!this.renderTimer) return;
-    clearTimeout(this.renderTimer);
-    this.renderTimer = null;
+    if (!this.renderTransport) return;
+    this.renderTransport.cancelPending();
   }
 
   scheduleRender(html) {
-    if (!this.view || this.view.webContents.isDestroyed()) return;
-    if (html === this.lastRenderedHtml) return;
-    this.lastRenderedHtml = html;
-    this.clearRenderTimer();
-    this.renderTimer = setTimeout(() => {
-      this.renderTimer = null;
-      if (!this.view || this.view.webContents.isDestroyed()) return;
-      this.view.webContents.loadURL(
-        `data:text/html;charset=utf-8,${encodeURIComponent(this.lastRenderedHtml)}`,
-      );
-    }, 16);
+    if (!this.renderTransport) return;
+    this.renderTransport.scheduleHtmlRender(html);
   }
 
   handleFocusedInput(input) {

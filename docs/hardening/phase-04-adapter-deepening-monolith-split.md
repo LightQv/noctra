@@ -31,7 +31,7 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 ## Steps
 1. [x] Inventory direct Electron/WebContents/BrowserView calls by module.
 2. [x] Define target ownership map (orchestration vs adapter vs UI domain service).
-3. [ ] Extract first decomposition slice (lowest-risk domain) and validate parity.
+3. [x] Extract first decomposition slice (lowest-risk domain) and validate parity.
 4. [ ] Continue incremental splits for remaining large modules.
 5. [ ] Add/update tests for extracted boundaries and lifecycle ordering.
 6. [ ] Remove deprecated passthroughs after parity verification.
@@ -90,6 +90,21 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 - Second extraction candidate: `main.js` security policy + IPC registry adapters (high payoff, medium risk).
 - Later higher-risk slices: overlay stack/layout in `ui/shell/manager.js`, then split/devtools host in `browser/manager.js`.
 
+## Step 3 Implementation - First Decomposition Slice
+- Extracted panel BrowserView host boundary into `core/adapters/platform/panelViewHost.js`.
+  - Encapsulates BrowserView creation, hardened webPreferences, attach, show/hide bounds, z-order focus, and teardown.
+- Extracted panel render transport into `core/adapters/renderer/panelRenderTransport.js`.
+  - Encapsulates debounced data-URL render scheduling and cancel/reset behavior.
+- Refactored `core/history/panel.js` to consume adapter boundaries while preserving tree state machine and input semantics.
+  - Replaced direct `BrowserView` usage with `viewHost` calls.
+  - Replaced in-module render timer logic with `renderTransport` scheduling.
+  - Preserved focus handoff semantics and sidepanel layout behavior.
+
+### Step 3 Validation Evidence
+- Passed: `npm test`.
+- Passed: `npm run test:smoke`.
+- Manual parity checklist items remain to be executed in step 4/5 validation pass.
+
 ## Behavior Parity Checklist
 - [ ] Startup/shutdown behavior unchanged
 - [ ] Overlay/panel z-order behavior unchanged
@@ -119,9 +134,10 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
   - Completed step 1 inventory for direct Electron/WebContents/BrowserView coupling by module.
   - Identified `core/history/panel.js` as the lowest-risk first decomposition slice for step 3.
   - Completed step 2 ownership map with explicit target owner, module path, and contract boundary per responsibility slice.
+  - Completed step 3 first decomposition slice for history panel host/render boundaries with adapter extraction.
 - Remaining:
-  - steps 3 through 6.
+  - steps 4 through 6.
 - Known pitfalls:
   - Splitting too many modules in one session reduces confidence and rollback safety.
 - Next exact step:
-  - Execute step 3: extract first decomposition slice (`core/history/panel.js` BrowserView host boundary) and validate parity.
+  - Execute step 4: continue incremental splits, starting with `main.js` security policy + IPC registry extraction.

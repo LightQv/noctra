@@ -34,7 +34,7 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 3. [x] Extract first decomposition slice (lowest-risk domain) and validate parity.
 4. [x] Continue incremental splits for remaining large modules.
 5. [x] Add/update tests for extracted boundaries and lifecycle ordering.
-6. [ ] Remove deprecated passthroughs after parity verification.
+6. [x] Remove deprecated passthroughs after parity verification.
 
 ## Step 1 Inventory - Direct Electron Call Map
 | Module | Direct callsites (representative) | Target owner | Migration priority | Parity risk notes |
@@ -134,6 +134,20 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 - Passed: `npm run test:smoke`.
 - Lifecycle ordering guard coverage improved for registration/teardown boundaries through IPC contract tests.
 
+## Step 6 Implementation - Passthrough Cleanup
+- Removed transitional security-policy passthrough wrappers from `main.js`:
+  - dropped `registerSessionSecurityPolicy()` wrapper and direct registration flag bookkeeping.
+  - dropped `registerWebContentsSecurityPolicy()` wrapper and direct registration flag bookkeeping.
+- Updated startup orchestration to call adapter contracts directly in `app.whenReady()`:
+  - `registerSessionSecurityPolicyAdapter({ session })`
+  - `registerWebContentsSecurityPolicyAdapter({ app, isAllowedNavigationUrl, notificationsService })`
+- Preserved orchestration order and behavior while removing now-unnecessary compatibility indirection.
+
+### Step 6 Validation Evidence
+- Passed: `npm test` (22/22).
+- Passed: `npm run test:smoke`.
+- Contract behavior unchanged for permission denial and blocked navigation/window-open notifications.
+
 ## Behavior Parity Checklist
 - [ ] Startup/shutdown behavior unchanged
 - [ ] Overlay/panel z-order behavior unchanged
@@ -143,7 +157,7 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 ## Validation
 - [ ] Manual: startup/shutdown parity script
 - [ ] Manual: overlay/panel split-view parity script
-- [ ] Focused tests for extracted service contracts
+- [x] Focused tests for extracted service contracts
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -166,9 +180,10 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
   - Completed step 3 first decomposition slice for history panel host/render boundaries with adapter extraction.
   - Completed step 4 incremental split slice in `main.js` for security policy and IPC registry adapter extraction.
   - Completed step 5 focused adapter contract tests for IPC/security/render transport boundaries.
+  - Completed step 6 passthrough cleanup by removing transitional security-policy wrappers from `main.js` and using direct adapter contracts.
 - Remaining:
-  - step 6.
+  - manual parity checklist execution and phase closeout gates.
 - Known pitfalls:
   - Splitting too many modules in one session reduces confidence and rollback safety.
 - Next exact step:
-  - Execute step 6: remove temporary/deprecated passthroughs after parity verification.
+  - Run manual parity validation scripts (startup/shutdown and overlay/panel split-view) and complete phase exit checklist.

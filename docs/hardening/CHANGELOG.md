@@ -1,5 +1,35 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #10
+### Objective
+- Execute Phase 04 step 6 by removing remaining transitional passthrough indirection after adapter extraction.
+
+### Completed
+- Removed transitional security policy passthrough wrappers in `main.js`:
+  - removed `registerSessionSecurityPolicy()` wrapper,
+  - removed `registerWebContentsSecurityPolicy()` wrapper,
+  - removed wrapper-only registration flags tied to those functions.
+- Updated app startup wiring to invoke adapter contracts directly in `app.whenReady()` while preserving sequence/order.
+- Updated Phase 04 artifact:
+  - marked step 6 complete,
+  - documented cleanup implementation and validation evidence,
+  - updated handoff to manual parity validation and phase exit checklist.
+- Updated master plan handoff next action to run manual parity scripts and closeout checklist.
+
+### Decisions
+- Keep startup orchestration explicit in `main.js`, but avoid wrapper indirection when adapter contracts are already stable and directly consumable.
+
+### Verification
+- Passed: `npm test` (22/22).
+- Passed: `npm run test:smoke`.
+- Failed: n/a.
+
+### Risks/Notes
+- Manual parity scripts remain required before marking phase-level behavior checklist and exit gates fully complete.
+
+### Next Session Start Here
+- Run manual parity validation scripts in `phase-04-adapter-deepening-monolith-split.md` and complete phase exit checklist.
+
 ## Session 2026-05-08 #09
 ### Objective
 - Execute Phase 04 step 5 by adding focused tests for extracted adapter boundaries and lifecycle-sensitive registration/teardown behavior.

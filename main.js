@@ -51,8 +51,6 @@ let webModeSyncTimer = null;
 let webModeSyncInFlight = false;
 let webModeSyncPending = false;
 let browserLanguageHooksRegistered = false;
-let sessionSecurityPolicyRegistered = false;
-let webContentsSecurityPolicyRegistered = false;
 
 function isFiniteInteger(value) {
   return Number.isFinite(value) && Number.isInteger(value);
@@ -176,32 +174,6 @@ function getUrlPolicyConfig() {
 
 function isAllowedNavigationUrl(rawUrl) {
   return validateNavigableUrl(rawUrl, getUrlPolicyConfig()).ok;
-}
-
-function registerSessionSecurityPolicy() {
-  if (sessionSecurityPolicyRegistered) {
-    return;
-  }
-
-  registerSessionSecurityPolicyAdapter({
-    session,
-  });
-
-  sessionSecurityPolicyRegistered = true;
-}
-
-function registerWebContentsSecurityPolicy() {
-  if (webContentsSecurityPolicyRegistered) {
-    return;
-  }
-
-  registerWebContentsSecurityPolicyAdapter({
-    app,
-    isAllowedNavigationUrl,
-    notificationsService,
-  });
-
-  webContentsSecurityPolicyRegistered = true;
 }
 
 function resolveCurrentTheme() {
@@ -1517,8 +1489,12 @@ function maybeScheduleSmokeExit() {
 }
 
 app.whenReady().then(() => {
-  registerSessionSecurityPolicy();
-  registerWebContentsSecurityPolicy();
+  registerSessionSecurityPolicyAdapter({ session });
+  registerWebContentsSecurityPolicyAdapter({
+    app,
+    isAllowedNavigationUrl,
+    notificationsService,
+  });
   createWindow();
   maybeScheduleSmokeExit();
 });

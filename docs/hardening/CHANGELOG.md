@@ -1,5 +1,34 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #17
+### Objective
+- Execute Phase 07 using Path B (truthful rebaseline + explicit deferment of remaining high-risk extraction debt).
+
+### Completed
+- Built implementation-derived extraction table in `docs/hardening/phase-07-adapter-truth-reconciliation.md` with evidence-backed state per slice.
+- Reconciled Phase 04 claims against implementation and recorded explicit deltas (`accurate`, `overstated`, `understated detail`).
+- Selected Path B and documented rationale with deferred ownership/risk for remaining high-risk slices.
+- Audited transitional/dead bridge and adapter surfaces and confirmed no additional dead transitional contract surface remained.
+- Updated `docs/hardening/phase-04-adapter-deepening-monolith-split.md` with Phase 07 truth-alignment addendum to prevent overreading extraction completion.
+- Marked Phase 07 complete and activated Phase 08 in `docs/hardening/00_master_plan.md` handoff.
+
+### Decisions
+- Use Path B for Phase 07 closeout: preserve parity safety and avoid high-risk extraction churn before final OSS certification.
+
+### Verification
+- Passed: `npm test`.
+- Passed: `npm run test:smoke`.
+- Passed: `npm run test:smoke:overlay`.
+- Passed: `npm run test:smoke:ui-cadence`.
+- Passed: `npm run test:smoke:security`.
+- Failed: n/a.
+
+### Risks/Notes
+- High-risk extraction debt remains intentionally deferred and must stay explicit during Phase 08 gate reconciliation and reviewer sign-off.
+
+### Next Session Start Here
+- Execute `docs/hardening/phase-08-oss-readiness-certification.md` step 1: assemble proof bundle from latest local and hosted CI passes.
+
 ## Session 2026-05-08 #16
 ### Objective
 - Fully close Phase 06 after hosted CI confirmation and advance hardening execution to Phase 07.

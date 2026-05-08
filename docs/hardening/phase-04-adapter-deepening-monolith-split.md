@@ -150,6 +150,18 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 - Passed: `npm run test:smoke:ui-cadence`.
 - Contract behavior unchanged for permission denial and blocked navigation/window-open notifications.
 
+## Phase 07 Reconciliation Addendum (Truth Alignment)
+- Phase 04 completed the planned low/medium-risk extraction slices and cleanup listed in steps 1-6.
+- Phase 04 does not represent full extraction of all high-risk monolith slices identified in step-2 ownership map.
+- Remaining monolith-owned high-risk slices confirmed in Phase 07:
+  - `ui/shell/manager.js`: overlay host lifecycle, overlay layout/z-order, and direct `executeJavaScript` patch transport.
+  - `browser/manager.js`: content BrowserView host operations, split/devtools host primitives, and WebContents observer/copy bridge.
+  - `main.js`: web-mode event binding/sync split remains monolith-owned.
+- Scope interpretation for Phase 04 closeout:
+  - "completed" means incremental extraction milestones and parity-safe cleanup completed,
+  - not full realization of all target-state ownership rows from step 2.
+- Deferred ownership tracking moved to `docs/hardening/phase-07-adapter-truth-reconciliation.md` and Phase 08 certification inputs.
+
 ## Behavior Parity Checklist
 - [x] Startup/shutdown behavior unchanged
 - [x] Overlay/panel z-order behavior unchanged

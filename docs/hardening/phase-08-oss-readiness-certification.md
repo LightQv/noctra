@@ -30,9 +30,10 @@ Produce final auditable OSS-readiness certification by reconciling implementatio
 - Final risk register with no unmanaged critical hardening risk
 - Final closeout changelog entry with verification artifacts
 - Independent reviewer verdict package
+- Completed certification bundle using `docs/hardening/phase-08-certification-bundle-template.md`
 
 ## Steps
-1. [ ] Collect proof bundle:
+1. [ ] Collect proof bundle (fill in `docs/hardening/phase-08-certification-bundle-template.md`):
    - latest passing CI runs for full hardening gate,
    - relevant test outputs,
    - references to security/parity checks.

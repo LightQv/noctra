@@ -1,36 +1,60 @@
-1. **Overall Assessment**
+## Overall Assessment
 
-Phase 06 is substantially implemented in the repository: CI calls the canonical hardening gate, the gate includes the full claimed smoke matrix, and the hardening docs are internally aligned on Phase 06 being complete and Phase 07 active. However, I cannot strictly confirm “fully closed” from repository state alone because the docs claim a hosted CI confirmation that is not evidenced in-repo with a run link/ID or equivalent immutable reference. Verdict: `ready-with-conditions`.
+**Verdict: ready-with-conditions** for an early **source** OSS release. I would not present this project as hardened or certification-complete yet.
 
-2. **Top Risks (ranked)**
+The good news is the hardening work is real in the code, not just in docs: trusted/untrusted surface separation exists, BrowserWindow/BrowserView defaults are consistently hardened, privileged IPC is sender/frame-checked, and CI now runs a canonical Electron gate (`main.js:925-1194`, `main.js:1353-1362`, `browser/buffers.js:32-45`, `core/adapters/platform/securityPolicy.js:7-73`, `.github/workflows/ci.yml:28-29`).
 
-- **Medium** — `docs/hardening/phase-06-ci-proof-gate-alignment.md:45-50`, `docs/hardening/CHANGELOG.md:8,23`: Hosted CI pass is asserted, but there is no durable in-repo evidence (run URL/ID) to support the closeout claim. This is a process-proof gap rather than a gate-definition gap.
-- **Low** — `docs/hardening/00_master_plan.md:50-55`: The “Current Gap Snapshot” still describes CI gate misalignment as an open gap even though Phase 06 is marked done. That section appears historical, but without labeling it as pre-Phase-06 context it can create avoidable ambiguity.
+The release risk is mostly in **truthfulness and hidden lifecycle coverage**, not obvious catastrophic breakage. Phase 07 explicitly defers the highest-risk extraction debt in `ui/shell/manager.js`, `browser/manager.js`, and part of `main.js` (`docs/hardening/phase-07-adapter-truth-reconciliation.md:62-68`, `110-113`), while current CI only exercises a small set of smoke paths (`package.json:11-15`). That is acceptable for an early project **only if the release messaging is explicit**.
 
-3. **Strengths**
+## Top Risks (ranked)
 
-- `.github/workflows/ci.yml:28-29` uses the canonical hardening gate directly under `xvfb-run`, which removes the earlier risk of CI/script drift.
-- `package.json:15` includes the full claimed matrix: unit, startup smoke, overlay smoke, UI cadence smoke, and security smoke.
-- `docs/hardening/phase-06-ci-proof-gate-alignment.md:62-65` cleanly distinguishes required gating (`ci:test`) from informational audit policy.
-- `docs/hardening/00_master_plan.md:41-43,103-106` and `docs/hardening/CHANGELOG.md:5,14-17,30-31` are consistent about Phase 06 done / Phase 07 active.
+1. **High — public architecture claims can overstate maintainability safety.**
+   - Evidence: README and architecture docs speak in terms of clear adapter/module boundaries and future multi-engine readiness (`README.md:5,21`, `docs/architecture.md:21-23,47-50`), but Phase 07 documents that the riskiest Electron ownership still lives in `ui/shell/manager.js`, `browser/manager.js`, and `main.js` (`docs/hardening/phase-07-adapter-truth-reconciliation.md:63-68,111-113`).
+   - Why it matters: for OSS, this is the fastest way to create misleading expectations for contributors and reviewers.
 
-4. **Suggested Improvements**
+2. **High — hidden lifecycle regressions remain plausible in monolith-owned view orchestration paths.**
+   - Evidence: overlay creation/layout/z-order and DOM patching remain centralized in `ui/shell/manager.js:991-1502`; content/split/devtools view lifecycle remains centralized in `browser/manager.js:41-108,281-519`; active webContents/mode binding remains in `main.js:1261-1294`.
+   - Coverage gap: CI runs startup, overlay/panel/split, UI cadence, and security smokes, but nothing targeted for settings editor lifecycle, reopen/close buffer branches, devtools split, session restore, or native theme/window-state hooks (`package.json:11-15`, `tests/smoke/*.js`).
 
-- Add immutable hosted-run evidence to the Phase 06 artifact and changelog.
-  - **Rationale:** This closes the only remaining proof gap between “configured correctly” and “verified complete.”
-  - **Expected impact:** Converts Phase 06 from conditionally ready to cleanly auditable closeout.
-  - Example:
+3. **Medium-High — OSS readiness/certification state is not yet evidence-complete.**
+   - Evidence: Phase 08 is still open with all certification steps unchecked (`docs/hardening/phase-08-oss-readiness-certification.md:35-66`), and master plan still lists reviewer sign-off/proof bundle as blockers (`docs/hardening/00_master_plan.md:77-79,103-106`).
+   - Why it matters: release can happen, but claiming “certified” or “hardened” would be inaccurate today.
 
-```md
-- Hosted CI confirmation: GitHub Actions run #123456789
-- URL: https://github.com/<org>/<repo>/actions/runs/123456789
-- Verified command: `xvfb-run -a npm run ci:test`
-```
+## Strengths
 
-- Clarify that the master plan gap snapshot is historical or update it to avoid implying CI misalignment is still open.
-  - **Rationale:** Prevents readers from misreading Phase 06 as both done and still open.
-  - **Expected impact:** Better handoff clarity with lower review friction.
+- Security baseline is materially improved and visible in implementation, not just documentation.
+- Trusted surfaces are role-marked and protected against remote navigation (`main.js:1386`, `core/security/surfaceTrust.js:1-46`, `core/adapters/platform/securityPolicy.js:41-71`).
+- Privileged settings IPC has sender/frame checks rather than blind exposure (`main.js:925-955`, `1073-1126`).
+- CI now enforces one canonical Electron gate on hosted runners (`.github/workflows/ci.yml:10-30`, `docs/hardening/phase-06-ci-proof-gate-alignment.md:52-65`).
+- Phase 07 is unusually honest about deferred debt; that honesty is a strong base for OSS trust if it carries into public messaging.
 
-5. **Final Recommendation**
+## Suggested Improvements
 
-`changes requested` — not because the Phase 06 gate configuration is wrong, but because strict closure requires externally verifiable evidence for the claimed hosted CI confirmation.
+1. **Tighten public release messaging before announcement.**
+   - Rationale: the biggest current failure mode is overclaiming maturity, not underbuilding features.
+   - Expected impact: avoids misleading contributors about adapter completeness or hardening level.
+   - Minimum change: update `README.md`, `docs/architecture.md`, and release notes to say the project is experimental, Electron-only today, adapter extraction is partial, and hardening work is ongoing.
+
+2. **Add one or two narrowly targeted smoke paths for the deferred monolith hotspots.**
+   - Rationale: current smoke coverage is useful but too coarse relative to where the remaining risk actually lives.
+   - Expected impact: materially reduces hidden breakage risk without a broad refactor.
+   - Best ROI candidates:
+     - settings buffer open/edit/save/close roundtrip,
+     - one `browser/manager.js` branch not currently exercised (preferably devtools split or reopen/close buffer sequence).
+
+3. **Make certification status explicit and separate source release from binary-distribution claims.**
+   - Rationale: there is no packaging/signing/notarization path in evidence here, and Phase 08 is still open.
+   - Expected impact: keeps OSS release truthful while avoiding false assumptions about shipping hardened desktop artifacts.
+   - Minimum change: say that current readiness applies to repository publication/source evaluation, not to signed/notarized production binaries.
+
+## Final Recommendation
+
+**changes requested**
+
+For the user goal stated, I would release this project as **early OSS only after three conditions are met**:
+
+1. Public docs explicitly state **experimental / not hardened / Electron-only / partial adapter extraction**.
+2. Add at least **one targeted smoke test** for a currently unexercised monolith-owned lifecycle path.
+3. Do **not** market Phase 08 as complete or imply signed/notarized production readiness unless that evidence is added.
+
+If those conditions are satisfied, this is reasonable to publish as an early, imperfect, but honest OSS project.

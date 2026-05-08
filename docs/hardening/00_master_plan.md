@@ -39,8 +39,8 @@ Close post-migration gaps identified in architecture and security reviews while 
 | 04 | Adapter deepening + monolith split | done (re-review required) | 03 | 2026-05-08 |
 | 05 | Security boundary closure | done | 04 | 2026-05-08 |
 | 06 | CI and proof gate alignment | done | 05 | 2026-05-08 |
-| 07 | Adapter truth reconciliation | in progress | 06 | 2026-05-08 |
-| 08 | OSS readiness certification | not started | 05, 06, 07 | 2026-05-08 |
+| 07 | Adapter truth reconciliation | done | 06 | 2026-05-08 |
+| 08 | OSS readiness certification | in progress | 05, 06, 07 | 2026-05-08 |
 
 Status values: `not started | in progress | blocked | done`
 
@@ -100,7 +100,7 @@ Additional closeout requirement before marking OSS gate complete:
 ---
 
 ## Session Handoff
-- Last completed phase: 06
-- Active phase: 07
-- Blockers: critical/high OSS blockers from independent review
-- Next action: Execute `phase-07-adapter-truth-reconciliation.md` step 1 and generate implementation-derived extraction table for reconciliation.
+- Last completed phase: 07
+- Active phase: 08
+- Blockers: independent re-review sign-off pending final certification proof bundle
+- Next action: Execute `phase-08-oss-readiness-certification.md` step 1 and assemble latest proof bundle from local and hosted CI evidence.

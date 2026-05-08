@@ -1,5 +1,36 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #13
+### Objective
+- Convert independent senior/security review findings into an executable multi-phase closeout plan to reach verifiable OSS readiness.
+
+### Completed
+- Added new hardening closeout phases:
+  - `docs/hardening/phase-05-security-boundary-closure.md`
+  - `docs/hardening/phase-06-ci-proof-gate-alignment.md`
+  - `docs/hardening/phase-07-adapter-truth-reconciliation.md`
+  - `docs/hardening/phase-08-oss-readiness-certification.md`
+- Updated master plan `docs/hardening/00_master_plan.md` to:
+  - add phases 05-08 with dependency ordering,
+  - mark phase 04 as done but requiring re-review alignment,
+  - replace stale gap snapshot with review-derived open blockers,
+  - add explicit independent re-review requirement under OSS readiness gate,
+  - set active phase to 05 with next exact step.
+
+### Decisions
+- Treat independent implementation review findings as authoritative closeout blockers until resolved and re-reviewed.
+- Split closeout into security-first then CI-proof then architecture-truth then certification phases to preserve rollback safety and auditability.
+
+### Verification
+- Passed: hardening documentation consistency check across new phase files and master plan references.
+- Failed: n/a.
+
+### Risks/Notes
+- This session adds planning artifacts only; code-level OSS blockers identified by independent review remain open until phase 05+ execution.
+
+### Next Session Start Here
+- Execute `docs/hardening/phase-05-security-boundary-closure.md` step 1 and begin security boundary closure implementation.
+
 ## Session 2026-05-08 #12
 ### Objective
 - Complete remaining Phase 04 parity gate by automating statusline/tabline/urlline update-cadence verification and close phase exit criteria.

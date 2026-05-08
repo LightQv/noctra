@@ -36,19 +36,23 @@ Close post-migration gaps identified in architecture and security reviews while 
 | 01 | Security boundary lockdown | done | - | 2026-05-07 |
 | 02 | Keymap architecture completion | done | 01 | 2026-05-08 |
 | 03 | Invariants, tests, and CI gates | done | 01, 02 | 2026-05-08 |
-| 04 | Adapter deepening + monolith split | done | 03 | 2026-05-08 |
+| 04 | Adapter deepening + monolith split | done (re-review required) | 03 | 2026-05-08 |
+| 05 | Security boundary closure | not started | 04 | 2026-05-08 |
+| 06 | CI and proof gate alignment | not started | 05 | 2026-05-08 |
+| 07 | Adapter truth reconciliation | not started | 06 | 2026-05-08 |
+| 08 | OSS readiness certification | not started | 05, 06, 07 | 2026-05-08 |
 
 Status values: `not started | in progress | blocked | done`
 
 ---
 
 ## Current Gap Snapshot
-- Preload/IPC trust boundary still too broad in some buffer paths
-- Internal settings editor loads remote CDN assets
-- BrowserView hardening not uniformly enforced across all surfaces
-- Invariants are mostly warn-only and not CI-enforced
-- Automated regression and security smoke tests are limited
-- High-churn modules remain large and tightly coupled
+- Independent senior/security re-review found OSS blockers despite phase docs marked done.
+- Privileged preload bridges can persist on trusted surfaces if navigation reaches remote content (must be blocked or isolated per surface).
+- CI workflow does not enforce the full hardening smoke gate set currently used as closeout evidence.
+- Adapter deepening completion is overstated in docs versus actual extraction state in monolithic modules.
+- Transitional/dead bridge surfaces remain and need cleanup or explicit wiring/tests.
+- Runtime security proof coverage is incomplete for privileged bridge absence and sender/origin rejection paths.
 
 ---
 
@@ -69,6 +73,9 @@ Status values: `not started | in progress | blocked | done`
 - [x] Critical invariants fail in dev/CI (not warn-only)
 - [x] Unit tests cover resolvers/parser/dispatcher contracts
 - [x] Electron smoke tests run in CI for core flows
+
+Additional closeout requirement before marking OSS gate complete:
+- [ ] Independent `senior-reviewer` and `security-engineer` re-review returns `ready` or `ready-with-conditions` with no open critical/high must-fix findings.
 
 ---
 
@@ -94,6 +101,6 @@ Status values: `not started | in progress | blocked | done`
 
 ## Session Handoff
 - Last completed phase: 04
-- Active phase: none
-- Blockers: none
-- Next action: Run OSS readiness final review against remaining gate items and open risks.
+- Active phase: 05
+- Blockers: critical/high OSS blockers from independent review
+- Next action: Execute `phase-05-security-boundary-closure.md` step 1 and begin security boundary closure work before CI/doc closeout.

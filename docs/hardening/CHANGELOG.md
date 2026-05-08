@@ -1,5 +1,69 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #16
+### Objective
+- Fully close Phase 06 after hosted CI confirmation and advance hardening execution to Phase 07.
+
+### Completed
+- Confirmed hosted GitHub Actions pass for canonical hardening gate workflow (`xvfb-run -a npm run ci:test`).
+- Updated `docs/hardening/phase-06-ci-proof-gate-alignment.md` to:
+  - mark step 6 complete,
+  - mark hosted-run validation complete,
+  - mark all Phase 06 exit criteria complete,
+  - set handoff to Phase 07 step 1.
+- Updated `docs/hardening/00_master_plan.md` to:
+  - mark Phase 06 as `done`,
+  - set Phase 07 to `in progress`,
+  - update session handoff to the Phase 07 starting step.
+
+### Decisions
+- Treat hosted CI confirmation as the final closure condition for Phase 06; no additional Phase 06 scope added.
+
+### Verification
+- Passed: hosted GitHub Actions run with canonical gate (`npm run ci:test` under xvfb).
+- Passed: local canonical gate previously validated in Session #15.
+- Failed: n/a.
+
+### Risks/Notes
+- Phase 07 reconciliation is now the main source of closeout risk; documentation must track implementation truth without overclaiming extraction depth.
+
+### Next Session Start Here
+- Execute `docs/hardening/phase-07-adapter-truth-reconciliation.md` step 1: generate implementation-derived extraction table for reconciliation.
+
+## Session 2026-05-08 #15
+### Objective
+- Execute Phase 06 recommended path by aligning CI with canonical hardening proof gates and documenting gate policy.
+
+### Completed
+- Aligned GitHub Actions hardening job to canonical gate command in `.github/workflows/ci.yml`:
+  - replaced partial unit/startup-smoke steps with `xvfb-run -a npm run ci:test`.
+- Added informational non-blocking dependency audit job in `.github/workflows/ci.yml`:
+  - `npm audit --audit-level=high` under `continue-on-error: true`.
+- Updated `docs/hardening/phase-06-ci-proof-gate-alignment.md` with:
+  - completed steps 1-5,
+  - canonical gate definition,
+  - explicit Phase 06 gate policy (required hardening gate, audit informational, build gate deferred to Phase 08),
+  - CI troubleshooting notes,
+  - updated handoff and remaining hosted confirmation item.
+- Ran local dry-run and passed:
+  - `npm run ci:test`.
+
+### Decisions
+- Keep `ci:test` as the single required hardening proof gate for merge safety in Phase 06.
+- Keep dependency vulnerability signal informational-only for now; do not block merges on audit in this phase.
+- Defer build/package gating policy to Phase 08 OSS certification.
+
+### Verification
+- Passed: `npm run ci:test`.
+- Pending: hosted GitHub Actions run confirmation after workflow changes.
+- Failed: n/a.
+
+### Risks/Notes
+- Hosted runner confirmation remains required before Phase 06 can be marked fully complete.
+
+### Next Session Start Here
+- Execute `docs/hardening/phase-06-ci-proof-gate-alignment.md` step 6 hosted-run confirmation and close remaining validation checkbox.
+
 ## Session 2026-05-08 #14
 ### Objective
 - Execute Phase 05 security boundary closure and add runtime proof for trusted/untrusted boundary claims.

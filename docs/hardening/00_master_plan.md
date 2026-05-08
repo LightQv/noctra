@@ -38,8 +38,8 @@ Close post-migration gaps identified in architecture and security reviews while 
 | 03 | Invariants, tests, and CI gates | done | 01, 02 | 2026-05-08 |
 | 04 | Adapter deepening + monolith split | done (re-review required) | 03 | 2026-05-08 |
 | 05 | Security boundary closure | done | 04 | 2026-05-08 |
-| 06 | CI and proof gate alignment | in progress | 05 | 2026-05-08 |
-| 07 | Adapter truth reconciliation | not started | 06 | 2026-05-08 |
+| 06 | CI and proof gate alignment | done | 05 | 2026-05-08 |
+| 07 | Adapter truth reconciliation | in progress | 06 | 2026-05-08 |
 | 08 | OSS readiness certification | not started | 05, 06, 07 | 2026-05-08 |
 
 Status values: `not started | in progress | blocked | done`
@@ -100,7 +100,7 @@ Additional closeout requirement before marking OSS gate complete:
 ---
 
 ## Session Handoff
-- Last completed phase: 05
-- Active phase: 06
+- Last completed phase: 06
+- Active phase: 07
 - Blockers: critical/high OSS blockers from independent review
-- Next action: Execute `phase-06-ci-proof-gate-alignment.md` step 1 and align canonical CI hardening gate to include security smoke proofs.
+- Next action: Execute `phase-07-adapter-truth-reconciliation.md` step 1 and generate implementation-derived extraction table for reconciliation.

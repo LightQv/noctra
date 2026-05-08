@@ -30,24 +30,45 @@ Ensure CI enforces the same hardening proof matrix used for OSS closeout so no c
 - Clear evidence capture for final review and changelog references
 
 ## Steps
-1. [ ] Define canonical hardening gate command for OSS (`ci:test` or replacement) in `package.json`.
-2. [ ] Ensure command includes all required checks:
+1. [x] Define canonical hardening gate command for OSS (`ci:test` or replacement) in `package.json`.
+2. [x] Ensure command includes all required checks:
    - unit/contracts,
    - startup smoke,
    - overlay/split smoke,
    - UI cadence smoke,
    - new security smoke checks from Phase 05.
-3. [ ] Update `.github/workflows/ci.yml` to run canonical hardening gate.
-4. [ ] Decide and document build/package and dependency vulnerability gate policy:
+3. [x] Update `.github/workflows/ci.yml` to run canonical hardening gate.
+4. [x] Decide and document build/package and dependency vulnerability gate policy:
    - add build gate if release policy requires it,
    - add dependency gate (`npm audit`/SCA) with explicit threshold policy.
-5. [ ] Add CI troubleshooting notes for deterministic reruns.
-6. [ ] Run local dry-run equivalent and one hosted CI run confirmation.
+5. [x] Add CI troubleshooting notes for deterministic reruns.
+6. [x] Run local dry-run equivalent and one hosted CI run confirmation.
 
 ## Validation
-- [ ] `npm run ci:test`
-- [ ] GitHub Actions run passes using same gate set
-- [ ] Workflow file and docs reference same command list
+- [x] `npm run ci:test`
+- [x] GitHub Actions run passes using same gate set
+- [x] Workflow file and docs reference same command list
+
+## Canonical Gate Definition
+- Canonical required hardening gate command: `npm run ci:test`.
+- Current command contract in `package.json`:
+  - `npm test`
+  - `npm run test:smoke`
+  - `npm run test:smoke:overlay`
+  - `npm run test:smoke:ui-cadence`
+  - `npm run test:smoke:security`
+- CI must execute this contract via `xvfb-run -a npm run ci:test` on Linux hosted runners.
+
+## Gate Policy (Phase 06)
+- Required gate for merge safety: canonical hardening command only (`npm run ci:test`).
+- Dependency gate policy: add `npm audit --audit-level=high` as informational, non-blocking CI signal in this phase.
+- Build/package gate policy: deferred to Phase 08 certification decision; not required in Phase 06 hardening gate.
+
+## CI Troubleshooting Notes
+- Always run Electron smoke commands in CI behind `xvfb-run -a` on Linux runners.
+- For transient smoke flakes, rerun the job once before escalating; if repeatable, capture failing scenario and timing context.
+- Keep smoke checks sequential under canonical gate to avoid inter-test Electron state interference.
+- If local/CI divergence appears, verify Node version parity (`20`) and `CI=true` invariant behavior.
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -57,17 +78,21 @@ Ensure CI enforces the same hardening proof matrix used for OSS closeout so no c
 | Drift between docs and workflow | manual updates in one place only | keep canonical command in package scripts and reference it from docs/workflow |
 
 ## Exit Criteria
-- [ ] CI enforces full hardening proof matrix required for closeout
-- [ ] No required hardening check is local-only
-- [ ] Workflow/docs alignment verified and documented
-- [ ] Phase status updated in master plan
+- [x] CI enforces full hardening proof matrix required for closeout
+- [x] No required hardening check is local-only
+- [x] Workflow/docs alignment verified and documented
+- [x] Phase status updated in master plan
 
 ## Handoff Notes
 - Done:
-  - none.
+  - Confirmed canonical hardening gate command in `package.json` (`ci:test`) includes unit/contracts + startup/overlay/ui-cadence/security smoke checks.
+  - Updated `.github/workflows/ci.yml` to run canonical gate (`xvfb-run -a npm run ci:test`) instead of partial smoke subset.
+  - Added informational non-blocking dependency audit CI job (`npm audit --audit-level=high`).
+  - Documented Phase 06 gate policy: required canonical hardening gate, audit informational, build gate deferred to Phase 08.
+  - Added deterministic CI troubleshooting notes for Electron/xvfb reruns.
 - Remaining:
-  - full phase execution.
+  - none.
 - Known pitfalls:
   - adding scripts without workflow updates reintroduces false confidence.
 - Next exact step:
-  - Execute step 1: define canonical hardening gate command and required check list.
+  - Execute `phase-07-adapter-truth-reconciliation.md` step 1: generate implementation-derived extraction table for reconciliation.

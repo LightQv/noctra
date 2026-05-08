@@ -1,6 +1,13 @@
-const { BrowserView } = require("electron");
 const { renderTabline } = require("../tabline");
 const { renderUrlline: renderShellUrlline } = require("../urlline");
+const {
+  createOverlayBrowserView,
+  attachOverlayBrowserView,
+} = require("../../core/adapters/platform/overlayViewHost");
+const {
+  applyOverlayLayout,
+  applyOverlayStack,
+} = require("../../core/adapters/platform/overlayLayoutHost");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
@@ -1008,19 +1015,9 @@ class UiShellManager {
   initializeCommandOverlayView() {
     if (!this.window) return;
 
-    this.commandOverlayView = new BrowserView({
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webviewTag: false,
-      },
-    });
+    this.commandOverlayView = createOverlayBrowserView(COMMAND_OVERLAY_HTML);
 
     this.commandOverlayView.setAutoResize({ width: false, height: false });
-    this.commandOverlayView.webContents.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(COMMAND_OVERLAY_HTML)}`,
-    );
 
     this.commandOverlayView.webContents.on("did-finish-load", () => {
       this.commandOverlayReady = true;
@@ -1028,26 +1025,16 @@ class UiShellManager {
       this.updateCommand(this.commandText, this.commandCursorIndex);
     });
 
-    this.window.addBrowserView(this.commandOverlayView);
+    attachOverlayBrowserView(this.window, this.commandOverlayView);
     this.relayout();
   }
 
   initializeWhichKeyOverlayView() {
     if (!this.window) return;
 
-    this.whichKeyOverlayView = new BrowserView({
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webviewTag: false,
-      },
-    });
+    this.whichKeyOverlayView = createOverlayBrowserView(WHICHKEY_OVERLAY_HTML);
 
     this.whichKeyOverlayView.setAutoResize({ width: false, height: false });
-    this.whichKeyOverlayView.webContents.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(WHICHKEY_OVERLAY_HTML)}`,
-    );
 
     this.whichKeyOverlayView.webContents.on("did-finish-load", () => {
       this.whichKeyOverlayReady = true;
@@ -1055,26 +1042,16 @@ class UiShellManager {
       this.updateWhichKey(this.whichKeyModel, null, 0, false, true);
     });
 
-    this.window.addBrowserView(this.whichKeyOverlayView);
+    attachOverlayBrowserView(this.window, this.whichKeyOverlayView);
     this.relayout();
   }
 
   initializeSelectionModalView() {
     if (!this.window) return;
 
-    this.selectionModalView = new BrowserView({
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webviewTag: false,
-      },
-    });
+    this.selectionModalView = createOverlayBrowserView(SELECTION_MODAL_OVERLAY_HTML);
 
     this.selectionModalView.setAutoResize({ width: false, height: false });
-    this.selectionModalView.webContents.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(SELECTION_MODAL_OVERLAY_HTML)}`,
-    );
 
     this.selectionModalView.webContents.on("did-finish-load", () => {
       this.selectionModalReady = true;
@@ -1084,26 +1061,16 @@ class UiShellManager {
       }
     });
 
-    this.window.addBrowserView(this.selectionModalView);
+    attachOverlayBrowserView(this.window, this.selectionModalView);
     this.relayout();
   }
 
   initializeTelescopeView() {
     if (!this.window) return;
 
-    this.telescopeView = new BrowserView({
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webviewTag: false,
-      },
-    });
+    this.telescopeView = createOverlayBrowserView(TELESCOPE_OVERLAY_HTML);
 
     this.telescopeView.setAutoResize({ width: false, height: false });
-    this.telescopeView.webContents.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(TELESCOPE_OVERLAY_HTML)}`,
-    );
 
     this.telescopeView.webContents.on("did-finish-load", () => {
       this.telescopeReady = true;
@@ -1113,26 +1080,16 @@ class UiShellManager {
       }
     });
 
-    this.window.addBrowserView(this.telescopeView);
+    attachOverlayBrowserView(this.window, this.telescopeView);
     this.relayout();
   }
 
   initializeStatuslineView() {
     if (!this.window) return;
 
-    this.statuslineView = new BrowserView({
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webviewTag: false,
-      },
-    });
+    this.statuslineView = createOverlayBrowserView(STATUSLINE_OVERLAY_HTML);
 
     this.statuslineView.setAutoResize({ width: true, height: false });
-    this.statuslineView.webContents.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(STATUSLINE_OVERLAY_HTML)}`,
-    );
 
     this.statuslineView.webContents.on("did-finish-load", () => {
       this.statuslineReady = true;
@@ -1142,26 +1099,16 @@ class UiShellManager {
       this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
     });
 
-    this.window.addBrowserView(this.statuslineView);
+    attachOverlayBrowserView(this.window, this.statuslineView);
     this.relayout();
   }
 
   initializeToastOverlayView() {
     if (!this.window) return;
 
-    this.toastOverlayView = new BrowserView({
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        webviewTag: false,
-      },
-    });
+    this.toastOverlayView = createOverlayBrowserView(TOAST_OVERLAY_HTML);
 
     this.toastOverlayView.setAutoResize({ width: false, height: false });
-    this.toastOverlayView.webContents.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(TOAST_OVERLAY_HTML)}`,
-    );
 
     this.toastOverlayView.webContents.on("did-finish-load", () => {
       this.toastOverlayReady = true;
@@ -1169,7 +1116,7 @@ class UiShellManager {
       this.flushPendingToasts();
     });
 
-    this.window.addBrowserView(this.toastOverlayView);
+    attachOverlayBrowserView(this.window, this.toastOverlayView);
     this.relayout();
   }
 
@@ -1335,129 +1282,27 @@ class UiShellManager {
   }
 
   relayout() {
-    if (
-      !this.window ||
-      !this.commandOverlayView ||
-      !this.whichKeyOverlayView ||
-      !this.selectionModalView ||
-      !this.telescopeView ||
-      !this.statuslineView ||
-      !this.toastOverlayView
-    )
-      return;
-
-    const bounds = this.window.getContentBounds();
-    const width = this.commandVisible
-      ? Math.min(500, Math.max(bounds.width - 160, 300))
-      : 1;
-    const height = this.commandVisible ? 42 : 1;
-    const x = this.commandVisible
-      ? Math.max(Math.floor((bounds.width - width) / 2), 0)
-      : -10000;
-    const y = this.commandVisible
-      ? Math.max(
-          Math.floor((bounds.height - height) / 2),
-          UI_SHELL_TABLINE_HEIGHT + 10,
-        )
-      : -10000;
-
-    this.commandOverlayView.setBounds({ x, y, width, height });
-
-    const whichWidth = this.whichKeyVisible
-      ? Math.min(980, Math.max(bounds.width - 28, 560))
-      : 1;
-    const whichHeight = this.whichKeyVisible ? 150 : 1;
-    const whichX = this.whichKeyVisible
-      ? Math.max(Math.floor((bounds.width - whichWidth) / 2), 0)
-      : -10000;
-    const whichY = this.whichKeyVisible
-      ? Math.max(
-          bounds.height - UI_SHELL_STATUSLINE_HEIGHT - whichHeight - 12,
-          UI_SHELL_TABLINE_HEIGHT + 12,
-        )
-      : -10000;
-
-    this.whichKeyOverlayView.setBounds({
-      x: whichX,
-      y: whichY,
-      width: whichWidth,
-      height: whichHeight,
-    });
-
-    const modalWidth = this.selectionModalVisible
-      ? Math.min(560, Math.max(bounds.width - 120, 320))
-      : 1;
-    const modalHeight = this.selectionModalVisible
-      ? this.computeSelectionModalHeight(this.selectionModalModel)
-      : 1;
-    const modalX = this.selectionModalVisible
-      ? Math.max(Math.floor((bounds.width - modalWidth) / 2), 0)
-      : -10000;
-    const modalY = this.selectionModalVisible
-      ? Math.max(UI_SHELL_TABLINE_HEIGHT + 12, 0)
-      : -10000;
-
-    this.selectionModalView.setBounds({
-      x: modalX,
-      y: modalY,
-      width: modalWidth,
-      height: modalHeight,
-    });
-
-    const telescopeWidth = this.telescopeVisible
-      ? Math.min(1080, Math.max(bounds.width - 120, 520))
-      : 1;
-    const telescopeHeight = this.telescopeVisible
-      ? Math.max(
-          240,
-          Math.floor(
-            (bounds.height -
-              UI_SHELL_TABLINE_HEIGHT -
-              UI_SHELL_STATUSLINE_HEIGHT) *
-              0.68,
-          ),
-        )
-      : 1;
-    const telescopeX = this.telescopeVisible
-      ? Math.max(Math.floor((bounds.width - telescopeWidth) / 2), 0)
-      : -10000;
-    const telescopeY = this.telescopeVisible
-      ? Math.max(
-          UI_SHELL_TABLINE_HEIGHT + 10,
-          Math.floor(
-            (bounds.height - UI_SHELL_STATUSLINE_HEIGHT - telescopeHeight) / 2,
-          ),
-        )
-      : -10000;
-
-    this.telescopeView.setBounds({
-      x: telescopeX,
-      y: telescopeY,
-      width: telescopeWidth,
-      height: telescopeHeight,
-    });
-
-    this.statuslineView.setBounds({
-      x: 0,
-      y: Math.max(
-        bounds.height - UI_SHELL_STATUSLINE_HEIGHT,
-        UI_SHELL_TABLINE_HEIGHT + 1,
-      ),
-      width: bounds.width,
-      height: UI_SHELL_STATUSLINE_HEIGHT,
-    });
-
-    this.toastOverlayView.setBounds({
-      x: Math.max(bounds.width - 452, 0),
-      y: UI_SHELL_TABLINE_HEIGHT + 10,
-      width: Math.min(452, bounds.width),
-      height: Math.max(
-        bounds.height -
-          UI_SHELL_TABLINE_HEIGHT -
-          UI_SHELL_STATUSLINE_HEIGHT -
-          20,
-        1,
-      ),
+    applyOverlayLayout({
+      windowRef: this.window,
+      overlays: {
+        commandOverlayView: this.commandOverlayView,
+        whichKeyOverlayView: this.whichKeyOverlayView,
+        selectionModalView: this.selectionModalView,
+        telescopeView: this.telescopeView,
+        statuslineView: this.statuslineView,
+        toastOverlayView: this.toastOverlayView,
+      },
+      visibility: {
+        commandVisible: this.commandVisible,
+        whichKeyVisible: this.whichKeyVisible,
+        selectionModalVisible: this.selectionModalVisible,
+        telescopeVisible: this.telescopeVisible,
+      },
+      chrome: {
+        UI_SHELL_TABLINE_HEIGHT,
+        UI_SHELL_STATUSLINE_HEIGHT,
+      },
+      computeSelectionModalHeight: () => this.computeSelectionModalHeight(this.selectionModalModel),
     });
   }
 
@@ -1471,32 +1316,18 @@ class UiShellManager {
   }
 
   syncOverlayStack() {
-    if (!this.window || typeof this.window.setTopBrowserView !== "function")
-      return;
-
-    if (this.statuslineView) {
-      this.window.setTopBrowserView(this.statuslineView);
-    }
-
-    if (this.whichKeyVisible && this.whichKeyOverlayView) {
-      this.window.setTopBrowserView(this.whichKeyOverlayView);
-    }
-
-    if (this.selectionModalVisible && this.selectionModalView) {
-      this.window.setTopBrowserView(this.selectionModalView);
-    }
-
-    if (this.telescopeVisible && this.telescopeView) {
-      this.window.setTopBrowserView(this.telescopeView);
-    }
-
-    if (this.commandVisible && this.commandOverlayView) {
-      this.window.setTopBrowserView(this.commandOverlayView);
-    }
-
-    if (this.toastOverlayView) {
-      this.window.setTopBrowserView(this.toastOverlayView);
-    }
+    applyOverlayStack(this.window, {
+      statuslineView: this.statuslineView,
+      whichKeyVisible: this.whichKeyVisible,
+      whichKeyOverlayView: this.whichKeyOverlayView,
+      selectionModalVisible: this.selectionModalVisible,
+      selectionModalView: this.selectionModalView,
+      telescopeVisible: this.telescopeVisible,
+      telescopeView: this.telescopeView,
+      commandVisible: this.commandVisible,
+      commandOverlayView: this.commandOverlayView,
+      toastOverlayView: this.toastOverlayView,
+    });
 
     this.relayout();
   }

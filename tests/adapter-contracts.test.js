@@ -9,6 +9,8 @@ const {
 const {
   createPanelRenderTransport,
 } = require("../core/adapters/renderer/panelRenderTransport");
+const { bindWebModeTracking } = require("../core/adapters/platform/webContentsEvents");
+const { createWebModeSyncService } = require("../core/webModeSyncService");
 const {
   markSurfaceRole,
   SURFACE_ROLES,
@@ -241,4 +243,77 @@ test("panel render transport debounces and supports cancellation", async () => {
   transport.cancelPending();
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(urls.length, 1);
+});
+
+test("webContents events adapter binds and unbinds lifecycle listeners", () => {
+  const listeners = new Map();
+  const webContents = {
+    destroyed: false,
+    isDestroyed() {
+      return this.destroyed;
+    },
+    on(eventName, listener) {
+      listeners.set(eventName, listener);
+    },
+    removeListener(eventName, listener) {
+      if (listeners.get(eventName) === listener) {
+        listeners.delete(eventName);
+      }
+    },
+  };
+
+  const unbind = bindWebModeTracking(webContents, {
+    onFocusChangedInPage() {},
+    onBeforeMouseEvent() {},
+    onDidFinishLoad() {},
+  });
+
+  assert.equal(typeof listeners.get("focus-changed-in-page"), "function");
+  assert.equal(typeof listeners.get("before-mouse-event"), "function");
+  assert.equal(typeof listeners.get("did-finish-load"), "function");
+
+  unbind();
+  assert.equal(listeners.size, 0);
+});
+
+test("web mode sync service binds, requests sync, and unbinds safely", async () => {
+  const listeners = new Map();
+  const syncCalls = [];
+  const webContents = {
+    destroyed: false,
+    isDestroyed() {
+      return this.destroyed;
+    },
+    on(eventName, listener) {
+      listeners.set(eventName, listener);
+    },
+    removeListener(eventName) {
+      listeners.delete(eventName);
+    },
+  };
+
+  const service = createWebModeSyncService({
+    syncWebModeWithFocusedElement(target) {
+      syncCalls.push(target);
+      return Promise.resolve();
+    },
+    bindWebModeTracking(target, callbacks) {
+      return bindWebModeTracking(target, callbacks);
+    },
+  });
+
+  service.bind(webContents);
+  assert.equal(service.getActiveWebContents(), webContents);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(syncCalls.length >= 1, true);
+
+  const onBeforeMouseEvent = listeners.get("before-mouse-event");
+  assert.equal(typeof onBeforeMouseEvent, "function");
+  onBeforeMouseEvent(null, { type: "mouseDown" });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(syncCalls.length >= 2, true);
+
+  service.unbind();
+  assert.equal(service.getActiveWebContents(), null);
+  assert.equal(listeners.size, 0);
 });

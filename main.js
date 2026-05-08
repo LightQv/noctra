@@ -40,6 +40,7 @@ const {
 } = require("./core/security/surfaceTrust");
 const { performWindowAction } = require("./core/adapters/platform/windowActions");
 const webContentsActions = require("./core/adapters/platform/webContentsActions");
+const { bindWebModeTracking } = require("./core/adapters/platform/webContentsEvents");
 const {
   registerSessionSecurityPolicy: registerSessionSecurityPolicyAdapter,
   registerWebContentsSecurityPolicy: registerWebContentsSecurityPolicyAdapter,
@@ -47,15 +48,11 @@ const {
 const { registerIpcContracts } = require("./core/adapters/platform/ipcRegistry");
 const editorSurface = require("./core/adapters/renderer/editorSurface");
 const { broadcastUiShellPush } = require("./core/adapters/renderer/uiShellPush");
+const { createWebModeSyncService } = require("./core/webModeSyncService");
 const { getNormalActionMap, getModActionMap } = require("./motions/keymap");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
-let activeWebModeWebContents = null;
-let webModeListeners = null;
-let webModeSyncTimer = null;
-let webModeSyncInFlight = false;
-let webModeSyncPending = false;
 let browserLanguageHooksRegistered = false;
 let smokeUiCadenceProbe = null;
 
@@ -426,103 +423,10 @@ function syncWebBufferModeWithFocusedElement(webContents) {
     .catch(() => {});
 }
 
-function requestWebModeSync(webContents, delayMs = 40) {
-  if (!webContents || webContents.isDestroyed()) {
-    return;
-  }
-
-  if (activeWebModeWebContents !== webContents) {
-    return;
-  }
-
-  if (webModeSyncTimer) {
-    clearTimeout(webModeSyncTimer);
-  }
-
-  webModeSyncTimer = setTimeout(() => {
-    webModeSyncTimer = null;
-
-    if (!webContents || webContents.isDestroyed() || activeWebModeWebContents !== webContents) {
-      return;
-    }
-
-    if (webModeSyncInFlight) {
-      webModeSyncPending = true;
-      return;
-    }
-
-    webModeSyncInFlight = true;
-    syncWebBufferModeWithFocusedElement(webContents)
-      .finally(() => {
-        webModeSyncInFlight = false;
-        if (!webModeSyncPending) {
-          return;
-        }
-        webModeSyncPending = false;
-        requestWebModeSync(webContents, 30);
-      });
-  }, Math.max(0, Number(delayMs) || 0));
-}
-
-function unbindWebModeTracking() {
-  if (!activeWebModeWebContents || activeWebModeWebContents.isDestroyed() || !webModeListeners) {
-    activeWebModeWebContents = null;
-    webModeListeners = null;
-    if (webModeSyncTimer) {
-      clearTimeout(webModeSyncTimer);
-      webModeSyncTimer = null;
-    }
-    webModeSyncInFlight = false;
-    webModeSyncPending = false;
-    return;
-  }
-
-  const webContents = activeWebModeWebContents;
-  webContents.removeListener("focus-changed-in-page", webModeListeners.onFocusChangedInPage);
-  webContents.removeListener("before-mouse-event", webModeListeners.onBeforeMouseEvent);
-  webContents.removeListener("did-finish-load", webModeListeners.onDidFinishLoad);
-
-  activeWebModeWebContents = null;
-  webModeListeners = null;
-  if (webModeSyncTimer) {
-    clearTimeout(webModeSyncTimer);
-    webModeSyncTimer = null;
-  }
-  webModeSyncInFlight = false;
-  webModeSyncPending = false;
-}
-
-function bindWebModeTracking(webContents) {
-  if (!webContents || webContents.isDestroyed()) {
-    return;
-  }
-
-  const onFocusChangedInPage = () => {
-    requestWebModeSync(webContents);
-  };
-  const onBeforeMouseEvent = (_event, input) => {
-    if (!input || (input.type !== "mouseDown" && input.type !== "mouseUp")) {
-      return;
-    }
-    requestWebModeSync(webContents, input.type === "mouseDown" ? 10 : 35);
-  };
-  const onDidFinishLoad = () => {
-    requestWebModeSync(webContents, 20);
-  };
-
-  webContents.on("focus-changed-in-page", onFocusChangedInPage);
-  webContents.on("before-mouse-event", onBeforeMouseEvent);
-  webContents.on("did-finish-load", onDidFinishLoad);
-
-  activeWebModeWebContents = webContents;
-  webModeListeners = {
-    onFocusChangedInPage,
-    onBeforeMouseEvent,
-    onDidFinishLoad,
-  };
-
-  requestWebModeSync(webContents, 0);
-}
+const webModeSyncService = createWebModeSyncService({
+  syncWebModeWithFocusedElement: syncWebBufferModeWithFocusedElement,
+  bindWebModeTracking,
+});
 
 function persistSessionSnapshot() {
   try {
@@ -1265,9 +1169,12 @@ function bindInputToActiveBuffer() {
   const activeBuffer = buffers.getActive();
   const shouldTrackWebMode = Boolean(activeBuffer && !activeBuffer.isEditable);
 
-  if (activeInputWebContents === nextWebContents && activeWebModeWebContents === nextWebContents) {
+  if (
+    activeInputWebContents === nextWebContents &&
+    webModeSyncService.getActiveWebContents() === nextWebContents
+  ) {
     if (shouldTrackWebMode) {
-      syncWebBufferModeWithFocusedElement(nextWebContents);
+      webModeSyncService.syncNowIfTracked(nextWebContents);
     }
     buffers.focusActive();
     return;
@@ -1277,7 +1184,7 @@ function bindInputToActiveBuffer() {
     activeInputWebContents.removeListener("before-input-event", inputListener);
   }
 
-  unbindWebModeTracking();
+  webModeSyncService.unbind();
 
   inputListener = (event, input) => {
     handleRawInput(event, input);
@@ -1287,7 +1194,7 @@ function bindInputToActiveBuffer() {
   activeInputWebContents = nextWebContents;
 
   if (shouldTrackWebMode) {
-    bindWebModeTracking(nextWebContents);
+    webModeSyncService.bind(nextWebContents);
   }
 
   buffers.focusActive();

@@ -1,5 +1,33 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #08
+### Objective
+- Execute Phase 04 step 4 by continuing incremental splits on a medium-risk main-process slice.
+
+### Completed
+- Added platform adapter `core/adapters/platform/securityPolicy.js` and moved main-process security registration concerns behind adapter functions.
+- Added platform adapter `core/adapters/platform/ipcRegistry.js` for centralized IPC event/handler registration and teardown.
+- Refactored `main.js` to delegate security policy and IPC primitive wiring to adapters while preserving orchestration order and sender-guard behavior.
+- Updated Phase 04 artifact:
+  - marked step 4 complete,
+  - documented implementation and validation evidence,
+  - advanced handoff to step 5.
+- Updated master plan handoff next action to Phase 04 step 5.
+
+### Decisions
+- Keep adapter extraction contract-preserving: no channel renames, no sender-validation broadening, and no change to policy outcomes (deny/notify behavior unchanged).
+
+### Verification
+- Passed: `npm test`.
+- Passed: `npm run test:smoke`.
+- Failed: n/a.
+
+### Risks/Notes
+- Higher-risk overlay and browser-manager splits are intentionally deferred until adapter contract tests are expanded in step 5.
+
+### Next Session Start Here
+- Execute `phase-04-adapter-deepening-monolith-split.md` step 5: add/update focused tests for extracted adapter contracts and lifecycle ordering.
+
 ## Session 2026-05-08 #07
 ### Objective
 - Execute Phase 04 step 3 by extracting the first low-risk decomposition slice from `core/history/panel.js` behind adapter boundaries.

@@ -34,6 +34,11 @@ const notificationsService = require("./core/notifications/service");
 const { validateNavigableUrl } = require("./core/security/urlPolicy");
 const { performWindowAction } = require("./core/adapters/platform/windowActions");
 const webContentsActions = require("./core/adapters/platform/webContentsActions");
+const {
+  registerSessionSecurityPolicy: registerSessionSecurityPolicyAdapter,
+  registerWebContentsSecurityPolicy: registerWebContentsSecurityPolicyAdapter,
+} = require("./core/adapters/platform/securityPolicy");
+const { registerIpcContracts } = require("./core/adapters/platform/ipcRegistry");
 const editorSurface = require("./core/adapters/renderer/editorSurface");
 const { broadcastUiShellPush } = require("./core/adapters/renderer/uiShellPush");
 const { getNormalActionMap, getModActionMap } = require("./motions/keymap");
@@ -178,10 +183,8 @@ function registerSessionSecurityPolicy() {
     return;
   }
 
-  const defaultSession = session.defaultSession;
-  defaultSession.setPermissionCheckHandler(() => false);
-  defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
+  registerSessionSecurityPolicyAdapter({
+    session,
   });
 
   sessionSecurityPolicyRegistered = true;
@@ -192,38 +195,10 @@ function registerWebContentsSecurityPolicy() {
     return;
   }
 
-  app.on("web-contents-created", (_event, contents) => {
-    contents.setWindowOpenHandler(({ url }) => {
-      if (typeof url === "string" && url.length) {
-        notificationsService.notify({
-          severity: "info",
-          code: "security_window_open_blocked",
-          message: "Blocked window.open request",
-          source: "security",
-          context: { url },
-          toast: false,
-          persist: false,
-        });
-      }
-      return { action: "deny" };
-    });
-
-    contents.on("will-navigate", (event, url) => {
-      if (isAllowedNavigationUrl(url)) {
-        return;
-      }
-
-      event.preventDefault();
-      notificationsService.notify({
-        severity: "info",
-        code: "security_navigation_blocked",
-        message: "Blocked navigation by security policy",
-        source: "security",
-        context: { url },
-        toast: false,
-        persist: false,
-      });
-    });
+  registerWebContentsSecurityPolicyAdapter({
+    app,
+    isAllowedNavigationUrl,
+    notificationsService,
   });
 
   webContentsSecurityPolicyRegistered = true;
@@ -1144,42 +1119,32 @@ function registerUiShellEvents() {
     return { ok: true };
   };
 
-  ipcMain.on("ui-shell:window-action", onWindowAction);
-  ipcMain.on("ui-shell:open-settings", onOpenSettings);
-  ipcMain.on("ui-shell:new-tab", onNewTab);
-  ipcMain.on("ui-shell:open-history", onOpenHistory);
-  ipcMain.on("ui-shell:tab-activate", onTabActivate);
-  ipcMain.on("ui-shell:tab-close", onTabClose);
-  ipcMain.on("ui-shell:urlline-start-edit", onUrllineStartEdit);
-  ipcMain.on("ui-shell:urlline-action", onUrllineAction);
-
-  ipcMain.on("settings:editor-toggle-context", onEditorToggleContext);
-  ipcMain.on("settings:editor-mode-change", onEditorModeChange);
-  ipcMain.on("settings:editor-focus-request", onEditorFocusRequest);
-  ipcMain.on("settings:editor-open-command", onEditorOpenCommand);
-  ipcMain.on("settings:editor-ready", onEditorReady);
-
-  ipcMain.handle("settings:get", onSettingsGet);
-  ipcMain.handle("settings:save", onSettingsSave);
-  ipcMain.handle("settings:close", onSettingsClose);
+  const unregisterIpc = registerIpcContracts({
+    ipcMain,
+    events: {
+      "ui-shell:window-action": onWindowAction,
+      "ui-shell:open-settings": onOpenSettings,
+      "ui-shell:new-tab": onNewTab,
+      "ui-shell:open-history": onOpenHistory,
+      "ui-shell:tab-activate": onTabActivate,
+      "ui-shell:tab-close": onTabClose,
+      "ui-shell:urlline-start-edit": onUrllineStartEdit,
+      "ui-shell:urlline-action": onUrllineAction,
+      "settings:editor-toggle-context": onEditorToggleContext,
+      "settings:editor-mode-change": onEditorModeChange,
+      "settings:editor-focus-request": onEditorFocusRequest,
+      "settings:editor-open-command": onEditorOpenCommand,
+      "settings:editor-ready": onEditorReady,
+    },
+    handlers: {
+      "settings:get": onSettingsGet,
+      "settings:save": onSettingsSave,
+      "settings:close": onSettingsClose,
+    },
+  });
 
   win.on("closed", () => {
-    ipcMain.removeListener("ui-shell:window-action", onWindowAction);
-    ipcMain.removeListener("ui-shell:open-settings", onOpenSettings);
-    ipcMain.removeListener("ui-shell:new-tab", onNewTab);
-    ipcMain.removeListener("ui-shell:open-history", onOpenHistory);
-    ipcMain.removeListener("ui-shell:tab-activate", onTabActivate);
-    ipcMain.removeListener("ui-shell:tab-close", onTabClose);
-    ipcMain.removeListener("ui-shell:urlline-start-edit", onUrllineStartEdit);
-    ipcMain.removeListener("ui-shell:urlline-action", onUrllineAction);
-    ipcMain.removeListener("settings:editor-toggle-context", onEditorToggleContext);
-    ipcMain.removeListener("settings:editor-mode-change", onEditorModeChange);
-    ipcMain.removeListener("settings:editor-focus-request", onEditorFocusRequest);
-    ipcMain.removeListener("settings:editor-open-command", onEditorOpenCommand);
-    ipcMain.removeListener("settings:editor-ready", onEditorReady);
-    ipcMain.removeHandler("settings:get");
-    ipcMain.removeHandler("settings:save");
-    ipcMain.removeHandler("settings:close");
+    unregisterIpc();
   });
 }
 

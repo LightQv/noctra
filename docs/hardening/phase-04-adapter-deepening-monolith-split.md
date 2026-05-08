@@ -32,7 +32,7 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 1. [x] Inventory direct Electron/WebContents/BrowserView calls by module.
 2. [x] Define target ownership map (orchestration vs adapter vs UI domain service).
 3. [x] Extract first decomposition slice (lowest-risk domain) and validate parity.
-4. [ ] Continue incremental splits for remaining large modules.
+4. [x] Continue incremental splits for remaining large modules.
 5. [ ] Add/update tests for extracted boundaries and lifecycle ordering.
 6. [ ] Remove deprecated passthroughs after parity verification.
 
@@ -105,6 +105,19 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 - Passed: `npm run test:smoke`.
 - Manual parity checklist items remain to be executed in step 4/5 validation pass.
 
+## Step 4 Implementation - Incremental Splits (Main Process Slice)
+- Extracted security policy registration from `main.js` into `core/adapters/platform/securityPolicy.js`.
+  - `registerSessionSecurityPolicy({ session })`
+  - `registerWebContentsSecurityPolicy({ app, isAllowedNavigationUrl, notificationsService })`
+- Extracted IPC registration/teardown wiring from `main.js` into `core/adapters/platform/ipcRegistry.js`.
+  - `registerIpcContracts({ ipcMain, events, handlers }) -> unregisterFn`
+- Refactored `main.js` to retain orchestration while delegating policy/IPC primitive wiring to adapters.
+
+### Step 4 Validation Evidence
+- Passed: `npm test`.
+- Passed: `npm run test:smoke`.
+- No behavior-contract changes introduced in channel names, sender checks, or policy outcomes.
+
 ## Behavior Parity Checklist
 - [ ] Startup/shutdown behavior unchanged
 - [ ] Overlay/panel z-order behavior unchanged
@@ -135,9 +148,10 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
   - Identified `core/history/panel.js` as the lowest-risk first decomposition slice for step 3.
   - Completed step 2 ownership map with explicit target owner, module path, and contract boundary per responsibility slice.
   - Completed step 3 first decomposition slice for history panel host/render boundaries with adapter extraction.
+  - Completed step 4 incremental split slice in `main.js` for security policy and IPC registry adapter extraction.
 - Remaining:
-  - steps 4 through 6.
+  - steps 5 through 6.
 - Known pitfalls:
   - Splitting too many modules in one session reduces confidence and rollback safety.
 - Next exact step:
-  - Execute step 4: continue incremental splits, starting with `main.js` security policy + IPC registry extraction.
+  - Execute step 5: add/update focused tests for extracted adapter contracts and lifecycle ordering.

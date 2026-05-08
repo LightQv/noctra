@@ -1,5 +1,35 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #02
+### Objective
+- Complete remaining Phase 02 work: runtime reload determinism, tests, and parity validation.
+
+### Completed
+- Added a centralized config-application path for reload transactions in `main.js` (`applyReloadedConfig`).
+- Added runtime key-sequence safety reset on reload (leader/key/count buffers) to prevent stale-prefix behavior.
+- Kept hot-reload behavior for keymap updates from settings save, including immediate shortcut label refresh.
+- Added Node built-in tests (`node:test`) for keymap contract coverage:
+  - `tests/config-schema-keymap.test.js`
+  - `tests/grammar-keymap-conflicts.test.js`
+  - `tests/input-priority-mode-scope.test.js`
+- Added test scripts in `package.json`: `test`, `test:keymap`.
+- Updated Phase 02 artifact to mark steps 5/6/7 complete and document runtime reload behavior + test strategy.
+- Updated master plan to mark Phase 02 done and activate Phase 03.
+
+### Decisions
+- Preserve lightweight OSS test tooling for this phase using Node built-ins (no third-party test framework added yet).
+
+### Verification
+- Passed: `npm test` (10/10 tests).
+- Passed: user-confirmed parity during app usage after keymap architecture changes.
+- Failed: n/a.
+
+### Risks/Notes
+- Tree-domain-only actions in `core/history/panel.js` remain intentionally panel-local and outside user override scope in this phase.
+
+### Next Session Start Here
+- Execute `phase-03-invariants-tests-ci.md` step 1: classify invariants as critical vs advisory.
+
 ## Session 2026-05-08 #01
 ### Objective
 - Start Phase 02 keymap architecture completion by moving normal/mod maps to canonical config-backed layering.

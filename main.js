@@ -749,6 +749,43 @@ function updateUrllineActions() {
   });
 }
 
+function resetLeaderRuntimeState() {
+  state.leaderActive = false;
+  state.leaderPath = [];
+  state.leaderNumericBuffer = "";
+  state.leaderLastKeyTime = 0;
+}
+
+function applyReloadedConfig(config, { refreshLayout = false } = {}) {
+  state.applyConfig(config);
+  resetLeaderRuntimeState();
+  state.keyBuffer = "";
+  state.countBuffer = "";
+
+  applyBrowserLanguagePreference();
+  buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+  historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+  historyPanel.setTreeScrollContextLines(
+    configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+  );
+  historyPanel.setTreeDeleteOperatorTimeoutMs(
+    configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+  );
+
+  if (refreshLayout) {
+    historyPanel.layout();
+    buffers.layoutViews();
+  }
+
+  const themeContext = resolveCurrentTheme();
+  applyTheme(themeContext, { broadcast: true });
+  uiShell.updateSplitDivider(buffers.getSplitStatus());
+  updateTablineActions();
+  updateTablineOptions();
+  updateUrllineActions();
+  updateUrllineRender();
+}
+
 function getStatuslineModeLabel() {
   return computeStatuslineModeLabel(state);
 }
@@ -1092,25 +1129,7 @@ function registerUiShellEvents() {
         return { ok: true };
       }
       const config = configService.reloadConfig();
-      state.applyConfig(config);
-      applyBrowserLanguagePreference();
-      buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
-      historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
-      historyPanel.setTreeScrollContextLines(
-        configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
-      );
-      historyPanel.setTreeDeleteOperatorTimeoutMs(
-        configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
-      );
-      historyPanel.layout();
-      buffers.layoutViews();
-      const themeContext = resolveCurrentTheme();
-      applyTheme(themeContext, { broadcast: true });
-      uiShell.updateSplitDivider(buffers.getSplitStatus());
-      updateTablineActions();
-      updateTablineOptions();
-      updateUrllineActions();
-      updateUrllineRender();
+      applyReloadedConfig(config, { refreshLayout: true });
       return { ok: true };
     } catch (error) {
       return { ok: false, error: error.message };

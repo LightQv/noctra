@@ -34,8 +34,8 @@ Close post-migration gaps identified in architecture and security reviews while 
 | Phase | Name | Status | Depends On | Last Update |
 |---|---|---|---|---|
 | 01 | Security boundary lockdown | done | - | 2026-05-07 |
-| 02 | Keymap architecture completion | in progress | 01 | 2026-05-07 |
-| 03 | Invariants, tests, and CI gates | not started | 01, 02 | 2026-05-07 |
+| 02 | Keymap architecture completion | done | 01 | 2026-05-08 |
+| 03 | Invariants, tests, and CI gates | in progress | 01, 02 | 2026-05-08 |
 | 04 | Adapter deepening + monolith split | not started | 03 | 2026-05-07 |
 
 Status values: `not started | in progress | blocked | done`
@@ -46,7 +46,6 @@ Status values: `not started | in progress | blocked | done`
 - Preload/IPC trust boundary still too broad in some buffer paths
 - Internal settings editor loads remote CDN assets
 - BrowserView hardening not uniformly enforced across all surfaces
-- Keymap architecture is not fully data-driven with complete override layering
 - Invariants are mostly warn-only and not CI-enforced
 - Automated regression and security smoke tests are limited
 - High-churn modules remain large and tightly coupled
@@ -66,7 +65,7 @@ Status values: `not started | in progress | blocked | done`
 - [ ] IPC contracts are explicit, validated, and sender-allowlisted
 - [ ] Internal pages do not load remote runtime assets
 - [ ] Hardened BrowserView preferences are applied consistently
-- [ ] Keymap layering implemented: defaults -> user overrides -> runtime guards
+- [x] Keymap layering implemented: defaults -> user overrides -> runtime guards
 - [ ] Critical invariants fail in dev/CI (not warn-only)
 - [ ] Unit tests cover resolvers/parser/dispatcher contracts
 - [ ] Electron smoke tests run in CI for core flows
@@ -94,7 +93,7 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## Session Handoff
-- Last completed phase: 01
-- Active phase: 02
+- Last completed phase: 02
+- Active phase: 03
 - Blockers: none
-- Next action: Execute `phase-02-keymap-architecture-completion.md` step 1.
+- Next action: Execute `phase-03-invariants-tests-ci.md` step 1.

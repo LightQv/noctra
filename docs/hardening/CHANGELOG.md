@@ -1,5 +1,32 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #04
+### Objective
+- Close Phase 03 by finalizing stabilization evidence, checklists, and handoff to Phase 04.
+
+### Completed
+- Completed Phase 03 step 6 by finalizing stabilization/troubleshooting status in `docs/hardening/phase-03-invariants-tests-ci.md`.
+- Marked all remaining Phase 03 behavior parity, validation, and exit criteria items complete.
+- Updated Phase 03 handoff to start Phase 04 step 1.
+- Updated master plan status table:
+  - Phase 03 -> `done`
+  - Phase 04 -> `in progress`
+- Updated OSS readiness gate items for invariants/tests/smoke CI to complete in `docs/hardening/00_master_plan.md`.
+
+### Decisions
+- Keep smoke scope minimal and deterministic (startup/core shell path) to preserve CI reliability while deferring broader interactive coverage to future slices.
+
+### Verification
+- Passed: `npm test` (18/18).
+- Passed: `npm run test:smoke`.
+- Failed: n/a.
+
+### Risks/Notes
+- Phase 04 remains the primary remaining OSS hardening risk area due to direct Electron coupling and monolithic module churn.
+
+### Next Session Start Here
+- Execute `phase-04-adapter-deepening-monolith-split.md` step 1: produce direct Electron/WebContents/BrowserView call inventory by module.
+
 ## Session 2026-05-08 #03
 ### Objective
 - Start and implement core Phase 03 gates: invariant enforcement, contract tests, smoke test, and CI wiring.

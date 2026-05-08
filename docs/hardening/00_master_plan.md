@@ -35,8 +35,8 @@ Close post-migration gaps identified in architecture and security reviews while 
 |---|---|---|---|---|
 | 01 | Security boundary lockdown | done | - | 2026-05-07 |
 | 02 | Keymap architecture completion | done | 01 | 2026-05-08 |
-| 03 | Invariants, tests, and CI gates | in progress | 01, 02 | 2026-05-08 |
-| 04 | Adapter deepening + monolith split | not started | 03 | 2026-05-07 |
+| 03 | Invariants, tests, and CI gates | done | 01, 02 | 2026-05-08 |
+| 04 | Adapter deepening + monolith split | in progress | 03 | 2026-05-08 |
 
 Status values: `not started | in progress | blocked | done`
 
@@ -66,9 +66,9 @@ Status values: `not started | in progress | blocked | done`
 - [ ] Internal pages do not load remote runtime assets
 - [ ] Hardened BrowserView preferences are applied consistently
 - [x] Keymap layering implemented: defaults -> user overrides -> runtime guards
-- [ ] Critical invariants fail in dev/CI (not warn-only)
-- [ ] Unit tests cover resolvers/parser/dispatcher contracts
-- [ ] Electron smoke tests run in CI for core flows
+- [x] Critical invariants fail in dev/CI (not warn-only)
+- [x] Unit tests cover resolvers/parser/dispatcher contracts
+- [x] Electron smoke tests run in CI for core flows
 
 ---
 
@@ -93,7 +93,7 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## Session Handoff
-- Last completed phase: 02
-- Active phase: 03
+- Last completed phase: 03
+- Active phase: 04
 - Blockers: none
-- Next action: Execute `phase-03-invariants-tests-ci.md` step 6.
+- Next action: Execute `phase-04-adapter-deepening-monolith-split.md` step 1.

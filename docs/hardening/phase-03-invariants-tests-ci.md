@@ -35,15 +35,15 @@ Turn architecture and security expectations into enforceable regression gates.
 3. [x] Add unit tests for resolver + grammar + dispatch contracts.
 4. [x] Add Electron smoke tests for key interactive flows.
 5. [x] Add CI workflows and required checks for merge safety.
-6. [ ] Stabilize flaky checks and document troubleshooting.
+6. [x] Stabilize flaky checks and document troubleshooting.
 
 ## Behavior Parity Checklist
-- [ ] Existing workflows pass with invariants enabled
-- [ ] No false-positive invariant failures in normal operation
-- [ ] Test suite reflects current architecture boundaries accurately
+- [x] Existing workflows pass with invariants enabled
+- [x] No false-positive invariant failures in normal operation
+- [x] Test suite reflects current architecture boundaries accurately
 
 ## Validation
-- [ ] CI run passes on clean branch
+- [x] CI run passes on clean branch
 - [x] Local runbook verifies test/smoke sequence (`npm test`, `npm run test:smoke`)
 - [x] At least one intentional invariant violation fails as expected (covered in `tests/invariants-enforcement.test.js`)
 
@@ -75,10 +75,10 @@ Turn architecture and security expectations into enforceable regression gates.
 | CI cost/time too high | oversized test matrix | split fast gates vs nightly gates |
 
 ## Exit Criteria
-- [ ] Critical invariants enforce in CI
-- [ ] Core boundary tests pass consistently
-- [ ] CI gating documented and active
-- [ ] Phase status updated in master plan
+- [x] Critical invariants enforce in CI
+- [x] Core boundary tests pass consistently
+- [x] CI gating documented and active
+- [x] Phase status updated in master plan
 
 ## Handoff Notes
 - Done:
@@ -87,8 +87,8 @@ Turn architecture and security expectations into enforceable regression gates.
   - Added contract tests for invariants enforcement, resolver behavior, and grammar primitive boundaries.
   - Added Electron startup smoke test and wired CI workflow gates.
 - Remaining:
-  - Step 6 stabilization pass after first CI feedback loop.
+  - none.
 - Known pitfalls:
   - If critical/advisory split is unclear, CI noise can hide real regressions.
 - Next exact step:
-  - Execute step 6: run CI feedback loop, stabilize flakes, and expand troubleshooting notes.
+  - Execute `phase-04-adapter-deepening-monolith-split.md` step 1: produce direct Electron call inventory table.

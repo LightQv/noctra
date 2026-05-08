@@ -29,6 +29,15 @@ const CODEMIRROR_YAML_JS = readCodeMirrorAsset("codemirror/mode/yaml/yaml.js");
 const SETTINGS_CSP =
   "default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "", options = {}) {
   const viewTitle =
     typeof options.viewTitle === "string" && options.viewTitle.trim().length > 0
@@ -50,6 +59,8 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
   const initialThemeVars = JSON.stringify(themeVars);
   const initialColorScheme = JSON.stringify(sourceColorScheme);
   const initialContentJson = JSON.stringify(String(initialContent || ""));
+  const escapedViewTitle = escapeHtml(viewTitle);
+  const escapedConfigPath = escapeHtml(String(configPath || ""));
   const initialThemeCss = Object.entries(themeVars)
     .map(([name, value]) => `${name}: ${value};`)
     .join("\n        ");
@@ -60,7 +71,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="${SETTINGS_CSP}" />
-    <title>${viewTitle}</title>
+    <title>${escapedViewTitle}</title>
     <style>
       ${CODEMIRROR_CSS}
 
@@ -291,7 +302,7 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
   <body>
       <div id="topbar">
         <div id="meta">
-          <span id="path">${String(configPath || "")}</span>
+          <span id="path">${escapedConfigPath}</span>
         </div>
         <div id="actions">
           <button class="action-btn" id="save-btn" type="button" title=":w" aria-label="Save">󰆓</button>

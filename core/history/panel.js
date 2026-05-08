@@ -23,6 +23,9 @@ const {
   UI_TREE_LAYOUT,
 } = require("../../ui/constants");
 
+const INTERNAL_PANEL_CSP =
+  "default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -1684,7 +1687,7 @@ class HistoryPanel {
         : "filter-prompt-active"
       : "";
 
-    const html = `<!doctype html><html><body><style>
+    const html = `<!doctype html><html><head><meta charset="UTF-8" /><meta http-equiv="Content-Security-Policy" content="${INTERNAL_PANEL_CSP}" /></head><body><style>
       html,body{height:100%}
       body{margin:0;background:var(--ui-bg-panel,#161b24);color:var(--ui-text,#c9d1df);font:12px "JetBrainsMono Nerd Font Mono", monospace;border-right:1px solid var(--ui-border-strong,#2a3140);box-sizing:border-box}
       .wrap{display:flex;flex-direction:column;height:100%;position:relative}

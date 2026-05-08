@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld("uiShell", {
+const uiShellApi = {
   windowAction(action) {
     ipcRenderer.send("ui-shell:window-action", { action });
   },
@@ -25,21 +25,6 @@ contextBridge.exposeInMainWorld("uiShell", {
   urllineAction(pane, action) {
     ipcRenderer.send("ui-shell:urlline-action", { pane, action });
   },
-  editorReady() {
-    ipcRenderer.send("ui-shell:editor-ready");
-  },
-  editorModeChange(mode) {
-    ipcRenderer.send("ui-shell:editor-mode-change", { mode });
-  },
-  editorFocusRequest() {
-    ipcRenderer.send("ui-shell:editor-focus-request");
-  },
-  editorOpenCommand(initialText = "") {
-    ipcRenderer.send("ui-shell:editor-open-command", { initialText });
-  },
-  editorToggleContext() {
-    ipcRenderer.send("ui-shell:editor-toggle-context");
-  },
   onThemeUpdate(handler) {
     if (typeof handler !== "function") {
       return () => {};
@@ -56,4 +41,12 @@ contextBridge.exposeInMainWorld("uiShell", {
       ipcRenderer.removeListener("ui-shell:push", listener);
     };
   },
-});
+};
+
+if (process.env.NOCTRA_SMOKE_TEST === "1") {
+  uiShellApi.probePrivilegedIpc = function probePrivilegedIpc() {
+    return ipcRenderer.invoke("security:probe-privileged-ipc");
+  };
+}
+
+contextBridge.exposeInMainWorld("uiShell", uiShellApi);

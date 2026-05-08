@@ -39,33 +39,43 @@ Close all critical/high OSS security blockers by enforcing strict trusted/untrus
 - Security smoke tests that prove trusted/untrusted boundary behavior in Electron runtime
 
 ## Steps
-1. [ ] Define trusted surface role model and invariants in code comments/docs.
-2. [ ] Enforce per-surface navigation policy:
+1. [x] Define trusted surface role model and invariants in code comments/docs.
+2. [x] Enforce per-surface navigation policy:
    - block remote navigation from trusted internal shell/settings surfaces, or
    - isolate remote navigation into unprivileged no-preload surfaces.
-3. [ ] Add strict sender + frame/origin checks for privileged channels (`settings:*`, privileged `ui-shell:*`).
-4. [ ] Remove or wire/test dead privileged bridge methods so exposed preload API matches live contracts.
-5. [ ] Tighten internal CSP and document any required exceptions.
-6. [ ] Escape/sanitize dynamic interpolation on privileged internal HTML surfaces.
-7. [ ] Add runtime security tests for:
+3. [x] Add strict sender + frame/origin checks for privileged channels (`settings:*`, privileged `ui-shell:*`).
+4. [x] Remove or wire/test dead privileged bridge methods so exposed preload API matches live contracts.
+5. [x] Tighten internal CSP and document any required exceptions.
+6. [x] Escape/sanitize dynamic interpolation on privileged internal HTML surfaces.
+7. [x] Add runtime security tests for:
    - bridge absence on untrusted pages,
    - privileged IPC rejection for unauthorized sender/frame/origin,
    - blocked trusted-surface remote navigation,
    - blocked `window.open`/disallowed navigation behavior.
-8. [ ] Run and pass local security validation sequence.
+8. [x] Run and pass local security validation sequence.
 
 ## Behavior Parity Checklist
-- [ ] Baseline browsing/tab behavior unchanged for regular buffers
-- [ ] Command/urlline/telescope workflows unchanged
-- [ ] Settings editing workflow unchanged in trusted internal context
-- [ ] Sidepanel history/bookmark workflows unchanged
+- [x] Baseline browsing/tab behavior unchanged for regular buffers
+- [x] Command/urlline/telescope workflows unchanged
+- [x] Settings editing workflow unchanged in trusted internal context
+- [x] Sidepanel history/bookmark workflows unchanged
 
 ## Validation
-- [ ] `npm test`
-- [ ] `npm run test:smoke`
-- [ ] `npm run test:smoke:overlay`
-- [ ] `npm run test:smoke:ui-cadence`
-- [ ] New security smoke command(s) added in this phase
+- [x] `npm test`
+- [x] `npm run test:smoke`
+- [x] `npm run test:smoke:overlay`
+- [x] `npm run test:smoke:ui-cadence`
+- [x] New security smoke command(s) added in this phase (`npm run test:smoke:security`)
+
+### Runtime Proof Scope Note
+- Privileged IPC rejection proof for this phase is runtime smoke + centralized guard-path verification.
+- The smoke scenario uses a test-only probe channel gated by `NOCTRA_SMOKE_TEST=1` to exercise unauthorized sender/frame rejection deterministically.
+- This is not a full hostile-renderer exploit simulation; treat hostile-renderer E2E adversarial testing as a follow-up depth item.
+
+### Trusted Surface URL Allowance Note
+- Current trusted-surface URL allowance accepts `about:blank` and app-generated `data:text/html` documents.
+- This is acceptable for current internal surfaces and Phase 05 closure, but should be narrowed if future trusted surfaces require additional schemes.
+- Follow-up owner: Phase 06/07 reconciliation (monitoring, non-blocking for Phase 05).
 
 ## Risks
 | Risk | Trigger | Mitigation |
@@ -75,17 +85,24 @@ Close all critical/high OSS security blockers by enforcing strict trusted/untrus
 | CSP tightening breaks internal scripts | missing nonce/hash migration | migrate incrementally and verify each internal surface with smoke checks |
 
 ## Exit Criteria
-- [ ] No privileged bridge reachable from untrusted remote content in tested runtime paths
-- [ ] Privileged IPC channels enforce sender + origin/frame trust constraints
-- [ ] Security runtime tests are present, deterministic, and passing
-- [ ] Phase status updated in master plan
+- [x] No privileged bridge reachable from untrusted remote content in tested runtime paths
+- [x] Privileged IPC channels enforce sender + origin/frame trust constraints
+- [x] Security runtime tests are present, deterministic, and passing
+- [x] Phase status updated in master plan
 
 ## Handoff Notes
 - Done:
-  - none.
+  - Added explicit surface role model and role tagging in `core/security/surfaceTrust.js` and trusted creation paths.
+  - Hardened navigation policy for trusted surfaces in `core/adapters/platform/securityPolicy.js` with explicit trusted-surface remote navigation blocking.
+  - Added strict privileged IPC guard checks in `main.js` using sender identity + role + senderFrame URL trust.
+  - Removed dead shell preload editor bridge methods in `ui/shell/preload.js` that were not backed by live `main` handlers.
+  - Added panel CSP meta policy in `core/history/panel.js` to align internal surface CSP hardening.
+  - Escaped dynamic settings HTML interpolation for title/path in `core/settings/page.js`.
+  - Added runtime security smoke scenario + script (`tests/smoke/electron-security-boundary.smoke.js`) and package script `test:smoke:security`.
+  - Added/updated contract tests for trusted-surface navigation blocking in `tests/adapter-contracts.test.js`.
 - Remaining:
-  - full phase execution.
+  - none.
 - Known pitfalls:
   - security assumptions documented in code can drift if runtime tests are absent.
 - Next exact step:
-  - Execute step 1: define surface role model and trusted boundary invariants.
+  - Execute `phase-06-ci-proof-gate-alignment.md` step 1: define canonical hardening gate command including new security smoke checks.

@@ -11,7 +11,8 @@
     "test:smoke": "node tests/smoke/electron-startup.smoke.js",
     "test:smoke:overlay": "node tests/smoke/electron-overlay-panel-split.smoke.js",
     "test:smoke:ui-cadence": "node tests/smoke/electron-ui-cadence.smoke.js",
-    "ci:test": "npm test && npm run test:smoke && npm run test:smoke:overlay && npm run test:smoke:ui-cadence"
+    "test:smoke:security": "node tests/smoke/electron-security-boundary.smoke.js",
+    "ci:test": "npm test && npm run test:smoke && npm run test:smoke:overlay && npm run test:smoke:ui-cadence && npm run test:smoke:security"
   },
   "devDependencies": {
     "electron": "41.2.2"

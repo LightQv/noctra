@@ -37,8 +37,8 @@ Close post-migration gaps identified in architecture and security reviews while 
 | 02 | Keymap architecture completion | done | 01 | 2026-05-08 |
 | 03 | Invariants, tests, and CI gates | done | 01, 02 | 2026-05-08 |
 | 04 | Adapter deepening + monolith split | done (re-review required) | 03 | 2026-05-08 |
-| 05 | Security boundary closure | not started | 04 | 2026-05-08 |
-| 06 | CI and proof gate alignment | not started | 05 | 2026-05-08 |
+| 05 | Security boundary closure | done | 04 | 2026-05-08 |
+| 06 | CI and proof gate alignment | in progress | 05 | 2026-05-08 |
 | 07 | Adapter truth reconciliation | not started | 06 | 2026-05-08 |
 | 08 | OSS readiness certification | not started | 05, 06, 07 | 2026-05-08 |
 
@@ -100,7 +100,7 @@ Additional closeout requirement before marking OSS gate complete:
 ---
 
 ## Session Handoff
-- Last completed phase: 04
-- Active phase: 05
+- Last completed phase: 05
+- Active phase: 06
 - Blockers: critical/high OSS blockers from independent review
-- Next action: Execute `phase-05-security-boundary-closure.md` step 1 and begin security boundary closure work before CI/doc closeout.
+- Next action: Execute `phase-06-ci-proof-gate-alignment.md` step 1 and align canonical CI hardening gate to include security smoke proofs.

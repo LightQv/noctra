@@ -17,6 +17,7 @@ const { buildSettingsPageHtml } = require("./settings/page");
 const notificationsStore = require("./notifications/store");
 const notificationsService = require("./notifications/service");
 const { validateNavigableUrl } = require("./security/urlPolicy");
+const { SURFACE_ROLES } = require("./security/surfaceTrust");
 const {
   resolveTheme,
   resolveThemeMode,
@@ -119,6 +120,7 @@ function openEditableFileBuffer(options = {}) {
     kind: "editable",
     activate: true,
     preloadPath: path.join(__dirname, "..", "ui", "settings", "preload.js"),
+    surfaceRole: SURFACE_ROLES.TRUSTED_SETTINGS,
   });
 
   buffer.loadVirtualDocument({

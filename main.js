@@ -32,6 +32,12 @@ const { assertInputPipelinePreconditions, assertModeWriteBoundary } = require(".
 const sessionService = require("./core/session/service");
 const notificationsService = require("./core/notifications/service");
 const { validateNavigableUrl } = require("./core/security/urlPolicy");
+const {
+  SURFACE_ROLES,
+  markSurfaceRole,
+  getSurfaceRole,
+  isAllowedTrustedSurfaceUrl,
+} = require("./core/security/surfaceTrust");
 const { performWindowAction } = require("./core/adapters/platform/windowActions");
 const webContentsActions = require("./core/adapters/platform/webContentsActions");
 const {
@@ -917,8 +923,35 @@ function handleUrllineInput(event, input) {
 }
 
 function registerUiShellEvents() {
-  const isWindowSender = (event) => Boolean(win && event && event.sender === win.webContents);
-  const isEditableSender = (event) => Boolean(event && buffers.isEditableWebContents(event.sender));
+  const isTrustedIpcSender = (event, expectedRole, { requireActiveBuffer = false } = {}) => {
+    if (!win || !event || !event.sender) {
+      return false;
+    }
+
+    if (expectedRole === SURFACE_ROLES.TRUSTED_SHELL && event.sender !== win.webContents) {
+      return false;
+    }
+
+    if (expectedRole === SURFACE_ROLES.TRUSTED_SETTINGS && !buffers.isEditableWebContents(event.sender)) {
+      return false;
+    }
+
+    if (requireActiveBuffer && event.sender !== buffers.getActiveWebContents()) {
+      return false;
+    }
+
+    if (getSurfaceRole(event.sender) !== expectedRole) {
+      return false;
+    }
+
+    const senderFrameUrl =
+      event.senderFrame && typeof event.senderFrame.url === "string" ? event.senderFrame.url : "";
+    return isAllowedTrustedSurfaceUrl(senderFrameUrl);
+  };
+
+  const isWindowSender = (event) => isTrustedIpcSender(event, SURFACE_ROLES.TRUSTED_SHELL);
+  const isEditableSender = (event, options = {}) =>
+    isTrustedIpcSender(event, SURFACE_ROLES.TRUSTED_SETTINGS, options);
 
   const onWindowAction = (event, payload) => {
     if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
@@ -1038,7 +1071,7 @@ function registerUiShellEvents() {
   };
 
   const onSettingsGet = async (event) => {
-    if (!win || !isEditableSender(event) || event.sender !== buffers.getActiveWebContents()) {
+    if (!win || !isEditableSender(event, { requireActiveBuffer: true })) {
       return { ok: false };
     }
     const activeBuffer = buffers.getActive();
@@ -1063,7 +1096,7 @@ function registerUiShellEvents() {
   };
 
   const onSettingsSave = async (event, payload) => {
-    if (!win || !isEditableSender(event) || event.sender !== buffers.getActiveWebContents()) {
+    if (!win || !isEditableSender(event, { requireActiveBuffer: true })) {
       return { ok: false };
     }
     const activeBuffer = buffers.getActive();
@@ -1085,40 +1118,144 @@ function registerUiShellEvents() {
   };
 
   const onSettingsClose = async (event) => {
-    if (!win || !isEditableSender(event) || event.sender !== buffers.getActiveWebContents()) {
+    if (!win || !isEditableSender(event, { requireActiveBuffer: true })) {
       return { ok: false };
     }
     dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
     return { ok: true };
   };
 
+  const onSecurityProbePrivilegedIpc = async (event) => {
+    if (process.env.NOCTRA_SMOKE_TEST !== "1") {
+      return { ok: false, reason: "disabled" };
+    }
+    if (!isWindowSender(event)) {
+      return { ok: false, reason: "unauthorized_probe_sender" };
+    }
+
+    const untrustedSender = buffers.getActiveWebContents();
+    if (!untrustedSender) {
+      return { ok: false, reason: "no_active_sender" };
+    }
+
+    const fakeEvent = {
+      sender: untrustedSender,
+      senderFrame: { url: "https://evil.invalid" },
+    };
+
+    const getResult = await onSettingsGet(fakeEvent);
+    const saveResult = await onSettingsSave(fakeEvent, { content: "probe" });
+    const closeResult = await onSettingsClose(fakeEvent);
+    return {
+      ok: true,
+      rejected: {
+        settingsGet: !getResult || getResult.ok !== true,
+        settingsSave: !saveResult || saveResult.ok !== true,
+        settingsClose: !closeResult || closeResult.ok !== true,
+      },
+    };
+  };
+
+  const ipcEvents = {
+    "ui-shell:window-action": onWindowAction,
+    "ui-shell:open-settings": onOpenSettings,
+    "ui-shell:new-tab": onNewTab,
+    "ui-shell:open-history": onOpenHistory,
+    "ui-shell:tab-activate": onTabActivate,
+    "ui-shell:tab-close": onTabClose,
+    "ui-shell:urlline-start-edit": onUrllineStartEdit,
+    "ui-shell:urlline-action": onUrllineAction,
+    "settings:editor-toggle-context": onEditorToggleContext,
+    "settings:editor-mode-change": onEditorModeChange,
+    "settings:editor-focus-request": onEditorFocusRequest,
+    "settings:editor-open-command": onEditorOpenCommand,
+    "settings:editor-ready": onEditorReady,
+  };
+
+  const ipcHandlers = {
+    "settings:get": onSettingsGet,
+    "settings:save": onSettingsSave,
+    "settings:close": onSettingsClose,
+  };
+
+  if (process.env.NOCTRA_SMOKE_TEST === "1") {
+    ipcHandlers["security:probe-privileged-ipc"] = onSecurityProbePrivilegedIpc;
+  }
+
   const unregisterIpc = registerIpcContracts({
     ipcMain,
-    events: {
-      "ui-shell:window-action": onWindowAction,
-      "ui-shell:open-settings": onOpenSettings,
-      "ui-shell:new-tab": onNewTab,
-      "ui-shell:open-history": onOpenHistory,
-      "ui-shell:tab-activate": onTabActivate,
-      "ui-shell:tab-close": onTabClose,
-      "ui-shell:urlline-start-edit": onUrllineStartEdit,
-      "ui-shell:urlline-action": onUrllineAction,
-      "settings:editor-toggle-context": onEditorToggleContext,
-      "settings:editor-mode-change": onEditorModeChange,
-      "settings:editor-focus-request": onEditorFocusRequest,
-      "settings:editor-open-command": onEditorOpenCommand,
-      "settings:editor-ready": onEditorReady,
-    },
-    handlers: {
-      "settings:get": onSettingsGet,
-      "settings:save": onSettingsSave,
-      "settings:close": onSettingsClose,
-    },
+    events: ipcEvents,
+    handlers: ipcHandlers,
   });
 
   win.on("closed", () => {
     unregisterIpc();
   });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runSecurityBoundarySmokeScenario() {
+  const failures = [];
+  const fail = (message) => failures.push(message);
+
+  const untrustedBuffer = buffers.create("about:blank", { activate: true });
+  await sleep(250);
+
+  const untrustedBridgeState = await webContentsActions.executeScript(
+    untrustedBuffer.webContents,
+    `({ hasUiShell: typeof window.uiShell !== "undefined", hasSettingsBridge: typeof window.settingsBridge !== "undefined" })`,
+    true,
+  );
+  if (!untrustedBridgeState || untrustedBridgeState.hasUiShell || untrustedBridgeState.hasSettingsBridge) {
+    fail("untrusted buffer has privileged preload bridge");
+  }
+
+  const trustedUrlBefore = win.webContents.getURL();
+  try {
+    await win.webContents.loadURL("https://example.com");
+  } catch {
+    // loadURL may reject when will-navigate is blocked; expected for this scenario
+  }
+  await sleep(200);
+  const trustedUrlAfter = win.webContents.getURL();
+  if (trustedUrlAfter !== trustedUrlBefore) {
+    fail("trusted shell navigated to remote URL");
+  }
+
+  const probeResult = await win.webContents.executeJavaScript(
+    `window.uiShell && typeof window.uiShell.probePrivilegedIpc === "function" ? window.uiShell.probePrivilegedIpc() : null`,
+    true,
+  );
+  if (!probeResult || !probeResult.ok) {
+    fail("security privileged IPC probe unavailable");
+  } else {
+    if (!probeResult.rejected || probeResult.rejected.settingsGet !== true) {
+      fail("unauthorized sender/frame not rejected for settings:get");
+    }
+    if (!probeResult.rejected || probeResult.rejected.settingsSave !== true) {
+      fail("unauthorized sender/frame not rejected for settings:save");
+    }
+    if (!probeResult.rejected || probeResult.rejected.settingsClose !== true) {
+      fail("unauthorized sender/frame not rejected for settings:close");
+    }
+  }
+
+  const popupResult = await webContentsActions.executeScript(
+    untrustedBuffer.webContents,
+    `(() => { try { const w = window.open("https://example.com"); return { opened: Boolean(w) }; } catch { return { opened: false }; } })()`,
+    true,
+  );
+  if (popupResult && popupResult.opened === true) {
+    fail("window.open was not blocked");
+  }
+
+  if (failures.length > 0) {
+    console.error("[noctra:smoke] security-boundary scenario failed", failures.join(" | "));
+    process.exitCode = 1;
+  }
 }
 
 function bindInputToActiveBuffer() {
@@ -1246,6 +1383,7 @@ function createWindow() {
   }
 
   win = new BrowserWindow(windowOptions);
+  markSurfaceRole(win.webContents, SURFACE_ROLES.TRUSTED_SHELL);
 
   win.setMaxListeners(0);
 
@@ -1562,6 +1700,15 @@ function maybeScheduleSmokeExit() {
     }, 350);
   }
 
+  if (process.env.NOCTRA_SMOKE_SCENARIO === "security-boundary") {
+    setTimeout(() => {
+      runSecurityBoundarySmokeScenario().catch((error) => {
+        console.error("[noctra:smoke] security-boundary scenario failed", error?.message || error);
+        process.exitCode = 1;
+      });
+    }, 350);
+  }
+
   setTimeout(() => {
     if (process.env.NOCTRA_SMOKE_SCENARIO === "ui-cadence" && smokeUiCadenceProbe) {
       smokeUiCadenceProbe.validate();
@@ -1572,6 +1719,8 @@ function maybeScheduleSmokeExit() {
     ? 2400
     : process.env.NOCTRA_SMOKE_SCENARIO === "ui-cadence"
       ? 2200
+      : process.env.NOCTRA_SMOKE_SCENARIO === "security-boundary"
+        ? 2600
       : 1500);
 }
 

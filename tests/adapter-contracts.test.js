@@ -9,6 +9,10 @@ const {
 const {
   createPanelRenderTransport,
 } = require("../core/adapters/renderer/panelRenderTransport");
+const {
+  markSurfaceRole,
+  SURFACE_ROLES,
+} = require("../core/security/surfaceTrust");
 
 test("ipc registry registers and unregisters events and handlers symmetrically", () => {
   const eventListeners = new Map();
@@ -164,6 +168,53 @@ test("webContents security policy blocks window open and denied navigation", () 
   assert.equal(notifications.length, 2);
   assert.equal(notifications[0].code, "security_window_open_blocked");
   assert.equal(notifications[1].code, "security_navigation_blocked");
+});
+
+test("webContents security policy blocks remote navigation for trusted surfaces", () => {
+  let webContentsCreatedListener = null;
+  const notifications = [];
+  const app = {
+    on(eventName, listener) {
+      if (eventName === "web-contents-created") {
+        webContentsCreatedListener = listener;
+      }
+    },
+  };
+
+  registerWebContentsSecurityPolicy({
+    app,
+    isAllowedNavigationUrl: () => true,
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+
+  const willNavigateListeners = [];
+  const trustedContents = {
+    setWindowOpenHandler() {},
+    on(eventName, listener) {
+      if (eventName === "will-navigate") {
+        willNavigateListeners.push(listener);
+      }
+    },
+  };
+  markSurfaceRole(trustedContents, SURFACE_ROLES.TRUSTED_SETTINGS);
+  webContentsCreatedListener({}, trustedContents);
+
+  let prevented = false;
+  willNavigateListeners[0](
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "https://example.com",
+  );
+
+  assert.equal(prevented, true);
+  assert.equal(notifications.at(-1).code, "security_trusted_surface_navigation_blocked");
 });
 
 test("panel render transport debounces and supports cancellation", async () => {

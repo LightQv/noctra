@@ -1,5 +1,46 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #14
+### Objective
+- Execute Phase 05 security boundary closure and add runtime proof for trusted/untrusted boundary claims.
+
+### Completed
+- Added surface-role trust model in `core/security/surfaceTrust.js` and tagged trusted/untrusted webContents at creation boundaries.
+- Hardened trusted-surface navigation policy in `core/adapters/platform/securityPolicy.js` to block remote navigation from trusted roles.
+- Hardened privileged IPC checks in `main.js` using sender identity + surface role + `senderFrame.url` trust checks.
+- Removed dead `ui-shell:editor-*` preload bridge methods from `ui/shell/preload.js` so exposed API matches live contracts.
+- Tightened internal CSP coverage by adding panel CSP meta in `core/history/panel.js`.
+- Escaped dynamic settings HTML interpolation (title/path) in `core/settings/page.js`.
+- Added runtime security smoke scenario and script:
+  - `tests/smoke/electron-security-boundary.smoke.js`
+  - `npm run test:smoke:security`
+- Updated `ci:test` script to include security smoke gate.
+- Updated Phase 05 artifact and master plan status/handoff to Phase 06.
+
+### Decisions
+- Use strict trusted-surface remote-navigation blocking in Phase 05 rather than introducing a new unprivileged isolation surface in this phase.
+- Add a smoke-test-only privileged IPC probe channel (`security:probe-privileged-ipc`) gated by `NOCTRA_SMOKE_TEST=1` for deterministic unauthorized sender/frame rejection proof.
+
+### Verification
+- Passed: `npm test`.
+- Passed: `npm run test:smoke`.
+- Passed: `npm run test:smoke:overlay`.
+- Passed: `npm run test:smoke:ui-cadence`.
+- Passed: `npm run test:smoke:security`.
+- Failed: n/a.
+
+### Risks/Notes
+- Trusted-surface URL allowlist currently permits internal data URLs and `about:blank`; if future trusted internal surfaces use `file:` or custom schemes, update allowlist + tests together.
+
+### Next Session Start Here
+- Execute `docs/hardening/phase-06-ci-proof-gate-alignment.md` step 1: define and enforce canonical CI hardening gate command and workflow alignment.
+
+### Conditions Closeout Addendum
+- Closed senior-reviewer high condition by gating preload probe export:
+  - `ui/shell/preload.js` now exposes `probePrivilegedIpc` only when `NOCTRA_SMOKE_TEST=1`.
+- Clarified proof semantics in Phase 05 artifact to avoid overclaiming hostile-renderer E2E equivalence.
+- Recorded trusted-surface URL-allowance follow-up as monitoring (Phase 06/07), non-blocking for Phase 05.
+
 ## Session 2026-05-08 #13
 ### Objective
 - Convert independent senior/security review findings into an executable multi-phase closeout plan to reach verifiable OSS readiness.

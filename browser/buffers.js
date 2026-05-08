@@ -1,6 +1,7 @@
 const { BrowserView } = require("electron");
 const { EventEmitter } = require("events");
 const { applyScrollableUi, releaseChromiumPreferredColorScheme } = require("./contentUi");
+const { markSurfaceRole, SURFACE_ROLES } = require("../core/security/surfaceTrust");
 const {
   UI_SCROLLBAR_THUMB_COLOR,
   UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
@@ -44,6 +45,7 @@ class Buffer extends EventEmitter {
     });
 
     this.webContents = this.view.webContents;
+    markSurfaceRole(this.webContents, options.surfaceRole || SURFACE_ROLES.UNTRUSTED_WEB);
     this.url = "about:blank";
     this.virtualUrl = "";
     this.title = "[No title]";

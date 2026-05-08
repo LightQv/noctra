@@ -1,4 +1,5 @@
 const { BrowserView } = require("electron");
+const { markSurfaceRole, SURFACE_ROLES } = require("../../security/surfaceTrust");
 
 function createPanelViewHost({ windowRef, onMouseDown, onFocus }) {
   if (!windowRef || windowRef.isDestroyed()) {
@@ -15,6 +16,7 @@ function createPanelViewHost({ windowRef, onMouseDown, onFocus }) {
   });
 
   windowRef.addBrowserView(view);
+  markSurfaceRole(view.webContents, SURFACE_ROLES.TRUSTED_PANEL);
 
   view.webContents.on("before-mouse-event", (_event, input) => {
     if (!input || input.type !== "mouseDown") return;

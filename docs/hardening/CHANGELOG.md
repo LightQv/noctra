@@ -1,5 +1,34 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #09
+### Objective
+- Execute Phase 04 step 5 by adding focused tests for extracted adapter boundaries and lifecycle-sensitive registration/teardown behavior.
+
+### Completed
+- Added `tests/adapter-contracts.test.js` with contract coverage for:
+  - `core/adapters/platform/ipcRegistry.js` (event/handler registration + symmetric teardown),
+  - `core/adapters/platform/securityPolicy.js` (deny-all permissions + blocked window/navigation behavior),
+  - `core/adapters/renderer/panelRenderTransport.js` (debounce and cancellation behavior).
+- Updated Phase 04 artifact:
+  - marked step 5 complete,
+  - documented test strategy and validation evidence,
+  - advanced handoff to step 6.
+- Updated master plan handoff next action to Phase 04 step 6.
+
+### Decisions
+- Keep step-5 coverage lightweight and deterministic with stubs/mocks using built-in Node test tooling only (no new dependencies).
+
+### Verification
+- Passed: `npm test` (22/22).
+- Passed: `npm run test:smoke`.
+- Failed: n/a.
+
+### Risks/Notes
+- Step 6 cleanup must preserve newly asserted contracts (especially IPC teardown symmetry and security deny behavior).
+
+### Next Session Start Here
+- Execute `phase-04-adapter-deepening-monolith-split.md` step 6: remove temporary/deprecated passthroughs after parity verification.
+
 ## Session 2026-05-08 #08
 ### Objective
 - Execute Phase 04 step 4 by continuing incremental splits on a medium-risk main-process slice.

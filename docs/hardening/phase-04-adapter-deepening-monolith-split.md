@@ -33,7 +33,7 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 2. [x] Define target ownership map (orchestration vs adapter vs UI domain service).
 3. [x] Extract first decomposition slice (lowest-risk domain) and validate parity.
 4. [x] Continue incremental splits for remaining large modules.
-5. [ ] Add/update tests for extracted boundaries and lifecycle ordering.
+5. [x] Add/update tests for extracted boundaries and lifecycle ordering.
 6. [ ] Remove deprecated passthroughs after parity verification.
 
 ## Step 1 Inventory - Direct Electron Call Map
@@ -118,6 +118,22 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 - Passed: `npm run test:smoke`.
 - No behavior-contract changes introduced in channel names, sender checks, or policy outcomes.
 
+## Step 5 Implementation - Contract and Lifecycle Tests
+- Added `tests/adapter-contracts.test.js` using Node built-ins (`node:test`, `node:assert/strict`).
+- Added focused contract coverage for extracted adapter boundaries:
+  - `core/adapters/platform/ipcRegistry.js`
+    - verifies registration and symmetric teardown of events/handlers.
+  - `core/adapters/platform/securityPolicy.js`
+    - verifies deny-all permission handlers.
+    - verifies blocked `window.open` and denied navigation notify behavior.
+  - `core/adapters/renderer/panelRenderTransport.js`
+    - verifies debounced render scheduling and cancel behavior.
+
+### Step 5 Validation Evidence
+- Passed: `npm test` (22/22).
+- Passed: `npm run test:smoke`.
+- Lifecycle ordering guard coverage improved for registration/teardown boundaries through IPC contract tests.
+
 ## Behavior Parity Checklist
 - [ ] Startup/shutdown behavior unchanged
 - [ ] Overlay/panel z-order behavior unchanged
@@ -149,9 +165,10 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
   - Completed step 2 ownership map with explicit target owner, module path, and contract boundary per responsibility slice.
   - Completed step 3 first decomposition slice for history panel host/render boundaries with adapter extraction.
   - Completed step 4 incremental split slice in `main.js` for security policy and IPC registry adapter extraction.
+  - Completed step 5 focused adapter contract tests for IPC/security/render transport boundaries.
 - Remaining:
-  - steps 5 through 6.
+  - step 6.
 - Known pitfalls:
   - Splitting too many modules in one session reduces confidence and rollback safety.
 - Next exact step:
-  - Execute step 5: add/update focused tests for extracted adapter contracts and lifecycle ordering.
+  - Execute step 6: remove temporary/deprecated passthroughs after parity verification.

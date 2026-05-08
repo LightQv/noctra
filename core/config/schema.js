@@ -178,6 +178,37 @@ function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
   return normalized;
 }
 
+function normalizeDiscreteKeymap(inputMap, defaultMap) {
+  const normalized = { ...(isPlainObject(defaultMap) ? defaultMap : {}) };
+  if (!isPlainObject(inputMap)) {
+    return normalized;
+  }
+
+  for (const [rawKey, rawActionId] of Object.entries(inputMap)) {
+    if (typeof rawKey !== "string") {
+      continue;
+    }
+
+    const key = rawKey.trim();
+    if (!key) {
+      continue;
+    }
+
+    if (typeof rawActionId !== "string") {
+      continue;
+    }
+
+    const actionId = rawActionId.trim();
+    if (!ACTION_IDS.has(actionId)) {
+      continue;
+    }
+
+    normalized[key] = actionId;
+  }
+
+  return normalized;
+}
+
 function normalizeConfig(rawConfig) {
   const defaults = cloneDefaults();
   const input = isPlainObject(rawConfig) ? rawConfig : {};
@@ -233,7 +264,12 @@ function normalizeConfig(rawConfig) {
     );
   }
 
-  const userLeaderTree = isPlainObject(input.keymap) ? input.keymap.leader : null;
+  const keymapSection = isPlainObject(input.keymap) ? input.keymap : null;
+  const userNormalMap = keymapSection ? keymapSection.normal : null;
+  const userModMap = keymapSection ? keymapSection.mod : null;
+  const userLeaderTree = keymapSection ? keymapSection.leader : null;
+  normalized.keymap.normal = normalizeDiscreteKeymap(userNormalMap, defaults.keymap.normal);
+  normalized.keymap.mod = normalizeDiscreteKeymap(userModMap, defaults.keymap.mod);
   const normalizedUserLeaderNode = normalizeLeaderNode({ label: "Leader", children: userLeaderTree });
   if (normalizedUserLeaderNode && normalizedUserLeaderNode.children) {
     normalized.keymap.leader = normalizedUserLeaderNode.children;

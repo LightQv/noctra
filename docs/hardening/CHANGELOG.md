@@ -1,5 +1,31 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #01
+### Objective
+- Start Phase 02 keymap architecture completion by moving normal/mod maps to canonical config-backed layering.
+
+### Completed
+- Implemented data-driven defaults for `keymap.normal` and `keymap.mod` in `core/config/defaults.js`.
+- Extended config normalization to merge user overrides onto defaults for normal/mod maps with action-id validation.
+- Switched runtime keymap resolution (`motions/keymap.js`) to effective config values for normal/mod mappings.
+- Updated shortcut label discovery in `main.js` to use effective config keymaps (normal/mod) instead of static constants.
+- Updated generated `config.yml` comments in `core/config/service.js` to document keymap scope and shape.
+- Updated Phase 02 artifact with source inventory table and documented precedence/conflict rules.
+
+### Decisions
+- Keep tree-domain-only actions (bookmark/history-specific edit/delete/filter operations) panel-local for now; only shared NORMAL/mod motions are moved to canonical config-backed keymap layer in this slice.
+
+### Verification
+- Passed: module load/syntax check for changed non-Electron modules (`defaults/schema/service/keymap`).
+- Not run: full app parity validation and runtime reload matrix.
+- Failed: n/a.
+
+### Risks/Notes
+- `core/history/panel.js` still contains tree-local hardcoded bindings that intentionally bypass user override until explicitly migrated.
+
+### Next Session Start Here
+- Execute `phase-02-keymap-architecture-completion.md` step 5: verify and document deterministic runtime reload behavior for normal/mod/leader maps.
+
 ## Session 2026-05-07 #02
 ### Objective
 - Complete Phase 01 security boundary lockdown for OSS-readiness gate items.

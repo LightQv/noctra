@@ -71,8 +71,12 @@ function addThemeComments(yamlText) {
     if (!keymapCommentAdded && /^keymap:\s*$/.test(line)) {
       output.push(line);
       output.push("  # Keymap customization scope:");
-      output.push("  # - Classic NORMAL/TREE motions are fixed internally.");
-      output.push("  # - Only leader mappings are configurable here.");
+      output.push("  # - keymap.normal: NORMAL mode sequence mappings (web + shared tree motions)");
+      output.push("  # - keymap.mod: Ctrl+<key> mappings (web + shared tree motions)");
+      output.push("  # - keymap.leader: leader tree mappings");
+      output.push("  # Tree-only domain actions remain internal for now.");
+      output.push("  # Mapping shape:");
+      output.push("  # normal/mod: <keys>: \"<action_id>\"");
       output.push("  # Leader node shape:");
       output.push("  # - <key>: { label: \"...\", action: \"<action_id>\" }");
       output.push("  # - <key>: { label: \"...\", children: { ... } }");

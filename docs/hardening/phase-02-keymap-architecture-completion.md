@@ -28,10 +28,10 @@ Complete the data-driven keymap architecture with user override layering and saf
 - Validation and conflict reporting for user mappings
 
 ## Steps
-1. [ ] Inventory all keymap sources (hardcoded + config-backed) by mode/context.
-2. [ ] Define and document canonical merge order and conflict rules.
-3. [ ] Move remaining hardcoded mappings into data-driven defaults.
-4. [ ] Implement user override merge with guardrails for unsafe/invalid mappings.
+1. [x] Inventory all keymap sources (hardcoded + config-backed) by mode/context.
+2. [x] Define and document canonical merge order and conflict rules.
+3. [x] Move remaining hardcoded mappings into data-driven defaults.
+4. [x] Implement user override merge with guardrails for unsafe/invalid mappings.
 5. [ ] Add runtime reload handling (or document exact restart requirement).
 6. [ ] Add tests for precedence, mode scoping, and conflict handling.
 7. [ ] Validate parity for baseline Vim-like flows and tree/telescope flows.
@@ -48,6 +48,24 @@ Complete the data-driven keymap architecture with user override layering and saf
 - [ ] Manual: mode/context mapping pass (NORMAL/INSERT/COMMAND + panel states)
 - [ ] Optional focused unit tests for resolver and merge behavior
 
+## Canonical Merge/Conflict Rules
+- Precedence order: built-in defaults (`core/config/defaults.js`) -> user config overrides (`config.yml`, normalized in `core/config/schema.js`) -> runtime guards/context routing (`core/inputPriorityResolver.js`, `core/input.js`, semantic context).
+- `keymap.normal` and `keymap.mod` are merged by key: defaults are always present, user keys override matching default keys.
+- `keymap.leader` remains normalized as a validated tree under `keymap.leader`.
+- Invalid mappings are dropped during normalization (empty key, non-string action id, unknown action id).
+- Sequence conflicts are resolved deterministically by runtime parser behavior: exact sequence match first, prefix continuation otherwise (`motions/grammarPrimitives.js`).
+
+## Keymap Source Inventory (Mode/Context)
+| Mode | Context | Source | Notes |
+|---|---|---|---|
+| NORMAL | web | `keymap.normal` | Canonical normal motion/action map resolved in `motions/keymap.js`. |
+| NORMAL | web (Ctrl-mod) | `keymap.mod` | Canonical modifier map resolved in `motions/keymap.js` + `motions/modifiers.js`. |
+| NORMAL | web (leader) | `keymap.leader` | Tree-based leader map resolved in `motions/leaderMap.js`. |
+| NORMAL | history/bookmarks tree | `keymap.normal` + `keymap.mod` + panel-local keys | Shared motions from keymap registry; tree-domain actions remain panel-local in `core/history/panel.js`. |
+| INSERT | global | `motions/insert.js` | Escape-only modal transition remains hardcoded. |
+| COMMAND | shell/editor | `motions/command.js` | Command-line editing/navigation keys remain hardcoded. |
+| SETTINGS editor | editor surface | `core/settings/page.js` + `global.input.leader_key` | Local editor context uses leader key plus editor-specific control shortcuts. |
+
 ## Risks
 | Risk | Trigger | Mitigation |
 |---|---|---|
@@ -63,10 +81,14 @@ Complete the data-driven keymap architecture with user override layering and saf
 
 ## Handoff Notes
 - Done:
-  - none.
+  - Added data-driven defaults for `keymap.normal` and `keymap.mod` in `core/config/defaults.js`.
+  - Extended config normalization to merge/validate user `keymap.normal` and `keymap.mod` overrides.
+  - Switched runtime normal/mod mapping resolution to config-backed keymaps in `motions/keymap.js`.
+  - Updated shell shortcut label discovery in `main.js` to read effective config-backed keymaps.
+  - Updated generated config guidance comments for keymap scope in `core/config/service.js`.
 - Remaining:
-  - all steps.
+  - step 5 (runtime reload confirmation/documentation), step 6 (tests), step 7 (manual parity validation).
 - Known pitfalls:
   - Hidden hardcoded mappings in mode handlers can bypass override layer.
 - Next exact step:
-  - Execute step 1 and produce a keymap source inventory table.
+  - Execute step 5: verify and document config reload determinism for `keymap.normal`/`keymap.mod`/`keymap.leader`.

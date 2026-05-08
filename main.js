@@ -36,7 +36,7 @@ const { performWindowAction } = require("./core/adapters/platform/windowActions"
 const webContentsActions = require("./core/adapters/platform/webContentsActions");
 const editorSurface = require("./core/adapters/renderer/editorSurface");
 const { broadcastUiShellPush } = require("./core/adapters/renderer/uiShellPush");
-const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./motions/constants");
+const { getNormalActionMap, getModActionMap } = require("./motions/keymap");
 let win;
 let activeInputWebContents = null;
 let inputListener = null;
@@ -650,12 +650,12 @@ function findShortcutLabelForAction(actionId) {
   const leader = configService.getConfigValue("keymap.leader", {});
 
   const labels = [];
-  const normalHits = findNormalMappingsForAction(NORMAL_KEY_ACTIONS, actionId);
+  const normalHits = findNormalMappingsForAction(getNormalActionMap(), actionId);
   if (normalHits.length > 0) {
     labels.push(normalHits[0]);
   }
 
-  const modHits = findModMappingsForAction(MOD_KEY_ACTIONS, actionId);
+  const modHits = findModMappingsForAction(getModActionMap(), actionId);
   if (modHits.length > 0) {
     labels.push(modHits[0]);
   }

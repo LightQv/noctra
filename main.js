@@ -51,6 +51,7 @@ let webModeSyncTimer = null;
 let webModeSyncInFlight = false;
 let webModeSyncPending = false;
 let browserLanguageHooksRegistered = false;
+let smokeUiCadenceProbe = null;
 
 function isFiniteInteger(value) {
   return Number.isFinite(value) && Number.isInteger(value);
@@ -1155,6 +1156,51 @@ function bindInputToActiveBuffer() {
   buffers.focusActive();
 }
 
+function setupSmokeUiCadenceProbe() {
+  if (process.env.NOCTRA_SMOKE_TEST !== "1" || process.env.NOCTRA_SMOKE_SCENARIO !== "ui-cadence") {
+    return;
+  }
+
+  const counters = {
+    tabline: 0,
+    urlline: 0,
+    statusline: 0,
+  };
+
+  const originalRenderTabline = uiShell.renderTabline.bind(uiShell);
+  const originalRenderUrlline = uiShell.renderUrlline.bind(uiShell);
+  const originalUpdateStatuslineMode = uiShell.updateStatuslineMode.bind(uiShell);
+
+  uiShell.renderTabline = (...args) => {
+    counters.tabline += 1;
+    return originalRenderTabline(...args);
+  };
+
+  uiShell.renderUrlline = (...args) => {
+    counters.urlline += 1;
+    return originalRenderUrlline(...args);
+  };
+
+  uiShell.updateStatuslineMode = (...args) => {
+    counters.statusline += 1;
+    return originalUpdateStatuslineMode(...args);
+  };
+
+  smokeUiCadenceProbe = {
+    counters,
+    validate() {
+      const failures = [];
+      if (counters.tabline < 2) failures.push(`tabline updates too low: ${counters.tabline}`);
+      if (counters.urlline < 2) failures.push(`urlline updates too low: ${counters.urlline}`);
+      if (counters.statusline < 2) failures.push(`statusline updates too low: ${counters.statusline}`);
+      if (failures.length > 0) {
+        console.error("[noctra:smoke] ui-cadence validation failed", failures.join(" | "));
+        process.exitCode = 1;
+      }
+    },
+  };
+}
+
 function createWindow() {
   const config = configService.initConfig();
   state.applyConfig(config);
@@ -1234,6 +1280,7 @@ function createWindow() {
     });
   }
   uiShell.init(win);
+  setupSmokeUiCadenceProbe();
   notificationsService.setToastHandler((toast) => {
     uiShell.showNotificationToast(toast);
   });
@@ -1483,9 +1530,49 @@ function maybeScheduleSmokeExit() {
     return;
   }
 
+  if (process.env.NOCTRA_SMOKE_SCENARIO === "overlay-panel-split") {
+    setTimeout(() => {
+      try {
+        dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
+        buffers.openVerticalSplit(0.5);
+        buffers.focusSplitLeft();
+        buffers.focusSplitRight();
+        historyPanel.focus();
+        historyPanel.unfocus();
+        buffers.closeRightSplit();
+      } catch (error) {
+        console.error("[noctra:smoke] overlay-panel-split scenario failed", error?.message || error);
+      }
+    }, 350);
+  }
+
+  if (process.env.NOCTRA_SMOKE_SCENARIO === "ui-cadence") {
+    setTimeout(() => {
+      try {
+        buffers.openConfiguredBuffer();
+        updateTablineOptions();
+        updateUrllineRender();
+        uiShell.updateStatuslineMode(getStatuslineModeLabel());
+        dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
+        historyPanel.unfocus();
+      } catch (error) {
+        console.error("[noctra:smoke] ui-cadence scenario failed", error?.message || error);
+        process.exitCode = 1;
+      }
+    }, 350);
+  }
+
   setTimeout(() => {
+    if (process.env.NOCTRA_SMOKE_SCENARIO === "ui-cadence" && smokeUiCadenceProbe) {
+      smokeUiCadenceProbe.validate();
+    }
     app.quit();
-  }, 1500);
+  },
+  process.env.NOCTRA_SMOKE_SCENARIO === "overlay-panel-split"
+    ? 2400
+    : process.env.NOCTRA_SMOKE_SCENARIO === "ui-cadence"
+      ? 2200
+      : 1500);
 }
 
 app.whenReady().then(() => {

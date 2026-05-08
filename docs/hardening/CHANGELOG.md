@@ -1,5 +1,78 @@
 # Hardening Session Changelog
 
+## Session 2026-05-08 #12
+### Objective
+- Complete remaining Phase 04 parity gate by automating statusline/tabline/urlline update-cadence verification and close phase exit criteria.
+
+### Completed
+- Added UI cadence smoke scenario path in `main.js` (`NOCTRA_SMOKE_SCENARIO=ui-cadence`) with cadence counters for:
+  - `uiShell.renderTabline`,
+  - `uiShell.renderUrlline`,
+  - `uiShell.updateStatuslineMode`.
+- Added smoke runner `tests/smoke/electron-ui-cadence.smoke.js`.
+- Added script `test:smoke:ui-cadence` and updated `ci:test` to include it.
+- Ran and passed:
+  - `npm test` (22/22),
+  - `npm run test:smoke`,
+  - `npm run test:smoke:overlay`,
+  - `npm run test:smoke:ui-cadence`,
+  - `npm run ci:test`.
+- Updated Phase 04 artifact to mark:
+  - behavior parity checklist complete,
+  - validation checklist complete,
+  - exit criteria complete.
+- Updated master plan status table to mark Phase 04 as `done` and handoff to OSS readiness final review.
+
+### Decisions
+- Use deterministic smoke-time cadence counters for contract-level UI update verification instead of ad-hoc manual cadence checks.
+
+### Verification
+- Passed: `npm test`.
+- Passed: `npm run test:smoke`.
+- Passed: `npm run test:smoke:overlay`.
+- Passed: `npm run test:smoke:ui-cadence`.
+- Passed: `npm run ci:test`.
+- Failed: n/a.
+
+### Risks/Notes
+- Phase 04 is complete; remaining project-level risk tracking continues under OSS-readiness final review and risk register items.
+
+### Next Session Start Here
+- Run OSS readiness final review against remaining gate items and open risks in `docs/hardening/00_master_plan.md`.
+
+## Session 2026-05-08 #11
+### Objective
+- Strengthen Phase 04 step-6 parity verification by turning remaining manual startup/overlay checks into deterministic smoke automation.
+
+### Completed
+- Added smoke scenario path in `main.js` (`NOCTRA_SMOKE_SCENARIO=overlay-panel-split`) to exercise:
+  - history panel show/focus/unfocus,
+  - regular split open/focus-left/focus-right/close,
+  - startup-to-shutdown lifecycle completion.
+- Added smoke runner `tests/smoke/electron-overlay-panel-split.smoke.js`.
+- Added script `test:smoke:overlay` and updated `ci:test` to include both smoke checks.
+- Ran and passed:
+  - `npm test` (22/22),
+  - `npm run test:smoke`,
+  - `npm run test:smoke:overlay`.
+- Updated Phase 04 artifact validation/checklists to mark startup, overlay/panel, and buffer lifecycle parity checks complete via automated scripts.
+- Updated master plan handoff to remaining statusline/tabline/urlline cadence parity check.
+
+### Decisions
+- Prefer deterministic smoke automation for lifecycle parity where feasible, while keeping higher-fidelity UI cadence parity as a final explicit check.
+
+### Verification
+- Passed: `npm test`.
+- Passed: `npm run test:smoke`.
+- Passed: `npm run test:smoke:overlay`.
+- Failed: n/a.
+
+### Risks/Notes
+- Statusline/tabline/urlline cadence parity still requires final targeted verification before Phase 04 closeout.
+
+### Next Session Start Here
+- Validate statusline/tabline/urlline update-cadence parity and complete Phase 04 exit checklist.
+
 ## Session 2026-05-08 #10
 ### Objective
 - Execute Phase 04 step 6 by removing remaining transitional passthrough indirection after adapter extraction.

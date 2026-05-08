@@ -36,7 +36,7 @@ Close post-migration gaps identified in architecture and security reviews while 
 | 01 | Security boundary lockdown | done | - | 2026-05-07 |
 | 02 | Keymap architecture completion | done | 01 | 2026-05-08 |
 | 03 | Invariants, tests, and CI gates | done | 01, 02 | 2026-05-08 |
-| 04 | Adapter deepening + monolith split | in progress | 03 | 2026-05-08 |
+| 04 | Adapter deepening + monolith split | done | 03 | 2026-05-08 |
 
 Status values: `not started | in progress | blocked | done`
 
@@ -93,7 +93,7 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## Session Handoff
-- Last completed phase: 03
-- Active phase: 04
+- Last completed phase: 04
+- Active phase: none
 - Blockers: none
-- Next action: Execute Phase 04 manual parity validation scripts and complete exit checklist in `phase-04-adapter-deepening-monolith-split.md`.
+- Next action: Run OSS readiness final review against remaining gate items and open risks.

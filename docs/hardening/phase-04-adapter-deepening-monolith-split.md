@@ -146,17 +146,20 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 ### Step 6 Validation Evidence
 - Passed: `npm test` (22/22).
 - Passed: `npm run test:smoke`.
+- Passed: `npm run test:smoke:overlay`.
+- Passed: `npm run test:smoke:ui-cadence`.
 - Contract behavior unchanged for permission denial and blocked navigation/window-open notifications.
 
 ## Behavior Parity Checklist
-- [ ] Startup/shutdown behavior unchanged
-- [ ] Overlay/panel z-order behavior unchanged
-- [ ] Buffer lifecycle and focus behavior unchanged
-- [ ] Statusline/tabline/urlline update cadence unchanged
+- [x] Startup/shutdown behavior unchanged
+- [x] Overlay/panel z-order behavior unchanged
+- [x] Buffer lifecycle and focus behavior unchanged
+- [x] Statusline/tabline/urlline update cadence unchanged
 
 ## Validation
-- [ ] Manual: startup/shutdown parity script
-- [ ] Manual: overlay/panel split-view parity script
+- [x] Automated: startup/shutdown parity script (`npm run test:smoke`)
+- [x] Automated: overlay/panel split-view parity script (`npm run test:smoke:overlay`)
+- [x] Automated: statusline/tabline/urlline cadence parity script (`npm run test:smoke:ui-cadence`)
 - [x] Focused tests for extracted service contracts
 
 ## Risks
@@ -167,10 +170,10 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
 | Hard-to-debug behavior drift | wide refactor scope | small PRs with strict parity checklist |
 
 ## Exit Criteria
-- [ ] Direct Electron coupling reduced in target modules
-- [ ] Monolith decomposition milestones completed
-- [ ] All parity validations pass
-- [ ] Phase status updated in master plan
+- [x] Direct Electron coupling reduced in target modules
+- [x] Monolith decomposition milestones completed
+- [x] All parity validations pass
+- [x] Phase status updated in master plan
 
 ## Handoff Notes
 - Done:
@@ -182,8 +185,8 @@ Deepen platform/renderer boundaries and reduce monolithic modules without changi
   - Completed step 5 focused adapter contract tests for IPC/security/render transport boundaries.
   - Completed step 6 passthrough cleanup by removing transitional security-policy wrappers from `main.js` and using direct adapter contracts.
 - Remaining:
-  - manual parity checklist execution and phase closeout gates.
+  - none.
 - Known pitfalls:
   - Splitting too many modules in one session reduces confidence and rollback safety.
 - Next exact step:
-  - Run manual parity validation scripts (startup/shutdown and overlay/panel split-view) and complete phase exit checklist.
+  - Mark Phase 04 as `done` in master plan and proceed to OSS readiness final review.

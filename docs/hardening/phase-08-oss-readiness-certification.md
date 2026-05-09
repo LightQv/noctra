@@ -49,18 +49,18 @@ Produce final auditable OSS-readiness certification by reconciling implementatio
 4. [x] Update OSS readiness gates with evidence references and explicit residual notes (if any).
 5. [x] Reclassify risk register items from `open` to `mitigated`, `monitoring`, or `accepted` with rationale.
 6. [ ] Run independent re-review:
-   - [x] `senior-reviewer` (verdict: `READY_TO_MARK_B_DONE` for Workstream B lifecycle/regression scope)
-   - `security-engineer`
-7. [ ] Resolve any remaining must-fix findings and rerun re-review if needed.
+   - [x] `senior-reviewer` (updated closeout verdict: `READY_WITH_CONDITIONS`; no critical/high code-level must-fix)
+   - [x] `security-engineer` (verdict: `READY`; no open critical/high security blocker)
+7. [x] Resolve any remaining must-fix findings and rerun re-review if needed.
 8. [ ] Add final changelog session entry and mark Phase 08 done.
 
 ## Validation
 
 - [x] Full hardening CI gate passes locally (`npm run ci:test`)
 - [ ] Full hardening CI gate passes on hosted runner (latest post-Workstream-B run link to be attached in proof bundle)
-- [x] Independent senior reviewer verdict is `ready` for Workstream B lifecycle/regression scope
-- [ ] Independent security reviewer verdict pending
-- [ ] No open critical/high must-fix blocker remains (pending security re-review)
+- [x] Independent senior reviewer verdict is available for final closeout (`READY_WITH_CONDITIONS`, no critical/high code-level must-fix)
+- [x] Independent security reviewer verdict is available for final closeout (`READY`, no open critical/high)
+- [x] No open critical/high must-fix blocker remains
 
 ## Workstream C Reconciliation Snapshot (2026-05-09)
 
@@ -77,8 +77,7 @@ Produce final auditable OSS-readiness certification by reconciling implementatio
 - Local validation pass after Workstream C changes:
   - `npm test` passed,
   - `npm run ci:test` passed.
-- Residual blockers unchanged for Phase 08 completion:
-  - pending `security-engineer` independent re-review,
+- Residual blocker for Phase 08 completion:
   - pending hosted post-change canonical gate evidence attachment.
 
 ## Risks
@@ -101,11 +100,13 @@ Produce final auditable OSS-readiness certification by reconciling implementatio
 - Done:
   - Workstream B lifecycle/regression hardening completed and independently re-reviewed by `senior-reviewer` with verdict `READY_TO_MARK_B_DONE`.
   - Canonical hardening gate with expanded lifecycle suites passes locally (`npm run ci:test`).
+  - Independent closeout re-reviews completed on current scope:
+    - `security-engineer`: `READY` with no open critical/high must-fix finding.
+    - `senior-reviewer`: `READY_WITH_CONDITIONS` with no critical/high code defect; closeout/doc conditions tracked.
 - Remaining:
   - hosted canonical gate evidence refresh after latest security/lifecycle changes,
-  - `security-engineer` re-review,
-  - final closeout updates after independent security verdict.
+  - final Phase 08 status flip after hosted evidence is attached.
 - Known pitfalls:
   - skipping independent re-review after final fixes can miss last-minute regressions.
 - Next exact step:
-  - Execute `security-engineer` independent re-review, then reconcile remaining Phase 08 validation/risk items.
+  - Attach hosted canonical gate evidence to certification bundle, then close remaining Phase 08 checklists.

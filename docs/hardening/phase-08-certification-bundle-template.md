@@ -1,10 +1,10 @@
 # Phase 08 OSS Certification Bundle Template
 
-Bundle ID: phase08-oss-cert-YYYY-MM-DD-<shortsha>
-Prepared by: <name>
-Date: <YYYY-MM-DD>
-Branch: <branch>
-Commit SHA: <sha>
+Bundle ID: phase08-oss-cert-2026-05-09-f7c03c0
+Prepared by: OpenCode session
+Date: 2026-05-09
+Branch: rework/hardening_09
+Commit SHA: f7c03c0
 
 ## 1) Hosted CI Evidence (Required)
 - Workflow URL: <url>
@@ -26,14 +26,14 @@ Evidence refs:
 - <log/screenshot ref 2>
 
 ## 2) Local Reproduction Evidence (Required)
-- Environment: <OS>, Node <version>, npm <version>
-- Date/time (UTC): <time>
+- Environment: darwin, Node v23.11.0, npm 10.9.2
+- Date/time (UTC): 2026-05-09T12:06:07Z
 - Command: `npm run ci:test`
-- Result: <pass/fail>
-- Retries/flakes: <none or details>
+- Result: pass
+- Retries/flakes: none
 
 Evidence refs:
-- <terminal transcript ref>
+- local CLI transcript: `npm run ci:test` (2026-05-09 UTC, this session)
 
 ## 3) Security Boundary Proof (Phase 05 Carry-through)
 - [ ] Untrusted content has no privileged bridge (`window.uiShell` absent)
@@ -103,16 +103,16 @@ For each risk line in master plan:
 ## 7) Independent Re-Review Dossier (Required)
 
 ### senior-reviewer
-- Run date: <date>
-- Verdict: <ready/ready-with-conditions/not-ready>
-- Critical/high must-fix findings: <none or list>
-- Evidence ref: <report>
+- Run date: 2026-05-09
+- Verdict: `READY_WITH_CONDITIONS`
+- Critical/high must-fix findings: none
+- Evidence ref: OpenCode task result (`senior-reviewer`, task id `ses_1f362a2a5ffe3keRSEd4I3KPfK`)
 
 ### security-engineer
-- Run date: <date>
-- Verdict: <ready/ready-with-conditions/not-ready>
-- Critical/high must-fix findings: <none or list>
-- Evidence ref: <report>
+- Run date: 2026-05-09
+- Verdict: `READY`
+- Critical/high must-fix findings: none
+- Evidence ref: OpenCode task result (`security-engineer`, task id `ses_1f362a2aeffeU6VbkfUGC4newW`)
 
 If findings exist:
 - Finding ID: <id>
@@ -140,10 +140,10 @@ If findings exist:
 
 ## Final Validation Checklist
 - [ ] Hosted canonical gate passed
-- [ ] Local canonical gate passed
+- [x] Local canonical gate passed
 - [ ] Master plan gates evidence-backed
 - [ ] Risk register reclassified with rationale
-- [ ] Both independent reviews completed
-- [ ] No open critical/high must-fix finding
+- [x] Both independent reviews completed
+- [x] No open critical/high must-fix finding
 - [ ] Changelog final closeout entry prepared
 - [ ] Phase 08 marked done

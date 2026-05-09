@@ -158,6 +158,16 @@ Release is considered OSS-ready only when all are true:
 
 ## Workstream E - Final Certification + Cleanup
 
+### Status
+- In progress (2026-05-09).
+- Completed in this pass:
+  - local canonical gate verification (`npm run ci:test` passed),
+  - independent `security-engineer` re-review (`READY`, no open critical/high),
+  - independent `senior-reviewer` re-review (`READY_WITH_CONDITIONS`, no critical/high code-level must-fix),
+  - Phase 08 closeout docs reconciled to single-blocker state.
+- Remaining blocker before folder retirement and final completion:
+  - hosted canonical gate evidence attachment from next PR run.
+
 ### Final verification
 - Local canonical gate pass.
 - Hosted canonical gate pass.

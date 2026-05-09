@@ -1,51 +1,59 @@
-# Overall Assessment
+# 1. Overall Assessment
 
-**Workstream verdict:** READY_TO_MARK_B_DONE
+Verdict: **READY_WITH_CONDITIONS**.
 
-Workstream B now meets its stated bar. The smoke harness no longer relies on a fixed successful-exit timer, the session lifecycle flow is condition-driven end to end, the new lifecycle suites are wired into the canonical `npm run ci:test` gate, and that full gate passes locally. The only remaining caution is documentation accuracy: current evidence covers focus-sensitive lifecycle behavior directly, but not a dedicated native-theme or window-persistence smoke path.
+The repository is in materially better shape for OSS closeout: security defaults are consistently hardened across `BrowserWindow`/`BrowserView` creation paths, lifecycle-sensitive behavior has deterministic smoke coverage, and the recent docs avoid most prior overclaiming. I did not find a remaining code-level **critical** security or regression defect in the current state, and both `npm test` and `npm run ci:test` pass locally.
 
-## Top Risks (ranked)
+However, final Workstream E / Phase 08 closeout is **not fully complete yet** because release-gate evidence and documentation truth are still slightly out of sync with the claimed end state.
 
-1. **Docs could still overclaim theme/window verification** — focus-sensitive lifecycle is directly exercised (`main.js:1399-1458`), but there is no smoke that explicitly triggers `nativeTheme` updates (`main.js:1845-1866`) or window bound/maximize persistence hooks (`main.js:1644-1752`). Impact is documentation accuracy, not implementation readiness.
-2. **Settings close is validated via buffer close intent, not renderer close bridge** — the scenario proves the editable buffer can be closed (`main.js:1264-1276`), but it does not specifically drive `window.settingsBridge.close()` even though that bridge is present (`ui/settings/preload.js:10-12`). This is a small coverage gap, not a Workstream B blocker.
+# 2. Top Risks (ranked)
 
-## Strengths
+1. **Final release gate is still procedurally open**  
+   - Files: `docs/hardening/00_master_plan.md`, `docs/hardening/phase-08-oss-readiness-certification.md`  
+   - The repo itself says the remaining blockers are the pending independent `security-engineer` re-review and hosted post-change CI proof. That means OSS closeout cannot honestly be marked fully ready yet.
 
-- Smoke orchestration is now scenario-driven and awaited, with the watchdog acting only as a failure guard (`main.js:1869-1939`). That closes the largest prior determinism concern.
-- Settings lifecycle coverage is materially complete: open editable buffer, assert bridge, save, persist-check, restore original contents, then close (`main.js:1181-1282`).
-- Devtools split teardown is explicitly verified against manager-owned state (`main.js:1284-1323`, `browser/manager.js:977-985`).
-- Reopen/close/session restore coverage now uses observable conditions rather than fixed sleeps (`main.js:1325-1397`).
-- The canonical local/CI gate includes all new lifecycle suites, and hosted CI runs that same gate (`package.json:15-19`, `.github/workflows/ci.yml:28-29`).
+2. **Architecture doc still overstates current extraction maturity**  
+   - Files: `docs/architecture.md`, `main.js`  
+   - `docs/architecture.md` says `main.js` is “orchestration-only,” but `main.js` still owns substantial policy and flow logic (trusted IPC gating, settings handlers, browser-language request hooks, smoke scenario orchestration, window persistence/status polling). For final OSS handoff, this should be described more precisely.
 
-## Suggested Improvements
+3. **Temporary hardening docs are still part of the effective release narrative**  
+   - Files: `docs/oss-finalization-plan.md`, `docs/hardening/*`  
+   - The finalization plan defines retirement of temporary tracking docs as part of completion. The repo is not there yet, so external contributors still need the temporary folder to understand readiness state.
 
-### Acceptance matrix
+# 3. Strengths
 
-- **1) Settings buffer lifecycle: open/edit/save/close — PASS**  
-  Evidence: opens editable settings buffer and validates bridge (`main.js:1188-1219`), saves and re-reads persisted content (`main.js:1221-1245`), restores original config (`main.js:1247-1261`), then closes and verifies a non-editable buffer is active (`main.js:1264-1276`).
+- Security hardening is consistent in the important runtime boundaries: `contextIsolation`, `sandbox`, `nodeIntegration: false`, and `webviewTag: false` are applied across window/view creation paths.
+- Trusted-surface policy is clearer and stricter now; narrowing `data:` allowance in `core/security/surfaceTrust.js` is the right move.
+- Lifecycle-sensitive refactors are backed by focused adapter tests and deterministic Electron smoke tests, which meaningfully lowers regression risk.
+- Public docs are substantially more honest than before, especially `README.md` and `SECURITY.md`.
 
-- **2) Devtools split lifecycle: open/close/teardown — PASS**  
-  Evidence: opens devtools split and asserts split status (`main.js:1288-1297`), closes/reset state (`main.js:1299-1314`), and verifies teardown cleared `devtoolsView` and `devtoolsTarget` (`main.js:1315-1317`, `browser/manager.js:977-985`).
+# 4. Suggested Improvements
 
-- **3) Reopen/close/session restore sequences — PASS**  
-  Evidence: creates two buffers, closes one, reopens last closed, saves session, closes restored-session candidates, restores snapshot, and verifies both URLs return (`main.js:1329-1392`). Session save/restore is synchronous in the dispatcher/service path (`core/dispatcher/handlers/session.js:7-22`, `core/session/service.js:37-44`).
+## Must-fix blockers
 
-- **4) Window/theme and focus-sensitive lifecycle hooks as needed — PASS (with documentation scope caution)**  
-  Evidence: focus-sensitive settings hooks are exercised through `editorReady`/`editorFocusRequest` and verified against editor mode/focus teardown (`main.js:1403-1453`, `ui/settings/preload.js:13-27`). Caution: no direct smoke currently drives `nativeTheme` update handling or window persistence listeners (`main.js:1644-1752`, `main.js:1845-1866`), so docs should not claim those are explicitly covered.
+1. **Close the remaining certification gates before declaring OSS closeout complete.**  
+   - Files: `docs/hardening/00_master_plan.md`, `docs/hardening/phase-08-oss-readiness-certification.md`  
+   - Rationale: both files explicitly record that the security re-review and hosted CI evidence are still pending. That is a direct contradiction of a “final closeout complete” claim.  
+   - Expected impact: removes the only clearly documented release-gate blockers.
 
-- **5) Deterministic local/CI behavior via canonical gate (`npm run ci:test`) with no unresolved flake behavior — PASS**  
-  Evidence: smoke runner awaits the selected scenario and only quits after settlement, with timeout converted into a failure watchdog (`main.js:1874-1937`); `ci:test` includes the new suites (`package.json:15-19`); hosted CI runs the same gate (`.github/workflows/ci.yml:28-29`); local validation completed with `npm run ci:test` passing.
+2. **Correct the architecture documentation to match the actual ownership still inside `main.js`.**  
+   - Files: `docs/architecture.md`, `main.js`  
+   - Rationale: for OSS contributors, inaccurate architecture claims are maintainability debt. Either soften the wording (“primarily orchestration plus residual lifecycle/policy ownership”) or finish the extractions first.  
+   - Expected impact: restores docs-to-implementation truth alignment and reduces contributor confusion.
 
-### Minimal next actions
+## Optional improvements
 
-- None required to mark Workstream B done.
-- When updating docs, describe criterion 4 as **focus-sensitive lifecycle hooks covered**, and avoid saying theme/window lifecycle is directly smoke-tested unless additional tests are added.
+1. **Move smoke-only orchestration out of `main.js` into a dedicated module.**  
+   - File: `main.js`  
+   - Rationale: not a release blocker, but it keeps the runtime entrypoint larger than the architecture docs imply.
 
-### Suggested docs wording
+2. **Rename the CI audit step or its surrounding docs for consistency.**  
+   - File: `.github/workflows/ci.yml`  
+   - Rationale: the job is now blocking, but the step label still says “informational.” Small issue, but easy clarity win.
 
-> **Workstream B — done.** Added deterministic smoke coverage for settings buffer lifecycle (open/edit/save/restore/close), devtools split open/close/teardown, reopen + session restore flows, and focus-sensitive editable-buffer lifecycle behavior. The canonical regression gate remains `npm run ci:test` and now includes these lifecycle suites in both local and hosted CI.
+# 5. Final Recommendation
 
-## Final Recommendation
+**READY_WITH_CONDITIONS**
 
-**Review recommendation:** approve  
-**Workstream verdict:** READY_TO_MARK_B_DONE
+- **Release-blocking critical issues remaining:** **No code-level critical issues found in this review.**
+- **Release-blocking blockers remaining:** **Yes** — final OSS closeout is still blocked by pending independent security re-review, pending hosted canonical CI evidence attachment, and one architecture-doc truth mismatch that should be corrected before declaring Phase 08 done.

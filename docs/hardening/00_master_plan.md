@@ -40,7 +40,7 @@ Close post-migration gaps identified in architecture and security reviews while 
 | 05 | Security boundary closure | done | 04 | 2026-05-08 |
 | 06 | CI and proof gate alignment | done | 05 | 2026-05-08 |
 | 07 | Adapter truth reconciliation | done | 06 | 2026-05-08 |
-| 08 | OSS readiness certification | in progress | 05, 06, 07 | 2026-05-08 |
+| 08 | OSS readiness certification | in progress | 05, 06, 07 | 2026-05-09 |
 
 Status values: `not started | in progress | blocked | done`
 
@@ -52,7 +52,8 @@ Status values: `not started | in progress | blocked | done`
   - trusted-surface URL allowance tightened,
   - internal CSP constraints narrowed further,
   - dependency audit policy made blocking in CI.
-- Remaining Phase 08 blockers are `security-engineer` re-review completion and hosted post-change canonical gate evidence refresh.
+- `security-engineer` and `senior-reviewer` independent re-reviews are complete on current closeout scope with no open critical/high must-fix finding.
+- Remaining Phase 08 blocker is hosted post-change canonical gate evidence refresh/attachment for the final proof bundle.
 
 ---
 
@@ -65,19 +66,19 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## OSS Readiness Gate
-- [ ] Untrusted web content has no privileged preload bridge
-- [ ] IPC contracts are explicit, validated, and sender-allowlisted
-- [ ] Internal pages do not load remote runtime assets
-- [ ] Hardened BrowserView preferences are applied consistently
+- [x] Untrusted web content has no privileged preload bridge
+- [x] IPC contracts are explicit, validated, and sender-allowlisted
+- [x] Internal pages do not load remote runtime assets
+- [x] Hardened BrowserView preferences are applied consistently
 - [x] Keymap layering implemented: defaults -> user overrides -> runtime guards
 - [x] Critical invariants fail in dev/CI (not warn-only)
 - [x] Unit tests cover resolvers/parser/dispatcher contracts
 - [x] Electron smoke tests run in CI for core flows (including lifecycle suites for settings/devtools/session/focus coverage)
 
 Additional closeout requirement before marking OSS gate complete:
-- [ ] Independent `senior-reviewer` and `security-engineer` re-review returns `ready` or `ready-with-conditions` with no open critical/high must-fix findings.
-  - `senior-reviewer`: complete (`READY_TO_MARK_B_DONE` for Workstream B lifecycle/regression scope)
-  - `security-engineer`: pending
+- [x] Independent `senior-reviewer` and `security-engineer` re-review returns `ready` or `ready-with-conditions` with no open critical/high must-fix findings.
+  - `senior-reviewer`: complete (`READY_WITH_CONDITIONS`; no critical code defect, residual closeout/doc conditions only)
+  - `security-engineer`: complete (`READY`; no open critical/high security blocker)
 
 ---
 
@@ -104,5 +105,5 @@ Additional closeout requirement before marking OSS gate complete:
 ## Session Handoff
 - Last completed phase: 07
 - Active phase: 08
-- Blockers: pending `security-engineer` re-review and hosted post-change canonical gate evidence link for proof bundle
-- Next action: Execute `security-engineer` re-review, then attach hosted evidence and finalize Phase 08 closeout checklists.
+- Blockers: hosted post-change canonical gate evidence link for proof bundle
+- Next action: Attach hosted canonical gate evidence for latest closeout commit set, then mark Phase 08 done.

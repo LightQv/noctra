@@ -34,7 +34,7 @@ High-level path:
 
 ## Adapter boundaries
 
-- `main.js` remains orchestration-only for app lifecycle, wiring, and intent flow.
+- `main.js` is the primary orchestration entrypoint for app lifecycle, wiring, and intent flow, while adapter/core boundaries continue absorbing lifecycle-sensitive Electron primitives.
 - Platform adapters own Electron primitives and listener lifecycles:
   - `core/adapters/platform/webContentsEvents.js`: web-mode tracking event binding.
   - `core/adapters/platform/overlayViewHost.js`: overlay BrowserView creation/attach.

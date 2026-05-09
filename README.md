@@ -12,7 +12,7 @@ Noctra is an early-stage project (`v0.1.0`) and actively evolving.
 - Keymaps are data-driven with user override support.
 - Browser UX is intentionally nvim-like rather than conventional browser-like.
 - APIs, commands, and default mappings may still change between minor versions.
-- Security hardening is active and evidence-backed in CI, but final independent OSS security re-review closeout is still in progress.
+- Security hardening is active and evidence-backed in CI; independent final re-reviews are complete, with hosted final-gate evidence refresh queued for the next PR.
 
 ## Why Noctra
 

@@ -1,4 +1,4 @@
-const { BrowserView, nativeTheme, clipboard } = require("electron");
+const { nativeTheme, clipboard } = require("electron");
 const Buffer = require("./buffers");
 const {
   UI_SHELL_TABLINE_HEIGHT,
@@ -9,6 +9,23 @@ const { getConfigValue } = require("../core/config/service");
 const notificationsService = require("../core/notifications/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
 const { resolveTheme, resolveThemeMode } = require("../ui/theme");
+const {
+  isViewAttached,
+  attachView,
+  detachView,
+  setViewBounds,
+  setViewAutoResize,
+  setTopView,
+} = require("../core/adapters/platform/contentViewHost");
+const {
+  createDevtoolsView,
+  openSplitDevtools,
+  closeSplitDevtools,
+} = require("../core/adapters/platform/devtoolsHost");
+const {
+  bindPaneObservers,
+  readSelection,
+} = require("../core/adapters/platform/webContentsObserver");
 
 class BufferManager {
   constructor() {
@@ -89,7 +106,7 @@ class BufferManager {
     this.attachPaneTracking(buffer, () => this.resolvePaneForBuffer(buffer));
 
     this.buffers.push(buffer);
-    this.window.addBrowserView(buffer.view);
+    attachView(this.window, buffer.view);
     this.reindexBuffers();
 
     if (activate || this.activeIndex < 0) {
@@ -249,6 +266,8 @@ class BufferManager {
       this.activeIndex = index;
     }
 
+    this.syncDevtoolsTargetToLeftBuffer();
+
     this.layoutViews();
     this.focusActive();
     this.notify({ kind: "structure", activeChanged: true });
@@ -271,6 +290,8 @@ class BufferManager {
     } else {
       this.activeIndex = nextIndex;
     }
+
+    this.syncDevtoolsTargetToLeftBuffer();
 
     this.layoutViews();
     this.focusActive();
@@ -306,9 +327,7 @@ class BufferManager {
     this.rememberClosedBuffer(target, index);
     this.buffers.splice(index, 1);
 
-    if (this.window && this.window.getBrowserViews().includes(target.view)) {
-      this.window.removeBrowserView(target.view);
-    }
+    detachView(this.window, target.view);
 
     if (this.split.rightPaneSourceBuffer === target) {
       this.split.rightPaneSourceBuffer = null;
@@ -332,6 +351,7 @@ class BufferManager {
 
     this.reindexBuffers();
     this.reconcileSplitSources();
+    this.syncDevtoolsTargetToLeftBuffer();
     this.layoutViews();
     this.focusActive();
     this.notify({ kind: "structure", activeChanged: true });
@@ -406,11 +426,12 @@ class BufferManager {
       : this.buffers.length;
 
     this.buffers.splice(insertIndex, 0, buffer);
-    this.window.addBrowserView(buffer.view);
+    attachView(this.window, buffer.view);
     this.reindexBuffers();
     this.activeIndex = insertIndex;
     this.focusedPane = "left";
     this.reconcileSplitSources();
+    this.syncDevtoolsTargetToLeftBuffer();
     this.layoutViews();
     buffer.load(snapshot.url);
     this.focusActive();
@@ -426,9 +447,7 @@ class BufferManager {
     const removed = this.buffers.splice(0, this.activeIndex);
     for (const buffer of removed) {
       this.rememberClosedBuffer(buffer, 0);
-      if (this.window && this.window.getBrowserViews().includes(buffer.view)) {
-        this.window.removeBrowserView(buffer.view);
-      }
+      detachView(this.window, buffer.view);
       if (this.split.rightPaneSourceBuffer === buffer) {
         this.split.rightPaneSourceBuffer = null;
       }
@@ -438,6 +457,7 @@ class BufferManager {
     this.activeIndex = 0;
     this.reindexBuffers();
     this.reconcileSplitSources();
+    this.syncDevtoolsTargetToLeftBuffer();
     this.layoutViews();
     this.focusActive();
     this.notify({ kind: "structure", activeChanged: true });
@@ -452,9 +472,7 @@ class BufferManager {
     const removed = this.buffers.splice(this.activeIndex + 1);
     for (const buffer of removed) {
       this.rememberClosedBuffer(buffer, this.activeIndex + 1);
-      if (this.window && this.window.getBrowserViews().includes(buffer.view)) {
-        this.window.removeBrowserView(buffer.view);
-      }
+      detachView(this.window, buffer.view);
       if (this.split.rightPaneSourceBuffer === buffer) {
         this.split.rightPaneSourceBuffer = null;
       }
@@ -463,6 +481,7 @@ class BufferManager {
 
     this.reindexBuffers();
     this.reconcileSplitSources();
+    this.syncDevtoolsTargetToLeftBuffer();
     this.layoutViews();
     this.focusActive();
     this.notify({ kind: "structure", activeChanged: true });
@@ -500,20 +519,15 @@ class BufferManager {
     this.focusedPane = "left";
 
     if (!this.devtoolsView) {
-      this.devtoolsView = new BrowserView({
-        webPreferences: {
-          contextIsolation: true,
-          nodeIntegration: false,
-          sandbox: true,
-          webviewTag: false,
-        },
-      });
-      this.window.addBrowserView(this.devtoolsView);
+      this.devtoolsView = createDevtoolsView();
+      attachView(this.window, this.devtoolsView);
     }
 
     this.devtoolsTarget = left.webContents;
-    this.devtoolsTarget.setDevToolsWebContents(this.devtoolsView.webContents);
-    this.devtoolsTarget.openDevTools({ mode: "detach", activate: false });
+    openSplitDevtools({
+      targetWebContents: this.devtoolsTarget,
+      devtoolsView: this.devtoolsView,
+    });
 
     this.layoutViews();
     this.notify({ kind: "structure", activeChanged: false });
@@ -799,9 +813,7 @@ class BufferManager {
     }
 
     for (const buffer of this.buffers) {
-      if (this.window.getBrowserViews().includes(buffer.view)) {
-        this.window.removeBrowserView(buffer.view);
-      }
+      detachView(this.window, buffer.view);
       buffer.destroy();
     }
 
@@ -913,7 +925,7 @@ class BufferManager {
     this.attachPaneTracking(rightPane, () => "right");
 
     this.split.rightPaneBuffer = rightPane;
-    this.window.addBrowserView(rightPane.view);
+    attachView(this.window, rightPane.view);
   }
 
   resolveBufferMirrorUrl(buffer) {
@@ -955,9 +967,7 @@ class BufferManager {
     const rightPane = this.split.rightPaneBuffer;
     if (!rightPane) return;
 
-    if (this.window && this.window.getBrowserViews().includes(rightPane.view)) {
-      this.window.removeBrowserView(rightPane.view);
-    }
+    detachView(this.window, rightPane.view);
 
     rightPane.destroy();
     this.split.rightPaneBuffer = null;
@@ -965,24 +975,41 @@ class BufferManager {
   }
 
   closeDevtoolsSplit() {
-    if (
-      this.devtoolsTarget &&
-      !this.devtoolsTarget.isDestroyed() &&
-      this.devtoolsTarget.isDevToolsOpened()
-    ) {
-      this.devtoolsTarget.closeDevTools();
-    }
-
-    if (this.window && this.devtoolsView && this.window.getBrowserViews().includes(this.devtoolsView)) {
-      this.window.removeBrowserView(this.devtoolsView);
-    }
-
-    if (this.devtoolsView && !this.devtoolsView.webContents.isDestroyed()) {
-      this.devtoolsView.webContents.destroy();
-    }
+    detachView(this.window, this.devtoolsView);
+    closeSplitDevtools({
+      targetWebContents: this.devtoolsTarget,
+      devtoolsView: this.devtoolsView,
+    });
 
     this.devtoolsView = null;
     this.devtoolsTarget = null;
+  }
+
+  syncDevtoolsTargetToLeftBuffer() {
+    if (!this.split.enabled || this.split.mode !== "devtools") {
+      return;
+    }
+
+    const left = this.getLeftBuffer();
+    const nextTarget = left && left.webContents && !left.webContents.isDestroyed() ? left.webContents : null;
+    if (!nextTarget || !this.devtoolsView || !this.window) {
+      this.closeRightSplit();
+      return;
+    }
+
+    if (this.devtoolsTarget === nextTarget) {
+      return;
+    }
+
+    closeSplitDevtools({
+      targetWebContents: this.devtoolsTarget,
+      devtoolsView: this.devtoolsView,
+    });
+    this.devtoolsTarget = nextTarget;
+    openSplitDevtools({
+      targetWebContents: this.devtoolsTarget,
+      devtoolsView: this.devtoolsView,
+    });
   }
 
   reconcileSplitSources() {
@@ -1088,17 +1115,18 @@ class BufferManager {
     for (const buffer of this.buffers) {
       if (buffer === left || buffer === visibleRightMainBuffer) {
         const isRightBuffer = buffer === visibleRightMainBuffer;
-        buffer.view.setBounds(
+        setViewBounds(
+          buffer.view,
           getPaneBounds(
             isRightBuffer,
             isRightBuffer ? rightX : contentX,
             isRightBuffer ? rightWidth : leftWidth,
           ),
         );
-        buffer.view.setAutoResize({ width: !showSplitWithRegular, height: true });
+        setViewAutoResize(buffer.view, { width: !showSplitWithRegular, height: true });
       } else {
-        buffer.view.setAutoResize({ width: false, height: false });
-        buffer.view.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
+        setViewAutoResize(buffer.view, { width: false, height: false });
+        setViewBounds(buffer.view, { x: -10000, y: -10000, width: 1, height: 1 });
       }
     }
 
@@ -1109,21 +1137,21 @@ class BufferManager {
           rightRegular.load(sourceUrl);
         }
 
-        rightRegular.view.setBounds(getPaneBounds(true, rightX, rightWidth));
-        rightRegular.view.setAutoResize({ width: !showSplit, height: true });
+        setViewBounds(rightRegular.view, getPaneBounds(true, rightX, rightWidth));
+        setViewAutoResize(rightRegular.view, { width: !showSplit, height: true });
       } else {
-        rightRegular.view.setAutoResize({ width: false, height: false });
-        rightRegular.view.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
+        setViewAutoResize(rightRegular.view, { width: false, height: false });
+        setViewBounds(rightRegular.view, { x: -10000, y: -10000, width: 1, height: 1 });
       }
     }
 
     if (this.devtoolsView) {
       if (showSplit && this.split.mode === "devtools") {
-        this.devtoolsView.setBounds(getPaneBounds(true, rightX, rightWidth));
-        this.devtoolsView.setAutoResize({ width: !showSplit, height: true });
+        setViewBounds(this.devtoolsView, getPaneBounds(true, rightX, rightWidth));
+        setViewAutoResize(this.devtoolsView, { width: !showSplit, height: true });
       } else {
-        this.devtoolsView.setAutoResize({ width: false, height: false });
-        this.devtoolsView.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
+        setViewAutoResize(this.devtoolsView, { width: false, height: false });
+        setViewBounds(this.devtoolsView, { x: -10000, y: -10000, width: 1, height: 1 });
       }
     }
 
@@ -1131,15 +1159,15 @@ class BufferManager {
       if (showSplit && this.focusedPane === "right") {
         if (this.split.mode === "regular") {
           if (useMirroredRight && rightRegular) {
-            this.window.setTopBrowserView(rightRegular.view);
+            setTopView(this.window, rightRegular.view);
           } else if (visibleRightMainBuffer) {
-            this.window.setTopBrowserView(visibleRightMainBuffer.view);
+            setTopView(this.window, visibleRightMainBuffer.view);
           }
         } else if (this.split.mode === "devtools" && this.devtoolsView) {
-          this.window.setTopBrowserView(this.devtoolsView);
+          setTopView(this.window, this.devtoolsView);
         }
       } else if (left) {
-        this.window.setTopBrowserView(left.view);
+        setTopView(this.window, left.view);
       }
     }
   }
@@ -1159,14 +1187,7 @@ class BufferManager {
 
       let selectedText = "";
       try {
-        if (typeof buffer.webContents.getSelectedText === "function") {
-          selectedText = String(buffer.webContents.getSelectedText() || "").trim();
-        } else {
-          const resolvedSelection = await buffer.webContents.executeJavaScript(
-            `window.getSelection ? window.getSelection().toString() : ""`,
-          );
-          selectedText = String(resolvedSelection || "").trim();
-        }
+        selectedText = await readSelection(buffer.webContents);
       } catch (error) {
         notificationsService.notify({
           severity: "warning",
@@ -1224,10 +1245,12 @@ class BufferManager {
       this.handlePaneInteraction(paneResolver());
     };
 
-    buffer.webContents.on("before-mouse-event", onMouseEvent);
-    buffer.webContents.on("focus", onFocus);
-    buffer.webContents.once("destroyed", () => {
-      this.lastSelectionCopyByWebContentsId.delete(buffer.webContents.id);
+    bindPaneObservers(buffer.webContents, {
+      onMouseEvent,
+      onFocus,
+      onDestroyed: () => {
+        this.lastSelectionCopyByWebContentsId.delete(buffer.webContents.id);
+      },
     });
   }
 

@@ -32,6 +32,23 @@ High-level path:
 - `browser/*`: buffer lifecycle and webContents orchestration.
 - `ui/*`: shell UI widgets and theming.
 
+## Adapter boundaries
+
+- `main.js` remains orchestration-only for app lifecycle, wiring, and intent flow.
+- Platform adapters own Electron primitives and listener lifecycles:
+  - `core/adapters/platform/webContentsEvents.js`: web-mode tracking event binding.
+  - `core/adapters/platform/overlayViewHost.js`: overlay BrowserView creation/attach.
+  - `core/adapters/platform/overlayLayoutHost.js`: overlay bounds and z-order stack.
+  - `core/adapters/platform/contentViewHost.js`: content view attach/detach/layout/top.
+  - `core/adapters/platform/devtoolsHost.js`: split devtools create/open/close.
+  - `core/adapters/platform/webContentsObserver.js`: pane observers + selection read bridge.
+- Renderer adapters own script/HTML transport:
+  - `core/adapters/renderer/shellPatchTransport.js`: shell overlay DOM patch transport.
+  - `core/adapters/renderer/panelRenderTransport.js`: sidepanel render scheduling.
+  - `core/adapters/renderer/editorSurface.js`: editor focus/cursor interactions.
+- Core services own lifecycle policies independent from Electron primitives:
+  - `core/webModeSyncService.js`: tracked web-mode sync debounce/in-flight sequencing.
+
 ## Keymap model
 
 - NORMAL and modifier defaults are defined centrally.

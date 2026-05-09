@@ -9,12 +9,29 @@ const {
 const {
   createPanelRenderTransport,
 } = require("../core/adapters/renderer/panelRenderTransport");
+const { pushShellPatch } = require("../core/adapters/renderer/shellPatchTransport");
 const { bindWebModeTracking } = require("../core/adapters/platform/webContentsEvents");
 const { createWebModeSyncService } = require("../core/webModeSyncService");
 const {
   markSurfaceRole,
   SURFACE_ROLES,
 } = require("../core/security/surfaceTrust");
+const {
+  isUsableWindow,
+  attachView,
+  detachView,
+  setViewBounds,
+  setViewAutoResize,
+  setTopView,
+} = require("../core/adapters/platform/contentViewHost");
+const {
+  openSplitDevtools,
+  closeSplitDevtools,
+} = require("../core/adapters/platform/devtoolsHost");
+const {
+  bindPaneObservers,
+  readSelection,
+} = require("../core/adapters/platform/webContentsObserver");
 
 test("ipc registry registers and unregisters events and handlers symmetrically", () => {
   const eventListeners = new Map();
@@ -316,4 +333,187 @@ test("web mode sync service binds, requests sync, and unbinds safely", async () 
   service.unbind();
   assert.equal(service.getActiveWebContents(), null);
   assert.equal(listeners.size, 0);
+});
+
+test("shell patch transport executes patches and can swallow errors", async () => {
+  let executedScript = null;
+  const webContents = {
+    isDestroyed() {
+      return false;
+    },
+    executeJavaScript(script) {
+      executedScript = script;
+      return Promise.resolve("ok");
+    },
+  };
+
+  const result = await pushShellPatch(webContents, "window.__x = 1;");
+  assert.equal(result, "ok");
+  assert.equal(executedScript, "window.__x = 1;");
+
+  const failingWebContents = {
+    isDestroyed() {
+      return false;
+    },
+    executeJavaScript() {
+      return Promise.reject(new Error("boom"));
+    },
+  };
+
+  let capturedError = null;
+  const swallowed = await pushShellPatch(failingWebContents, "throw new Error('boom')", {
+    onError(error) {
+      capturedError = error;
+    },
+  });
+  assert.equal(swallowed, null);
+  assert.equal(capturedError instanceof Error, true);
+});
+
+test("content view host adapter manages attach/detach and view primitives", () => {
+  const attachedViews = [];
+  const calls = [];
+  const windowRef = {
+    addBrowserView(view) {
+      calls.push(["add", view.id]);
+      attachedViews.push(view);
+    },
+    removeBrowserView(view) {
+      calls.push(["remove", view.id]);
+      const index = attachedViews.indexOf(view);
+      if (index >= 0) {
+        attachedViews.splice(index, 1);
+      }
+    },
+    getBrowserViews() {
+      return attachedViews.slice();
+    },
+    setTopBrowserView(view) {
+      calls.push(["top", view.id]);
+    },
+  };
+
+  const view = {
+    id: "left",
+    setBounds(bounds) {
+      calls.push(["bounds", bounds.width, bounds.height]);
+    },
+    setAutoResize(options) {
+      calls.push(["autoresize", Boolean(options.width), Boolean(options.height)]);
+    },
+  };
+
+  attachView(windowRef, view);
+  setViewBounds(view, { x: 0, y: 0, width: 10, height: 20 });
+  setViewAutoResize(view, { width: true, height: false });
+  setTopView(windowRef, view);
+  detachView(windowRef, view);
+
+  assert.deepEqual(calls, [
+    ["add", "left"],
+    ["bounds", 10, 20],
+    ["autoresize", true, false],
+    ["top", "left"],
+    ["remove", "left"],
+  ]);
+
+  assert.equal(isUsableWindow(windowRef), true);
+  assert.equal(
+    isUsableWindow({ addBrowserView() {}, isDestroyed: () => true }),
+    false,
+  );
+});
+
+test("devtools host opens and closes split devtools safely", () => {
+  const calls = [];
+  const targetWebContents = {
+    isDestroyed() {
+      return false;
+    },
+    setDevToolsWebContents(webContents) {
+      calls.push(["setDevToolsWebContents", webContents.id]);
+    },
+    openDevTools(options) {
+      calls.push(["openDevTools", options.mode, options.activate]);
+    },
+    isDevToolsOpened() {
+      return true;
+    },
+    closeDevTools() {
+      calls.push(["closeDevTools"]);
+    },
+  };
+
+  const devtoolsView = {
+    webContents: {
+      id: "devtools-webcontents",
+      isDestroyed() {
+        return false;
+      },
+      destroy() {
+        calls.push(["destroyDevtoolsWebContents"]);
+      },
+    },
+  };
+
+  openSplitDevtools({ targetWebContents, devtoolsView });
+  closeSplitDevtools({ targetWebContents, devtoolsView });
+
+  assert.deepEqual(calls, [
+    ["setDevToolsWebContents", "devtools-webcontents"],
+    ["openDevTools", "detach", false],
+    ["closeDevTools"],
+    ["destroyDevtoolsWebContents"],
+  ]);
+});
+
+test("webContents observer reads selection and binds lifecycle hooks", async () => {
+  const listeners = new Map();
+  const calls = [];
+  const webContents = {
+    id: 12,
+    isDestroyed() {
+      return false;
+    },
+    executeJavaScript(script) {
+      calls.push(["executeJavaScript", script.includes("window.getSelection")]);
+      return Promise.resolve(" selected ");
+    },
+    on(eventName, listener) {
+      listeners.set(eventName, listener);
+    },
+    once(eventName, listener) {
+      listeners.set(`once:${eventName}`, listener);
+    },
+    removeListener(eventName) {
+      listeners.delete(eventName);
+    },
+  };
+
+  const selected = await readSelection(webContents);
+  assert.equal(selected, "selected");
+
+  const unbind = bindPaneObservers(webContents, {
+    onMouseEvent() {
+      calls.push(["mouse"]);
+    },
+    onFocus() {
+      calls.push(["focus"]);
+    },
+    onDestroyed() {
+      calls.push(["destroyed"]);
+    },
+  });
+
+  listeners.get("before-mouse-event")();
+  listeners.get("focus")();
+  listeners.get("once:destroyed")();
+  unbind();
+
+  assert.deepEqual(calls, [
+    ["executeJavaScript", true],
+    ["mouse"],
+    ["focus"],
+    ["destroyed"],
+  ]);
 });

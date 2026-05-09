@@ -8,6 +8,7 @@ const {
   applyOverlayLayout,
   applyOverlayStack,
 } = require("../../core/adapters/platform/overlayLayoutHost");
+const { pushShellPatch } = require("../../core/adapters/renderer/shellPatchTransport");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
@@ -928,9 +929,9 @@ class UiShellManager {
           ? "#f6c177"
           : this.currentTheme.mainColor;
 
-    this.toastOverlayView.webContents
-      .executeJavaScript(
-        `
+    pushShellPatch(
+      this.toastOverlayView.webContents,
+      `
       (function pushToast() {
         const root = document.getElementById('toast-root');
         if (!root) return;
@@ -950,13 +951,15 @@ class UiShellManager {
         }, ${JSON.stringify(timeoutMs)});
       })();
     `,
-      )
-      .catch((error) => {
+      {
+        onError(error) {
         console.warn(
           "[noctra:warning] toast_render_failed",
           error && error.message ? error.message : error,
         );
-      });
+        },
+      },
+    );
   }
 
   flushPendingToasts() {
@@ -1191,9 +1194,9 @@ class UiShellManager {
 
     if (!this.window || !this.shellHostReady) return;
 
-    this.window.webContents
-      .executeJavaScript(
-        `
+    pushShellPatch(
+      this.window.webContents,
+      `
       (function updateSplitDivider() {
         const divider = document.getElementById('split-divider');
         if (!divider) return;
@@ -1203,8 +1206,7 @@ class UiShellManager {
         divider.style.left = visible ? offsetPx + 'px' : '0px';
       })();
     `,
-      )
-      .catch(() => {});
+    );
   }
 
   applyThemeToWebContents(webContents) {
@@ -1215,9 +1217,9 @@ class UiShellManager {
       "--ui-font-family": this.currentTheme.fontFamily,
     };
 
-    webContents
-      .executeJavaScript(
-        `
+    pushShellPatch(
+      webContents,
+      `
       (function applyNoctraThemeVars() {
         const vars = ${JSON.stringify(cssVars)};
         const style = document.documentElement && document.documentElement.style;
@@ -1229,8 +1231,7 @@ class UiShellManager {
         }
       })();
     `,
-      )
-      .catch(() => {});
+    );
   }
 
   setTablineActions(actions = {}) {
@@ -1411,7 +1412,7 @@ class UiShellManager {
         : [],
     };
 
-    this.whichKeyOverlayView.webContents.executeJavaScript(`
+    pushShellPatch(this.whichKeyOverlayView.webContents, `
       (function updateWhichKeyOverlay() {
         const prefixNode = document.getElementById('whichkey-prefix');
         const gridNode = document.getElementById('whichkey-grid');
@@ -1502,7 +1503,7 @@ class UiShellManager {
       footerRight: String(this.selectionModalModel?.footerRight || ""),
     };
 
-    this.selectionModalView.webContents.executeJavaScript(`
+    pushShellPatch(this.selectionModalView.webContents, `
       (function updateSelectionModal() {
         const titleNode = document.getElementById('selection-modal-title');
         const promptNode = document.getElementById('selection-modal-prompt');
@@ -1586,7 +1587,7 @@ class UiShellManager {
         : [],
     };
 
-    this.telescopeView.webContents.executeJavaScript(`
+    pushShellPatch(this.telescopeView.webContents, `
       (function updateTelescope() {
         const titleNode = document.getElementById('telescope-prompt-title');
         const queryNode = document.getElementById('telescope-query');
@@ -1714,7 +1715,7 @@ class UiShellManager {
 
     if (!this.statuslineView || !this.statuslineReady) return;
 
-    this.statuslineView.webContents.executeJavaScript(`
+    pushShellPatch(this.statuslineView.webContents, `
       (function updateStatuslineMode() {
         const node = document.getElementById('statusline-mode-label');
         if (!node) return;
@@ -1731,7 +1732,7 @@ class UiShellManager {
 
     if (!this.statuslineView || !this.statuslineReady) return;
 
-    this.statuslineView.webContents.executeJavaScript(`
+    pushShellPatch(this.statuslineView.webContents, `
       (function updateStatuslineScroll() {
         const node = document.getElementById('statusline-scroll');
         if (!node) return;
@@ -1753,7 +1754,7 @@ class UiShellManager {
 
     if (!this.statuslineView || !this.statuslineReady) return;
 
-    this.statuslineView.webContents.executeJavaScript(`
+    pushShellPatch(this.statuslineView.webContents, `
       (function updateStatuslineSplitIndicator() {
         const root = document.getElementById('statusline-split');
         const left = document.getElementById('statusline-split-left');
@@ -1803,7 +1804,7 @@ class UiShellManager {
     const commandTitle = isEditorContext ? "Ex" : "Cmdline";
     const commandPrefix = "";
 
-    this.commandOverlayView.webContents.executeJavaScript(`
+    pushShellPatch(this.commandOverlayView.webContents, `
       (function updateCommandOverlayText() {
         const titleNode = document.getElementById('command-title');
         const prefixNode = document.getElementById('command-prefix');

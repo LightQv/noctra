@@ -1,8 +1,6 @@
 # Getting Started
 
-This guide gets you from clone to productive usage quickly.
-
-Noctra is early-stage (`0.1.0`): expect active iteration while core modal workflows remain usable.
+This guide gets you from install to a usable daily workflow quickly.
 
 ## 1) Install dependencies
 
@@ -32,7 +30,7 @@ Basic flow:
 
 - `:open github.com` opens a URL in the current buffer.
 - `:tabnew` opens a new buffer.
-- `:tabnew example.com` opens URL in a new buffer.
+- `:tabnew example.com` opens a URL in a new buffer.
 - `:buffer 2` switches to buffer 2.
 - `:bdelete` closes active buffer.
 
@@ -47,6 +45,8 @@ Start with these edits:
 - Set your leader key under `global.input.leader_key`.
 - Toggle URL line with `global.ui.urlline.enabled`.
 - Customize leader mappings under `keymap.leader`.
+
+Then run `:config-reload`.
 
 ## 6) Optional env policy
 

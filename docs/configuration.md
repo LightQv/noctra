@@ -13,6 +13,8 @@ Set in `.env`:
 - `NOCTRA_CONFIG_POLICY=customizable` (default): keep and normalize user config.
 - `NOCTRA_CONFIG_POLICY=strict`: overwrite with defaults each load.
 
+Apply config changes at runtime with `:config-reload`.
+
 ## Main sections
 
 - `global.input`: leader key and sequence timeout
@@ -99,6 +101,7 @@ browser:
 - Only `keymap.leader` is user-configurable.
 - Node supports either `action` or nested `children`.
 - `action` must be a known action ID accepted by config schema.
+- Invalid mapping values are ignored during normalization.
 
 ## Storage defaults
 

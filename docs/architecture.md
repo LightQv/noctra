@@ -1,73 +1,68 @@
 # Architecture
 
-Noctra is structured around intent-driven input handling with strict module boundaries.
+Noctra uses an intent-driven architecture: inputs are parsed into intents, then executed by a dispatcher against browser and UI services.
 
-## Core pipeline
-
-1. Input events are captured and normalized.
-2. Motion handlers map key sequences to action builders.
-3. Action builders emit typed intents.
-4. Dispatcher executes intents through browser/UI services.
-5. State and visual layers synchronize.
+## Runtime flow
 
 High-level path:
 
 `motions/* -> core/input.js -> core/dispatcher.js -> browser/* + ui/*`
 
-## Design principles
+Flow details:
 
-- Modal consistency over feature sprawl.
-- Data-driven keymaps over hardcoded branches.
-- Clear separation of concerns between parser, state, dispatcher, and engine APIs.
-- Browser actions behind stable intent boundaries.
+1. Keyboard input enters mode handlers in `motions/*`.
+2. `core/input.js` normalizes and routes input by mode and context.
+3. Motion and command parsers emit intent objects from `core/intents.js`.
+4. `core/dispatcher.js` executes intents via domain handlers.
+5. Browser and UI modules apply side effects and sync visual state.
 
-## Important modules
+## Module responsibilities
 
-- `core/state.js`: app-level mode and sequence state.
-- `core/input.js`: input normalization and routing.
+- `main.js`: app bootstrap and orchestration entrypoint.
+- `core/state.js`: shared runtime state.
+- `core/input.js`: input normalization and mode/context routing.
 - `core/dispatcher.js`: intent execution boundary.
 - `core/commandParser.js`: `:` command parsing.
 - `core/config/*`: defaults, schema normalization, config I/O.
-- `motions/*`: mode handlers, action builders, key maps.
-- `browser/*`: buffer lifecycle and webContents orchestration.
-- `ui/*`: shell UI widgets and theming.
+- `motions/*`: mode behavior and mapping resolution.
+- `browser/*`: buffers, splits, webContents lifecycle.
+- `ui/*`: shell rendering, overlays, settings, notifications.
 
 ## Adapter boundaries
 
-- `main.js` is the primary orchestration entrypoint for app lifecycle, wiring, and intent flow, while adapter/core boundaries continue absorbing lifecycle-sensitive Electron primitives.
-- Platform adapters own Electron primitives and listener lifecycles:
-  - `core/adapters/platform/webContentsEvents.js`: web-mode tracking event binding.
-  - `core/adapters/platform/overlayViewHost.js`: overlay BrowserView creation/attach.
-  - `core/adapters/platform/overlayLayoutHost.js`: overlay bounds and z-order stack.
-  - `core/adapters/platform/contentViewHost.js`: content view attach/detach/layout/top.
-  - `core/adapters/platform/devtoolsHost.js`: split devtools create/open/close.
-  - `core/adapters/platform/webContentsObserver.js`: pane observers + selection read bridge.
-- Renderer adapters own script/HTML transport:
-  - `core/adapters/renderer/shellPatchTransport.js`: shell overlay DOM patch transport.
-  - `core/adapters/renderer/panelRenderTransport.js`: sidepanel render scheduling.
-  - `core/adapters/renderer/editorSurface.js`: editor focus/cursor interactions.
-- Core services own lifecycle policies independent from Electron primitives:
-  - `core/webModeSyncService.js`: tracked web-mode sync debounce/in-flight sequencing.
+Noctra isolates Electron-specific primitives behind adapters where possible.
 
-Scope note:
+Platform adapters (`core/adapters/platform/*`) cover operations such as:
 
-- These boundaries are established and actively used, but adapter extraction is not yet complete across every lifecycle-sensitive path.
-- Electron (Chromium) is the only runtime engine currently implemented.
+- BrowserView lifecycle and layout hosts
+- webContents event binding and observers
+- security and IPC registration boundaries
+- devtools and content view host operations
+
+Renderer adapters (`core/adapters/renderer/*`) cover operations such as:
+
+- shell patch transport
+- panel render transport
+- editor surface bridge calls
+
+These boundaries are active today, but extraction is still incremental across some lifecycle-sensitive paths.
 
 ## Keymap model
 
-- NORMAL and modifier defaults are defined centrally.
-- Leader tree is merged from defaults + user config.
-- Runtime behavior honors normalized config schema.
+- Normal and modifier defaults are data-driven.
+- Leader mappings merge defaults with user overrides from config.
+- Runtime guards and context routing apply after keymap resolution.
 
-## Persistence model
+## Data model
 
-Persistent user data (history, bookmarks, sessions, notifications) is file-backed under `~/.config/noctra/` by default.
+User data is file-backed under `~/.config/noctra/` by default:
 
-## Future compatibility
+- `history.yml`
+- `bookmarks.yml`
+- `sessions.yml`
+- `notifications.yml`
 
-Noctra is built with multi-engine ambitions.
+## Engine scope
 
-- Chromium is the current adapter target via Electron.
-- Architecture aims to keep engine-specific details isolated so alternate engines can be introduced with minimal impact on motion/parser layers.
-- Multi-engine support remains a forward goal, not a current runtime capability.
+Current runtime engine is Chromium through Electron.
+The architecture is designed to keep engine details isolated, but multi-engine runtime support is a future goal, not a current feature.

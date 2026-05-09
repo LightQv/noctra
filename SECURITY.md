@@ -44,6 +44,8 @@ Current implementation and tests aim to provide the following baseline:
 
 These statements describe current project reality; they are not a claim of complete exploit-proofing.
 
+For architecture details behind these controls, see `docs/architecture.md`.
+
 ## Disclosure Expectations
 
 Please follow responsible disclosure:

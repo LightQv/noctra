@@ -8,6 +8,10 @@ Not yet. It is usable and evolving, but still early-stage (`v0.1.0`).
 
 Electron gives a fast path to ship a keyboard-first browser shell on Chromium while keeping room for adapter-based engine expansion later.
 
+## Where can I see the intent list?
+
+See `INTENTS.md` for the current intent contract.
+
 ## Where is my config file?
 
 `~/.config/noctra/config.yml`

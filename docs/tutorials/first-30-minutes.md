@@ -2,8 +2,6 @@
 
 This tutorial gives you a practical Noctra workflow in under 30 minutes.
 
-It is written for current Electron/Chromium-based Noctra behavior.
-
 ## 0-5 min: Launch and orient
 
 1. Start Noctra:
@@ -52,7 +50,7 @@ npm run start
 3. Adjust `global.input.leader_key`.
 4. Save and run `:config-reload`.
 
-You now have a full working baseline.
+You now have a working baseline for daily usage.
 
 Continue with:
 

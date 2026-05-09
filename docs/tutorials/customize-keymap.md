@@ -1,6 +1,6 @@
 # Tutorial: Customize Leader Keymap
 
-This tutorial shows how to create your own leader mappings safely.
+This tutorial shows how to create and validate your own leader mappings.
 
 ## Goal
 
@@ -47,3 +47,4 @@ keymap:
 - If mapping is ignored, check YAML indentation.
 - If action fails, ensure `action` name is valid.
 - If config is invalid, Noctra can auto-repair and create a backup.
+- Run `:config-reload` after edits if settings are not applied yet.

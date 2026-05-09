@@ -75,5 +75,6 @@ Use `:` in command mode to run the following commands.
 
 ## Notes
 
-- Unknown or malformed commands resolve to an unknown-command intent.
-- URL-like and query-like inputs are normalized through resolver logic.
+- Unknown or malformed commands resolve to `UNKNOWN_COMMAND` intent.
+- URL-like and query-like inputs are normalized before dispatch.
+- Some commands have aliases (for example `:tab`, `:tabe`, `:tabnew`).

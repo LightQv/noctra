@@ -56,3 +56,8 @@ By default, data is stored in:
 - `~/.config/noctra/sessions.yml`
 
 You can override these paths in `global.storage` config.
+
+See also:
+
+- `docs/commands.md`
+- `docs/configuration.md`

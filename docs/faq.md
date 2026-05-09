@@ -52,3 +52,9 @@ Also, invalid configs can be auto-repaired and backed up.
 ## How can I contribute?
 
 Start with `CONTRIBUTING.md` and open a focused pull request.
+
+## How do I report a security vulnerability?
+
+Use GitHub Private Vulnerability Reporting for this repository.
+
+See `SECURITY.md` for the full policy and disclosure expectations.

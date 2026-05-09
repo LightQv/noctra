@@ -62,7 +62,12 @@ Examples:
 
 ## Testing guidance
 
-No formal test suite is wired yet. Until then, include a manual test plan in PRs.
+Noctra has automated tests and a canonical CI gate:
+
+- Run `npm test` for unit/contract coverage.
+- Run `npm run ci:test` for the canonical local parity/security smoke gate.
+
+Also include a short manual test plan for behavior-sensitive changes.
 
 At minimum, list:
 
@@ -108,6 +113,8 @@ When opening an issue, include:
 - Expected behavior
 - Actual behavior
 - Logs or screenshots if relevant
+
+For suspected security issues, do not open a public issue. Use the private reporting path documented in `SECURITY.md`.
 
 ## Code of conduct
 

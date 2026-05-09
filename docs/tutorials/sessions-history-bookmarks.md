@@ -2,6 +2,8 @@
 
 This tutorial covers the core persistence workflow.
 
+Examples reflect current defaults and file-backed storage behavior.
+
 ## Sessions
 
 Use sessions to snapshot and restore browsing context.

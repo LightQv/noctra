@@ -2,7 +2,7 @@
 
 Noctra is a keyboard-first browser shell for people who want Neovim-style flow inside a modern web engine.
 
-Built on Electron today (Chromium backend), Noctra treats tabs like buffers, keeps modal navigation at the center (`NORMAL`, `INSERT`, `COMMAND`), and is designed with clear adapter boundaries for future multi-engine support.
+Built on Electron today (Chromium backend), Noctra treats tabs like buffers, keeps modal navigation at the center (`NORMAL`, `INSERT`, `COMMAND`), and uses adapter/service boundaries to separate orchestration from engine-facing primitives.
 
 ## Status
 
@@ -12,6 +12,7 @@ Noctra is an early-stage project (`v0.1.0`) and actively evolving.
 - Keymaps are data-driven with user override support.
 - Browser UX is intentionally nvim-like rather than conventional browser-like.
 - APIs, commands, and default mappings may still change between minor versions.
+- Security hardening is active and evidence-backed in CI, but final independent OSS security re-review closeout is still in progress.
 
 ## Why Noctra
 
@@ -72,6 +73,7 @@ Reference docs:
 
 - [Architecture](docs/architecture.md)
 - [FAQ](docs/faq.md)
+- [Security Policy](SECURITY.md)
 
 Tutorials:
 
@@ -183,7 +185,7 @@ If you are looking for a first contribution, prioritize small improvements in do
 - [ ] Improve web-native behavior (download management, native app events like quit handling, and related integrations).
 - [ ] Stabilize keymap override and runtime reload behavior.
 - [ ] Handle in-page navigation/insertion through Vim-motion flow.
-- [ ] Harden adapter boundaries for future multi-engine support.
+- [ ] Continue deepening adapter boundaries for future multi-engine support.
 
 ## License
 

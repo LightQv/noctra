@@ -2,6 +2,8 @@
 
 This tutorial gives you a practical Noctra workflow in under 30 minutes.
 
+It is written for current Electron/Chromium-based Noctra behavior.
+
 ## 0-5 min: Launch and orient
 
 1. Start Noctra:

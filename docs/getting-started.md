@@ -2,6 +2,8 @@
 
 This guide gets you from clone to productive usage quickly.
 
+Noctra is early-stage (`0.1.0`): expect active iteration while core modal workflows remain usable.
+
 ## 1) Install dependencies
 
 ```bash
@@ -59,3 +61,4 @@ From `.env.example`:
 - `docs/keybindings.md`
 - `docs/commands.md`
 - `docs/configuration.md`
+- `SECURITY.md`

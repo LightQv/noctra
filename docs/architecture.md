@@ -49,6 +49,11 @@ High-level path:
 - Core services own lifecycle policies independent from Electron primitives:
   - `core/webModeSyncService.js`: tracked web-mode sync debounce/in-flight sequencing.
 
+Scope note:
+
+- These boundaries are established and actively used, but adapter extraction is not yet complete across every lifecycle-sensitive path.
+- Electron (Chromium) is the only runtime engine currently implemented.
+
 ## Keymap model
 
 - NORMAL and modifier defaults are defined centrally.
@@ -65,3 +70,4 @@ Noctra is built with multi-engine ambitions.
 
 - Chromium is the current adapter target via Electron.
 - Architecture aims to keep engine-specific details isolated so alternate engines can be introduced with minimal impact on motion/parser layers.
+- Multi-engine support remains a forward goal, not a current runtime capability.

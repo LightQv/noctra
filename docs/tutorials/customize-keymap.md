@@ -40,6 +40,7 @@ keymap:
 - Only `keymap.leader` is user-configurable.
 - `action` must match valid action IDs known by config schema.
 - Prefer grouped mappings for discoverability.
+- Core NORMAL and tree motion defaults are intentionally fixed in the current architecture.
 
 ## Troubleshooting
 

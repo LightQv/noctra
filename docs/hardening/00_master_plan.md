@@ -47,12 +47,9 @@ Status values: `not started | in progress | blocked | done`
 ---
 
 ## Current Gap Snapshot
-- Independent senior/security re-review found OSS blockers despite phase docs marked done.
-- Privileged preload bridges can persist on trusted surfaces if navigation reaches remote content (must be blocked or isolated per surface).
-- CI workflow does not enforce the full hardening smoke gate set currently used as closeout evidence.
-- Adapter deepening completion is overstated in docs versus actual extraction state in monolithic modules.
-- Transitional/dead bridge surfaces remain and need cleanup or explicit wiring/tests.
-- Runtime security proof coverage is incomplete for privileged bridge absence and sender/origin rejection paths.
+- Workstream B lifecycle/regression hardening is complete and senior re-review returns `READY_TO_MARK_B_DONE` for this scope.
+- Canonical lifecycle smoke gate now runs scenario-driven completion (no fixed quit-timer success path) and passes locally.
+- Remaining Phase 08 blockers are security re-review completion, hosted post-change evidence refresh, and final gate/risk reconciliation.
 
 ---
 
@@ -72,10 +69,12 @@ Status values: `not started | in progress | blocked | done`
 - [x] Keymap layering implemented: defaults -> user overrides -> runtime guards
 - [x] Critical invariants fail in dev/CI (not warn-only)
 - [x] Unit tests cover resolvers/parser/dispatcher contracts
-- [x] Electron smoke tests run in CI for core flows
+- [x] Electron smoke tests run in CI for core flows (including lifecycle suites for settings/devtools/session/focus coverage)
 
 Additional closeout requirement before marking OSS gate complete:
 - [ ] Independent `senior-reviewer` and `security-engineer` re-review returns `ready` or `ready-with-conditions` with no open critical/high must-fix findings.
+  - `senior-reviewer`: complete (`READY_TO_MARK_B_DONE` for Workstream B lifecycle/regression scope)
+  - `security-engineer`: pending
 
 ---
 
@@ -102,5 +101,5 @@ Additional closeout requirement before marking OSS gate complete:
 ## Session Handoff
 - Last completed phase: 07
 - Active phase: 08
-- Blockers: independent re-review sign-off pending final certification proof bundle
-- Next action: Execute `phase-08-oss-readiness-certification.md` step 1 and assemble latest proof bundle from local and hosted CI evidence.
+- Blockers: pending `security-engineer` re-review and hosted post-change canonical gate evidence link for proof bundle
+- Next action: Execute `security-engineer` re-review, then update Phase 08 validation and risk reconciliation items.

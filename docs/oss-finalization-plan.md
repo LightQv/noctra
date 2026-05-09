@@ -85,6 +85,16 @@ Release is considered OSS-ready only when all are true:
 - New tests deterministic locally and in hosted CI.
 - No unresolved flaky gate behavior.
 
+### Status
+- Completed (2026-05-09).
+- Coverage now includes deterministic smoke validation for:
+  - settings buffer lifecycle (`open -> edit -> save -> restore -> close`),
+  - devtools split lifecycle (`open -> close -> teardown`),
+  - reopen/close/session restore sequence,
+  - focus-sensitive editable-buffer lifecycle hooks.
+- Canonical gate `npm run ci:test` includes all lifecycle suites and passes locally; hosted CI runs the equivalent canonical gate.
+- Scope note: this workstream does not claim direct smoke coverage for native theme update hooks or window bounds/chrome persistence hooks.
+
 ---
 
 ## Workstream C - Residual Security Closure

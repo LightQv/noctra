@@ -1,5 +1,40 @@
 # Hardening Session Changelog
 
+## Session 2026-05-09 #18
+### Objective
+- Close Workstream B lifecycle/regression hardening to reviewer-ready status and remove remaining determinism risks in smoke orchestration.
+
+### Completed
+- Expanded Workstream B lifecycle smoke coverage and finalized deterministic scenario behavior:
+  - settings lifecycle validates `open -> edit -> save -> restore -> close`,
+  - devtools lifecycle validates `open -> close -> teardown` with host teardown assertions,
+  - session lifecycle validates reopen + restore without timing-coupled control-flow sleeps,
+  - focus lifecycle validates editable-buffer focus hooks via settings bridge events.
+- Refactored smoke orchestration in `main.js` to scenario-driven completion:
+  - selected scenario runner is awaited,
+  - `app.quit()` now happens after scenario settle,
+  - timeout is watchdog failure guard, not success path.
+- Re-ran independent `senior-reviewer`; final verdict for Workstream B scope: `READY_TO_MARK_B_DONE`.
+- Updated OSS/hardening planning docs to mark Workstream B complete with scope-accurate wording.
+
+### Decisions
+- Keep Workstream B claims precise: lifecycle/focus-sensitive coverage is complete; do not claim direct native-theme/window lifecycle smoke coverage unless explicitly added.
+
+### Verification
+- Passed: `npm run test:smoke:settings-lifecycle`.
+- Passed: `npm run test:smoke:devtools-lifecycle`.
+- Passed: `npm run test:smoke:session-lifecycle`.
+- Passed: `npm run test:smoke:focus-lifecycle`.
+- Passed: `npm run ci:test`.
+- Passed: `senior-reviewer` verdict `READY_TO_MARK_B_DONE` (Workstream B scope).
+- Failed: n/a.
+
+### Risks/Notes
+- Workstream B is complete; remaining Phase 08 closeout risk centers on pending `security-engineer` re-review and hosted post-change evidence reconciliation.
+
+### Next Session Start Here
+- Execute `security-engineer` re-review and then close remaining Phase 08 validation/risk reconciliation steps.
+
 ## Session 2026-05-08 #17
 ### Objective
 - Execute Phase 07 using Path B (truthful rebaseline + explicit deferment of remaining high-risk extraction debt).

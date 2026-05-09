@@ -1,50 +1,51 @@
-## Overall Assessment
+# Overall Assessment
 
-Workstream A meaningfully improves boundary hygiene: Electron view/devtools/webContents primitives moved behind adapters, `main.js` web-mode tracking now has a service boundary, and adapter-contract coverage is materially stronger. I do not see a broad architectural blocker to proceeding, but there is still one lifecycle gap in the devtools split flow that should be closed before Workstream B starts.
+**Workstream verdict:** READY_TO_MARK_B_DONE
+
+Workstream B now meets its stated bar. The smoke harness no longer relies on a fixed successful-exit timer, the session lifecycle flow is condition-driven end to end, the new lifecycle suites are wired into the canonical `npm run ci:test` gate, and that full gate passes locally. The only remaining caution is documentation accuracy: current evidence covers focus-sensitive lifecycle behavior directly, but not a dedicated native-theme or window-persistence smoke path.
 
 ## Top Risks (ranked)
 
-1. **Devtools split target can become stale or invalid** — `browser/manager.js` opens split devtools against the current left buffer (`openDevtoolsSplit()`), but later left-buffer mutations (`switchTo`, `switchByOffset`, `close`) do not retarget or tear down the devtools session. That can leave the right pane attached to an old or destroyed `webContents`, which is exactly the kind of lifecycle ambiguity that will create noisy regression work in Workstream B.
-2. **Adapter contract drift in renderer transport remains outside the new boundary** — `ui/tabline.js` and `ui/urlline.js` still call `executeJavaScript` directly. This is not a stop-ship issue for Workstream B, but it means the newly documented renderer transport boundary is not yet consistently applied.
-3. **`contentViewHost.isUsableWindow()` is incorrect as written** — it checks `!windowRef.isDestroyed` instead of calling `windowRef.isDestroyed()`. It is currently unused, so impact is low, but leaving a broken exported helper in the adapter layer weakens trust in the boundary.
+1. **Docs could still overclaim theme/window verification** — focus-sensitive lifecycle is directly exercised (`main.js:1399-1458`), but there is no smoke that explicitly triggers `nativeTheme` updates (`main.js:1845-1866`) or window bound/maximize persistence hooks (`main.js:1644-1752`). Impact is documentation accuracy, not implementation readiness.
+2. **Settings close is validated via buffer close intent, not renderer close bridge** — the scenario proves the editable buffer can be closed (`main.js:1264-1276`), but it does not specifically drive `window.settingsBridge.close()` even though that bridge is present (`ui/settings/preload.js:10-12`). This is a small coverage gap, not a Workstream B blocker.
 
 ## Strengths
 
-- Good extraction direction: `contentViewHost`, `devtoolsHost`, `webContentsObserver`, and `shellPatchTransport` reduce direct Electron coupling in large orchestration modules.
-- `core/webModeSyncService.js` cleanly separates debounce/in-flight policy from event binding.
-- `tests/adapter-contracts.test.js` adds useful contract-level coverage instead of only testing call sites.
-- `docs/architecture.md` now reflects the intended boundary model, which helps future contributors reason about ownership.
+- Smoke orchestration is now scenario-driven and awaited, with the watchdog acting only as a failure guard (`main.js:1869-1939`). That closes the largest prior determinism concern.
+- Settings lifecycle coverage is materially complete: open editable buffer, assert bridge, save, persist-check, restore original contents, then close (`main.js:1181-1282`).
+- Devtools split teardown is explicitly verified against manager-owned state (`main.js:1284-1323`, `browser/manager.js:977-985`).
+- Reopen/close/session restore coverage now uses observable conditions rather than fixed sleeps (`main.js:1325-1397`).
+- The canonical local/CI gate includes all new lifecycle suites, and hosted CI runs that same gate (`package.json:15-19`, `.github/workflows/ci.yml:28-29`).
 
 ## Suggested Improvements
 
-1. **Add a single devtools-target reconciliation path in `browser/manager.js`.**
-   - **Rationale:** the split devtools lifecycle should be derived from the currently visible left buffer, not from the buffer that happened to be active when the split was first opened.
-   - **Expected impact:** removes stale target bugs and gives Workstream B a deterministic lifecycle to test.
-   - **Example approach:**
+### Acceptance matrix
 
-```js
-syncDevtoolsTargetToLeftBuffer() {
-  if (!this.split.enabled || this.split.mode !== "devtools") return;
-  const left = this.getLeftBuffer();
-  if (!left || !this.devtoolsView) {
-    this.closeDevtoolsSplit();
-    return;
-  }
-  if (this.devtoolsTarget === left.webContents) return;
-  closeSplitDevtools({ targetWebContents: this.devtoolsTarget, devtoolsView: this.devtoolsView });
-  this.devtoolsTarget = left.webContents;
-  openSplitDevtools({ targetWebContents: this.devtoolsTarget, devtoolsView: this.devtoolsView });
-}
-```
+- **1) Settings buffer lifecycle: open/edit/save/close — PASS**  
+  Evidence: opens editable settings buffer and validates bridge (`main.js:1188-1219`), saves and re-reads persisted content (`main.js:1221-1245`), restores original config (`main.js:1247-1261`), then closes and verifies a non-editable buffer is active (`main.js:1264-1276`).
 
-2. **Finish converging shell renderer patching behind adapters.**
-   - **Rationale:** `docs/architecture.md` now documents renderer transport ownership, but `ui/tabline.js` and `ui/urlline.js` still bypass it.
-   - **Expected impact:** lowers future drift and makes transport hardening/testing more uniform.
+- **2) Devtools split lifecycle: open/close/teardown — PASS**  
+  Evidence: opens devtools split and asserts split status (`main.js:1288-1297`), closes/reset state (`main.js:1299-1314`), and verifies teardown cleared `devtoolsView` and `devtoolsTarget` (`main.js:1315-1317`, `browser/manager.js:977-985`).
 
-3. **Fix or remove the broken exported helper in `contentViewHost.js`.**
-   - **Rationale:** exported adapter helpers should be trustworthy, even if not yet used.
-   - **Expected impact:** avoids future misuse and keeps the adapter surface internally coherent.
+- **3) Reopen/close/session restore sequences — PASS**  
+  Evidence: creates two buffers, closes one, reopens last closed, saves session, closes restored-session candidates, restores snapshot, and verifies both URLs return (`main.js:1329-1392`). Session save/restore is synchronous in the dispatcher/service path (`core/dispatcher/handlers/session.js:7-22`, `core/session/service.js:37-44`).
+
+- **4) Window/theme and focus-sensitive lifecycle hooks as needed — PASS (with documentation scope caution)**  
+  Evidence: focus-sensitive settings hooks are exercised through `editorReady`/`editorFocusRequest` and verified against editor mode/focus teardown (`main.js:1403-1453`, `ui/settings/preload.js:13-27`). Caution: no direct smoke currently drives `nativeTheme` update handling or window persistence listeners (`main.js:1644-1752`, `main.js:1845-1866`), so docs should not claim those are explicitly covered.
+
+- **5) Deterministic local/CI behavior via canonical gate (`npm run ci:test`) with no unresolved flake behavior — PASS**  
+  Evidence: smoke runner awaits the selected scenario and only quits after settlement, with timeout converted into a failure watchdog (`main.js:1874-1937`); `ci:test` includes the new suites (`package.json:15-19`); hosted CI runs the same gate (`.github/workflows/ci.yml:28-29`); local validation completed with `npm run ci:test` passing.
+
+### Minimal next actions
+
+- None required to mark Workstream B done.
+- When updating docs, describe criterion 4 as **focus-sensitive lifecycle hooks covered**, and avoid saying theme/window lifecycle is directly smoke-tested unless additional tests are added.
+
+### Suggested docs wording
+
+> **Workstream B — done.** Added deterministic smoke coverage for settings buffer lifecycle (open/edit/save/restore/close), devtools split open/close/teardown, reopen + session restore flows, and focus-sensitive editable-buffer lifecycle behavior. The canonical regression gate remains `npm run ci:test` and now includes these lifecycle suites in both local and hosted CI.
 
 ## Final Recommendation
 
-changes requested
+**Review recommendation:** approve  
+**Workstream verdict:** READY_TO_MARK_B_DONE

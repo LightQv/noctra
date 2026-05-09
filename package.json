@@ -12,7 +12,11 @@
     "test:smoke:overlay": "node tests/smoke/electron-overlay-panel-split.smoke.js",
     "test:smoke:ui-cadence": "node tests/smoke/electron-ui-cadence.smoke.js",
     "test:smoke:security": "node tests/smoke/electron-security-boundary.smoke.js",
-    "ci:test": "npm test && npm run test:smoke && npm run test:smoke:overlay && npm run test:smoke:ui-cadence && npm run test:smoke:security"
+    "test:smoke:settings-lifecycle": "node tests/smoke/electron-settings-lifecycle.smoke.js",
+    "test:smoke:devtools-lifecycle": "node tests/smoke/electron-devtools-lifecycle.smoke.js",
+    "test:smoke:session-lifecycle": "node tests/smoke/electron-session-lifecycle.smoke.js",
+    "test:smoke:focus-lifecycle": "node tests/smoke/electron-focus-lifecycle.smoke.js",
+    "ci:test": "npm test && npm run test:smoke && npm run test:smoke:overlay && npm run test:smoke:ui-cadence && npm run test:smoke:security && npm run test:smoke:settings-lifecycle && npm run test:smoke:devtools-lifecycle && npm run test:smoke:session-lifecycle && npm run test:smoke:focus-lifecycle"
   },
   "devDependencies": {
     "electron": "41.2.2"

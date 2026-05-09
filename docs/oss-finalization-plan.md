@@ -108,6 +108,23 @@ Release is considered OSS-ready only when all are true:
 - No critical/high security must-fix findings.
 - Medium findings either fixed or explicitly accepted with owner + revisit trigger.
 
+### Status
+- Completed (2026-05-09) for implementation and local validation scope.
+- Trusted-surface URL allowance was tightened from broad `data:text/html` acceptance to strict internal-only form:
+  - `about:blank`,
+  - `data:text/html;charset=utf-8,` only.
+- Internal CSP posture was further constrained on trusted shell/panel/settings surfaces by explicitly denying additional fetch/embedding vectors:
+  - `worker-src 'none'`,
+  - `media-src 'none'`,
+  - `manifest-src 'none'`,
+  - `frame-ancestors 'none'`.
+- Dependency vulnerability policy for OSS workflow was tightened by making the `dependency-audit` CI job blocking (no `continue-on-error`).
+- Added deterministic regression coverage for trusted-surface URL policy and trusted-surface navigation blocking edge cases.
+- Validation evidence:
+  - `npm test` passed,
+  - `npm run ci:test` passed.
+- Remaining closeout dependency for strict release acceptance: independent `security-engineer` re-review verdict and latest hosted CI evidence refresh under Phase 08.
+
 ---
 
 ## Workstream D - Permanent OSS Documentation

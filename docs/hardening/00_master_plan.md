@@ -48,8 +48,11 @@ Status values: `not started | in progress | blocked | done`
 
 ## Current Gap Snapshot
 - Workstream B lifecycle/regression hardening is complete and senior re-review returns `READY_TO_MARK_B_DONE` for this scope.
-- Canonical lifecycle smoke gate now runs scenario-driven completion (no fixed quit-timer success path) and passes locally.
-- Remaining Phase 08 blockers are security re-review completion, hosted post-change evidence refresh, and final gate/risk reconciliation.
+- Workstream C residual security closure implementation is complete with local validation:
+  - trusted-surface URL allowance tightened,
+  - internal CSP constraints narrowed further,
+  - dependency audit policy made blocking in CI.
+- Remaining Phase 08 blockers are `security-engineer` re-review completion and hosted post-change canonical gate evidence refresh.
 
 ---
 
@@ -81,10 +84,10 @@ Additional closeout requirement before marking OSS gate complete:
 ## Risk Register
 | Risk | Impact | Probability | Detection | Mitigation | Status |
 |---|---|---|---|---|---|
-| Trust-boundary regression while changing preload/IPC | High | Medium | targeted security smoke tests | split trusted vs untrusted surfaces first | open |
-| Keymap precedence drift | High | Medium | keymap precedence matrix tests | lock merge order and add conflict assertions | open |
-| Invariant noise causing alert fatigue | Medium | Medium | CI signal quality checks | promote only critical invariants to fail-fast first | open |
-| Adapter refactor breaks UI lifecycle timing | Medium | Medium | startup/shutdown + overlay parity scripts | slice by domain, verify after each PR | open |
+| Trust-boundary regression while changing preload/IPC | High | Medium | targeted security smoke tests | split trusted vs untrusted surfaces first | mitigated (monitoring) |
+| Keymap precedence drift | High | Medium | keymap precedence matrix tests | lock merge order and add conflict assertions | mitigated |
+| Invariant noise causing alert fatigue | Medium | Medium | CI signal quality checks | promote only critical invariants to fail-fast first | accepted (monitoring) |
+| Adapter refactor breaks UI lifecycle timing | Medium | Medium | startup/shutdown + overlay parity scripts | slice by domain, verify after each PR | accepted (monitoring) |
 
 ---
 
@@ -102,4 +105,4 @@ Additional closeout requirement before marking OSS gate complete:
 - Last completed phase: 07
 - Active phase: 08
 - Blockers: pending `security-engineer` re-review and hosted post-change canonical gate evidence link for proof bundle
-- Next action: Execute `security-engineer` re-review, then update Phase 08 validation and risk reconciliation items.
+- Next action: Execute `security-engineer` re-review, then attach hosted evidence and finalize Phase 08 closeout checklists.

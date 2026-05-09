@@ -38,7 +38,7 @@ function isAllowedTrustedSurfaceUrl(rawUrl) {
     return true;
   }
 
-  if (rawUrl.startsWith("data:text/html")) {
+  if (/^data:text\/html;charset=utf-8,/i.test(rawUrl)) {
     return true;
   }
 

@@ -234,6 +234,18 @@ test("webContents security policy blocks remote navigation for trusted surfaces"
 
   assert.equal(prevented, true);
   assert.equal(notifications.at(-1).code, "security_trusted_surface_navigation_blocked");
+
+  prevented = false;
+  willNavigateListeners[0](
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "data:text/html,<p>loose</p>",
+  );
+  assert.equal(prevented, true);
+  assert.equal(notifications.at(-1).code, "security_trusted_surface_navigation_blocked");
 });
 
 test("panel render transport debounces and supports cancellation", async () => {

@@ -1,5 +1,39 @@
 # Hardening Session Changelog
 
+## Session 2026-05-09 #19
+### Objective
+- Execute Workstream C residual security closure and align Phase 08 documentation to evidence-backed current state.
+
+### Completed
+- Tightened trusted-surface URL allowance policy in `core/security/surfaceTrust.js`:
+  - now allows only `about:blank` and canonical `data:text/html;charset=utf-8,` for trusted internal surfaces.
+- Added focused trusted-surface URL policy unit coverage in `tests/surface-trust.test.js`.
+- Expanded trusted-surface navigation blocking contract coverage in `tests/adapter-contracts.test.js` to include loose `data:text/html,...` denial.
+- Tightened internal CSP posture for trusted shell/panel/settings surfaces by adding explicit deny directives:
+  - `worker-src 'none'`,
+  - `media-src 'none'`,
+  - `manifest-src 'none'`,
+  - `frame-ancestors 'none'`.
+- Updated CI dependency vulnerability gate policy in `.github/workflows/ci.yml` by removing non-blocking `continue-on-error` from `dependency-audit`.
+- Updated closeout planning artifacts to reflect Workstream C completion and remaining Phase 08 blockers:
+  - `docs/oss-finalization-plan.md`,
+  - `docs/hardening/phase-08-oss-readiness-certification.md`,
+  - `docs/hardening/00_master_plan.md`.
+
+### Decisions
+- Keep strict URL policy for trusted internal surfaces in this phase (canonical internal `data:` form only) rather than broad `data:text/html` acceptance.
+- Enforce dependency audit as a blocking OSS gate signal pending any explicit exception workflow.
+
+### Verification
+- Passed: `npm test`.
+- Passed: `npm run ci:test`.
+
+### Risks/Notes
+- Workstream C implementation is complete; strict final closure still depends on independent `security-engineer` verdict and hosted post-change evidence attachment.
+
+### Next Session Start Here
+- Execute `security-engineer` re-review and attach latest hosted canonical gate evidence, then finalize Phase 08 closeout.
+
 ## Session 2026-05-09 #18
 ### Objective
 - Close Workstream B lifecycle/regression hardening to reviewer-ready status and remove remaining determinism risks in smoke orchestration.

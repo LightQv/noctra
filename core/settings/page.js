@@ -27,7 +27,7 @@ const CODEMIRROR_VIM_JS = readCodeMirrorAsset("codemirror/keymap/vim.js");
 const CODEMIRROR_YAML_JS = readCodeMirrorAsset("codemirror/mode/yaml/yaml.js");
 
 const SETTINGS_CSP =
-  "default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+  "default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; media-src 'none'; manifest-src 'none'; frame-ancestors 'none'";
 
 function escapeHtml(value) {
   return String(value)

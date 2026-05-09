@@ -44,10 +44,10 @@ Produce final auditable OSS-readiness certification by reconciling implementatio
    - latest passing CI runs for full hardening gate,
    - relevant test outputs,
    - references to security/parity checks.
-2. [ ] Reconcile `Current Gap Snapshot` and remove stale/resolved statements.
-3. [ ] Update global hardening gates with evidence references.
-4. [ ] Update OSS readiness gates with evidence references and explicit residual notes (if any).
-5. [ ] Reclassify risk register items from `open` to `mitigated`, `monitoring`, or `accepted` with rationale.
+2. [x] Reconcile `Current Gap Snapshot` and remove stale/resolved statements.
+3. [x] Update global hardening gates with evidence references.
+4. [x] Update OSS readiness gates with evidence references and explicit residual notes (if any).
+5. [x] Reclassify risk register items from `open` to `mitigated`, `monitoring`, or `accepted` with rationale.
 6. [ ] Run independent re-review:
    - [x] `senior-reviewer` (verdict: `READY_TO_MARK_B_DONE` for Workstream B lifecycle/regression scope)
    - `security-engineer`
@@ -61,6 +61,25 @@ Produce final auditable OSS-readiness certification by reconciling implementatio
 - [x] Independent senior reviewer verdict is `ready` for Workstream B lifecycle/regression scope
 - [ ] Independent security reviewer verdict pending
 - [ ] No open critical/high must-fix blocker remains (pending security re-review)
+
+## Workstream C Reconciliation Snapshot (2026-05-09)
+
+- Trusted-surface URL policy tightened in `core/security/surfaceTrust.js`:
+  - allowed: `about:blank`, `data:text/html;charset=utf-8,`.
+  - blocked: broad/non-canonical `data:text/html` and base64 variants.
+- Trusted-surface remote/loose-data navigation blocking coverage expanded in `tests/adapter-contracts.test.js`.
+- Focused URL-policy unit tests added in `tests/surface-trust.test.js`.
+- Internal CSP constraints tightened for trusted shell/panel/settings surfaces:
+  - `ui/shell/manager.js`,
+  - `core/history/panel.js`,
+  - `core/settings/page.js`.
+- CI dependency vulnerability policy tightened in `.github/workflows/ci.yml` by removing `continue-on-error` from `dependency-audit`.
+- Local validation pass after Workstream C changes:
+  - `npm test` passed,
+  - `npm run ci:test` passed.
+- Residual blockers unchanged for Phase 08 completion:
+  - pending `security-engineer` independent re-review,
+  - pending hosted post-change canonical gate evidence attachment.
 
 ## Risks
 
@@ -83,9 +102,9 @@ Produce final auditable OSS-readiness certification by reconciling implementatio
   - Workstream B lifecycle/regression hardening completed and independently re-reviewed by `senior-reviewer` with verdict `READY_TO_MARK_B_DONE`.
   - Canonical hardening gate with expanded lifecycle suites passes locally (`npm run ci:test`).
 - Remaining:
-  - hosted canonical gate evidence refresh after latest lifecycle changes,
+  - hosted canonical gate evidence refresh after latest security/lifecycle changes,
   - `security-engineer` re-review,
-  - risk register reconciliation and final closeout updates.
+  - final closeout updates after independent security verdict.
 - Known pitfalls:
   - skipping independent re-review after final fixes can miss last-minute regressions.
 - Next exact step:

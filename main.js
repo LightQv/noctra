@@ -54,6 +54,12 @@ const { createInputCoordinator } = require("./runtime/inputCoordinator");
 const { registerRuntimeIpc } = require("./runtime/ipcRegistration");
 const { wireWindowLifecycle } = require("./runtime/windowLifecycle");
 const { createSmokeScenarios } = require("./runtime/smokeScenarios");
+const { bootstrapWindowRuntime } = require("./runtime/windowBootstrap");
+const { createBrowserLanguagePolicy } = require("./runtime/browserLanguagePolicy");
+const { createThemeRuntime } = require("./runtime/themeRuntime");
+const { createUrlPolicyRuntime } = require("./runtime/urlPolicyRuntime");
+const { createConfigRuntime } = require("./runtime/configRuntime");
+const { createUrllineCoordinator } = require("./runtime/urllineCoordinator");
 const { resetLeaderSession, resetSequenceBuffers } = require("./core/state/leaderState");
 const {
   moveUrllineCursor,
@@ -65,192 +71,35 @@ const {
   deleteUrllineForward,
 } = require("./core/state/urllineState");
 let win;
-let browserLanguageHooksRegistered = false;
 let smokeScenarios = null;
 
-function isFiniteInteger(value) {
-  return Number.isFinite(value) && Number.isInteger(value);
-}
+const browserLanguagePolicy = createBrowserLanguagePolicy({
+  session,
+  configService,
+});
 
-function isBoundsVisibleOnAnyDisplay(bounds) {
-  if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) {
-    return false;
-  }
-
-  const displays = screen.getAllDisplays();
-  return displays.some((display) => {
-    const area = display.workArea;
-    const intersectsHorizontally = bounds.x < area.x + area.width && bounds.x + bounds.width > area.x;
-    const intersectsVertically =
-      bounds.y < area.y + area.height && bounds.y + bounds.height > area.y;
-    return intersectsHorizontally && intersectsVertically;
-  });
-}
-
-function mapBrowserLanguageToAcceptLanguage(languageCode) {
-  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
-  if (normalized === "fr") {
-    return "fr-FR,fr;q=0.9,en;q=0.8";
-  }
-  return "en-US,en;q=0.9";
-}
-
-function isGoogleHost(hostname) {
-  if (typeof hostname !== "string") {
-    return false;
-  }
-
-  const normalized = hostname.trim().toLowerCase();
-  return normalized === "google.com" || normalized.endsWith(".google.com") || normalized.includes(".google.");
-}
-
-function mapBrowserLanguageToGoogleLocale(languageCode) {
-  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
-  if (normalized === "fr") {
-    return { hl: "fr", gl: "FR", lr: "lang_fr" };
-  }
-  return { hl: "en", gl: "US", lr: "lang_en" };
-}
-
-function applyGoogleLocaleHint(rawUrl, preferredLanguage) {
-  if (typeof rawUrl !== "string" || !rawUrl.length) {
-    return rawUrl;
-  }
-
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(rawUrl);
-  } catch {
-    return rawUrl;
-  }
-
-  if ((parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") || !isGoogleHost(parsedUrl.hostname)) {
-    return rawUrl;
-  }
-
-  const locale = mapBrowserLanguageToGoogleLocale(preferredLanguage);
-  const currentHl = parsedUrl.searchParams.get("hl");
-  const currentGl = parsedUrl.searchParams.get("gl");
-  const currentLr = parsedUrl.searchParams.get("lr");
-  const nextHl = locale.hl;
-  const nextGl = locale.gl;
-  const nextLr = locale.lr;
-
-  if (currentHl === nextHl && currentGl === nextGl && currentLr === nextLr) {
-    return rawUrl;
-  }
-
-  parsedUrl.searchParams.set("hl", nextHl);
-  parsedUrl.searchParams.set("gl", nextGl);
-  parsedUrl.searchParams.set("lr", nextLr);
-  return parsedUrl.toString();
-}
-
-function applyBrowserLanguagePreference() {
-  if (browserLanguageHooksRegistered) {
-    return;
-  }
-
-  session.defaultSession.webRequest.onBeforeRequest({ urls: ["*://*/*"] }, (details, callback) => {
-    if (details.resourceType !== "mainFrame") {
-      callback({});
-      return;
-    }
-
-    const preferredLanguage = configService.getConfigValue("browser.language", "en");
-    const redirectURL = applyGoogleLocaleHint(details.url, preferredLanguage);
-    if (redirectURL && redirectURL !== details.url) {
-      callback({ redirectURL });
-      return;
-    }
-
-    callback({});
-  });
-
-  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["*://*/*"] }, (details, callback) => {
-    const preferredLanguage = configService.getConfigValue("browser.language", "en");
-    const acceptLanguage = mapBrowserLanguageToAcceptLanguage(preferredLanguage);
-    const requestHeaders = {
-      ...(details.requestHeaders || {}),
-      "Accept-Language": acceptLanguage,
-    };
-    callback({ requestHeaders });
-  });
-
-  browserLanguageHooksRegistered = true;
-}
-
-function getUrlPolicyConfig() {
-  return {
-    allowHttpLoopback: configService.getConfigValue("browser.allow_http_loopback", true),
-    allowHttpPrivateLan: configService.getConfigValue("browser.allow_http_private_lan", true),
-    trustedHttpHosts: configService.getConfigValue("browser.trusted_http_hosts", []),
-  };
-}
-
-function isAllowedNavigationUrl(rawUrl) {
-  return validateNavigableUrl(rawUrl, getUrlPolicyConfig()).ok;
-}
-
-function resolveCurrentTheme() {
-  const themeConfig = configService.getConfigValue("global.theme", {});
-  const systemPrefersDark = nativeTheme.shouldUseDarkColors;
-  const configuredMode = normalizeThemeMode(
-    typeof themeConfig?.mode === "string" ? themeConfig.mode : themeConfig?.name,
-    "dark",
-  );
-  const resolvedMode = resolveThemeMode(themeConfig, { systemPrefersDark });
-  const contentMode = normalizeContentThemeMode(themeConfig?.content_mode, "dark");
-  const contentColorScheme = resolveContentColorScheme(themeConfig, { systemPrefersDark });
-  const theme = resolveTheme(themeConfig, { systemPrefersDark });
-
-  return {
-    theme,
-    configuredMode,
-    resolvedMode,
-    contentMode,
-    contentColorScheme,
-  };
-}
-
-function buildThemePayload(themeContext) {
-  const theme = themeContext && themeContext.theme ? themeContext.theme : themeContext || {};
-  const resolvedMode =
-    themeContext && typeof themeContext.resolvedMode === "string"
-      ? themeContext.resolvedMode
-      : "dark";
-
-  return {
-    theme,
-    themeVars: toCssVars(theme),
-    colorScheme: resolvedMode === "light" ? "light" : "dark",
-    resolvedMode,
-  };
-}
-
-function syncContentUiTheme(theme) {
-  const contentColorScheme = theme.contentColorScheme === "light" ? "light" : "dark";
-  buffers.setContentUiOptions({
-    thumbColor: theme.scrollbarThumbColor,
-    thumbActiveColor: theme.scrollbarThumbActiveColor,
-    contentColorScheme,
-  });
-}
-
-function applyTheme(themeContext, options = {}) {
-  const shouldBroadcast = Boolean(options.broadcast);
-  const payload = buildThemePayload(themeContext);
-  uiShell.setTheme(payload.theme);
-  syncContentUiTheme({
-    ...payload.theme,
-    contentColorScheme:
-      themeContext && themeContext.contentColorScheme === "light" ? "light" : "dark",
-  });
-  buffers.refreshDashboardBuffers();
-  if (shouldBroadcast) {
+const themeRuntime = createThemeRuntime({
+  configService,
+  nativeTheme,
+  resolveTheme,
+  resolveThemeMode,
+  resolveContentColorScheme,
+  normalizeThemeMode,
+  normalizeContentThemeMode,
+  toCssVars,
+  buffers,
+  uiShell,
+  broadcastThemeUpdate: (payload) => {
     broadcastUiShellPush({ win, buffers, type: "theme:update", payload });
-  }
-}
+  },
+});
+
+const { applyBrowserLanguagePreference } = browserLanguagePolicy;
+const { resolveCurrentTheme, buildThemePayload, applyTheme } = themeRuntime;
+const { isAllowedNavigationUrl } = createUrlPolicyRuntime({
+  configService,
+  validateNavigableUrl,
+});
 
 function focusActiveEditorSurface(options = {}) {
   const active = buffers.getActive();
@@ -461,6 +310,10 @@ function persistSessionSnapshot() {
   }
 }
 
+function getStatuslineModeLabel() {
+  return computeStatuslineModeLabel(state);
+}
+
 function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
   if (!leaderTree || typeof leaderTree !== "object") {
     return [];
@@ -584,26 +437,10 @@ function updateTablineOptions() {
   });
 }
 
-function buildUrllineModel() {
-  const model = buffers.getUrllineRenderModel();
-  if (!state.urllineEditing) {
-    return model;
-  }
-
-  return {
-    ...model,
-    editing: {
-      active: true,
-      pane: state.urllinePane === "right" ? "right" : "left",
-      text: state.urllineBuffer,
-      cursorIndex: state.urllineCursorIndex,
-    },
-  };
-}
-
-function updateUrllineRender() {
-  uiShell.renderUrlline(buildUrllineModel());
-}
+let updateUrllineRender = () => {};
+let startUrllineEdit = () => {};
+let stopUrllineEdit = () => {};
+let handleUrllineInput = () => {};
 
 function updateUrllineActions() {
   uiShell.setUrllineActions({
@@ -625,56 +462,45 @@ function updateUrllineActions() {
   });
 }
 
-function resetLeaderRuntimeState() {
-  resetLeaderSession(state);
-}
+const urllineCoordinator = createUrllineCoordinator({
+  state,
+  uiShell,
+  buffers,
+  enterInsertMode,
+  enterNormalMode,
+  startUrllineEditState,
+  stopUrllineEditState,
+  moveUrllineCursor,
+  setUrllineCursor,
+  insertUrllineTextAtCursor,
+  deleteUrllineBackward,
+  deleteUrllineForward,
+  resolveInputTarget,
+  getStatuslineModeLabel,
+});
 
-function applyReloadedConfig(config, { refreshLayout = false } = {}) {
-  state.applyConfig(config);
-  resetLeaderRuntimeState();
-  resetSequenceBuffers(state);
+updateUrllineRender = urllineCoordinator.updateUrllineRender;
+startUrllineEdit = urllineCoordinator.startUrllineEdit;
+stopUrllineEdit = urllineCoordinator.stopUrllineEdit;
+handleUrllineInput = urllineCoordinator.handleUrllineInput;
 
-  applyBrowserLanguagePreference();
-  buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
-  historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
-  historyPanel.setTreeScrollContextLines(
-    configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
-  );
-  historyPanel.setTreeDeleteOperatorTimeoutMs(
-    configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
-  );
+const { applyReloadedConfig } = createConfigRuntime({
+  state,
+  resetLeaderSession,
+  resetSequenceBuffers,
+  applyBrowserLanguagePreference,
+  buffers,
+  configService,
+  historyPanel,
+  resolveCurrentTheme,
+  applyTheme,
+  uiShell,
+  updateTablineActions,
+  updateTablineOptions,
+  updateUrllineActions,
+  updateUrllineRender,
+});
 
-  if (refreshLayout) {
-    historyPanel.layout();
-    buffers.layoutViews();
-  }
-
-  const themeContext = resolveCurrentTheme();
-  applyTheme(themeContext, { broadcast: true });
-  uiShell.updateSplitDivider(buffers.getSplitStatus());
-  updateTablineActions();
-  updateTablineOptions();
-  updateUrllineActions();
-  updateUrllineRender();
-}
-
-function getStatuslineModeLabel() {
-  return computeStatuslineModeLabel(state);
-}
-
-function startUrllineEdit(pane, initialUrl) {
-  startUrllineEditState(state, pane, initialUrl);
-  enterInsertMode(state, "urlline-start-edit");
-  uiShell.updateStatuslineMode(getStatuslineModeLabel());
-  updateUrllineRender();
-}
-
-function stopUrllineEdit() {
-  stopUrllineEditState(state);
-  enterNormalMode(state, "urlline-stop-edit");
-  uiShell.updateStatuslineMode(getStatuslineModeLabel());
-  updateUrllineRender();
-}
 
 function normalizeHistoryUrl(rawUrl) {
   if (typeof rawUrl !== "string") return "";
@@ -693,382 +519,61 @@ function normalizeHistoryUrl(rawUrl) {
   }
 }
 
-function insertUrllineText(text) {
-  insertUrllineTextAtCursor(state, text);
-}
-
-function submitUrlline() {
-  const targetPane = state.urllinePane === "right" ? "right" : "left";
-  const rawInput = String(state.urllineBuffer || "").trim();
-  stopUrllineEdit();
-
-  if (!rawInput) {
-    return;
-  }
-
-  const target = resolveInputTarget(rawInput, {
-    defaultSearchEngine: "duckduckgo",
-  });
-
-  if (target.kind === "invalid") {
-    return;
-  }
-
-  buffers.focusPane(targetPane);
-  const paneBuffer = buffers.getPaneBuffer(targetPane);
-  if (!paneBuffer || paneBuffer.isEditable) {
-    return;
-  }
-
-  paneBuffer.load(target.url);
-}
-
-function handleUrllineInput(event, input) {
-  if (typeof input.pasteText === "string" && input.pasteText.length > 0) {
-    insertUrllineText(input.pasteText);
-    updateUrllineRender();
-    return;
-  }
-
-  if (input.key === "Escape") {
-    stopUrllineEdit();
-    return;
-  }
-
-  if (input.key === "Enter") {
-    submitUrlline();
-    return;
-  }
-
-  if (input.key === "Left" || input.key === "ArrowLeft") {
-    moveUrllineCursor(state, -1);
-    updateUrllineRender();
-    return;
-  }
-
-  if (input.key === "Right" || input.key === "ArrowRight") {
-    moveUrllineCursor(state, 1);
-    updateUrllineRender();
-    return;
-  }
-
-  if (input.key === "Home") {
-    setUrllineCursor(state, 0);
-    updateUrllineRender();
-    return;
-  }
-
-  if (input.key === "End") {
-    setUrllineCursor(state, state.urllineBuffer.length);
-    updateUrllineRender();
-    return;
-  }
-
-  if (input.key === "Backspace") {
-    if (!deleteUrllineBackward(state)) {
-      return;
-    }
-    updateUrllineRender();
-    return;
-  }
-
-  if (input.key === "Delete") {
-    if (!deleteUrllineForward(state)) {
-      return;
-    }
-    updateUrllineRender();
-    return;
-  }
-
-  if (!input.ctrl && !input.meta && !input.alt) {
-    if (input.key === "Space") {
-      insertUrllineText(" ");
-      updateUrllineRender();
-      return;
-    }
-
-    if (typeof input.key === "string" && input.key.length === 1) {
-      insertUrllineText(input.key);
-      updateUrllineRender();
-    }
-  }
-}
 
 
 function createWindow() {
-  const config = configService.initConfig();
-  state.applyConfig(config);
-  applyBrowserLanguagePreference();
-  const initialWidth = configService.getConfigValue("global.window.width", 1200);
-  const initialHeight = configService.getConfigValue("global.window.height", 800);
-  const initialX = configService.getConfigValue("global.window.x", null);
-  const initialY = configService.getConfigValue("global.window.y", null);
-  const initialIsMaximized = configService.getConfigValue("global.window.is_maximized", false);
-
-  const isMac = process.platform === "darwin";
-
-  const windowOptions = {
-    width: initialWidth,
-    height: initialHeight,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webviewTag: false,
-      preload: path.join(__dirname, "ui", "shell", "preload.js"),
-    },
-  };
-
-  if (isMac) {
-    windowOptions.titleBarStyle = "hiddenInset";
-  } else {
-    windowOptions.frame = false;
-  }
-
-  const hasConfiguredPosition = isFiniteInteger(initialX) && isFiniteInteger(initialY);
-  if (hasConfiguredPosition) {
-    const candidateBounds = {
-      x: initialX,
-      y: initialY,
-      width: initialWidth,
-      height: initialHeight,
-    };
-    if (isBoundsVisibleOnAnyDisplay(candidateBounds)) {
-      windowOptions.x = initialX;
-      windowOptions.y = initialY;
-    }
-  }
-
-  win = new BrowserWindow(windowOptions);
-  markSurfaceRole(win.webContents, SURFACE_ROLES.TRUSTED_SHELL);
-
-  win.setMaxListeners(0);
-
-  win.webContents.on("before-input-event", (event, input) => {
-    handleRawInput(event, input);
-  });
-
-  win.webContents.on("did-finish-load", () => {
-    buffers.focusActive();
-  });
-
-  registerRuntimeIpc({
-    win,
+  const runtime = bootstrapWindowRuntime({
+    BrowserWindow,
+    path,
+    process,
     fs,
     ipcMain,
+    nativeTheme,
+    screen,
+    app,
     state,
     buffers,
-    dispatch,
-    INTENTS,
     uiShell,
     historyPanel,
+    historyService,
+    notificationsService,
+    configService,
+    dispatch,
+    INTENTS,
     webContentsActions,
+    registerRuntimeIpc,
+    registerIpcContracts,
+    createSmokeScenarios,
+    inputCoordinator,
+    handleRawInput,
+    isEditorFocused,
+    wireWindowLifecycle,
     getSurfaceRole,
     isAllowedTrustedSurfaceUrl,
     SURFACE_ROLES,
+    markSurfaceRole,
     performWindowAction,
     setEditorFocused,
     enterCommandMode,
     focusActiveEditorSurface,
     getStatuslineModeLabel,
     startUrllineEdit,
-    configService,
     resolveCurrentTheme,
     buildThemePayload,
     applyReloadedConfig,
-    registerIpcContracts,
-    notificationsService,
-  });
-
-  buffers.init(win);
-  buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
-  historyPanel.init({ window: win, buffers, state });
-  historyPanel.setOnFocusChange(() => {
-    uiShell.updateStatuslineMode(getStatuslineModeLabel());
-    updateTablineOptions();
-  });
-  historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
-  historyPanel.setTreeScrollContextLines(
-    configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
-  );
-  historyPanel.setTreeDeleteOperatorTimeoutMs(
-    configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
-  );
-  const historyPanelWebContents = historyPanel.getWebContents();
-  if (historyPanelWebContents) {
-    historyPanelWebContents.on("before-input-event", (event, input) => {
-      handleRawInput(event, input);
-    });
-  }
-  uiShell.init(win);
-  smokeScenarios = createSmokeScenarios({
-    app,
-    win,
-    fs,
-    state,
-    buffers,
-    dispatch,
-    INTENTS,
-    configService,
-    historyPanel,
-    uiShell,
-    webContentsActions,
-    isEditorFocused,
-    getStatuslineModeLabel,
+    applyTheme,
+    updateTablineActions,
     updateTablineOptions,
+    updateUrllineActions,
     updateUrllineRender,
-  });
-  smokeScenarios.setupSmokeUiCadenceProbe();
-  notificationsService.setToastHandler((toast) => {
-    uiShell.showNotificationToast(toast);
-  });
-  applyTheme(resolveCurrentTheme());
-  uiShell.setWindowChrome({
-    platform: process.platform,
-    useNativeControls: isMac,
-    isMaximized: win.isMaximized(),
-    isFullScreen: win.isFullScreen(),
-  });
-  uiShell.updateStatuslineMode(getStatuslineModeLabel());
-  uiShell.updateStatuslineScroll(0);
-  uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
-  uiShell.updateSplitDivider(buffers.getSplitStatus());
-  updateTablineActions();
-  updateTablineOptions();
-  updateUrllineActions();
-  updateUrllineRender();
-
-  wireWindowLifecycle({
-    win,
-    uiShell,
-    buffers,
-    historyPanel,
-    updateUrllineRender,
-    configService,
+    stopUrllineEdit,
+    normalizeHistoryUrl,
+    applyBrowserLanguagePreference,
     persistSessionSnapshot,
-    webContentsActions,
-    state,
   });
 
-  if (initialIsMaximized) {
-    win.maximize();
-  }
-
-  let lastRecordedVisit = {
-    url: "",
-    atMs: 0,
-  };
-
-  
-
-  buffers.subscribe((snapshot, active, change = {}) => {
-    if (!active) return;
-
-    const activeChanged = Boolean(change.activeChanged);
-
-    uiShell.renderTabline(snapshot);
-    const urllineModel = buffers.getUrllineRenderModel();
-    if (state.urllineEditing) {
-      const editingPane = state.urllinePane === "right" ? "right" : "left";
-      const paneStillVisible = Array.isArray(urllineModel.panes)
-        ? urllineModel.panes.some((pane) => pane && pane.pane === editingPane)
-        : false;
-      if (!paneStillVisible) {
-        stopUrllineEdit();
-      }
-    }
-    updateUrllineRender();
-    uiShell.updateStatuslineMode(getStatuslineModeLabel());
-    uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
-    uiShell.updateSplitDivider(buffers.getSplitStatus());
-
-    if (activeChanged || inputCoordinator.getActiveInputWebContents() !== active.webContents) {
-      inputCoordinator.bindInputToActiveBuffer();
-    }
-
-    if (change.activeChanged) {
-      uiShell.syncOverlayStack();
-    } else if (uiShell.isCommandVisible()) {
-      uiShell.keepCommandOverlayAboveContentViews();
-    }
-
-    if (change.kind === "pane-interaction" && historyPanel.isFocused()) {
-      historyPanel.unfocus();
-      updateTablineOptions();
-      uiShell.updateStatuslineMode(getStatuslineModeLabel());
-    }
-
-    if (change.kind === "visit" && change.url) {
-      const normalizedUrl = normalizeHistoryUrl(change.url);
-      if (!normalizedUrl) {
-        return;
-      }
-
-      const nowMs = Number.isFinite(change.timestampMs) ? change.timestampMs : Date.now();
-      if (
-        lastRecordedVisit.url === normalizedUrl &&
-        nowMs - lastRecordedVisit.atMs <= 1200
-      ) {
-        return;
-      }
-
-      lastRecordedVisit = {
-        url: normalizedUrl,
-        atMs: nowMs,
-      };
-
-      historyService.recordVisit({
-        url: normalizedUrl,
-        title: change.title,
-        timestampMs: nowMs,
-      });
-      if (historyPanel.isVisible()) {
-        historyPanel.reloadData();
-        historyPanel.render();
-      }
-    }
-
-    if (change.kind === "title-updated" && change.url && change.title) {
-      const normalizedUrl = normalizeHistoryUrl(change.url);
-      if (!normalizedUrl) {
-        return;
-      }
-      historyService.updateLatestTitleForUrl(normalizedUrl, change.title);
-      if (historyPanel.isVisible()) {
-        historyPanel.reloadData();
-        historyPanel.render();
-      }
-    }
-  });
-
-  buffers.openConfiguredBuffer();
-  inputCoordinator.bindInputToActiveBuffer();
-  win.on("closed", () => {
-    inputCoordinator.dispose();
-  });
-
-  const onNativeThemeUpdated = () => {
-    const themeContext = resolveCurrentTheme();
-    const shouldApplyFromSystem =
-      themeContext.configuredMode === "auto" ||
-      themeContext.contentMode === "auto" ||
-      (themeContext.contentMode === "match" && themeContext.configuredMode === "custom");
-    if (!shouldApplyFromSystem) {
-      return;
-    }
-
-    applyTheme(themeContext, { broadcast: true });
-    updateTablineActions();
-    updateTablineOptions();
-    updateUrllineActions();
-    updateUrllineRender();
-  };
-
-  nativeTheme.on("updated", onNativeThemeUpdated);
-
-  win.on("closed", () => {
-    nativeTheme.removeListener("updated", onNativeThemeUpdated);
-  });
+  win = runtime.win;
+  smokeScenarios = runtime.smokeScenarios;
 }
 
 app.whenReady().then(() => {

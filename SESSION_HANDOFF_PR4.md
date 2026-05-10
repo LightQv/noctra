@@ -8,6 +8,7 @@ Status: In-progress on PR4A (browser manager decomposition)
 ## High-Level Progress
 
 Completed in previous sessions:
+
 - PR1: OSS guardrails baseline
   - ESLint/Prettier scripts
   - intent parity check script
@@ -21,6 +22,7 @@ Completed in previous sessions:
   - state transition tests added
 
 Current focus:
+
 - PR4A (Browser manager split) in progress and implemented locally.
 
 ## PR4A - Implemented Refactor (Not yet PR4B)
@@ -28,18 +30,21 @@ Current focus:
 ### New browser services added
 
 1. `browser/services/paneLayoutController.js`
+
 - Extracted layout responsibilities from `browser/manager.js`:
   - pane urlline visibility checks
   - urlline render model generation
   - full pane/devtools view layout bounds and top-view handling
 
 2. `browser/services/selectionClipboardObserver.js`
+
 - Extracted pane tracking + selection copy behavior:
   - mouse/focus pane interaction hooks
   - selection read + debounce/throttle map
   - clipboard write + notifications
 
 3. `browser/services/splitController.js`
+
 - Extracted split behavior:
   - `openVerticalSplit`
   - `closeRightSplit`
@@ -49,6 +54,7 @@ Current focus:
   - `reconcileSplitSources`
 
 4. `browser/services/devtoolsController.js`
+
 - Extracted devtools split behavior:
   - `openDevtoolsSplit`
   - `closeDevtoolsSplit`
@@ -63,6 +69,7 @@ Current focus:
 ## Validation Status
 
 Latest local validation passed after refactor:
+
 - `npm run lint` (warnings only, no errors)
 - `npm run ci:test` (full green: lint + format check + intents parity + unit + smoke suite)
 
@@ -79,6 +86,7 @@ Known warnings are existing non-blocking warnings (not introduced as failures).
 ## Recommended Next Steps
 
 1. Finalize/open PR4A
+
 - Commit and push the browser split extraction.
 - PR title suggestion:
   - `refactor(browser): split manager into layout, split, devtools, and selection services`
@@ -88,6 +96,7 @@ Known warnings are existing non-blocking warnings (not introduced as failures).
   - CI green
 
 2. Start PR4B (UI shell manager split)
+
 - Target file: `ui/shell/manager.js` (~1825 lines)
 - Planned extraction modules under `ui/shell/services/`:
   - `shellTemplateHost.js`
@@ -99,6 +108,7 @@ Known warnings are existing non-blocking warnings (not introduced as failures).
 - Keep `ui/shell/manager.js` as coordinator/facade.
 
 3. PR4B validation strategy
+
 - run after each extraction chunk:
   - `npm test`
   - smoke subset: `ui-cadence`, `overlay-panel-split`, `settings-lifecycle`

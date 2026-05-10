@@ -1,31 +1,32 @@
-const { nativeTheme, clipboard } = require("electron");
+const { nativeTheme } = require("electron");
 const Buffer = require("./buffers");
-const {
-  UI_SHELL_TABLINE_HEIGHT,
-  UI_SHELL_URLLINE_HEIGHT,
-  UI_SHELL_STATUSLINE_HEIGHT,
-} = require("../ui/constants");
 const { getConfigValue } = require("../core/config/service");
 const notificationsService = require("../core/notifications/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
 const { resolveTheme, resolveThemeMode } = require("../ui/theme");
 const {
-  isViewAttached,
   attachView,
   detachView,
-  setViewBounds,
-  setViewAutoResize,
-  setTopView,
 } = require("../core/adapters/platform/contentViewHost");
 const {
-  createDevtoolsView,
-  openSplitDevtools,
-  closeSplitDevtools,
-} = require("../core/adapters/platform/devtoolsHost");
+  openDevtoolsSplit,
+  closeDevtoolsSplit,
+  syncDevtoolsTargetToLeftBuffer,
+} = require("./services/devtoolsController");
 const {
-  bindPaneObservers,
-  readSelection,
-} = require("../core/adapters/platform/webContentsObserver");
+  openVerticalSplit,
+  closeRightSplit,
+  focusSplitLeft,
+  focusSplitRight,
+  focusPane,
+  reconcileSplitSources,
+} = require("./services/splitController");
+const { attachPaneTracking } = require("./services/selectionClipboardObserver");
+const {
+  canShowUrllineForBuffer,
+  getUrllineRenderModel,
+  layoutViews,
+} = require("./services/paneLayoutController");
 
 class BufferManager {
   constructor() {
@@ -489,104 +490,27 @@ class BufferManager {
   }
 
   openVerticalSplit(ratio = 0.5) {
-    const left = this.getLeftBuffer();
-    if (!left) return null;
-
-    this.closeDevtoolsSplit();
-    this.ensureRightPaneBuffer();
-    this.assignRightPaneSource(left);
-
-    this.split.enabled = true;
-    this.split.mode = "regular";
-    this.split.ratio = ratio;
-    this.focusedPane = "right";
-
-    this.layoutViews();
-    this.focusActive();
-    this.notify({ kind: "structure", activeChanged: true });
-    return this.split.rightPaneBuffer;
+    return openVerticalSplit(this, ratio);
   }
 
   openDevtoolsSplit(ratio = 0.25) {
-    const left = this.getLeftBuffer();
-    if (!left || !this.window) return;
-
-    this.destroyRightPaneBuffer();
-
-    this.split.enabled = true;
-    this.split.mode = "devtools";
-    this.split.ratio = ratio;
-    this.focusedPane = "left";
-
-    if (!this.devtoolsView) {
-      this.devtoolsView = createDevtoolsView();
-      attachView(this.window, this.devtoolsView);
-    }
-
-    this.devtoolsTarget = left.webContents;
-    openSplitDevtools({
-      targetWebContents: this.devtoolsTarget,
-      devtoolsView: this.devtoolsView,
-    });
-
-    this.layoutViews();
-    this.notify({ kind: "structure", activeChanged: false });
+    return openDevtoolsSplit(this, ratio);
   }
 
   closeRightSplit() {
-    if (!this.split.enabled) {
-      return;
-    }
-
-    if (this.split.mode === "regular") {
-      this.destroyRightPaneBuffer();
-    }
-
-    if (this.split.mode === "devtools") {
-      this.closeDevtoolsSplit();
-    }
-
-    this.split.enabled = false;
-    this.split.mode = "regular";
-    this.split.ratio = 0.5;
-    this.focusedPane = "left";
-    this.layoutViews();
-    this.focusActive();
-    this.notify({ kind: "structure", activeChanged: true });
+    return closeRightSplit(this);
   }
 
   focusSplitLeft() {
-    if (!this.split.enabled) return false;
-    this.focusedPane = "left";
-    this.layoutViews();
-    this.focusActive();
-    this.notify({ kind: "structure", activeChanged: true });
-    return true;
+    return focusSplitLeft(this);
   }
 
   focusSplitRight() {
-    if (!this.split.enabled) return false;
-    this.focusedPane = "right";
-    this.layoutViews();
-    this.focusActive();
-    this.notify({ kind: "structure", activeChanged: true });
-    return true;
+    return focusSplitRight(this);
   }
 
   focusPane(pane = "left") {
-    if (pane === "right") {
-      return this.focusSplitRight();
-    }
-
-    if (this.split.enabled) {
-      return this.focusSplitLeft();
-    }
-
-    this.focusedPane = "left";
-    this.layoutViews();
-    this.focusActive();
-    this.notify({ kind: "structure", activeChanged: true });
-    return true;
+    return focusPane(this, pane);
   }
 
   isSplitEnabled() {
@@ -676,70 +600,11 @@ class BufferManager {
   }
 
   canShowUrllineForBuffer(buffer) {
-    return Boolean(this.urllineVisible && buffer && !buffer.isEditable);
+    return canShowUrllineForBuffer(this, buffer);
   }
 
   getUrllineRenderModel() {
-    if (!this.isWindowAlive()) {
-      return { panes: [] };
-    }
-
-    const bounds = this.window.getContentBounds();
-    const left = this.getLeftBuffer();
-    const rightSource = this.split.mode === "regular" ? this.split.rightPaneSourceBuffer : null;
-    const rightRegular = this.split.mode === "regular" ? this.split.rightPaneBuffer : null;
-    const showSplit = this.split.enabled && (rightSource || rightRegular || this.split.mode === "devtools");
-    const dividerWidth = showSplit && getConfigValue("global.split.divider.enabled", true) ? 1 : 0;
-    const contentX = Math.max(0, this.leftInsetPx);
-    const contentWidth = Math.max(bounds.width - contentX, 2);
-    const availableSplitWidth = Math.max(contentWidth - dividerWidth, 2);
-    const rightWidth = showSplit
-      ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
-      : 0;
-    const leftWidth = showSplit
-      ? Math.max(availableSplitWidth - rightWidth, 1)
-      : contentWidth;
-    const rightX = contentX + leftWidth + dividerWidth;
-
-    const useMirroredRight =
-      showSplit &&
-      this.split.mode === "regular" &&
-      Boolean(left && rightSource && left === rightSource);
-
-    const rightPaneBuffer =
-      this.split.mode === "regular"
-        ? useMirroredRight
-          ? rightRegular
-          : rightSource
-        : null;
-
-    const panes = [];
-
-    if (this.canShowUrllineForBuffer(left)) {
-      panes.push({
-        pane: "left",
-        x: 0,
-        top: UI_SHELL_TABLINE_HEIGHT,
-        width: leftWidth,
-        url: left.url || "about:blank",
-        canGoBack: Boolean(left.webContents?.navigationHistory?.canGoBack?.()),
-        canGoForward: Boolean(left.webContents?.navigationHistory?.canGoForward?.()),
-      });
-    }
-
-    if (showSplit && this.canShowUrllineForBuffer(rightPaneBuffer)) {
-      panes.push({
-        pane: "right",
-        x: rightX,
-        top: UI_SHELL_TABLINE_HEIGHT,
-        width: rightWidth,
-        url: rightPaneBuffer.url || "about:blank",
-        canGoBack: Boolean(rightPaneBuffer.webContents?.navigationHistory?.canGoBack?.()),
-        canGoForward: Boolean(rightPaneBuffer.webContents?.navigationHistory?.canGoForward?.()),
-      });
-    }
-
-    return { panes };
+    return getUrllineRenderModel(this);
   }
 
   findByKind(kind) {
@@ -975,283 +840,23 @@ class BufferManager {
   }
 
   closeDevtoolsSplit() {
-    detachView(this.window, this.devtoolsView);
-    closeSplitDevtools({
-      targetWebContents: this.devtoolsTarget,
-      devtoolsView: this.devtoolsView,
-    });
-
-    this.devtoolsView = null;
-    this.devtoolsTarget = null;
+    return closeDevtoolsSplit(this);
   }
 
   syncDevtoolsTargetToLeftBuffer() {
-    if (!this.split.enabled || this.split.mode !== "devtools") {
-      return;
-    }
-
-    const left = this.getLeftBuffer();
-    const nextTarget = left && left.webContents && !left.webContents.isDestroyed() ? left.webContents : null;
-    if (!nextTarget || !this.devtoolsView || !this.window) {
-      this.closeRightSplit();
-      return;
-    }
-
-    if (this.devtoolsTarget === nextTarget) {
-      return;
-    }
-
-    closeSplitDevtools({
-      targetWebContents: this.devtoolsTarget,
-      devtoolsView: this.devtoolsView,
-    });
-    this.devtoolsTarget = nextTarget;
-    openSplitDevtools({
-      targetWebContents: this.devtoolsTarget,
-      devtoolsView: this.devtoolsView,
-    });
+    return syncDevtoolsTargetToLeftBuffer(this);
   }
 
   reconcileSplitSources() {
-    if (!this.split.enabled || this.split.mode !== "regular") {
-      return;
-    }
-
-    if (!this.split.rightPaneBuffer) {
-      this.split.enabled = false;
-      this.focusedPane = "left";
-      return;
-    }
-
-    if (!this.split.rightPaneSourceBuffer || !this.buffers.includes(this.split.rightPaneSourceBuffer)) {
-      this.split.rightPaneSourceBuffer = this.getLeftBuffer();
-      if (this.split.rightPaneSourceBuffer) {
-        this.assignRightPaneSource(this.split.rightPaneSourceBuffer);
-      } else {
-        this.destroyRightPaneBuffer();
-        this.split.enabled = false;
-        this.focusedPane = "left";
-      }
-    }
+    return reconcileSplitSources(this);
   }
 
   layoutViews() {
-    if (!this.window) return;
-
-    const bounds = this.window.getContentBounds();
-    const shellTop = UI_SHELL_TABLINE_HEIGHT;
-    const shellBottomInset = UI_SHELL_STATUSLINE_HEIGHT;
-
-    const left = this.getLeftBuffer();
-    const rightSource = this.split.mode === "regular" ? this.split.rightPaneSourceBuffer : null;
-    const rightRegular = this.split.mode === "regular" ? this.split.rightPaneBuffer : null;
-    const showSplit = this.split.enabled && (rightSource || rightRegular || this.split.mode === "devtools");
-
-    const useMirroredRight =
-      showSplit &&
-      this.split.mode === "regular" &&
-      Boolean(left && rightSource && left === rightSource);
-
-    if (useMirroredRight && !this.split.rightPaneBuffer) {
-      this.ensureRightPaneBuffer();
-    }
-
-    const showSplitWithRegular =
-      this.split.enabled && (Boolean(rightSource) || Boolean(rightRegular));
-
-    const visibleRightMainBuffer =
-      this.split.mode === "regular" && rightSource && !useMirroredRight ? rightSource : null;
-
-    const rightVisibleBuffer =
-      this.split.mode === "regular" && useMirroredRight
-        ? rightRegular
-        : visibleRightMainBuffer;
-
-    const leftHasUrlline = this.canShowUrllineForBuffer(left);
-    const rightHasUrlline = this.canShowUrllineForBuffer(rightVisibleBuffer);
-
-    const getPaneInset = (isRightPane) => {
-      if (!showSplit) {
-        return leftHasUrlline ? UI_SHELL_URLLINE_HEIGHT : 0;
-      }
-
-      return isRightPane
-        ? rightHasUrlline
-          ? UI_SHELL_URLLINE_HEIGHT
-          : 0
-        : leftHasUrlline
-          ? UI_SHELL_URLLINE_HEIGHT
-          : 0;
-    };
-
-    const getPaneBounds = (isRightPane, x, width) => {
-      const paneInset = getPaneInset(isRightPane);
-      const y = shellTop + paneInset;
-      const height = Math.max(bounds.height - shellTop - shellBottomInset - paneInset, 1);
-      return {
-        x,
-        y,
-        width,
-        height,
-      };
-    };
-
-    const splitDividerEnabled = getConfigValue("global.split.divider.enabled", true);
-    const dividerWidth = showSplit && splitDividerEnabled ? 1 : 0;
-    const contentX = Math.max(0, this.leftInsetPx);
-    const contentWidth = Math.max(bounds.width - contentX, 2);
-    const availableSplitWidth = Math.max(contentWidth - dividerWidth, 2);
-    const rightWidth = showSplit
-      ? Math.max(Math.floor(availableSplitWidth * this.split.ratio), 1)
-      : 0;
-    const leftWidth = showSplit
-      ? Math.max(availableSplitWidth - rightWidth, 1)
-      : contentWidth;
-    const rightX = contentX + leftWidth + dividerWidth;
-
-    this.splitDivider.visible = showSplit && dividerWidth > 0;
-    this.splitDivider.offsetPx = this.splitDivider.visible ? contentX + leftWidth : 0;
-
-    for (const buffer of this.buffers) {
-      if (buffer === left || buffer === visibleRightMainBuffer) {
-        const isRightBuffer = buffer === visibleRightMainBuffer;
-        setViewBounds(
-          buffer.view,
-          getPaneBounds(
-            isRightBuffer,
-            isRightBuffer ? rightX : contentX,
-            isRightBuffer ? rightWidth : leftWidth,
-          ),
-        );
-        setViewAutoResize(buffer.view, { width: !showSplitWithRegular, height: true });
-      } else {
-        setViewAutoResize(buffer.view, { width: false, height: false });
-        setViewBounds(buffer.view, { x: -10000, y: -10000, width: 1, height: 1 });
-      }
-    }
-
-    if (rightRegular) {
-      if (showSplit && this.split.mode === "regular" && useMirroredRight) {
-        const sourceUrl = this.resolveBufferMirrorUrl(rightSource);
-        if (rightRegular.url !== sourceUrl) {
-          rightRegular.load(sourceUrl);
-        }
-
-        setViewBounds(rightRegular.view, getPaneBounds(true, rightX, rightWidth));
-        setViewAutoResize(rightRegular.view, { width: !showSplit, height: true });
-      } else {
-        setViewAutoResize(rightRegular.view, { width: false, height: false });
-        setViewBounds(rightRegular.view, { x: -10000, y: -10000, width: 1, height: 1 });
-      }
-    }
-
-    if (this.devtoolsView) {
-      if (showSplit && this.split.mode === "devtools") {
-        setViewBounds(this.devtoolsView, getPaneBounds(true, rightX, rightWidth));
-        setViewAutoResize(this.devtoolsView, { width: !showSplit, height: true });
-      } else {
-        setViewAutoResize(this.devtoolsView, { width: false, height: false });
-        setViewBounds(this.devtoolsView, { x: -10000, y: -10000, width: 1, height: 1 });
-      }
-    }
-
-    if (typeof this.window.setTopBrowserView === "function") {
-      if (showSplit && this.focusedPane === "right") {
-        if (this.split.mode === "regular") {
-          if (useMirroredRight && rightRegular) {
-            setTopView(this.window, rightRegular.view);
-          } else if (visibleRightMainBuffer) {
-            setTopView(this.window, visibleRightMainBuffer.view);
-          }
-        } else if (this.split.mode === "devtools" && this.devtoolsView) {
-          setTopView(this.window, this.devtoolsView);
-        }
-      } else if (left) {
-        setTopView(this.window, left.view);
-      }
-    }
+    layoutViews(this);
   }
 
   attachPaneTracking(buffer, paneResolver) {
-    if (!buffer || !buffer.webContents) return;
-
-    const maybeCopySelectionToClipboard = async () => {
-      if (!buffer.webContents || buffer.webContents.isDestroyed() || buffer.isEditable) {
-        return;
-      }
-
-      const isEnabled = getConfigValue("browser.copy_selection_to_clipboard", false);
-      if (!isEnabled) {
-        return;
-      }
-
-      let selectedText = "";
-      try {
-        selectedText = await readSelection(buffer.webContents);
-      } catch (error) {
-        notificationsService.notify({
-          severity: "warning",
-          code: "selection_copy_failed",
-          message: "Failed to read selected text",
-          source: "browser.manager",
-          context: { error: error?.message || String(error) },
-          persist: false,
-          toast: false,
-        });
-        return;
-      }
-
-      if (!selectedText) {
-        return;
-      }
-
-      const now = Date.now();
-      const webContentsId = buffer.webContents.id;
-      const previous = this.lastSelectionCopyByWebContentsId.get(webContentsId);
-      if (
-        previous &&
-        previous.text === selectedText &&
-        Number.isFinite(previous.timestampMs) &&
-        now - previous.timestampMs < 700
-      ) {
-        return;
-      }
-
-      clipboard.writeText(selectedText);
-      this.lastSelectionCopyByWebContentsId.set(webContentsId, {
-        text: selectedText,
-        timestampMs: now,
-      });
-      notificationsService.notify({
-        severity: "info",
-        code: "selection_copied",
-        message: "Selection copied",
-        source: "browser.manager",
-        persist: false,
-      });
-    };
-
-    const onMouseEvent = (event, input) => {
-      if (!input || (input.type !== "mouseDown" && input.type !== "mouseUp")) return;
-      if (input.type === "mouseUp") {
-        setTimeout(() => {
-          maybeCopySelectionToClipboard().catch(() => {});
-        }, 0);
-      }
-      this.handlePaneInteraction(paneResolver());
-    };
-
-    const onFocus = () => {
-      this.handlePaneInteraction(paneResolver());
-    };
-
-    bindPaneObservers(buffer.webContents, {
-      onMouseEvent,
-      onFocus,
-      onDestroyed: () => {
-        this.lastSelectionCopyByWebContentsId.delete(buffer.webContents.id);
-      },
-    });
+    attachPaneTracking(this, buffer, paneResolver);
   }
 
   resolvePaneForBuffer(buffer) {

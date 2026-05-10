@@ -50,11 +50,13 @@ const editorSurface = require("./core/adapters/renderer/editorSurface");
 const { broadcastUiShellPush } = require("./core/adapters/renderer/uiShellPush");
 const { createWebModeSyncService } = require("./core/webModeSyncService");
 const { getNormalActionMap, getModActionMap } = require("./motions/keymap");
+const { createInputCoordinator } = require("./runtime/inputCoordinator");
+const { registerRuntimeIpc } = require("./runtime/ipcRegistration");
+const { wireWindowLifecycle } = require("./runtime/windowLifecycle");
+const { createSmokeScenarios } = require("./runtime/smokeScenarios");
 let win;
-let activeInputWebContents = null;
-let inputListener = null;
 let browserLanguageHooksRegistered = false;
-let smokeUiCadenceProbe = null;
+let smokeScenarios = null;
 
 function isFiniteInteger(value) {
   return Number.isFinite(value) && Number.isInteger(value);
@@ -426,6 +428,12 @@ function syncWebBufferModeWithFocusedElement(webContents) {
 const webModeSyncService = createWebModeSyncService({
   syncWebModeWithFocusedElement: syncWebBufferModeWithFocusedElement,
   bindWebModeTracking,
+});
+
+const inputCoordinator = createInputCoordinator({
+  buffers,
+  webModeSyncService,
+  handleRawInput,
 });
 
 function persistSessionSnapshot() {
@@ -826,720 +834,6 @@ function handleUrllineInput(event, input) {
   }
 }
 
-function registerUiShellEvents() {
-  const isTrustedIpcSender = (event, expectedRole, { requireActiveBuffer = false } = {}) => {
-    if (!win || !event || !event.sender) {
-      return false;
-    }
-
-    if (expectedRole === SURFACE_ROLES.TRUSTED_SHELL && event.sender !== win.webContents) {
-      return false;
-    }
-
-    if (expectedRole === SURFACE_ROLES.TRUSTED_SETTINGS && !buffers.isEditableWebContents(event.sender)) {
-      return false;
-    }
-
-    if (requireActiveBuffer && event.sender !== buffers.getActiveWebContents()) {
-      return false;
-    }
-
-    if (getSurfaceRole(event.sender) !== expectedRole) {
-      return false;
-    }
-
-    const senderFrameUrl =
-      event.senderFrame && typeof event.senderFrame.url === "string" ? event.senderFrame.url : "";
-    return isAllowedTrustedSurfaceUrl(senderFrameUrl);
-  };
-
-  const isWindowSender = (event) => isTrustedIpcSender(event, SURFACE_ROLES.TRUSTED_SHELL);
-  const isEditableSender = (event, options = {}) =>
-    isTrustedIpcSender(event, SURFACE_ROLES.TRUSTED_SETTINGS, options);
-
-  const onWindowAction = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
-    const action = payload.action;
-    performWindowAction(win, action);
-  };
-
-  const onOpenSettings = (event) => {
-    if (!win || !isWindowSender(event)) return;
-    dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
-  };
-
-  const onNewTab = (event) => {
-    if (!win || !isWindowSender(event)) return;
-    dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
-  };
-
-  const onOpenHistory = (event) => {
-    if (!win || !isWindowSender(event)) return;
-    dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
-    uiShell.updateStatuslineMode(getStatuslineModeLabel());
-  };
-
-  const onTabActivate = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
-    const bufferId = Number.parseInt(payload.id, 10);
-    if (!Number.isInteger(bufferId)) return;
-    buffers.switchTo(bufferId);
-    historyPanel.unfocus();
-    buffers.focusActive();
-    updateTablineOptions();
-    uiShell.updateStatuslineMode(getStatuslineModeLabel());
-  };
-
-  const onTabClose = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
-    const bufferId = Number.parseInt(payload.id, 10);
-    if (!Number.isInteger(bufferId)) return;
-    buffers.close(bufferId);
-  };
-
-  const onUrllineStartEdit = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
-    const pane = payload.pane === "right" ? "right" : "left";
-    buffers.focusPane(pane);
-    const paneBuffer = buffers.getPaneBuffer(pane);
-    if (!paneBuffer || paneBuffer.isEditable) {
-      return;
-    }
-    startUrllineEdit(pane, paneBuffer.url || "about:blank");
-  };
-
-  const onUrllineAction = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
-    const pane = payload.pane === "right" ? "right" : "left";
-    const action = payload.action;
-    const paneBuffer = buffers.getPaneBuffer(pane);
-    if (!paneBuffer || paneBuffer.isEditable) {
-      return;
-    }
-
-    buffers.focusPane(pane);
-
-    if (action === "back") {
-      webContentsActions.goBack(paneBuffer.webContents);
-      return;
-    }
-
-    if (action === "forward") {
-      webContentsActions.goForward(paneBuffer.webContents);
-      return;
-    }
-
-    if (action === "reload") {
-      webContentsActions.reload(paneBuffer.webContents);
-    }
-  };
-
-  const onEditorToggleContext = (event) => {
-    if (!win || !isEditableSender(event)) return;
-    dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
-    uiShell.updateStatuslineMode(getStatuslineModeLabel());
-  };
-
-  const onEditorModeChange = (event, payload) => {
-    if (!win || !isEditableSender(event) || !payload || typeof payload !== "object") return;
-    const nextMode = payload.mode === "INSERT" || payload.mode === "NORMAL" ? payload.mode : "NORMAL";
-    state.editorMode = nextMode;
-    uiShell.updateStatuslineMode(getStatuslineModeLabel());
-  };
-
-  const onEditorFocusRequest = (event) => {
-    if (!win || !isEditableSender(event)) return;
-    setEditorFocused(state, true);
-    focusActiveEditorSurface();
-    uiShell.updateStatuslineMode(getStatuslineModeLabel());
-  };
-
-  const onEditorOpenCommand = (event, payload) => {
-    if (!win || !isEditableSender(event) || !payload || typeof payload !== "object") return;
-    const initialText = typeof payload.initialText === "string" ? payload.initialText : "";
-    enterCommandMode(state, {
-      target: "EDITOR",
-      initialText,
-      reason: "editor-open-command",
-    });
-    dispatch(win, { type: INTENTS.SHOW_COMMAND }, state);
-    dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
-  };
-
-  const onEditorReady = (event) => {
-    if (!win || !isEditableSender(event)) return;
-    setEditorFocused(state, true);
-    state.editorMode = "NORMAL";
-    focusActiveEditorSurface({ forceNormal: true });
-    uiShell.updateStatuslineMode(getStatuslineModeLabel());
-  };
-
-  const onSettingsGet = async (event) => {
-    if (!win || !isEditableSender(event, { requireActiveBuffer: true })) {
-      return { ok: false };
-    }
-    const activeBuffer = buffers.getActive();
-    const configPath =
-      activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
-        ? activeBuffer.editableFilePath
-        : configService.getConfigPath();
-    try {
-      const content = fs.readFileSync(configPath, "utf8");
-      const themeContext = resolveCurrentTheme();
-      return {
-        ok: true,
-        content,
-        leaderKey: configService.getConfigValue("global.input.leader_key", "Space"),
-        relativeLineNumbers: configService.getConfigValue("global.editor.relative_line_numbers", true),
-        scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
-        ...buildThemePayload(themeContext),
-      };
-    } catch (error) {
-      return { ok: false, error: error.message };
-    }
-  };
-
-  const onSettingsSave = async (event, payload) => {
-    if (!win || !isEditableSender(event, { requireActiveBuffer: true })) {
-      return { ok: false };
-    }
-    const activeBuffer = buffers.getActive();
-    const configPath =
-      activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
-        ? activeBuffer.editableFilePath
-        : configService.getConfigPath();
-    try {
-      fs.writeFileSync(configPath, String(payload?.content || ""), "utf8");
-      if (configPath !== configService.getConfigPath()) {
-        return { ok: true };
-      }
-      const config = configService.reloadConfig();
-      applyReloadedConfig(config, { refreshLayout: true });
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, error: error.message };
-    }
-  };
-
-  const onSettingsClose = async (event) => {
-    if (!win || !isEditableSender(event, { requireActiveBuffer: true })) {
-      return { ok: false };
-    }
-    dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
-    return { ok: true };
-  };
-
-  const onSecurityProbePrivilegedIpc = async (event) => {
-    if (process.env.NOCTRA_SMOKE_TEST !== "1") {
-      return { ok: false, reason: "disabled" };
-    }
-    if (!isWindowSender(event)) {
-      return { ok: false, reason: "unauthorized_probe_sender" };
-    }
-
-    const untrustedSender = buffers.getActiveWebContents();
-    if (!untrustedSender) {
-      return { ok: false, reason: "no_active_sender" };
-    }
-
-    const fakeEvent = {
-      sender: untrustedSender,
-      senderFrame: { url: "https://evil.invalid" },
-    };
-
-    const getResult = await onSettingsGet(fakeEvent);
-    const saveResult = await onSettingsSave(fakeEvent, { content: "probe" });
-    const closeResult = await onSettingsClose(fakeEvent);
-    return {
-      ok: true,
-      rejected: {
-        settingsGet: !getResult || getResult.ok !== true,
-        settingsSave: !saveResult || saveResult.ok !== true,
-        settingsClose: !closeResult || closeResult.ok !== true,
-      },
-    };
-  };
-
-  const ipcEvents = {
-    "ui-shell:window-action": onWindowAction,
-    "ui-shell:open-settings": onOpenSettings,
-    "ui-shell:new-tab": onNewTab,
-    "ui-shell:open-history": onOpenHistory,
-    "ui-shell:tab-activate": onTabActivate,
-    "ui-shell:tab-close": onTabClose,
-    "ui-shell:urlline-start-edit": onUrllineStartEdit,
-    "ui-shell:urlline-action": onUrllineAction,
-    "settings:editor-toggle-context": onEditorToggleContext,
-    "settings:editor-mode-change": onEditorModeChange,
-    "settings:editor-focus-request": onEditorFocusRequest,
-    "settings:editor-open-command": onEditorOpenCommand,
-    "settings:editor-ready": onEditorReady,
-  };
-
-  const ipcHandlers = {
-    "settings:get": onSettingsGet,
-    "settings:save": onSettingsSave,
-    "settings:close": onSettingsClose,
-  };
-
-  if (process.env.NOCTRA_SMOKE_TEST === "1") {
-    ipcHandlers["security:probe-privileged-ipc"] = onSecurityProbePrivilegedIpc;
-  }
-
-  const unregisterIpc = registerIpcContracts({
-    ipcMain,
-    events: ipcEvents,
-    handlers: ipcHandlers,
-  });
-
-  win.on("closed", () => {
-    unregisterIpc();
-  });
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForCondition(check, options = {}) {
-  const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(50, options.timeoutMs) : 3000;
-  const intervalMs = Number.isFinite(options.intervalMs) ? Math.max(20, options.intervalMs) : 50;
-  const description = typeof options.description === "string" ? options.description : "condition";
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      if (check()) {
-        return;
-      }
-    } catch {}
-    await sleep(intervalMs);
-  }
-  throw new Error(`Timed out waiting for ${description}`);
-}
-
-async function runSecurityBoundarySmokeScenario() {
-  const failures = [];
-  const fail = (message) => failures.push(message);
-
-  const untrustedBuffer = buffers.create("about:blank", { activate: true });
-  await sleep(250);
-
-  const untrustedBridgeState = await webContentsActions.executeScript(
-    untrustedBuffer.webContents,
-    `({ hasUiShell: typeof window.uiShell !== "undefined", hasSettingsBridge: typeof window.settingsBridge !== "undefined" })`,
-    true,
-  );
-  if (!untrustedBridgeState || untrustedBridgeState.hasUiShell || untrustedBridgeState.hasSettingsBridge) {
-    fail("untrusted buffer has privileged preload bridge");
-  }
-
-  const trustedUrlBefore = win.webContents.getURL();
-  try {
-    await win.webContents.loadURL("https://example.com");
-  } catch {
-    // loadURL may reject when will-navigate is blocked; expected for this scenario
-  }
-  await sleep(200);
-  const trustedUrlAfter = win.webContents.getURL();
-  if (trustedUrlAfter !== trustedUrlBefore) {
-    fail("trusted shell navigated to remote URL");
-  }
-
-  const probeResult = await win.webContents.executeJavaScript(
-    `window.uiShell && typeof window.uiShell.probePrivilegedIpc === "function" ? window.uiShell.probePrivilegedIpc() : null`,
-    true,
-  );
-  if (!probeResult || !probeResult.ok) {
-    fail("security privileged IPC probe unavailable");
-  } else {
-    if (!probeResult.rejected || probeResult.rejected.settingsGet !== true) {
-      fail("unauthorized sender/frame not rejected for settings:get");
-    }
-    if (!probeResult.rejected || probeResult.rejected.settingsSave !== true) {
-      fail("unauthorized sender/frame not rejected for settings:save");
-    }
-    if (!probeResult.rejected || probeResult.rejected.settingsClose !== true) {
-      fail("unauthorized sender/frame not rejected for settings:close");
-    }
-  }
-
-  const popupResult = await webContentsActions.executeScript(
-    untrustedBuffer.webContents,
-    `(() => { try { const w = window.open("https://example.com"); return { opened: Boolean(w) }; } catch { return { opened: false }; } })()`,
-    true,
-  );
-  if (popupResult && popupResult.opened === true) {
-    fail("window.open was not blocked");
-  }
-
-  if (failures.length > 0) {
-    console.error("[noctra:smoke] security-boundary scenario failed", failures.join(" | "));
-    process.exitCode = 1;
-  }
-}
-
-async function runSettingsLifecycleSmokeScenario() {
-  const failures = [];
-  const fail = (message) => failures.push(message);
-  const configPath = configService.getConfigPath();
-  const originalContent = fs.readFileSync(configPath, "utf8");
-  const marker = `# smoke-settings-lifecycle-${Date.now()}`;
-
-  dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
-  await waitForCondition(() => Boolean(buffers.getActive() && buffers.getActive().isEditable), {
-    timeoutMs: 3500,
-    description: "editable settings buffer",
-  }).catch((error) => fail(error.message));
-
-  const settingsBuffer = buffers.getActive();
-  if (!settingsBuffer || !settingsBuffer.isEditable || !settingsBuffer.webContents) {
-    fail("settings buffer did not open as editable");
-  } else {
-    const probe = await webContentsActions.executeScript(
-      settingsBuffer.webContents,
-      `(() => {
-        const bridge = window.settingsBridge;
-        return {
-          hasBridge: Boolean(bridge),
-          hasGet: Boolean(bridge && typeof bridge.get === "function"),
-          hasClose: Boolean(bridge && typeof bridge.close === "function"),
-          hasSave: Boolean(bridge && typeof bridge.save === "function"),
-        };
-      })()`,
-      true,
-    );
-    if (
-      !probe ||
-      probe.hasBridge !== true ||
-      probe.hasGet !== true ||
-      probe.hasClose !== true ||
-      probe.hasSave !== true
-    ) {
-      fail("settings bridge missing required methods");
-    }
-
-    const saveResult = await webContentsActions.executeScript(
-      settingsBuffer.webContents,
-      `(async () => {
-        const bridge = window.settingsBridge;
-        if (!bridge || typeof bridge.get !== "function" || typeof bridge.save !== "function") {
-          return { ok: false, reason: "bridge-unavailable" };
-        }
-        const before = await bridge.get();
-        if (!before || before.ok !== true || typeof before.content !== "string") {
-          return { ok: false, reason: "get-failed" };
-        }
-        const next = before.content + "\n${marker}\n";
-        const save = await bridge.save(next);
-        if (!save || save.ok !== true) {
-          return { ok: false, reason: "save-failed" };
-        }
-        const after = await bridge.get();
-        const persisted = Boolean(after && after.ok === true && typeof after.content === "string" && after.content.includes("${marker}"));
-        return { ok: persisted, reason: persisted ? "" : "persist-check-failed" };
-      })()`,
-      true,
-    );
-    if (!saveResult || saveResult.ok !== true) {
-      fail(`settings save flow failed: ${saveResult?.reason || "unknown"}`);
-    }
-
-    const restoreResult = await webContentsActions.executeScript(
-      settingsBuffer.webContents,
-      `(async () => {
-        const bridge = window.settingsBridge;
-        if (!bridge || typeof bridge.save !== "function") {
-          return { ok: false, reason: "bridge-unavailable" };
-        }
-        const restore = await bridge.save(${JSON.stringify(originalContent)});
-        return restore && restore.ok === true ? { ok: true } : { ok: false, reason: "restore-failed" };
-      })()`,
-      true,
-    );
-    if (!restoreResult || restoreResult.ok !== true) {
-      fail(`settings restore flow failed: ${restoreResult?.reason || "unknown"}`);
-    }
-  }
-
-  const editableBeforeClose = Boolean(buffers.getActive() && buffers.getActive().isEditable);
-  dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
-  await waitForCondition(() => Boolean(buffers.getActive() && !buffers.getActive().isEditable), {
-    timeoutMs: 3500,
-    description: "settings close to non-editable buffer",
-  }).catch((error) => fail(error.message));
-  const activeAfterClose = buffers.getActive();
-  if (!activeAfterClose) {
-    fail("no active buffer after settings close");
-  }
-  if (editableBeforeClose && activeAfterClose && activeAfterClose.isEditable) {
-    fail("settings buffer remained active after close");
-  }
-
-  if (failures.length > 0) {
-    console.error("[noctra:smoke] settings-lifecycle scenario failed", failures.join(" | "));
-    process.exitCode = 1;
-  }
-}
-
-async function runDevtoolsLifecycleSmokeScenario() {
-  const failures = [];
-  const fail = (message) => failures.push(message);
-
-  dispatch(win, { type: INTENTS.SPLIT_DEVTOOLS }, state);
-  await waitForCondition(() => {
-    const status = buffers.getSplitStatus();
-    return Boolean(status && status.enabled && status.mode === "devtools");
-  }, { timeoutMs: 3000, description: "devtools split open" }).catch((error) => fail(error.message));
-
-  const splitOpenStatus = buffers.getSplitStatus();
-  if (!splitOpenStatus.enabled || splitOpenStatus.mode !== "devtools") {
-    fail("devtools split did not open");
-  }
-
-  dispatch(win, { type: INTENTS.SPLIT_CLOSE_RIGHT }, state);
-  await waitForCondition(() => {
-    const status = buffers.getSplitStatus();
-    return Boolean(status && !status.enabled && status.mode === "regular" && status.focusedPane === "left");
-  }, { timeoutMs: 3000, description: "devtools split close/reset" }).catch((error) => fail(error.message));
-
-  const splitClosedStatus = buffers.getSplitStatus();
-  if (splitClosedStatus.enabled) {
-    fail("split remained enabled after close");
-  }
-  if (splitClosedStatus.mode !== "regular") {
-    fail("split mode did not reset to regular");
-  }
-  if (splitClosedStatus.focusedPane !== "left") {
-    fail("focus did not return to left pane");
-  }
-  if (buffers.devtoolsView !== null || buffers.devtoolsTarget !== null) {
-    fail("devtools teardown did not clear host references");
-  }
-
-  if (failures.length > 0) {
-    console.error("[noctra:smoke] devtools-lifecycle scenario failed", failures.join(" | "));
-    process.exitCode = 1;
-  }
-}
-
-async function runSessionLifecycleSmokeScenario() {
-  const failures = [];
-  const fail = (message) => failures.push(message);
-
-  const first = buffers.create("https://example.com", { activate: true });
-  const second = buffers.create("https://example.org", { activate: true });
-  if (!first || !second) {
-    fail("failed to create session seed buffers");
-  }
-
-  await waitForCondition(() => buffers.getBuffers().length >= 2, {
-    timeoutMs: 3000,
-    description: "session seed buffers visible",
-  }).catch((error) => fail(error.message));
-
-  dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
-  await waitForCondition(() => buffers.getBuffers().length >= 1, {
-    timeoutMs: 2000,
-    description: "close active buffer",
-  }).catch((error) => fail(error.message));
-  dispatch(win, { type: INTENTS.REOPEN_BUFFER }, state);
-  await waitForCondition(() => buffers.getBuffers().length >= 2, {
-    timeoutMs: 3000,
-    description: "reopen closed buffer",
-  }).catch((error) => fail(error.message));
-
-  const reopenActive = buffers.getActive();
-  if (!reopenActive || typeof reopenActive.url !== "string" || !reopenActive.url.includes("example.org")) {
-    fail("reopen last closed did not restore expected buffer");
-  }
-
-  dispatch(win, { type: INTENTS.SESSION_SAVE }, state);
-  await waitForCondition(() => buffers.getBuffers().length >= 2, {
-    timeoutMs: 3000,
-    description: "session snapshot saved with source buffers present",
-  }).catch((error) => fail(error.message));
-
-  dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
-  await waitForCondition(() => buffers.getBuffers().length === 1, {
-    timeoutMs: 3000,
-    description: "first close after session save",
-  }).catch((error) => fail(error.message));
-
-  dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
-  await waitForCondition(() => {
-    const urls = buffers.getBuffers().map((buffer) => String(buffer?.url || ""));
-    return !urls.some((url) => url.includes("example.com") || url.includes("example.org"));
-  }, {
-    timeoutMs: 3000,
-    description: "session buffers closed before restore",
-  }).catch((error) => fail(error.message));
-
-  dispatch(win, { type: INTENTS.SESSION_RESTORE }, state);
-  await waitForCondition(() => buffers.getBuffers().length >= 2, {
-    timeoutMs: 3500,
-    description: "session restore",
-  }).catch((error) => fail(error.message));
-
-  const restored = buffers
-    .getBuffers()
-    .map((buffer) => String(buffer?.url || ""));
-  if (!restored.some((url) => url.includes("example.com"))) {
-    fail("session restore missing example.com");
-  }
-  if (!restored.some((url) => url.includes("example.org"))) {
-    fail("session restore missing example.org");
-  }
-
-  if (failures.length > 0) {
-    console.error("[noctra:smoke] session-lifecycle scenario failed", failures.join(" | "));
-    process.exitCode = 1;
-  }
-}
-
-async function runFocusLifecycleSmokeScenario() {
-  const failures = [];
-  const fail = (message) => failures.push(message);
-
-  dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
-  await waitForCondition(() => Boolean(buffers.getActive() && buffers.getActive().isEditable), {
-    timeoutMs: 3500,
-    description: "focus-lifecycle settings buffer",
-  }).catch((error) => fail(error.message));
-
-  const settingsBuffer = buffers.getActive();
-  if (!settingsBuffer || !settingsBuffer.webContents) {
-    fail("focus-lifecycle missing active settings webContents");
-  } else {
-    const triggerResult = await webContentsActions.executeScript(
-      settingsBuffer.webContents,
-      `(async () => {
-        const bridge = window.settingsBridge;
-        if (!bridge) {
-          return { ok: false, reason: "bridge-unavailable" };
-        }
-        if (typeof bridge.editorReady === "function") {
-          bridge.editorReady();
-        }
-        if (typeof bridge.editorFocusRequest === "function") {
-          bridge.editorFocusRequest();
-        }
-        return { ok: true };
-      })()`,
-      true,
-    );
-    if (!triggerResult || triggerResult.ok !== true) {
-      fail(`focus bridge hooks failed: ${triggerResult?.reason || "unknown"}`);
-    }
-  }
-
-  await waitForCondition(() => state.editorMode === "NORMAL", {
-    timeoutMs: 2500,
-    description: "editor mode normalized",
-  }).catch((error) => fail(error.message));
-
-  await waitForCondition(() => Boolean(isEditorFocused(state)), {
-    timeoutMs: 2500,
-    description: "editor focused flag",
-  }).catch((error) => fail(error.message));
-
-  dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
-  await waitForCondition(() => Boolean(buffers.getActive() && !buffers.getActive().isEditable), {
-    timeoutMs: 3500,
-    description: "focus-lifecycle close settings buffer",
-  }).catch((error) => fail(error.message));
-
-  if (isEditorFocused(state)) {
-    fail("editor focused state remained true after leaving editable buffer");
-  }
-
-  if (failures.length > 0) {
-    console.error("[noctra:smoke] focus-lifecycle scenario failed", failures.join(" | "));
-    process.exitCode = 1;
-  }
-}
-
-function bindInputToActiveBuffer() {
-  const nextWebContents = buffers.getActiveWebContents();
-  if (!nextWebContents) return;
-
-  const activeBuffer = buffers.getActive();
-  const shouldTrackWebMode = Boolean(activeBuffer && !activeBuffer.isEditable);
-
-  if (
-    activeInputWebContents === nextWebContents &&
-    webModeSyncService.getActiveWebContents() === nextWebContents
-  ) {
-    if (shouldTrackWebMode) {
-      webModeSyncService.syncNowIfTracked(nextWebContents);
-    }
-    buffers.focusActive();
-    return;
-  }
-
-  if (activeInputWebContents && inputListener) {
-    activeInputWebContents.removeListener("before-input-event", inputListener);
-  }
-
-  webModeSyncService.unbind();
-
-  inputListener = (event, input) => {
-    handleRawInput(event, input);
-  };
-
-  nextWebContents.on("before-input-event", inputListener);
-  activeInputWebContents = nextWebContents;
-
-  if (shouldTrackWebMode) {
-    webModeSyncService.bind(nextWebContents);
-  }
-
-  buffers.focusActive();
-}
-
-function setupSmokeUiCadenceProbe() {
-  if (process.env.NOCTRA_SMOKE_TEST !== "1" || process.env.NOCTRA_SMOKE_SCENARIO !== "ui-cadence") {
-    return;
-  }
-
-  const counters = {
-    tabline: 0,
-    urlline: 0,
-    statusline: 0,
-  };
-
-  const originalRenderTabline = uiShell.renderTabline.bind(uiShell);
-  const originalRenderUrlline = uiShell.renderUrlline.bind(uiShell);
-  const originalUpdateStatuslineMode = uiShell.updateStatuslineMode.bind(uiShell);
-
-  uiShell.renderTabline = (...args) => {
-    counters.tabline += 1;
-    return originalRenderTabline(...args);
-  };
-
-  uiShell.renderUrlline = (...args) => {
-    counters.urlline += 1;
-    return originalRenderUrlline(...args);
-  };
-
-  uiShell.updateStatuslineMode = (...args) => {
-    counters.statusline += 1;
-    return originalUpdateStatuslineMode(...args);
-  };
-
-  smokeUiCadenceProbe = {
-    counters,
-    validate() {
-      const failures = [];
-      if (counters.tabline < 2) failures.push(`tabline updates too low: ${counters.tabline}`);
-      if (counters.urlline < 2) failures.push(`urlline updates too low: ${counters.urlline}`);
-      if (counters.statusline < 2) failures.push(`statusline updates too low: ${counters.statusline}`);
-      if (failures.length > 0) {
-        console.error("[noctra:smoke] ui-cadence validation failed", failures.join(" | "));
-        process.exitCode = 1;
-      }
-    },
-  };
-}
 
 function createWindow() {
   const config = configService.initConfig();
@@ -1598,7 +892,32 @@ function createWindow() {
     buffers.focusActive();
   });
 
-  registerUiShellEvents();
+  registerRuntimeIpc({
+    win,
+    fs,
+    ipcMain,
+    state,
+    buffers,
+    dispatch,
+    INTENTS,
+    uiShell,
+    historyPanel,
+    webContentsActions,
+    getSurfaceRole,
+    isAllowedTrustedSurfaceUrl,
+    SURFACE_ROLES,
+    performWindowAction,
+    setEditorFocused,
+    enterCommandMode,
+    focusActiveEditorSurface,
+    getStatuslineModeLabel,
+    startUrllineEdit,
+    configService,
+    resolveCurrentTheme,
+    buildThemePayload,
+    applyReloadedConfig,
+    registerIpcContracts,
+  });
 
   buffers.init(win);
   buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
@@ -1621,7 +940,24 @@ function createWindow() {
     });
   }
   uiShell.init(win);
-  setupSmokeUiCadenceProbe();
+  smokeScenarios = createSmokeScenarios({
+    app,
+    win,
+    fs,
+    state,
+    buffers,
+    dispatch,
+    INTENTS,
+    configService,
+    historyPanel,
+    uiShell,
+    webContentsActions,
+    isEditorFocused,
+    getStatuslineModeLabel,
+    updateTablineOptions,
+    updateUrllineRender,
+  });
+  smokeScenarios.setupSmokeUiCadenceProbe();
   notificationsService.setToastHandler((toast) => {
     uiShell.showNotificationToast(toast);
   });
@@ -1641,123 +977,28 @@ function createWindow() {
   updateUrllineActions();
   updateUrllineRender();
 
-  const syncWindowChrome = () => {
-    uiShell.setWindowChrome({
-      isMaximized: win.isMaximized(),
-      isFullScreen: win.isFullScreen(),
-    });
-    updateUrllineRender();
-  };
-
-  win.on("maximize", syncWindowChrome);
-  win.on("unmaximize", syncWindowChrome);
-  win.on("enter-full-screen", syncWindowChrome);
-  win.on("leave-full-screen", syncWindowChrome);
-
-  let persistWindowBoundsTimer = null;
-  const persistWindowBoundsDebounced = () => {
-    if (persistWindowBoundsTimer) {
-      clearTimeout(persistWindowBoundsTimer);
-    }
-    persistWindowBoundsTimer = setTimeout(() => {
-      if (!win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) {
-        return;
-      }
-      const { width, height, x, y } = win.getBounds();
-      configService.updateWindowState({ width, height, x, y });
-    }, 300);
-  };
-
-  const flushWindowBoundsPersistence = () => {
-    if (persistWindowBoundsTimer) {
-      clearTimeout(persistWindowBoundsTimer);
-      persistWindowBoundsTimer = null;
-    }
-    if (!win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) {
-      return;
-    }
-    const { width, height, x, y } = win.getBounds();
-    configService.updateWindowState({ width, height, x, y });
-  };
-
-  const persistWindowMaximizedState = (isMaximized) => {
-    configService.updateWindowState({ is_maximized: Boolean(isMaximized) });
-  };
-
-  win.on("maximize", () => {
-    persistWindowMaximizedState(true);
-  });
-
-  win.on("unmaximize", () => {
-    persistWindowMaximizedState(false);
-    persistWindowBoundsDebounced();
-  });
-
-  win.on("resize", () => {
-    historyPanel.layout();
-    uiShell.updateSplitDivider(buffers.getSplitStatus());
-    updateUrllineRender();
-    persistWindowBoundsDebounced();
-  });
-
-  win.on("move", () => {
-    persistWindowBoundsDebounced();
+  wireWindowLifecycle({
+    win,
+    uiShell,
+    buffers,
+    historyPanel,
+    updateUrllineRender,
+    configService,
+    persistSessionSnapshot,
+    webContentsActions,
+    state,
   });
 
   if (initialIsMaximized) {
     win.maximize();
   }
 
-  let statusPollInFlight = false;
   let lastRecordedVisit = {
     url: "",
     atMs: 0,
   };
 
-  const statusPoller = setInterval(() => {
-    const activeBuffer = buffers.getActive();
-    if (!activeBuffer || state.mode === "COMMAND") {
-      return;
-    }
-
-    const activeWebContents = activeBuffer.webContents;
-    if (
-      !activeWebContents ||
-      activeWebContents.isDestroyed() ||
-      activeWebContents.isLoading() ||
-      activeWebContents.isLoadingMainFrame() ||
-      statusPollInFlight
-    ) {
-      return;
-    }
-
-    statusPollInFlight = true;
-
-    webContentsActions
-      .readScrollPercent(activeWebContents)
-      .then((percent) => {
-        if (typeof percent === "number") {
-          uiShell.updateStatuslineScroll(percent);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        statusPollInFlight = false;
-      });
-  }, 200);
-
-  win.on("close", () => {
-    persistSessionSnapshot();
-    flushWindowBoundsPersistence();
-  });
-
-  win.on("closed", () => {
-    if (persistWindowBoundsTimer) {
-      clearTimeout(persistWindowBoundsTimer);
-      persistWindowBoundsTimer = null;
-    }
-    clearInterval(statusPoller);
-  });
+  
 
   buffers.subscribe((snapshot, active, change = {}) => {
     if (!active) return;
@@ -1780,8 +1021,8 @@ function createWindow() {
     uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
     uiShell.updateSplitDivider(buffers.getSplitStatus());
 
-    if (activeChanged || activeInputWebContents !== active.webContents) {
-      bindInputToActiveBuffer();
+    if (activeChanged || inputCoordinator.getActiveInputWebContents() !== active.webContents) {
+      inputCoordinator.bindInputToActiveBuffer();
     }
 
     if (change.activeChanged) {
@@ -1840,7 +1081,10 @@ function createWindow() {
   });
 
   buffers.openConfiguredBuffer();
-  bindInputToActiveBuffer();
+  inputCoordinator.bindInputToActiveBuffer();
+  win.on("closed", () => {
+    inputCoordinator.dispose();
+  });
 
   const onNativeThemeUpdated = () => {
     const themeContext = resolveCurrentTheme();
@@ -1866,79 +1110,6 @@ function createWindow() {
   });
 }
 
-function maybeScheduleSmokeExit() {
-  if (process.env.NOCTRA_SMOKE_TEST !== "1") {
-    return;
-  }
-
-  const scenario = process.env.NOCTRA_SMOKE_SCENARIO || "startup";
-  const scenarioRunners = {
-    startup: async () => {},
-    "overlay-panel-split": async () => {
-      dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
-      buffers.openVerticalSplit(0.5);
-      buffers.focusSplitLeft();
-      buffers.focusSplitRight();
-      historyPanel.focus();
-      historyPanel.unfocus();
-      buffers.closeRightSplit();
-    },
-    "ui-cadence": async () => {
-      buffers.openConfiguredBuffer();
-      updateTablineOptions();
-      updateUrllineRender();
-      uiShell.updateStatuslineMode(getStatuslineModeLabel());
-      dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
-      historyPanel.unfocus();
-      if (smokeUiCadenceProbe) {
-        smokeUiCadenceProbe.validate();
-      }
-    },
-    "security-boundary": runSecurityBoundarySmokeScenario,
-    "settings-lifecycle": runSettingsLifecycleSmokeScenario,
-    "devtools-lifecycle": runDevtoolsLifecycleSmokeScenario,
-    "session-lifecycle": runSessionLifecycleSmokeScenario,
-    "focus-lifecycle": runFocusLifecycleSmokeScenario,
-  };
-
-  const runner = scenarioRunners[scenario] || scenarioRunners.startup;
-  const watchdogMs = {
-    startup: 6000,
-    "overlay-panel-split": 7000,
-    "ui-cadence": 7000,
-    "security-boundary": 9000,
-    "settings-lifecycle": 12000,
-    "devtools-lifecycle": 9000,
-    "session-lifecycle": 12000,
-    "focus-lifecycle": 12000,
-  }[scenario] || 6000;
-
-  void (async () => {
-    let settled = false;
-    const watchdog = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      process.exitCode = 1;
-      console.error(`[noctra:smoke] ${scenario} scenario timed out after ${watchdogMs}ms`);
-      app.quit();
-    }, watchdogMs);
-
-    try {
-      await sleep(350);
-      await runner();
-    } catch (error) {
-      process.exitCode = 1;
-      console.error(`[noctra:smoke] ${scenario} scenario failed`, error?.message || error);
-    } finally {
-      if (!settled) {
-        settled = true;
-        clearTimeout(watchdog);
-        app.quit();
-      }
-    }
-  })();
-}
-
 app.whenReady().then(() => {
   registerSessionSecurityPolicyAdapter({ session });
   registerWebContentsSecurityPolicyAdapter({
@@ -1947,7 +1118,9 @@ app.whenReady().then(() => {
     notificationsService,
   });
   createWindow();
-  maybeScheduleSmokeExit();
+  if (smokeScenarios) {
+    smokeScenarios.maybeScheduleSmokeExit();
+  }
 });
 
 app.on("window-all-closed", () => {

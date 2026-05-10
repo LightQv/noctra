@@ -28,6 +28,8 @@ const { enterCommandMode } = require("./modeTransitionService");
 const { setEditorFocused, isEditorFocused } = require("./editorFocusState");
 const { computeStatuslineModeLabel } = require("./statuslineModeLabel");
 const { assertIntentShape, enforceInvariant } = require("./invariants");
+const { validateIntentPayload } = require("./contracts/intents");
+const { createInvalidPayloadError, createUnknownIntentError } = require("./contracts/errors");
 const editorSurface = require("./adapters/renderer/editorSurface");
 const { broadcastUiShellPush } = require("./adapters/renderer/uiShellPush");
 const webContentsActions = require("./adapters/platform/webContentsActions");
@@ -276,12 +278,31 @@ function dispatch(win, intent, state) {
   assertIntentShape(intent);
 
   if (!isKnownIntentType(intent.type)) {
+    const error = createUnknownIntentError(intent.type, { intent });
     notificationsService.notify({
       severity: "warning",
-      code: "unknown_intent_type",
-      message: `Unknown intent type: ${String(intent.type || "")}`,
+      code: error.code,
+      message: error.message,
       source: "core.dispatcher",
-      context: { intent },
+      context: error,
+      persist: false,
+    });
+    return;
+  }
+
+  const validation = validateIntentPayload(intent.type, intent);
+  if (!validation.ok) {
+    const error = createInvalidPayloadError("dispatcher", intent.type, {
+      validationMessage: validation.message,
+      validationDetails: validation.details || {},
+      intent,
+    });
+    notificationsService.notify({
+      severity: "warning",
+      code: error.code,
+      message: error.message,
+      source: "core.dispatcher",
+      context: error,
       persist: false,
     });
     return;

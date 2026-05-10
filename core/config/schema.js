@@ -509,6 +509,52 @@ function normalizeConfig(rawConfig) {
   return normalized;
 }
 
+function isLeaderNodePath(pathKey) {
+  return pathKey === "keymap.leader" || pathKey.startsWith("keymap.leader.");
+}
+
+function collectUnknownConfigKeys(rawNode, schemaNode, pathKey = "", unknownKeys = []) {
+  if (!isPlainObject(rawNode) || !isPlainObject(schemaNode)) {
+    return unknownKeys;
+  }
+
+  const schemaKeys = new Set(Object.keys(schemaNode));
+  for (const key of Object.keys(rawNode)) {
+    const nextPath = pathKey ? `${pathKey}.${key}` : key;
+    if (!schemaKeys.has(key)) {
+      if (pathKey === "keymap.normal" || pathKey === "keymap.mod") {
+        continue;
+      }
+      if (isLeaderNodePath(pathKey)) {
+        continue;
+      }
+      unknownKeys.push(nextPath);
+      continue;
+    }
+
+    const rawValue = rawNode[key];
+    const schemaValue = schemaNode[key];
+    if (isLeaderNodePath(nextPath)) {
+      continue;
+    }
+    collectUnknownConfigKeys(rawValue, schemaValue, nextPath, unknownKeys);
+  }
+
+  return unknownKeys;
+}
+
+function normalizeConfigWithDiagnostics(rawConfig) {
+  const input = isPlainObject(rawConfig) ? rawConfig : {};
+  const unknownKeys = collectUnknownConfigKeys(input, defaultConfig);
+  return {
+    config: normalizeConfig(rawConfig),
+    diagnostics: {
+      unknownKeys,
+    },
+  };
+}
+
 module.exports = {
   normalizeConfig,
+  normalizeConfigWithDiagnostics,
 };

@@ -1,4 +1,6 @@
 const { setEditorMode } = require("../core/state/editorModeState");
+const { validateIpcPayload } = require("../core/contracts/ipc");
+const { createInvalidPayloadError, createUnauthorizedSenderError } = require("../core/contracts/errors");
 
 function registerRuntimeIpc({
   win,
@@ -25,6 +27,7 @@ function registerRuntimeIpc({
   buildThemePayload,
   applyReloadedConfig,
   registerIpcContracts,
+  notificationsService,
 }) {
   const isTrustedIpcSender = (event, expectedRole, { requireActiveBuffer = false } = {}) => {
     if (!win || !event || !event.sender) {
@@ -56,32 +59,104 @@ function registerRuntimeIpc({
   const isEditableSender = (event, options = {}) =>
     isTrustedIpcSender(event, SURFACE_ROLES.TRUSTED_SETTINGS, options);
 
+  const reportContractWarning = (error) => {
+    if (!notificationsService || typeof notificationsService.notify !== "function") {
+      return;
+    }
+    notificationsService.notify({
+      severity: "warning",
+      code: error.code,
+      message: error.message,
+      source: "runtime.ipc",
+      context: error,
+      persist: false,
+    });
+  };
+
+  const rejectEvent = (channel, error) => {
+    reportContractWarning(error);
+    return;
+  };
+
+  const rejectInvoke = (error) => {
+    reportContractWarning(error);
+    return { ok: false, error };
+  };
+
+  const withEventBoundary = (channel, expectedRole, handler, options = {}) => {
+    return (event, payload) => {
+      const trusted =
+        expectedRole === SURFACE_ROLES.TRUSTED_SETTINGS
+          ? isEditableSender(event, options)
+          : isWindowSender(event);
+      if (!win || !trusted) {
+        const error = createUnauthorizedSenderError("ipc:event", channel, {
+          expectedRole,
+          requireActiveBuffer: Boolean(options.requireActiveBuffer),
+        });
+        return rejectEvent(channel, error);
+      }
+
+      const validation = validateIpcPayload(channel, payload);
+      if (!validation.ok) {
+        const error = createInvalidPayloadError("ipc:event", channel, {
+          validationMessage: validation.message,
+          validationDetails: validation.details || {},
+        });
+        return rejectEvent(channel, error);
+      }
+
+      return handler(event, payload);
+    };
+  };
+
+  const withInvokeBoundary = (channel, expectedRole, handler, options = {}) => {
+    return async (event, payload) => {
+      const trusted =
+        expectedRole === SURFACE_ROLES.TRUSTED_SETTINGS
+          ? isEditableSender(event, options)
+          : isWindowSender(event);
+      if (!win || !trusted) {
+        const error = createUnauthorizedSenderError("ipc:invoke", channel, {
+          expectedRole,
+          requireActiveBuffer: Boolean(options.requireActiveBuffer),
+        });
+        return rejectInvoke(error);
+      }
+
+      const validation = validateIpcPayload(channel, payload);
+      if (!validation.ok) {
+        const error = createInvalidPayloadError("ipc:invoke", channel, {
+          validationMessage: validation.message,
+          validationDetails: validation.details || {},
+        });
+        return rejectInvoke(error);
+      }
+
+      return handler(event, payload);
+    };
+  };
+
   const onWindowAction = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
     const action = payload.action;
     performWindowAction(win, action);
   };
 
   const onOpenSettings = (event) => {
-    if (!win || !isWindowSender(event)) return;
     dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
   };
 
   const onNewTab = (event) => {
-    if (!win || !isWindowSender(event)) return;
     dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
   };
 
   const onOpenHistory = (event) => {
-    if (!win || !isWindowSender(event)) return;
     dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
   const onTabActivate = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
-    const bufferId = Number.parseInt(payload.id, 10);
-    if (!Number.isInteger(bufferId)) return;
+    const bufferId = payload.id;
     buffers.switchTo(bufferId);
     historyPanel.unfocus();
     buffers.focusActive();
@@ -89,14 +164,11 @@ function registerRuntimeIpc({
   };
 
   const onTabClose = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
-    const bufferId = Number.parseInt(payload.id, 10);
-    if (!Number.isInteger(bufferId)) return;
+    const bufferId = payload.id;
     buffers.close(bufferId);
   };
 
   const onUrllineStartEdit = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
     const pane = payload.pane === "right" ? "right" : "left";
     buffers.focusPane(pane);
     const paneBuffer = buffers.getPaneBuffer(pane);
@@ -107,7 +179,6 @@ function registerRuntimeIpc({
   };
 
   const onUrllineAction = (event, payload) => {
-    if (!win || !isWindowSender(event) || !payload || typeof payload !== "object") return;
     const pane = payload.pane === "right" ? "right" : "left";
     const action = payload.action;
     const paneBuffer = buffers.getPaneBuffer(pane);
@@ -133,27 +204,23 @@ function registerRuntimeIpc({
   };
 
   const onEditorToggleContext = (event) => {
-    if (!win || !isEditableSender(event)) return;
     dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
   const onEditorModeChange = (event, payload) => {
-    if (!win || !isEditableSender(event) || !payload || typeof payload !== "object") return;
     const nextMode = payload.mode === "INSERT" || payload.mode === "NORMAL" ? payload.mode : "NORMAL";
     setEditorMode(state, nextMode);
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
   const onEditorFocusRequest = (event) => {
-    if (!win || !isEditableSender(event)) return;
     setEditorFocused(state, true);
     focusActiveEditorSurface();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
   const onEditorOpenCommand = (event, payload) => {
-    if (!win || !isEditableSender(event) || !payload || typeof payload !== "object") return;
     const initialText = typeof payload.initialText === "string" ? payload.initialText : "";
     enterCommandMode(state, {
       target: "EDITOR",
@@ -165,7 +232,6 @@ function registerRuntimeIpc({
   };
 
   const onEditorReady = (event) => {
-    if (!win || !isEditableSender(event)) return;
     setEditorFocused(state, true);
     setEditorMode(state, "NORMAL");
     focusActiveEditorSurface({ forceNormal: true });
@@ -173,9 +239,6 @@ function registerRuntimeIpc({
   };
 
   const onSettingsGet = async (event) => {
-    if (!win || !isEditableSender(event, { requireActiveBuffer: true })) {
-      return { ok: false };
-    }
     const activeBuffer = buffers.getActive();
     const configPath =
       activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
@@ -198,9 +261,6 @@ function registerRuntimeIpc({
   };
 
   const onSettingsSave = async (event, payload) => {
-    if (!win || !isEditableSender(event, { requireActiveBuffer: true })) {
-      return { ok: false };
-    }
     const activeBuffer = buffers.getActive();
     const configPath =
       activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
@@ -220,9 +280,6 @@ function registerRuntimeIpc({
   };
 
   const onSettingsClose = async (event) => {
-    if (!win || !isEditableSender(event, { requireActiveBuffer: true })) {
-      return { ok: false };
-    }
     dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
     return { ok: true };
   };
@@ -259,29 +316,96 @@ function registerRuntimeIpc({
   };
 
   const ipcEvents = {
-    "ui-shell:window-action": onWindowAction,
-    "ui-shell:open-settings": onOpenSettings,
-    "ui-shell:new-tab": onNewTab,
-    "ui-shell:open-history": onOpenHistory,
-    "ui-shell:tab-activate": onTabActivate,
-    "ui-shell:tab-close": onTabClose,
-    "ui-shell:urlline-start-edit": onUrllineStartEdit,
-    "ui-shell:urlline-action": onUrllineAction,
-    "settings:editor-toggle-context": onEditorToggleContext,
-    "settings:editor-mode-change": onEditorModeChange,
-    "settings:editor-focus-request": onEditorFocusRequest,
-    "settings:editor-open-command": onEditorOpenCommand,
-    "settings:editor-ready": onEditorReady,
+    "ui-shell:window-action": withEventBoundary(
+      "ui-shell:window-action",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onWindowAction,
+    ),
+    "ui-shell:open-settings": withEventBoundary(
+      "ui-shell:open-settings",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onOpenSettings,
+    ),
+    "ui-shell:new-tab": withEventBoundary("ui-shell:new-tab", SURFACE_ROLES.TRUSTED_SHELL, onNewTab),
+    "ui-shell:open-history": withEventBoundary(
+      "ui-shell:open-history",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onOpenHistory,
+    ),
+    "ui-shell:tab-activate": withEventBoundary(
+      "ui-shell:tab-activate",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onTabActivate,
+    ),
+    "ui-shell:tab-close": withEventBoundary(
+      "ui-shell:tab-close",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onTabClose,
+    ),
+    "ui-shell:urlline-start-edit": withEventBoundary(
+      "ui-shell:urlline-start-edit",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onUrllineStartEdit,
+    ),
+    "ui-shell:urlline-action": withEventBoundary(
+      "ui-shell:urlline-action",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onUrllineAction,
+    ),
+    "settings:editor-toggle-context": withEventBoundary(
+      "settings:editor-toggle-context",
+      SURFACE_ROLES.TRUSTED_SETTINGS,
+      onEditorToggleContext,
+    ),
+    "settings:editor-mode-change": withEventBoundary(
+      "settings:editor-mode-change",
+      SURFACE_ROLES.TRUSTED_SETTINGS,
+      onEditorModeChange,
+    ),
+    "settings:editor-focus-request": withEventBoundary(
+      "settings:editor-focus-request",
+      SURFACE_ROLES.TRUSTED_SETTINGS,
+      onEditorFocusRequest,
+    ),
+    "settings:editor-open-command": withEventBoundary(
+      "settings:editor-open-command",
+      SURFACE_ROLES.TRUSTED_SETTINGS,
+      onEditorOpenCommand,
+    ),
+    "settings:editor-ready": withEventBoundary(
+      "settings:editor-ready",
+      SURFACE_ROLES.TRUSTED_SETTINGS,
+      onEditorReady,
+    ),
   };
 
   const ipcHandlers = {
-    "settings:get": onSettingsGet,
-    "settings:save": onSettingsSave,
-    "settings:close": onSettingsClose,
+    "settings:get": withInvokeBoundary(
+      "settings:get",
+      SURFACE_ROLES.TRUSTED_SETTINGS,
+      onSettingsGet,
+      { requireActiveBuffer: true },
+    ),
+    "settings:save": withInvokeBoundary(
+      "settings:save",
+      SURFACE_ROLES.TRUSTED_SETTINGS,
+      onSettingsSave,
+      { requireActiveBuffer: true },
+    ),
+    "settings:close": withInvokeBoundary(
+      "settings:close",
+      SURFACE_ROLES.TRUSTED_SETTINGS,
+      onSettingsClose,
+      { requireActiveBuffer: true },
+    ),
   };
 
   if (process.env.NOCTRA_SMOKE_TEST === "1") {
-    ipcHandlers["security:probe-privileged-ipc"] = onSecurityProbePrivilegedIpc;
+    ipcHandlers["security:probe-privileged-ipc"] = withInvokeBoundary(
+      "security:probe-privileged-ipc",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onSecurityProbePrivilegedIpc,
+    );
   }
 
   const unregisterIpc = registerIpcContracts({

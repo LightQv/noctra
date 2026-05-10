@@ -877,6 +877,7 @@ function createWindow() {
     buildThemePayload,
     applyReloadedConfig,
     registerIpcContracts,
+    notificationsService,
   });
 
   buffers.init(win);

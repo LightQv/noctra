@@ -16,12 +16,20 @@ Flow details:
 4. `core/dispatcher.js` executes intents via domain handlers.
 5. Browser and UI modules apply side effects and sync visual state.
 
+Contract boundaries:
+
+- Dispatcher payload validation: `core/contracts/intents.js`.
+- IPC payload validation: `core/contracts/ipc.js`.
+- Unified boundary errors: `core/contracts/errors.js`.
+- Validation policy is fail-closed for malformed payloads (reject + warn).
+
 ## Module responsibilities
 
 - `main.js`: app bootstrap and orchestration entrypoint.
 - `core/state.js`: shared runtime state.
 - `core/input.js`: input normalization and mode/context routing.
 - `core/dispatcher.js`: intent execution boundary.
+- `core/contracts/*`: runtime payload contracts and standardized boundary errors.
 - `core/commandParser.js`: `:` command parsing.
 - `core/config/*`: defaults, schema normalization, config I/O.
 - `motions/*`: mode behavior and mapping resolution.

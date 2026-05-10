@@ -3,7 +3,7 @@ const os = require("os");
 const path = require("path");
 const { parse, stringify } = require("yaml");
 const { defaultConfig } = require("./defaults");
-const { normalizeConfig } = require("./schema");
+const { normalizeConfig, normalizeConfigWithDiagnostics } = require("./schema");
 const { ACTION_BUILDERS } = require("../../motions/actionBuilders");
 const notificationsService = require("../notifications/service");
 
@@ -13,6 +13,25 @@ const CONFIG_POLICY =
   process.env.NOCTRA_CONFIG_POLICY === "strict" ? "strict" : "customizable";
 
 let cachedConfig = normalizeConfig(defaultConfig);
+
+function emitUnknownKeyWarning(unknownKeys = []) {
+  if (!Array.isArray(unknownKeys) || unknownKeys.length === 0) {
+    return;
+  }
+
+  const dedupedKeys = [...new Set(unknownKeys)];
+  notificationsService.notify({
+    severity: "warning",
+    code: "config_unknown_keys_detected",
+    message: "Unsupported config keys were ignored",
+    source: "core.config",
+    context: {
+      path: CONFIG_FILE_PATH,
+      unknownKeys: dedupedKeys,
+    },
+    persist: false,
+  });
+}
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -265,7 +284,9 @@ function loadConfig() {
     const parsed = raw.trim() ? parse(raw) : {};
     const nextRawConfig = isPlainObject(parsed) ? parsed : {};
     syncConfigFile(nextRawConfig);
-    cachedConfig = normalizeConfig(nextRawConfig);
+    const normalized = normalizeConfigWithDiagnostics(nextRawConfig);
+    cachedConfig = normalized.config;
+    emitUnknownKeyWarning(normalized.diagnostics.unknownKeys);
     notificationsService.notify({
       severity: "info",
       code: "config_loaded",
@@ -284,7 +305,9 @@ function loadConfig() {
         const parsed = raw.trim() ? parse(raw) : {};
         const nextRawConfig = isPlainObject(parsed) ? parsed : {};
         syncConfigFile(nextRawConfig);
-        cachedConfig = normalizeConfig(nextRawConfig);
+        const normalized = normalizeConfigWithDiagnostics(nextRawConfig);
+        cachedConfig = normalized.config;
+        emitUnknownKeyWarning(normalized.diagnostics.unknownKeys);
         notificationsService.notify({
           severity: "warning",
           code: "config_loaded_repaired",

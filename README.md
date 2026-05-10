@@ -13,7 +13,7 @@ Noctra is early-stage (`v0.1.0`) and actively evolving.
 - Security and regression checks are part of the standard CI test gate.
 - Commands, mappings, and APIs can still change between minor versions.
 
-## Quick start
+## Quick Start
 
 Requirements:
 

@@ -59,5 +59,5 @@ You can override these paths in `global.storage` config.
 
 See also:
 
-- `docs/commands.md`
-- `docs/configuration.md`
+- [Commands](../commands.md)
+- [Configuration](../configuration.md)

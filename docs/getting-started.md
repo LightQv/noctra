@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide gets you from install to a usable daily workflow quickly.
+This guide gets you from install to a usable daily workflow.
 
 ## 1) Install dependencies
 
@@ -57,8 +57,8 @@ From `.env.example`:
 
 ## 7) Continue learning
 
-- `docs/tutorials/first-30-minutes.md`
-- `docs/keybindings.md`
-- `docs/commands.md`
-- `docs/configuration.md`
-- `SECURITY.md`
+- [Tutorial: First 30 Minutes](docs/tutorials/first-30-minutes.md)
+- [Keybindings](docs/keybindings.md)
+- [Commands](docs/commands.md)
+- [Configuration](docs/configuration.md)
+- [Security Policy](../SECURITY.md)

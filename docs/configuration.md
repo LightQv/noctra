@@ -99,7 +99,7 @@ browser:
 ## Leader mapping rules
 
 - Only `keymap.leader` is user-configurable.
-- Node supports either `action` or nested `children`.
+- Each node supports either `action` or nested `children`.
 - `action` must be a known action ID accepted by config schema.
 - Invalid mapping values are ignored during normalization.
 

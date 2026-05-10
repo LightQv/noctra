@@ -66,6 +66,9 @@ Examples:
 
 Noctra has automated tests and a canonical CI gate:
 
+- Run `npm run lint` for static checks.
+- Run `npm run format:check` for formatting checks.
+- Run `npm run check:intents` for intent contract/doc parity.
 - Run `npm test` for unit/contract coverage.
 - Run `npm run ci:test` for the canonical local parity/security smoke gate.
 
@@ -120,6 +123,4 @@ For suspected security issues, do not open a public issue. Use the private repor
 
 ## Code of conduct
 
-Please be respectful, constructive, and specific in discussion and review.
-
-If a formal `CODE_OF_CONDUCT.md` is added later, this section will defer to it.
+Please follow `CODE_OF_CONDUCT.md` in all project spaces.

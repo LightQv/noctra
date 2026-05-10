@@ -6,6 +6,11 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier \"**/*.{md,json,yml,yaml}\" --write",
+    "format:check": "prettier \"**/*.{md,json,yml,yaml}\" --check",
+    "check:intents": "node scripts/check-intents-parity.js",
     "test": "node --test \"tests/**/*.test.js\"",
     "test:keymap": "node --test \"tests/**/*keymap*.test.js\"",
     "test:smoke": "node tests/smoke/electron-startup.smoke.js",
@@ -16,10 +21,14 @@
     "test:smoke:devtools-lifecycle": "node tests/smoke/electron-devtools-lifecycle.smoke.js",
     "test:smoke:session-lifecycle": "node tests/smoke/electron-session-lifecycle.smoke.js",
     "test:smoke:focus-lifecycle": "node tests/smoke/electron-focus-lifecycle.smoke.js",
-    "ci:test": "npm test && npm run test:smoke && npm run test:smoke:overlay && npm run test:smoke:ui-cadence && npm run test:smoke:security && npm run test:smoke:settings-lifecycle && npm run test:smoke:devtools-lifecycle && npm run test:smoke:session-lifecycle && npm run test:smoke:focus-lifecycle"
+    "ci:test": "npm run lint && npm run format:check && npm run check:intents && npm test && npm run test:smoke && npm run test:smoke:overlay && npm run test:smoke:ui-cadence && npm run test:smoke:security && npm run test:smoke:settings-lifecycle && npm run test:smoke:devtools-lifecycle && npm run test:smoke:session-lifecycle && npm run test:smoke:focus-lifecycle"
   },
   "devDependencies": {
-    "electron": "41.2.2"
+    "@eslint/js": "^9.39.4",
+    "electron": "41.2.2",
+    "eslint": "^9.39.4",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.3"
   },
   "dependencies": {
     "codemirror": "5.65.16",

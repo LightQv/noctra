@@ -1,5 +1,6 @@
 const { INTENTS } = require("../../intents");
 const { isEditorFocused } = require("../../editorFocusState");
+const { setCommandTarget } = require("../../state/commandState");
 
 function createCommandUiHandlers(deps) {
   const {
@@ -21,7 +22,7 @@ function createCommandUiHandlers(deps) {
       buffers.focusActive();
     },
     [INTENTS.HIDE_COMMAND]: ({ state }) => {
-      state.commandTarget = "SHELL";
+      setCommandTarget(state, "SHELL");
       uiShell.hideCommand();
       buffers.focusActive();
       if (isEditorFocused(state)) {

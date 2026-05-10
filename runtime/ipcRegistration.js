@@ -1,3 +1,5 @@
+const { setEditorMode } = require("../core/state/editorModeState");
+
 function registerRuntimeIpc({
   win,
   fs,
@@ -139,7 +141,7 @@ function registerRuntimeIpc({
   const onEditorModeChange = (event, payload) => {
     if (!win || !isEditableSender(event) || !payload || typeof payload !== "object") return;
     const nextMode = payload.mode === "INSERT" || payload.mode === "NORMAL" ? payload.mode : "NORMAL";
-    state.editorMode = nextMode;
+    setEditorMode(state, nextMode);
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
@@ -165,7 +167,7 @@ function registerRuntimeIpc({
   const onEditorReady = (event) => {
     if (!win || !isEditableSender(event)) return;
     setEditorFocused(state, true);
-    state.editorMode = "NORMAL";
+    setEditorMode(state, "NORMAL");
     focusActiveEditorSurface({ forceNormal: true });
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };

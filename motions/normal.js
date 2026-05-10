@@ -5,6 +5,18 @@ const { enterCommandMode } = require("../core/modeTransitionService");
 const { getLeaderNode, getWhichKeyModel } = require("./leaderMap");
 const { rememberRepeatableIntent } = require("./repeat");
 const { hasSequenceTimedOut, consumePositiveCount } = require("./grammarPrimitives");
+const {
+  resetLeaderSession,
+  startLeaderSession,
+  pushLeaderPath,
+  popLeaderPath,
+  appendLeaderNumeric,
+  popLeaderNumeric,
+  resetSequenceBuffers,
+  appendCountDigit,
+  appendKeyBuffer,
+  clearKeyBuffer,
+} = require("../core/state/leaderState");
 const buffers = require("../browser/manager");
 
 function buildLeaderContext() {
@@ -19,13 +31,6 @@ function isLeaderKey(key, leaderKey) {
   }
 
   return key === leaderKey;
-}
-
-function resetLeaderSession(state) {
-  state.leaderActive = false;
-  state.leaderPath = [];
-  state.leaderNumericBuffer = "";
-  state.leaderLastKeyTime = 0;
 }
 
 function hideWhichKeyAndReset(state) {
@@ -77,8 +82,7 @@ function handleLeaderSequence(state, input, now) {
 
   if (key === "Backspace") {
     if (state.leaderNumericBuffer.length > 0) {
-      state.leaderNumericBuffer = state.leaderNumericBuffer.slice(0, -1);
-      state.leaderLastKeyTime = now;
+      popLeaderNumeric(state, now);
 
       if (!state.leaderNumericBuffer) {
         return updateWhichKey(state);
@@ -92,8 +96,7 @@ function handleLeaderSequence(state, input, now) {
     }
 
     if (state.leaderPath.length > 0) {
-      state.leaderPath = state.leaderPath.slice(0, -1);
-      state.leaderLastKeyTime = now;
+      popLeaderPath(state, now);
       return updateWhichKey(state);
     }
 
@@ -115,8 +118,7 @@ function handleLeaderSequence(state, input, now) {
       return hideWhichKeyAndReset(state);
     }
 
-    state.leaderNumericBuffer += loweredKey;
-    state.leaderLastKeyTime = now;
+    appendLeaderNumeric(state, loweredKey, now);
 
     return {
       type: INTENTS.SWITCH_BUFFER,
@@ -141,8 +143,7 @@ function handleLeaderSequence(state, input, now) {
   }
 
   if (child.children) {
-    state.leaderPath = [...state.leaderPath, matchedKey];
-    state.leaderLastKeyTime = now;
+    pushLeaderPath(state, matchedKey, now);
     return updateWhichKey(state);
   }
 
@@ -175,8 +176,7 @@ function handleNormal(state, input) {
   }
 
   if (hasSequenceTimedOut(now, state.lastKeyTime, state.sequenceTimeout)) {
-    state.keyBuffer = "";
-    state.countBuffer = "";
+    resetSequenceBuffers(state);
   }
 
   state.lastKeyTime = now;
@@ -200,17 +200,13 @@ function handleNormal(state, input) {
   }
 
   if (isLeaderKey(key, leaderKey)) {
-    state.leaderActive = true;
-    state.leaderPath = [];
-    state.leaderNumericBuffer = "";
-    state.leaderLastKeyTime = now;
-    state.keyBuffer = "";
-    state.countBuffer = "";
+    startLeaderSession(state, now);
+    resetSequenceBuffers(state);
     return showWhichKey(state);
   }
 
   if (!mod && /[0-9]/.test(key)) {
-    state.countBuffer += key;
+    appendCountDigit(state, key);
     return null;
   }
 
@@ -218,15 +214,14 @@ function handleNormal(state, input) {
     return handleMod(state, key);
   }
 
-  state.keyBuffer += key;
+  appendKeyBuffer(state, key);
 
   const keymap = getNormalKeymap();
   const match = keymap[state.keyBuffer];
 
   if (match) {
     const count = consumePositiveCount(state.countBuffer, 1);
-    state.countBuffer = "";
-    state.keyBuffer = "";
+    resetSequenceBuffers(state);
 
     const intent = match(state, count);
     rememberRepeatableIntent(state, intent, match.actionId);
@@ -234,7 +229,7 @@ function handleNormal(state, input) {
   }
 
   if (state.keyBuffer.length > 3) {
-    state.keyBuffer = "";
+    clearKeyBuffer(state);
   }
 
   return null;

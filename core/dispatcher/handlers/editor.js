@@ -1,5 +1,6 @@
 const { INTENTS } = require("../../intents");
 const { setEditorFocused, toggleEditorFocused } = require("../../editorFocusState");
+const { setEditorMode } = require("../../state/editorModeState");
 
 function createEditorHandlers(deps) {
   const {
@@ -22,13 +23,13 @@ function createEditorHandlers(deps) {
       focusEditableBufferSurface(openSettingsBuffer());
       buffers.focusActive();
       setEditorFocused(state, true);
-      state.editorMode = "NORMAL";
+      setEditorMode(state, "NORMAL");
     },
     [INTENTS.OPEN_NOTIFICATIONS_BUFFER]: ({ state }) => {
       focusEditableBufferSurface(openNotificationsBuffer());
       buffers.focusActive();
       setEditorFocused(state, true);
-      state.editorMode = "NORMAL";
+      setEditorMode(state, "NORMAL");
     },
     [INTENTS.TOGGLE_FOCUS_CONTEXT]: ({ state }) => {
       const active = buffers.getActive();
@@ -38,7 +39,7 @@ function createEditorHandlers(deps) {
 
       const focused = toggleEditorFocused(state);
       if (focused) {
-        state.editorMode = "NORMAL";
+        setEditorMode(state, "NORMAL");
         focusEditableBufferSurface(active);
       } else {
         blurEditableBufferSurface(active);

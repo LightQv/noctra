@@ -54,6 +54,16 @@ const { createInputCoordinator } = require("./runtime/inputCoordinator");
 const { registerRuntimeIpc } = require("./runtime/ipcRegistration");
 const { wireWindowLifecycle } = require("./runtime/windowLifecycle");
 const { createSmokeScenarios } = require("./runtime/smokeScenarios");
+const { resetLeaderSession, resetSequenceBuffers } = require("./core/state/leaderState");
+const {
+  moveUrllineCursor,
+  setUrllineCursor,
+  startUrllineEditState,
+  stopUrllineEditState,
+  insertUrllineTextAtCursor,
+  deleteUrllineBackward,
+  deleteUrllineForward,
+} = require("./core/state/urllineState");
 let win;
 let browserLanguageHooksRegistered = false;
 let smokeScenarios = null;
@@ -616,17 +626,13 @@ function updateUrllineActions() {
 }
 
 function resetLeaderRuntimeState() {
-  state.leaderActive = false;
-  state.leaderPath = [];
-  state.leaderNumericBuffer = "";
-  state.leaderLastKeyTime = 0;
+  resetLeaderSession(state);
 }
 
 function applyReloadedConfig(config, { refreshLayout = false } = {}) {
   state.applyConfig(config);
   resetLeaderRuntimeState();
-  state.keyBuffer = "";
-  state.countBuffer = "";
+  resetSequenceBuffers(state);
 
   applyBrowserLanguagePreference();
   buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
@@ -656,39 +662,18 @@ function getStatuslineModeLabel() {
   return computeStatuslineModeLabel(state);
 }
 
-function clampUrllineCursor() {
-  const max = state.urllineBuffer.length;
-  const index = Number.isFinite(state.urllineCursorIndex)
-    ? Math.trunc(state.urllineCursorIndex)
-    : max;
-  state.urllineCursorIndex = Math.max(0, Math.min(index, max));
-}
-
 function startUrllineEdit(pane, initialUrl) {
-  state.urllineEditing = true;
-  state.urllinePane = pane === "right" ? "right" : "left";
-  state.urllineBuffer = String(initialUrl || "");
-  state.urllineCursorIndex = state.urllineBuffer.length;
+  startUrllineEditState(state, pane, initialUrl);
   enterInsertMode(state, "urlline-start-edit");
   uiShell.updateStatuslineMode(getStatuslineModeLabel());
   updateUrllineRender();
 }
 
 function stopUrllineEdit() {
-  state.urllineEditing = false;
-  state.urllinePane = "left";
-  state.urllineBuffer = "";
-  state.urllineCursorIndex = 0;
+  stopUrllineEditState(state);
   enterNormalMode(state, "urlline-stop-edit");
   uiShell.updateStatuslineMode(getStatuslineModeLabel());
   updateUrllineRender();
-}
-
-function normalizeUrllineText(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-  return value.replace(/\r\n|\r|\n/g, " ");
 }
 
 function normalizeHistoryUrl(rawUrl) {
@@ -709,17 +694,7 @@ function normalizeHistoryUrl(rawUrl) {
 }
 
 function insertUrllineText(text) {
-  const chunk = normalizeUrllineText(text);
-  if (!chunk) {
-    return;
-  }
-  clampUrllineCursor();
-  const cursor = state.urllineCursorIndex;
-  state.urllineBuffer =
-    state.urllineBuffer.slice(0, cursor) +
-    chunk +
-    state.urllineBuffer.slice(cursor);
-  state.urllineCursorIndex = cursor + chunk.length;
+  insertUrllineTextAtCursor(state, text);
 }
 
 function submitUrlline() {
@@ -766,56 +741,41 @@ function handleUrllineInput(event, input) {
   }
 
   if (input.key === "Left" || input.key === "ArrowLeft") {
-    clampUrllineCursor();
-    state.urllineCursorIndex = Math.max(0, state.urllineCursorIndex - 1);
+    moveUrllineCursor(state, -1);
     updateUrllineRender();
     return;
   }
 
   if (input.key === "Right" || input.key === "ArrowRight") {
-    clampUrllineCursor();
-    state.urllineCursorIndex = Math.min(state.urllineBuffer.length, state.urllineCursorIndex + 1);
+    moveUrllineCursor(state, 1);
     updateUrllineRender();
     return;
   }
 
   if (input.key === "Home") {
-    state.urllineCursorIndex = 0;
+    setUrllineCursor(state, 0);
     updateUrllineRender();
     return;
   }
 
   if (input.key === "End") {
-    state.urllineCursorIndex = state.urllineBuffer.length;
+    setUrllineCursor(state, state.urllineBuffer.length);
     updateUrllineRender();
     return;
   }
 
   if (input.key === "Backspace") {
-    clampUrllineCursor();
-    if (state.urllineCursorIndex <= 0) {
+    if (!deleteUrllineBackward(state)) {
       return;
     }
-
-    const cursor = state.urllineCursorIndex;
-    state.urllineBuffer =
-      state.urllineBuffer.slice(0, cursor - 1) +
-      state.urllineBuffer.slice(cursor);
-    state.urllineCursorIndex = cursor - 1;
     updateUrllineRender();
     return;
   }
 
   if (input.key === "Delete") {
-    clampUrllineCursor();
-    const cursor = state.urllineCursorIndex;
-    if (cursor >= state.urllineBuffer.length) {
+    if (!deleteUrllineForward(state)) {
       return;
     }
-
-    state.urllineBuffer =
-      state.urllineBuffer.slice(0, cursor) +
-      state.urllineBuffer.slice(cursor + 1);
     updateUrllineRender();
     return;
   }

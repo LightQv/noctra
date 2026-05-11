@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 20
     env:
       CI: "true"
-      CI_DISABLE_SETUID_SANDBOX: "1"
+      CI_NO_SANDBOX: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

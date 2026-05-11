@@ -1,5 +1,3 @@
 node_modules
 AGENTS.md
-SESSION_NOTES.local.md
 .env
-.env.local

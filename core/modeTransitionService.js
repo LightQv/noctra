@@ -1,3 +1,5 @@
+const { setCommandTarget, setCommandBuffer } = require("./state/commandState");
+
 function normalizeMode(mode) {
   if (mode === "INSERT" || mode === "COMMAND") {
     return mode;
@@ -50,9 +52,8 @@ function enterCommandMode(state, options = {}) {
   const clampedCursor = Math.max(0, Math.min(explicitCursor, initialText.length));
 
   setMode(state, "COMMAND", options.reason || "enter-command");
-  state.commandTarget = target;
-  state.commandBuffer = initialText;
-  state.commandCursorIndex = clampedCursor;
+  setCommandTarget(state, target);
+  setCommandBuffer(state, initialText, clampedCursor);
   return true;
 }
 
@@ -69,11 +70,10 @@ function exitCommandMode(state, options = {}) {
   }
 
   setMode(state, "NORMAL", options.reason || "exit-command");
+  setCommandTarget(state, "SHELL");
   if (options.clearBuffer !== false) {
-    state.commandBuffer = "";
-    state.commandCursorIndex = 0;
+    setCommandBuffer(state, "", 0);
   }
-  state.commandTarget = "SHELL";
   return true;
 }
 

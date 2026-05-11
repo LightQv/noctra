@@ -3,7 +3,10 @@ const {
   openSplitDevtools,
   closeSplitDevtools,
 } = require("../../core/adapters/platform/devtoolsHost");
-const { attachView, detachView } = require("../../core/adapters/platform/contentViewHost");
+const {
+  attachView,
+  detachView,
+} = require("../../core/adapters/platform/contentViewHost");
 
 function openDevtoolsSplit(manager, ratio = 0.25) {
   const left = manager.getLeftBuffer();
@@ -48,7 +51,10 @@ function syncDevtoolsTargetToLeftBuffer(manager) {
   }
 
   const left = manager.getLeftBuffer();
-  const nextTarget = left && left.webContents && !left.webContents.isDestroyed() ? left.webContents : null;
+  const nextTarget =
+    left && left.webContents && !left.webContents.isDestroyed()
+      ? left.webContents
+      : null;
   if (!nextTarget || !manager.devtoolsView || !manager.window) {
     manager.closeRightSplit();
     return;

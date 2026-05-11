@@ -3,7 +3,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { scanStateOwnership, SCAN_ROOTS } = require("../../scripts/check-state-ownership");
+const {
+  scanStateOwnership,
+  SCAN_ROOTS,
+} = require("../../scripts/check-state-ownership");
 
 function writeFile(root, relPath, content) {
   const absolute = path.join(root, relPath);
@@ -12,7 +15,9 @@ function writeFile(root, relPath, content) {
 }
 
 function withTempRepo(run) {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "noctra-state-ownership-"));
+  const tempRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "noctra-state-ownership-"),
+  );
   try {
     return run(tempRoot);
   } finally {
@@ -22,12 +27,36 @@ function withTempRepo(run) {
 
 test("state ownership passes for authorized writer files", () => {
   withTempRepo((repo) => {
-    writeFile(repo, "core/modeTransitionService.js", 'function x(state){ state.mode = "NORMAL"; }\n');
-    writeFile(repo, "core/state/leaderState.js", "function x(state){ state.leaderActive = true; }\n");
-    writeFile(repo, "core/state/commandState.js", "function x(state){ state.commandBuffer = \"open\"; }\n");
-    writeFile(repo, "core/state/urllineState.js", "function x(state){ state.urllineEditing = true; }\n");
-    writeFile(repo, "core/editorFocusState.js", "function x(state){ state.editorFocus = true; }\n");
-    writeFile(repo, "core/state/editorModeState.js", "function x(state){ state.editorMode = \"INSERT\"; }\n");
+    writeFile(
+      repo,
+      "core/modeTransitionService.js",
+      'function x(state){ state.mode = "NORMAL"; }\n',
+    );
+    writeFile(
+      repo,
+      "core/state/leaderState.js",
+      "function x(state){ state.leaderActive = true; }\n",
+    );
+    writeFile(
+      repo,
+      "core/state/commandState.js",
+      'function x(state){ state.commandBuffer = "open"; }\n',
+    );
+    writeFile(
+      repo,
+      "core/state/urllineState.js",
+      "function x(state){ state.urllineEditing = true; }\n",
+    );
+    writeFile(
+      repo,
+      "core/editorFocusState.js",
+      "function x(state){ state.editorFocus = true; }\n",
+    );
+    writeFile(
+      repo,
+      "core/state/editorModeState.js",
+      'function x(state){ state.editorMode = "INSERT"; }\n',
+    );
 
     const violations = scanStateOwnership(repo);
     assert.equal(violations.length, 0);
@@ -36,8 +65,16 @@ test("state ownership passes for authorized writer files", () => {
 
 test("state ownership flags unauthorized direct writes", () => {
   withTempRepo((repo) => {
-    writeFile(repo, "runtime/urllineCoordinator.js", "function x(state){ state.urllineBuffer = \"x\"; }\n");
-    writeFile(repo, "main.js", 'function x(state){ state.mode = "COMMAND"; }\n');
+    writeFile(
+      repo,
+      "runtime/urllineCoordinator.js",
+      'function x(state){ state.urllineBuffer = "x"; }\n',
+    );
+    writeFile(
+      repo,
+      "main.js",
+      'function x(state){ state.mode = "COMMAND"; }\n',
+    );
 
     const violations = scanStateOwnership(repo);
     assert.equal(violations.length, 2);
@@ -71,7 +108,11 @@ test("state ownership scan roots exclude tests directory", () => {
 
 test("state ownership ignores unauthorized writes inside tests files", () => {
   withTempRepo((repo) => {
-    writeFile(repo, "tests/fake-writer.test.js", 'function x(state){ state.mode = "COMMAND"; }\n');
+    writeFile(
+      repo,
+      "tests/fake-writer.test.js",
+      'function x(state){ state.mode = "COMMAND"; }\n',
+    );
 
     const violations = scanStateOwnership(repo);
     assert.equal(violations.length, 0);

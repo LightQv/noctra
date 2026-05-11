@@ -52,7 +52,8 @@ function relayout() {
       UI_SHELL_TABLINE_HEIGHT,
       UI_SHELL_STATUSLINE_HEIGHT,
     },
-    computeSelectionModalHeight: () => this.computeSelectionModalHeight(this.selectionModalModel),
+    computeSelectionModalHeight: () =>
+      this.computeSelectionModalHeight(this.selectionModalModel),
   });
 }
 

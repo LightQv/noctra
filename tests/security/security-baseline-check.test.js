@@ -2,7 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { defaultConfig } = require("../../core/config/defaults");
-const { runSecurityBaselineChecks } = require("../../scripts/check-security-baseline");
+const {
+  runSecurityBaselineChecks,
+} = require("../../scripts/check-security-baseline");
 
 test("security baseline check passes on default config", () => {
   const errors = runSecurityBaselineChecks(defaultConfig);
@@ -26,5 +28,7 @@ test("security baseline check fails on insecure defaults", () => {
   const errors = runSecurityBaselineChecks(insecure);
   assert.ok(errors.length > 0);
   assert.ok(errors.some((message) => message.includes("trusted_http_hosts")));
-  assert.ok(errors.some((message) => message.includes("allow_trusted_surfaces")));
+  assert.ok(
+    errors.some((message) => message.includes("allow_trusted_surfaces")),
+  );
 });

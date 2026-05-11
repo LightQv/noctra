@@ -22,9 +22,16 @@ function createSmokeScenarios({
   }
 
   async function waitForCondition(check, options = {}) {
-    const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(50, options.timeoutMs) : 3000;
-    const intervalMs = Number.isFinite(options.intervalMs) ? Math.max(20, options.intervalMs) : 50;
-    const description = typeof options.description === "string" ? options.description : "condition";
+    const timeoutMs = Number.isFinite(options.timeoutMs)
+      ? Math.max(50, options.timeoutMs)
+      : 3000;
+    const intervalMs = Number.isFinite(options.intervalMs)
+      ? Math.max(20, options.intervalMs)
+      : 50;
+    const description =
+      typeof options.description === "string"
+        ? options.description
+        : "condition";
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       try {
@@ -50,7 +57,11 @@ function createSmokeScenarios({
       `({ hasUiShell: typeof window.uiShell !== "undefined", hasSettingsBridge: typeof window.settingsBridge !== "undefined" })`,
       true,
     );
-    if (!untrustedBridgeState || untrustedBridgeState.hasUiShell || untrustedBridgeState.hasSettingsBridge) {
+    if (
+      !untrustedBridgeState ||
+      untrustedBridgeState.hasUiShell ||
+      untrustedBridgeState.hasSettingsBridge
+    ) {
       fail("untrusted buffer has privileged preload bridge");
     }
 
@@ -79,7 +90,10 @@ function createSmokeScenarios({
       if (!probeResult.rejected || probeResult.rejected.settingsSave !== true) {
         fail("unauthorized sender/frame not rejected for settings:save");
       }
-      if (!probeResult.rejected || probeResult.rejected.settingsClose !== true) {
+      if (
+        !probeResult.rejected ||
+        probeResult.rejected.settingsClose !== true
+      ) {
         fail("unauthorized sender/frame not rejected for settings:close");
       }
     }
@@ -94,7 +108,10 @@ function createSmokeScenarios({
     }
 
     if (failures.length > 0) {
-      console.error("[noctra:smoke] security-boundary scenario failed", failures.join(" | "));
+      console.error(
+        "[noctra:smoke] security-boundary scenario failed",
+        failures.join(" | "),
+      );
       process.exitCode = 1;
     }
   }
@@ -105,28 +122,54 @@ function createSmokeScenarios({
     const configPath = configService.getConfigPath();
     const originalContent = fs.readFileSync(configPath, "utf8");
     dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
-    await waitForCondition(() => Boolean(buffers.getActive() && buffers.getActive().isEditable), {
-      timeoutMs: 3500,
-      description: "editable settings buffer",
-    }).catch((error) => fail(error.message));
+    await waitForCondition(
+      () => Boolean(buffers.getActive() && buffers.getActive().isEditable),
+      {
+        timeoutMs: 3500,
+        description: "editable settings buffer",
+      },
+    ).catch((error) => fail(error.message));
     const settingsBuffer = buffers.getActive();
-    if (!settingsBuffer || !settingsBuffer.isEditable || !settingsBuffer.webContents) {
+    if (
+      !settingsBuffer ||
+      !settingsBuffer.isEditable ||
+      !settingsBuffer.webContents
+    ) {
       fail("settings buffer did not open as editable");
     } else {
-      const probe = await webContentsActions.executeScript(settingsBuffer.webContents, `(() => { const bridge = window.settingsBridge; return { hasBridge: Boolean(bridge), hasGet: Boolean(bridge && typeof bridge.get === "function"), hasClose: Boolean(bridge && typeof bridge.close === "function"), hasSave: Boolean(bridge && typeof bridge.save === "function") }; })()`, true);
-      if (!probe || probe.hasBridge !== true || probe.hasGet !== true || probe.hasClose !== true || probe.hasSave !== true) {
+      const probe = await webContentsActions.executeScript(
+        settingsBuffer.webContents,
+        `(() => { const bridge = window.settingsBridge; return { hasBridge: Boolean(bridge), hasGet: Boolean(bridge && typeof bridge.get === "function"), hasClose: Boolean(bridge && typeof bridge.close === "function"), hasSave: Boolean(bridge && typeof bridge.save === "function") }; })()`,
+        true,
+      );
+      if (
+        !probe ||
+        probe.hasBridge !== true ||
+        probe.hasGet !== true ||
+        probe.hasClose !== true ||
+        probe.hasSave !== true
+      ) {
         fail("settings bridge missing required methods");
       }
     }
-    const editableBeforeClose = Boolean(buffers.getActive() && buffers.getActive().isEditable);
+    const editableBeforeClose = Boolean(
+      buffers.getActive() && buffers.getActive().isEditable,
+    );
     dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
-    await waitForCondition(() => Boolean(buffers.getActive() && !buffers.getActive().isEditable), { timeoutMs: 3500, description: "settings close to non-editable buffer" }).catch((error) => fail(error.message));
+    await waitForCondition(
+      () => Boolean(buffers.getActive() && !buffers.getActive().isEditable),
+      { timeoutMs: 3500, description: "settings close to non-editable buffer" },
+    ).catch((error) => fail(error.message));
     const activeAfterClose = buffers.getActive();
     if (!activeAfterClose) fail("no active buffer after settings close");
-    if (editableBeforeClose && activeAfterClose && activeAfterClose.isEditable) fail("settings buffer remained active after close");
+    if (editableBeforeClose && activeAfterClose && activeAfterClose.isEditable)
+      fail("settings buffer remained active after close");
     fs.writeFileSync(configPath, originalContent, "utf8");
     if (failures.length > 0) {
-      console.error("[noctra:smoke] settings-lifecycle scenario failed", failures.join(" | "));
+      console.error(
+        "[noctra:smoke] settings-lifecycle scenario failed",
+        failures.join(" | "),
+      );
       process.exitCode = 1;
     }
   }
@@ -135,17 +178,31 @@ function createSmokeScenarios({
     const failures = [];
     const fail = (message) => failures.push(message);
     dispatch(win, { type: INTENTS.SPLIT_DEVTOOLS }, state);
-    await waitForCondition(() => {
-      const status = buffers.getSplitStatus();
-      return Boolean(status && status.enabled && status.mode === "devtools");
-    }, { timeoutMs: 3000, description: "devtools split open" }).catch((error) => fail(error.message));
+    await waitForCondition(
+      () => {
+        const status = buffers.getSplitStatus();
+        return Boolean(status && status.enabled && status.mode === "devtools");
+      },
+      { timeoutMs: 3000, description: "devtools split open" },
+    ).catch((error) => fail(error.message));
     dispatch(win, { type: INTENTS.SPLIT_CLOSE_RIGHT }, state);
-    await waitForCondition(() => {
-      const status = buffers.getSplitStatus();
-      return Boolean(status && !status.enabled && status.mode === "regular" && status.focusedPane === "left");
-    }, { timeoutMs: 3000, description: "devtools split close/reset" }).catch((error) => fail(error.message));
+    await waitForCondition(
+      () => {
+        const status = buffers.getSplitStatus();
+        return Boolean(
+          status &&
+          !status.enabled &&
+          status.mode === "regular" &&
+          status.focusedPane === "left",
+        );
+      },
+      { timeoutMs: 3000, description: "devtools split close/reset" },
+    ).catch((error) => fail(error.message));
     if (failures.length > 0) {
-      console.error("[noctra:smoke] devtools-lifecycle scenario failed", failures.join(" | "));
+      console.error(
+        "[noctra:smoke] devtools-lifecycle scenario failed",
+        failures.join(" | "),
+      );
       process.exitCode = 1;
     }
   }
@@ -155,12 +212,21 @@ function createSmokeScenarios({
     const fail = (message) => failures.push(message);
     buffers.create("https://example.com", { activate: true });
     buffers.create("https://example.org", { activate: true });
-    await waitForCondition(() => buffers.getBuffers().length >= 2, { timeoutMs: 3000, description: "session seed buffers visible" }).catch((error) => fail(error.message));
+    await waitForCondition(() => buffers.getBuffers().length >= 2, {
+      timeoutMs: 3000,
+      description: "session seed buffers visible",
+    }).catch((error) => fail(error.message));
     dispatch(win, { type: INTENTS.SESSION_SAVE }, state);
     dispatch(win, { type: INTENTS.SESSION_RESTORE }, state);
-    await waitForCondition(() => buffers.getBuffers().length >= 2, { timeoutMs: 3500, description: "session restore" }).catch((error) => fail(error.message));
+    await waitForCondition(() => buffers.getBuffers().length >= 2, {
+      timeoutMs: 3500,
+      description: "session restore",
+    }).catch((error) => fail(error.message));
     if (failures.length > 0) {
-      console.error("[noctra:smoke] session-lifecycle scenario failed", failures.join(" | "));
+      console.error(
+        "[noctra:smoke] session-lifecycle scenario failed",
+        failures.join(" | "),
+      );
       process.exitCode = 1;
     }
   }
@@ -169,25 +235,42 @@ function createSmokeScenarios({
     const failures = [];
     const fail = (message) => failures.push(message);
     dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
-    await waitForCondition(() => Boolean(buffers.getActive() && buffers.getActive().isEditable), { timeoutMs: 3500, description: "focus-lifecycle settings buffer" }).catch((error) => fail(error.message));
-    await waitForCondition(() => Boolean(isEditorFocused(state)), { timeoutMs: 2500, description: "editor focused flag" }).catch((error) => fail(error.message));
+    await waitForCondition(
+      () => Boolean(buffers.getActive() && buffers.getActive().isEditable),
+      { timeoutMs: 3500, description: "focus-lifecycle settings buffer" },
+    ).catch((error) => fail(error.message));
+    await waitForCondition(() => Boolean(isEditorFocused(state)), {
+      timeoutMs: 2500,
+      description: "editor focused flag",
+    }).catch((error) => fail(error.message));
     dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
-    await waitForCondition(() => Boolean(buffers.getActive() && !buffers.getActive().isEditable), { timeoutMs: 3500, description: "focus-lifecycle close settings buffer" }).catch((error) => fail(error.message));
-    if (isEditorFocused(state)) fail("editor focused state remained true after leaving editable buffer");
+    await waitForCondition(
+      () => Boolean(buffers.getActive() && !buffers.getActive().isEditable),
+      { timeoutMs: 3500, description: "focus-lifecycle close settings buffer" },
+    ).catch((error) => fail(error.message));
+    if (isEditorFocused(state))
+      fail("editor focused state remained true after leaving editable buffer");
     if (failures.length > 0) {
-      console.error("[noctra:smoke] focus-lifecycle scenario failed", failures.join(" | "));
+      console.error(
+        "[noctra:smoke] focus-lifecycle scenario failed",
+        failures.join(" | "),
+      );
       process.exitCode = 1;
     }
   }
 
   function setupSmokeUiCadenceProbe() {
-    if (process.env.NOCTRA_SMOKE_TEST !== "1" || process.env.NOCTRA_SMOKE_SCENARIO !== "ui-cadence") {
+    if (
+      process.env.NOCTRA_SMOKE_TEST !== "1" ||
+      process.env.NOCTRA_SMOKE_SCENARIO !== "ui-cadence"
+    ) {
       return;
     }
     const counters = { tabline: 0, urlline: 0, statusline: 0 };
     const originalRenderTabline = uiShell.renderTabline.bind(uiShell);
     const originalRenderUrlline = uiShell.renderUrlline.bind(uiShell);
-    const originalUpdateStatuslineMode = uiShell.updateStatuslineMode.bind(uiShell);
+    const originalUpdateStatuslineMode =
+      uiShell.updateStatuslineMode.bind(uiShell);
     uiShell.renderTabline = (...args) => {
       counters.tabline += 1;
       return originalRenderTabline(...args);
@@ -203,11 +286,17 @@ function createSmokeScenarios({
     smokeUiCadenceProbe = {
       validate() {
         const failures = [];
-        if (counters.tabline < 2) failures.push(`tabline updates too low: ${counters.tabline}`);
-        if (counters.urlline < 2) failures.push(`urlline updates too low: ${counters.urlline}`);
-        if (counters.statusline < 2) failures.push(`statusline updates too low: ${counters.statusline}`);
+        if (counters.tabline < 2)
+          failures.push(`tabline updates too low: ${counters.tabline}`);
+        if (counters.urlline < 2)
+          failures.push(`urlline updates too low: ${counters.urlline}`);
+        if (counters.statusline < 2)
+          failures.push(`statusline updates too low: ${counters.statusline}`);
         if (failures.length > 0) {
-          console.error("[noctra:smoke] ui-cadence validation failed", failures.join(" | "));
+          console.error(
+            "[noctra:smoke] ui-cadence validation failed",
+            failures.join(" | "),
+          );
           process.exitCode = 1;
         }
       },
@@ -253,7 +342,9 @@ function createSmokeScenarios({
         if (settled) return;
         settled = true;
         process.exitCode = 1;
-        console.error(`[noctra:smoke] ${scenario} scenario timed out after ${watchdogMs}ms`);
+        console.error(
+          `[noctra:smoke] ${scenario} scenario timed out after ${watchdogMs}ms`,
+        );
         app.quit();
       }, watchdogMs);
       try {
@@ -261,7 +352,10 @@ function createSmokeScenarios({
         await runner();
       } catch (error) {
         process.exitCode = 1;
-        console.error(`[noctra:smoke] ${scenario} scenario failed`, error?.message || error);
+        console.error(
+          `[noctra:smoke] ${scenario} scenario failed`,
+          error?.message || error,
+        );
       } finally {
         if (!settled) {
           settled = true;

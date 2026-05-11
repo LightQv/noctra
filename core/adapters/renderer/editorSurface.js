@@ -1,7 +1,14 @@
-const { executeScript, isUsableWebContents } = require("../platform/webContentsActions");
+const {
+  executeScript,
+  isUsableWebContents,
+} = require("../platform/webContentsActions");
 
 function focus(buffer, options = {}) {
-  if (!buffer || !buffer.isEditable || !isUsableWebContents(buffer.webContents)) {
+  if (
+    !buffer ||
+    !buffer.isEditable ||
+    !isUsableWebContents(buffer.webContents)
+  ) {
     return;
   }
 
@@ -30,7 +37,11 @@ function focus(buffer, options = {}) {
 }
 
 function blur(buffer) {
-  if (!buffer || !buffer.isEditable || !isUsableWebContents(buffer.webContents)) {
+  if (
+    !buffer ||
+    !buffer.isEditable ||
+    !isUsableWebContents(buffer.webContents)
+  ) {
     return;
   }
 
@@ -41,7 +52,11 @@ function blur(buffer) {
 }
 
 function runCommand(buffer, commandText) {
-  if (!buffer || !buffer.isEditable || !isUsableWebContents(buffer.webContents)) {
+  if (
+    !buffer ||
+    !buffer.isEditable ||
+    !isUsableWebContents(buffer.webContents)
+  ) {
     return;
   }
 

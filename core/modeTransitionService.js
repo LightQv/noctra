@@ -45,11 +45,15 @@ function enterCommandMode(state, options = {}) {
   }
 
   const target = options.target === "EDITOR" ? "EDITOR" : "SHELL";
-  const initialText = typeof options.initialText === "string" ? options.initialText : "";
+  const initialText =
+    typeof options.initialText === "string" ? options.initialText : "";
   const explicitCursor = Number.isFinite(options.cursorIndex)
     ? Math.trunc(options.cursorIndex)
     : initialText.length;
-  const clampedCursor = Math.max(0, Math.min(explicitCursor, initialText.length));
+  const clampedCursor = Math.max(
+    0,
+    Math.min(explicitCursor, initialText.length),
+  );
 
   setMode(state, "COMMAND", options.reason || "enter-command");
   setCommandTarget(state, target);

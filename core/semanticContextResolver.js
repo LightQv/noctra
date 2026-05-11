@@ -4,13 +4,23 @@ function normalizeTreeKind(treeKind) {
   return treeKind === "bookmarks" ? "bookmarks" : "history";
 }
 
-function resolveSemanticContext({ state, buffers, historyPanel, focusSnapshot } = {}) {
-  const activeBuffer = buffers && typeof buffers.getActive === "function" ? buffers.getActive() : null;
+function resolveSemanticContext({
+  state,
+  buffers,
+  historyPanel,
+  focusSnapshot,
+} = {}) {
+  const activeBuffer =
+    buffers && typeof buffers.getActive === "function"
+      ? buffers.getActive()
+      : null;
   const snapshot = focusSnapshot || {};
   const historyFocused =
     typeof snapshot.historyPanelFocused === "boolean"
       ? snapshot.historyPanelFocused
-      : Boolean(historyPanel && historyPanel.isFocused && historyPanel.isFocused());
+      : Boolean(
+          historyPanel && historyPanel.isFocused && historyPanel.isFocused(),
+        );
 
   if (historyFocused) {
     const treeKind =
@@ -20,7 +30,8 @@ function resolveSemanticContext({ state, buffers, historyPanel, focusSnapshot } 
     return normalizeTreeKind(treeKind);
   }
 
-  const inEditorContext = isEditorFocused(state) && Boolean(activeBuffer && activeBuffer.isEditable);
+  const inEditorContext =
+    isEditorFocused(state) && Boolean(activeBuffer && activeBuffer.isEditable);
   if (inEditorContext) {
     return "editor";
   }

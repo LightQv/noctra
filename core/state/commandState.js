@@ -5,13 +5,20 @@ function normalizeCommandText(value) {
 
 function clampCommandCursor(state) {
   const max = state.commandBuffer.length;
-  const index = Number.isFinite(state.commandCursorIndex) ? Math.trunc(state.commandCursorIndex) : max;
+  const index = Number.isFinite(state.commandCursorIndex)
+    ? Math.trunc(state.commandCursorIndex)
+    : max;
   state.commandCursorIndex = Math.max(0, Math.min(index, max));
 }
 
 function setCommandCursor(state, index) {
-  const next = Number.isFinite(index) ? Math.trunc(index) : state.commandBuffer.length;
-  state.commandCursorIndex = Math.max(0, Math.min(next, state.commandBuffer.length));
+  const next = Number.isFinite(index)
+    ? Math.trunc(index)
+    : state.commandBuffer.length;
+  state.commandCursorIndex = Math.max(
+    0,
+    Math.min(next, state.commandBuffer.length),
+  );
 }
 
 function setCommandTarget(state, target) {
@@ -42,14 +49,19 @@ function insertCommandTextAtCursor(state, text) {
 
 function moveCommandCursor(state, delta) {
   clampCommandCursor(state);
-  state.commandCursorIndex = Math.max(0, Math.min(state.commandCursorIndex + delta, state.commandBuffer.length));
+  state.commandCursorIndex = Math.max(
+    0,
+    Math.min(state.commandCursorIndex + delta, state.commandBuffer.length),
+  );
 }
 
 function deleteCommandBackward(state) {
   clampCommandCursor(state);
   if (state.commandCursorIndex <= 0) return false;
   const cursor = state.commandCursorIndex;
-  state.commandBuffer = state.commandBuffer.slice(0, cursor - 1) + state.commandBuffer.slice(cursor);
+  state.commandBuffer =
+    state.commandBuffer.slice(0, cursor - 1) +
+    state.commandBuffer.slice(cursor);
   state.commandCursorIndex = cursor - 1;
   return true;
 }
@@ -58,7 +70,9 @@ function deleteCommandForward(state) {
   clampCommandCursor(state);
   const cursor = state.commandCursorIndex;
   if (cursor >= state.commandBuffer.length) return false;
-  state.commandBuffer = state.commandBuffer.slice(0, cursor) + state.commandBuffer.slice(cursor + 1);
+  state.commandBuffer =
+    state.commandBuffer.slice(0, cursor) +
+    state.commandBuffer.slice(cursor + 1);
   return true;
 }
 

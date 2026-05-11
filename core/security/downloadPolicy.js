@@ -13,12 +13,19 @@ function replaceControlCharacters(value) {
 
 function normalizeDownloadConfig(config = {}) {
   const policy =
-    config && (config.policy === "deny" || config.policy === "allow" || config.policy === "prompt")
+    config &&
+    (config.policy === "deny" ||
+      config.policy === "allow" ||
+      config.policy === "prompt")
       ? config.policy
       : "prompt";
-  const allowTrustedSurfaces = Boolean(config && config.allow_trusted_surfaces === true);
+  const allowTrustedSurfaces = Boolean(
+    config && config.allow_trusted_surfaces === true,
+  );
   const defaultDirectory =
-    config && typeof config.default_directory === "string" && config.default_directory.trim().length > 0
+    config &&
+    typeof config.default_directory === "string" &&
+    config.default_directory.trim().length > 0
       ? config.default_directory.trim()
       : null;
   const autoOpen = Boolean(config && config.auto_open === true);
@@ -32,7 +39,10 @@ function normalizeDownloadConfig(config = {}) {
 }
 
 function sanitizeDownloadFilename(name) {
-  const source = typeof name === "string" && name.trim().length > 0 ? name.trim() : "download.bin";
+  const source =
+    typeof name === "string" && name.trim().length > 0
+      ? name.trim()
+      : "download.bin";
   const base = path.basename(source);
   const sanitized = base
     .replace(INVALID_FILENAME_CHARS_REGEX, "_")
@@ -48,11 +58,7 @@ function buildSafeDownloadPath(directory, filename) {
   return path.join(directory, safeFilename);
 }
 
-function resolveDownloadDecision({
-  role,
-  isTrustedInternalRole,
-  config,
-}) {
+function resolveDownloadDecision({ role, isTrustedInternalRole, config }) {
   const normalized = normalizeDownloadConfig(config);
   if (normalized.policy === "deny") {
     return { action: "deny", reason: "policy_deny" };

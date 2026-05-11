@@ -6,9 +6,17 @@ const {
   optional,
 } = require("./validation");
 
-const validateWindowAction = createEnumValidator(["minimize", "maximize", "close"]);
+const validateWindowAction = createEnumValidator([
+  "minimize",
+  "maximize",
+  "close",
+]);
 const validatePane = createEnumValidator(["left", "right"]);
-const validateUrllineAction = createEnumValidator(["back", "forward", "reload"]);
+const validateUrllineAction = createEnumValidator([
+  "back",
+  "forward",
+  "reload",
+]);
 const validateEditorMode = createEnumValidator(["NORMAL", "INSERT"]);
 
 const validateEmptyObject = createStrictObjectValidator({});
@@ -47,15 +55,23 @@ const IPC_CONTRACTS = {
       action: validateUrllineAction,
     }),
   },
-  "settings:editor-toggle-context": { kind: "event", validator: optionalEmptyObject },
+  "settings:editor-toggle-context": {
+    kind: "event",
+    validator: optionalEmptyObject,
+  },
   "settings:editor-mode-change": {
     kind: "event",
     validator: createStrictObjectValidator({ mode: validateEditorMode }),
   },
-  "settings:editor-focus-request": { kind: "event", validator: optionalEmptyObject },
+  "settings:editor-focus-request": {
+    kind: "event",
+    validator: optionalEmptyObject,
+  },
   "settings:editor-open-command": {
     kind: "event",
-    validator: createStrictObjectValidator({ initialText: optional(validateString) }),
+    validator: createStrictObjectValidator({
+      initialText: optional(validateString),
+    }),
   },
   "settings:editor-ready": { kind: "event", validator: optionalEmptyObject },
   "settings:get": { kind: "invoke", validator: optionalEmptyObject },
@@ -64,13 +80,20 @@ const IPC_CONTRACTS = {
     validator: createStrictObjectValidator({ content: validateString }),
   },
   "settings:close": { kind: "invoke", validator: optionalEmptyObject },
-  "security:probe-privileged-ipc": { kind: "invoke", validator: optionalEmptyObject },
+  "security:probe-privileged-ipc": {
+    kind: "invoke",
+    validator: optionalEmptyObject,
+  },
 };
 
 function validateIpcPayload(channel, payload) {
   const contract = IPC_CONTRACTS[channel];
   if (!contract || typeof contract.validator !== "function") {
-    return { ok: false, message: "missing ipc validator", details: { channel } };
+    return {
+      ok: false,
+      message: "missing ipc validator",
+      details: { channel },
+    };
   }
   return contract.validator(payload);
 }

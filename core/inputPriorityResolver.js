@@ -18,43 +18,55 @@ function isModPasteShortcut(normalized, platform) {
 function shouldPrioritizeLeaderKey(normalized, focusSnapshot, state) {
   const leaderKey = (state && state.leaderKey) || "Space";
   const key = normalized && normalized.key;
-  const isLeader = leaderKey === "Space" ? key === "Space" || key === " " : key === leaderKey;
+  const isLeader =
+    leaderKey === "Space" ? key === "Space" || key === " " : key === leaderKey;
   return Boolean(
     normalized &&
-      normalized.type === "keyDown" &&
-      focusSnapshot &&
-      !focusSnapshot.historyPanelTextInputActive &&
-      ((state && state.leaderActive) || isLeader),
+    normalized.type === "keyDown" &&
+    focusSnapshot &&
+    !focusSnapshot.historyPanelTextInputActive &&
+    ((state && state.leaderActive) || isLeader),
   );
 }
 
 function resolveInputPriority(normalized, focusSnapshot, state, platform) {
-  const shouldPrioritizeLeader = shouldPrioritizeLeaderKey(normalized, focusSnapshot, state);
+  const shouldPrioritizeLeader = shouldPrioritizeLeaderKey(
+    normalized,
+    focusSnapshot,
+    state,
+  );
   const primaryMod = isPrimaryModifierPressed(normalized, platform);
 
   const isOpenSettingsShortcut = Boolean(
     normalized &&
-      normalized.type === "keyDown" &&
-      (normalized.key === "," || normalized.key === "Comma") &&
-      ((platform === "darwin" && normalized.meta) || (platform !== "darwin" && normalized.ctrl)),
+    normalized.type === "keyDown" &&
+    (normalized.key === "," || normalized.key === "Comma") &&
+    ((platform === "darwin" && normalized.meta) ||
+      (platform !== "darwin" && normalized.ctrl)),
   );
 
   const isBufferShortcut = Boolean(
     normalized &&
-      normalized.type === "keyDown" &&
-      primaryMod &&
-      !normalized.alt &&
-      (normalized.key === "t" || normalized.key === "T"),
+    normalized.type === "keyDown" &&
+    primaryMod &&
+    !normalized.alt &&
+    (normalized.key === "t" || normalized.key === "T"),
   );
 
   return {
     shouldPrioritizeLeader,
     shouldRouteFocusedTreeInput:
-      Boolean(focusSnapshot && focusSnapshot.historyPanelFocused) && !shouldPrioritizeLeader,
-    isUrllinePasteShortcut: Boolean(focusSnapshot && focusSnapshot.urllineEditing) && isModPasteShortcut(normalized, platform),
-    shouldRouteUrllineInput: Boolean(focusSnapshot && focusSnapshot.urllineEditing),
+      Boolean(focusSnapshot && focusSnapshot.historyPanelFocused) &&
+      !shouldPrioritizeLeader,
+    isUrllinePasteShortcut:
+      Boolean(focusSnapshot && focusSnapshot.urllineEditing) &&
+      isModPasteShortcut(normalized, platform),
+    shouldRouteUrllineInput: Boolean(
+      focusSnapshot && focusSnapshot.urllineEditing,
+    ),
     isCommandPasteShortcut:
-      Boolean(focusSnapshot && focusSnapshot.commandMode) && isModPasteShortcut(normalized, platform),
+      Boolean(focusSnapshot && focusSnapshot.commandMode) &&
+      isModPasteShortcut(normalized, platform),
     isOpenSettingsShortcut,
     isBufferShortcut,
   };

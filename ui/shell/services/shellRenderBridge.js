@@ -1,6 +1,8 @@
 const { renderTabline } = require("../../tabline");
 const { renderUrlline: renderShellUrlline } = require("../../urlline");
-const { pushShellPatch } = require("../../../core/adapters/renderer/shellPatchTransport");
+const {
+  pushShellPatch,
+} = require("../../../core/adapters/renderer/shellPatchTransport");
 const { DEFAULT_THEME, toCssVars } = require("../../theme");
 
 function renderTablineBridge(snapshot) {
@@ -29,12 +31,24 @@ function setThemeBridge(nextTheme = {}) {
   };
 
   this.applyThemeToWebContents(this.window && this.window.webContents);
-  this.applyThemeToWebContents(this.commandOverlayView && this.commandOverlayView.webContents);
-  this.applyThemeToWebContents(this.whichKeyOverlayView && this.whichKeyOverlayView.webContents);
-  this.applyThemeToWebContents(this.selectionModalView && this.selectionModalView.webContents);
-  this.applyThemeToWebContents(this.telescopeView && this.telescopeView.webContents);
-  this.applyThemeToWebContents(this.statuslineView && this.statuslineView.webContents);
-  this.applyThemeToWebContents(this.toastOverlayView && this.toastOverlayView.webContents);
+  this.applyThemeToWebContents(
+    this.commandOverlayView && this.commandOverlayView.webContents,
+  );
+  this.applyThemeToWebContents(
+    this.whichKeyOverlayView && this.whichKeyOverlayView.webContents,
+  );
+  this.applyThemeToWebContents(
+    this.selectionModalView && this.selectionModalView.webContents,
+  );
+  this.applyThemeToWebContents(
+    this.telescopeView && this.telescopeView.webContents,
+  );
+  this.applyThemeToWebContents(
+    this.statuslineView && this.statuslineView.webContents,
+  );
+  this.applyThemeToWebContents(
+    this.toastOverlayView && this.toastOverlayView.webContents,
+  );
   this.renderTabline(this.pendingTablineSnapshot);
   this.renderUrlline(this.urllineModel);
   this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
@@ -42,9 +56,14 @@ function setThemeBridge(nextTheme = {}) {
 }
 
 function updateSplitDividerBridge(splitStatus = {}) {
-  const divider = splitStatus.divider && typeof splitStatus.divider === "object" ? splitStatus.divider : {};
+  const divider =
+    splitStatus.divider && typeof splitStatus.divider === "object"
+      ? splitStatus.divider
+      : {};
   const visible = Boolean(divider.visible);
-  const offsetPx = Number.isFinite(divider.offsetPx) ? Math.max(0, Math.floor(divider.offsetPx)) : 0;
+  const offsetPx = Number.isFinite(divider.offsetPx)
+    ? Math.max(0, Math.floor(divider.offsetPx))
+    : 0;
 
   this.splitDividerState = { visible, offsetPx };
   if (!this.window || !this.shellHostReady) return;
@@ -88,10 +107,16 @@ function applyThemeToWebContentsBridge(webContents) {
 }
 
 function renderUrllineBridge(model = { panes: [] }) {
-  this.urllineModel = model && typeof model === "object" ? model : { panes: [] };
+  this.urllineModel =
+    model && typeof model === "object" ? model : { panes: [] };
   if (!this.window || !this.shellHostReady) return;
 
-  renderShellUrlline(this.window.webContents, this.urllineModel, this.urllineActions, this.currentTheme);
+  renderShellUrlline(
+    this.window.webContents,
+    this.urllineModel,
+    this.urllineActions,
+    this.currentTheme,
+  );
 }
 
 module.exports = {

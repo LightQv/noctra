@@ -1,5 +1,8 @@
 const Buffer = require("../buffers");
-const { attachView, detachView } = require("../../core/adapters/platform/contentViewHost");
+const {
+  attachView,
+  detachView,
+} = require("../../core/adapters/platform/contentViewHost");
 
 function bindBufferEvents(manager, buffer) {
   buffer.setContentUiOptions(manager.contentUiOptions);
@@ -26,12 +29,16 @@ function bindBufferEvents(manager, buffer) {
       timestampMs: event.timestampMs,
     });
   });
-  manager.attachPaneTracking(buffer, () => manager.resolvePaneForBuffer(buffer));
+  manager.attachPaneTracking(buffer, () =>
+    manager.resolvePaneForBuffer(buffer),
+  );
 }
 
 function createBuffer(manager, url = "about:blank", options = {}) {
   if (!manager.window) {
-    throw new Error("BufferManager must be initialized with a window before create().");
+    throw new Error(
+      "BufferManager must be initialized with a window before create().",
+    );
   }
 
   const activate = options.activate !== false;
@@ -67,7 +74,9 @@ function rememberClosedBuffer(manager, buffer, index) {
     kind: typeof buffer.kind === "string" ? buffer.kind : "web",
     title: typeof buffer.title === "string" ? buffer.title : "[No title]",
     virtualUrl: typeof buffer.virtualUrl === "string" ? buffer.virtualUrl : "",
-    index: Number.isInteger(index) ? index : manager.buffers.findIndex((item) => item === buffer),
+    index: Number.isInteger(index)
+      ? index
+      : manager.buffers.findIndex((item) => item === buffer),
   };
 
   if (snapshot.kind !== "web") {
@@ -76,7 +85,10 @@ function rememberClosedBuffer(manager, buffer, index) {
 
   manager.closedBuffers.push(snapshot);
   if (manager.closedBuffers.length > manager.maxClosedBuffers) {
-    manager.closedBuffers.splice(0, manager.closedBuffers.length - manager.maxClosedBuffers);
+    manager.closedBuffers.splice(
+      0,
+      manager.closedBuffers.length - manager.maxClosedBuffers,
+    );
   }
 }
 
@@ -199,7 +211,10 @@ function closeLeftOfActive(manager) {
 }
 
 function closeRightOfActive(manager) {
-  if (manager.activeIndex < 0 || manager.activeIndex >= manager.buffers.length - 1) {
+  if (
+    manager.activeIndex < 0 ||
+    manager.activeIndex >= manager.buffers.length - 1
+  ) {
     return manager.getActive();
   }
 

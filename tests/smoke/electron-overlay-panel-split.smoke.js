@@ -3,7 +3,14 @@ const { spawn } = require("node:child_process");
 
 function runSmoke() {
   return new Promise((resolve, reject) => {
-    const electronBin = path.join(__dirname, "..", "..", "node_modules", ".bin", "electron");
+    const electronBin = path.join(
+      __dirname,
+      "..",
+      "..",
+      "node_modules",
+      ".bin",
+      "electron",
+    );
     const projectRoot = path.resolve(__dirname, "..", "..");
     const child = spawn(electronBin, ["."], {
       cwd: projectRoot,
@@ -18,7 +25,11 @@ function runSmoke() {
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error("Overlay/panel split smoke timeout: app did not exit in time"));
+      reject(
+        new Error(
+          "Overlay/panel split smoke timeout: app did not exit in time",
+        ),
+      );
     }, 20000);
 
     child.stderr.on("data", (chunk) => {
@@ -37,7 +48,11 @@ function runSmoke() {
         return;
       }
 
-      reject(new Error(`Overlay/panel split smoke failed with exit code ${code}\n${stderr}`));
+      reject(
+        new Error(
+          `Overlay/panel split smoke failed with exit code ${code}\n${stderr}`,
+        ),
+      );
     });
   });
 }

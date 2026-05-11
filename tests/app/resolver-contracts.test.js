@@ -2,13 +2,27 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { resolveFocusOwner } = require("../../core/focusResolver");
-const { resolveSemanticContext } = require("../../core/semanticContextResolver");
+const {
+  resolveSemanticContext,
+} = require("../../core/semanticContextResolver");
 
 test("focus owner priority prefers modal and panel surfaces", () => {
-  assert.equal(resolveFocusOwner({ bookmarkModalActive: true, commandMode: true }), "BOOKMARK_MODAL");
-  assert.equal(resolveFocusOwner({ telescopeActive: true, historyPanelFocused: true }), "TELESCOPE");
-  assert.equal(resolveFocusOwner({ historyPanelFocused: true, urllineEditing: true }), "TREE");
-  assert.equal(resolveFocusOwner({ urllineEditing: true, commandMode: true }), "URLLINE");
+  assert.equal(
+    resolveFocusOwner({ bookmarkModalActive: true, commandMode: true }),
+    "BOOKMARK_MODAL",
+  );
+  assert.equal(
+    resolveFocusOwner({ telescopeActive: true, historyPanelFocused: true }),
+    "TELESCOPE",
+  );
+  assert.equal(
+    resolveFocusOwner({ historyPanelFocused: true, urllineEditing: true }),
+    "TREE",
+  );
+  assert.equal(
+    resolveFocusOwner({ urllineEditing: true, commandMode: true }),
+    "URLLINE",
+  );
 });
 
 test("semantic context resolves tree kind and editor/web fallback", () => {

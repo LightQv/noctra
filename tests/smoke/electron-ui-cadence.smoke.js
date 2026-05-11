@@ -3,7 +3,14 @@ const { spawn } = require("node:child_process");
 
 function runSmoke() {
   return new Promise((resolve, reject) => {
-    const electronBin = path.join(__dirname, "..", "..", "node_modules", ".bin", "electron");
+    const electronBin = path.join(
+      __dirname,
+      "..",
+      "..",
+      "node_modules",
+      ".bin",
+      "electron",
+    );
     const projectRoot = path.resolve(__dirname, "..", "..");
     const child = spawn(electronBin, ["."], {
       cwd: projectRoot,
@@ -37,7 +44,9 @@ function runSmoke() {
         return;
       }
 
-      reject(new Error(`UI cadence smoke failed with exit code ${code}\n${stderr}`));
+      reject(
+        new Error(`UI cadence smoke failed with exit code ${code}\n${stderr}`),
+      );
     });
   });
 }

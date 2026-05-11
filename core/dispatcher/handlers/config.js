@@ -19,15 +19,28 @@ function createConfigHandlers(deps) {
       }
       applyThemeEverywhere(win);
       uiShell.setTablineOptions({
-        showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
+        showFavicon: configService.getConfigValue(
+          "global.ui.tabline.show_favicon",
+          false,
+        ),
       });
-      buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
-      historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+      buffers.setUrllineVisible(
+        configService.getConfigValue("global.ui.urlline.enabled", false),
+      );
+      historyPanel.setWidthRatio(
+        configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2),
+      );
       historyPanel.setTreeScrollContextLines(
-        configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+        configService.getConfigValue(
+          "global.ui.sidepanel.tree_scroll_context_lines",
+          3,
+        ),
       );
       historyPanel.setTreeDeleteOperatorTimeoutMs(
-        configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+        configService.getConfigValue(
+          "global.ui.sidepanel.delete_operator_timeout_ms",
+          900,
+        ),
       );
       historyPanel.layout();
       buffers.layoutViews();
@@ -69,7 +82,10 @@ function createConfigHandlers(deps) {
       });
     },
     [INTENTS.SET_BROWSER_LANGUAGE]: ({ intent, state }) => {
-      const language = typeof intent.language === "string" ? intent.language.trim().toLowerCase() : "";
+      const language =
+        typeof intent.language === "string"
+          ? intent.language.trim().toLowerCase()
+          : "";
       if (!["en", "fr"].includes(language)) {
         notificationsService.notify({
           severity: "warning",
@@ -101,8 +117,14 @@ function createConfigHandlers(deps) {
       });
     },
     [INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD]: ({ intent, state }) => {
-      const current = Boolean(configService.getConfigValue("browser.copy_selection_to_clipboard", false));
-      const nextEnabled = typeof intent.enabled === "boolean" ? intent.enabled : !current;
+      const current = Boolean(
+        configService.getConfigValue(
+          "browser.copy_selection_to_clipboard",
+          false,
+        ),
+      );
+      const nextEnabled =
+        typeof intent.enabled === "boolean" ? intent.enabled : !current;
       const config = configService.updateCopySelectionToClipboard(nextEnabled);
       if (typeof state.applyConfig === "function") {
         state.applyConfig(config);
@@ -111,7 +133,9 @@ function createConfigHandlers(deps) {
       notificationsService.notify({
         severity: "info",
         code: "copy_selection_toggle",
-        message: nextEnabled ? "Selection auto-copy enabled" : "Selection auto-copy disabled",
+        message: nextEnabled
+          ? "Selection auto-copy enabled"
+          : "Selection auto-copy disabled",
         source: "core.dispatcher",
         persist: false,
       });

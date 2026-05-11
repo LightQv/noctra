@@ -31,7 +31,10 @@ function scrollByIntent(webContents, direction, amount) {
 }
 
 function scrollTop(webContents) {
-  return executeScript(webContents, `window.scrollTo({top: 0, behavior: "instant"})`);
+  return executeScript(
+    webContents,
+    `window.scrollTo({top: 0, behavior: "instant"})`,
+  );
 }
 
 function scrollBottom(webContents) {
@@ -47,11 +50,17 @@ function scrollBottom(webContents) {
 }
 
 function pageDown(webContents) {
-  return executeScript(webContents, `window.scrollBy(0, Math.floor(window.innerHeight * 0.9))`);
+  return executeScript(
+    webContents,
+    `window.scrollBy(0, Math.floor(window.innerHeight * 0.9))`,
+  );
 }
 
 function pageUp(webContents) {
-  return executeScript(webContents, `window.scrollBy(0, -Math.floor(window.innerHeight * 0.9))`);
+  return executeScript(
+    webContents,
+    `window.scrollBy(0, -Math.floor(window.innerHeight * 0.9))`,
+  );
 }
 
 function goBack(webContents) {

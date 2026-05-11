@@ -17,7 +17,9 @@ function resolveKeySequenceMatch(keymap, keyBuffer) {
     return { exact, hasPrefix: true };
   }
 
-  const hasPrefix = Object.keys(keymap).some((mapped) => mapped.startsWith(keyBuffer));
+  const hasPrefix = Object.keys(keymap).some((mapped) =>
+    mapped.startsWith(keyBuffer),
+  );
   return { exact: null, hasPrefix };
 }
 

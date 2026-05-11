@@ -1,4 +1,6 @@
-const { pushShellPatch } = require("../../../core/adapters/renderer/shellPatchTransport");
+const {
+  pushShellPatch,
+} = require("../../../core/adapters/renderer/shellPatchTransport");
 
 function showWhichKey(model, timeoutMs = 1200, delayMs = 0) {
   this.whichKeyModel = model || { prefix: "<leader>", entries: [] };
@@ -14,10 +16,17 @@ function showWhichKey(model, timeoutMs = 1200, delayMs = 0) {
   this.resetWhichKeyShowTimer(delayMs);
 }
 
-function updateWhichKey(model, timeoutMs = 1200, delayMs = 0, ensureVisible = true, forceImmediate = false) {
+function updateWhichKey(
+  model,
+  timeoutMs = 1200,
+  delayMs = 0,
+  ensureVisible = true,
+  forceImmediate = false,
+) {
   if (ensureVisible) {
     if (!this.whichKeyVisible && !forceImmediate && delayMs && delayMs > 0) {
-      this.whichKeyModel = model || this.whichKeyModel || { prefix: "<leader>", entries: [] };
+      this.whichKeyModel = model ||
+        this.whichKeyModel || { prefix: "<leader>", entries: [] };
       this.whichKeyPendingTimeoutMs = timeoutMs;
       this.clearWhichKeyHideTimer();
       this.resetWhichKeyShowTimer(delayMs);
@@ -28,7 +37,8 @@ function updateWhichKey(model, timeoutMs = 1200, delayMs = 0, ensureVisible = tr
     this.clearWhichKeyShowTimer();
   }
 
-  this.whichKeyModel = model || this.whichKeyModel || { prefix: "<leader>", entries: [] };
+  this.whichKeyModel = model ||
+    this.whichKeyModel || { prefix: "<leader>", entries: [] };
   if (timeoutMs === null) {
     this.clearWhichKeyHideTimer();
   } else {
@@ -40,10 +50,14 @@ function updateWhichKey(model, timeoutMs = 1200, delayMs = 0, ensureVisible = tr
 
   const safeModel = {
     prefix: this.whichKeyModel.prefix || "<leader>",
-    entries: Array.isArray(this.whichKeyModel.entries) ? this.whichKeyModel.entries : [],
+    entries: Array.isArray(this.whichKeyModel.entries)
+      ? this.whichKeyModel.entries
+      : [],
   };
 
-  pushShellPatch(this.whichKeyOverlayView.webContents, `
+  pushShellPatch(
+    this.whichKeyOverlayView.webContents,
+    `
       (function updateWhichKeyOverlay() {
         const prefixNode = document.getElementById('whichkey-prefix');
         const gridNode = document.getElementById('whichkey-grid');
@@ -84,7 +98,8 @@ function updateWhichKey(model, timeoutMs = 1200, delayMs = 0, ensureVisible = tr
           })
           .join('');
       })();
-    `);
+    `,
+  );
 }
 
 function hideWhichKey() {
@@ -99,14 +114,26 @@ function resetWhichKeyShowTimer(delayMs) {
 
   if (!delayMs || delayMs <= 0) {
     this.whichKeyVisible = true;
-    this.updateWhichKey(this.whichKeyModel, this.whichKeyPendingTimeoutMs, 0, true, true);
+    this.updateWhichKey(
+      this.whichKeyModel,
+      this.whichKeyPendingTimeoutMs,
+      0,
+      true,
+      true,
+    );
     return;
   }
 
   this.whichKeyShowTimer = setTimeout(() => {
     this.whichKeyShowTimer = null;
     this.whichKeyVisible = true;
-    this.updateWhichKey(this.whichKeyModel, this.whichKeyPendingTimeoutMs, 0, true, true);
+    this.updateWhichKey(
+      this.whichKeyModel,
+      this.whichKeyPendingTimeoutMs,
+      0,
+      true,
+      true,
+    );
   }, delayMs);
 }
 

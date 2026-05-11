@@ -1,4 +1,10 @@
-function createContractError({ code, boundary, subject, message, details = {} }) {
+function createContractError({
+  code,
+  boundary,
+  subject,
+  message,
+  details = {},
+}) {
   return {
     code,
     boundary,

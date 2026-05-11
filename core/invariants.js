@@ -35,11 +35,18 @@ function warnInvariant(condition, message, context = {}) {
 }
 
 function assertInputPipelinePreconditions({ input, priority, focusSnapshot }) {
-  enforceInvariant(Boolean(input && input.type === "keyDown"), "input must be normalized keyDown", {
-    type: input && input.type,
-  });
+  enforceInvariant(
+    Boolean(input && input.type === "keyDown"),
+    "input must be normalized keyDown",
+    {
+      type: input && input.type,
+    },
+  );
 
-  enforceInvariant(Boolean(priority && typeof priority === "object"), "priority resolver output missing");
+  enforceInvariant(
+    Boolean(priority && typeof priority === "object"),
+    "priority resolver output missing",
+  );
 
   enforceInvariant(
     Boolean(focusSnapshot && typeof focusSnapshot === "object"),
@@ -61,9 +68,13 @@ function assertModeWriteBoundary({ mode, state, source }) {
 }
 
 function assertIntentShape(intent) {
-  enforceInvariant(Boolean(intent && typeof intent.type === "string"), "intent must include string type", {
-    intentType: intent && intent.type,
-  });
+  enforceInvariant(
+    Boolean(intent && typeof intent.type === "string"),
+    "intent must include string type",
+    {
+      intentType: intent && intent.type,
+    },
+  );
 }
 
 module.exports = {

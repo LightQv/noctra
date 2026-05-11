@@ -1,7 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { registerIpcContracts } = require("../../core/adapters/platform/ipcRegistry");
+const {
+  registerIpcContracts,
+} = require("../../core/adapters/platform/ipcRegistry");
 const {
   registerSessionSecurityPolicy,
   registerWebContentsSecurityPolicy,
@@ -9,8 +11,12 @@ const {
 const {
   createPanelRenderTransport,
 } = require("../../core/adapters/renderer/panelRenderTransport");
-const { pushShellPatch } = require("../../core/adapters/renderer/shellPatchTransport");
-const { bindWebModeTracking } = require("../../core/adapters/platform/webContentsEvents");
+const {
+  pushShellPatch,
+} = require("../../core/adapters/renderer/shellPatchTransport");
+const {
+  bindWebModeTracking,
+} = require("../../core/adapters/platform/webContentsEvents");
 const { createWebModeSyncService } = require("../../core/webModeSyncService");
 const {
   markSurfaceRole,
@@ -182,8 +188,16 @@ test("session security policy enforces deny-all permission handlers", () => {
     openPath: false,
     defaultPath: "/tmp/downloads/report.txt",
   });
-  assert.equal(notifications.some((entry) => entry.code === "security_download_prompt_required"), true);
-  assert.equal(notifications.some((entry) => entry.code === "download_cancelled_by_user"), true);
+  assert.equal(
+    notifications.some(
+      (entry) => entry.code === "security_download_prompt_required",
+    ),
+    true,
+  );
+  assert.equal(
+    notifications.some((entry) => entry.code === "download_cancelled_by_user"),
+    true,
+  );
 });
 
 test("webContents security policy blocks window open and denied navigation", () => {
@@ -226,7 +240,9 @@ test("webContents security policy blocks window open and denied navigation", () 
   assert.equal(typeof windowOpenHandler, "function");
   assert.equal(willNavigateListeners.length, 1);
 
-  const openDecision = windowOpenHandler({ url: "https://blocked-window.test" });
+  const openDecision = windowOpenHandler({
+    url: "https://blocked-window.test",
+  });
   assert.deepEqual(openDecision, { action: "deny" });
 
   let prevented = false;
@@ -300,7 +316,10 @@ test("webContents security policy blocks remote navigation for trusted surfaces"
   );
 
   assert.equal(prevented, true);
-  assert.equal(notifications.at(-1).code, "security_trusted_surface_navigation_blocked");
+  assert.equal(
+    notifications.at(-1).code,
+    "security_trusted_surface_navigation_blocked",
+  );
 
   prevented = false;
   willNavigateListeners[0](
@@ -312,7 +331,10 @@ test("webContents security policy blocks remote navigation for trusted surfaces"
     "data:text/html,<p>loose</p>",
   );
   assert.equal(prevented, true);
-  assert.equal(notifications.at(-1).code, "security_trusted_surface_navigation_blocked");
+  assert.equal(
+    notifications.at(-1).code,
+    "security_trusted_surface_navigation_blocked",
+  );
 });
 
 test("panel render transport debounces and supports cancellation", async () => {
@@ -440,11 +462,15 @@ test("shell patch transport executes patches and can swallow errors", async () =
   };
 
   let capturedError = null;
-  const swallowed = await pushShellPatch(failingWebContents, "throw new Error('boom')", {
-    onError(error) {
-      capturedError = error;
+  const swallowed = await pushShellPatch(
+    failingWebContents,
+    "throw new Error('boom')",
+    {
+      onError(error) {
+        capturedError = error;
+      },
     },
-  });
+  );
   assert.equal(swallowed, null);
   assert.equal(capturedError instanceof Error, true);
 });
@@ -478,7 +504,11 @@ test("content view host adapter manages attach/detach and view primitives", () =
       calls.push(["bounds", bounds.width, bounds.height]);
     },
     setAutoResize(options) {
-      calls.push(["autoresize", Boolean(options.width), Boolean(options.height)]);
+      calls.push([
+        "autoresize",
+        Boolean(options.width),
+        Boolean(options.height),
+      ]);
     },
   };
 

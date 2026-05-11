@@ -23,7 +23,11 @@ function attachView(windowRef, view) {
 }
 
 function detachView(windowRef, view) {
-  if (!windowRef || !view || typeof windowRef.removeBrowserView !== "function") {
+  if (
+    !windowRef ||
+    !view ||
+    typeof windowRef.removeBrowserView !== "function"
+  ) {
     return;
   }
   if (!isViewAttached(windowRef, view)) {
@@ -47,7 +51,11 @@ function setViewAutoResize(view, options) {
 }
 
 function setTopView(windowRef, view) {
-  if (!windowRef || !view || typeof windowRef.setTopBrowserView !== "function") {
+  if (
+    !windowRef ||
+    !view ||
+    typeof windowRef.setTopBrowserView !== "function"
+  ) {
     return;
   }
   windowRef.setTopBrowserView(view);

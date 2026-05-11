@@ -9,13 +9,22 @@ test("detects unknown top-level keys", () => {
 });
 
 test("detects unknown nested keys", () => {
-  const result = normalizeConfigWithDiagnostics({ global: { ui: { tabline: { surprise: true } } } });
-  assert.deepEqual(result.diagnostics.unknownKeys, ["global.ui.tabline.surprise"]);
+  const result = normalizeConfigWithDiagnostics({
+    global: { ui: { tabline: { surprise: true } } },
+  });
+  assert.deepEqual(result.diagnostics.unknownKeys, [
+    "global.ui.tabline.surprise",
+  ]);
 });
 
 test("deduplicates unknown key warnings input", () => {
   const result = normalizeConfigWithDiagnostics({
-    global: { ui: { tabline: { surprise: true }, statusline: { surprise: true } } },
+    global: {
+      ui: { tabline: { surprise: true }, statusline: { surprise: true } },
+    },
   });
-  assert.equal(new Set(result.diagnostics.unknownKeys).size, result.diagnostics.unknownKeys.length);
+  assert.equal(
+    new Set(result.diagnostics.unknownKeys).size,
+    result.diagnostics.unknownKeys.length,
+  );
 });

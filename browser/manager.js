@@ -28,7 +28,10 @@ const {
   assignRightPaneSource,
   destroyRightPaneBuffer,
 } = require("./services/rightPaneBufferService");
-const { resolvePaneForBuffer, handlePaneInteraction } = require("./services/paneInteractionService");
+const {
+  resolvePaneForBuffer,
+  handlePaneInteraction,
+} = require("./services/paneInteractionService");
 const {
   isSessionRestorableBuffer,
   exportSessionSnapshot,
@@ -146,7 +149,8 @@ class BufferManager {
     const dashboardBuffers = this.buffers.filter(
       (buffer) =>
         buffer &&
-        (buffer.virtualUrl === "noctra://dashboard" || buffer.url === "noctra://dashboard"),
+        (buffer.virtualUrl === "noctra://dashboard" ||
+          buffer.url === "noctra://dashboard"),
     );
     if (dashboardBuffers.length === 0) {
       return;
@@ -161,7 +165,11 @@ class BufferManager {
       this.resolveOpeningBufferThemeContext(),
     );
 
-    if (!dashboardSpec || dashboardSpec.kind !== "virtual" || !dashboardSpec.document) {
+    if (
+      !dashboardSpec ||
+      dashboardSpec.kind !== "virtual" ||
+      !dashboardSpec.document
+    ) {
       return;
     }
 
@@ -192,7 +200,11 @@ class BufferManager {
 
     const target = this.buffers[index];
 
-    if (this.split.enabled && this.split.mode === "regular" && this.focusedPane === "right") {
+    if (
+      this.split.enabled &&
+      this.split.mode === "regular" &&
+      this.focusedPane === "right"
+    ) {
       this.assignRightPaneSource(target);
     } else {
       this.activeIndex = index;
@@ -210,14 +222,20 @@ class BufferManager {
     if (this.buffers.length === 0) return null;
 
     const currentMain = this.getFocusedMainBuffer();
-    const currentIndex = this.buffers.findIndex((buffer) => buffer === currentMain);
+    const currentIndex = this.buffers.findIndex(
+      (buffer) => buffer === currentMain,
+    );
     if (currentIndex === -1) return this.getActive();
 
     const length = this.buffers.length;
-    const nextIndex = ((currentIndex + offset) % length + length) % length;
+    const nextIndex = (((currentIndex + offset) % length) + length) % length;
     const nextBuffer = this.buffers[nextIndex];
 
-    if (this.split.enabled && this.split.mode === "regular" && this.focusedPane === "right") {
+    if (
+      this.split.enabled &&
+      this.split.mode === "regular" &&
+      this.focusedPane === "right"
+    ) {
       this.assignRightPaneSource(nextBuffer);
     } else {
       this.activeIndex = nextIndex;
@@ -325,12 +343,13 @@ class BufferManager {
   getSnapshot() {
     const leftBuffer = this.getLeftBuffer();
     const rightSource =
-      this.split.enabled && this.split.mode === "regular" ? this.split.rightPaneSourceBuffer : null;
+      this.split.enabled && this.split.mode === "regular"
+        ? this.split.rightPaneSourceBuffer
+        : null;
 
     const focusedSource =
       this.focusedPane === "right" && rightSource ? rightSource : leftBuffer;
-    const otherSource =
-      this.focusedPane === "right" ? leftBuffer : rightSource;
+    const otherSource = this.focusedPane === "right" ? leftBuffer : rightSource;
     const showSecondary =
       Boolean(leftBuffer && rightSource) && leftBuffer !== rightSource;
 

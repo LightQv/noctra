@@ -9,7 +9,9 @@ function isIpLike(value) {
 }
 
 function isLocalHostLike(value) {
-  return /^(?:localhost|127\.0\.0\.1|0\.0\.0\.0|::1)(?::\d+)?(?:\/.*)?$/i.test(value);
+  return /^(?:localhost|127\.0\.0\.1|0\.0\.0\.0|::1)(?::\d+)?(?:\/.*)?$/i.test(
+    value,
+  );
 }
 
 function looksLikeDomain(value) {
@@ -17,7 +19,12 @@ function looksLikeDomain(value) {
 }
 
 function looksLikeUrlTarget(value) {
-  return hasScheme(value) || isLocalHostLike(value) || isIpLike(value) || looksLikeDomain(value);
+  return (
+    hasScheme(value) ||
+    isLocalHostLike(value) ||
+    isIpLike(value) ||
+    looksLikeDomain(value)
+  );
 }
 
 function normalizeUrlCandidate(value) {
@@ -35,7 +42,11 @@ function normalizeUrlCandidate(value) {
 function isLoopbackHost(hostname) {
   if (typeof hostname !== "string") return false;
   const normalized = hostname.trim().toLowerCase();
-  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1"
+  );
 }
 
 function isPrivateIpv4(hostname) {
@@ -83,7 +94,8 @@ function isAllowedHttpHost(hostname, policy = {}) {
     return true;
   }
 
-  const normalizedHost = typeof hostname === "string" ? hostname.trim().toLowerCase() : "";
+  const normalizedHost =
+    typeof hostname === "string" ? hostname.trim().toLowerCase() : "";
   if (!normalizedHost.length) {
     return false;
   }

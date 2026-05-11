@@ -11,8 +11,18 @@ const {
   nullable,
 } = require("./validation");
 
-const validateScrollDirection = createEnumValidator(["up", "down", "left", "right"]);
-const validateThemeMode = createEnumValidator(["dark", "light", "auto", "custom"]);
+const validateScrollDirection = createEnumValidator([
+  "up",
+  "down",
+  "left",
+  "right",
+]);
+const validateThemeMode = createEnumValidator([
+  "dark",
+  "light",
+  "auto",
+  "custom",
+]);
 const validateLanguage = createEnumValidator(["en", "fr"]);
 
 function validateIntentNext(value) {
@@ -94,7 +104,11 @@ for (const intentType of Object.values(INTENTS)) {
 function validateIntentPayload(intentType, intentPayload) {
   const validator = INTENT_PAYLOAD_CONTRACTS[intentType];
   if (!validator) {
-    return { ok: false, message: "missing intent validator", details: { intentType } };
+    return {
+      ok: false,
+      message: "missing intent validator",
+      details: { intentType },
+    };
   }
   return validator(intentPayload);
 }

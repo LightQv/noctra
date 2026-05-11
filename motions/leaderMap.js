@@ -55,7 +55,9 @@ function isNodeAvailable(node, context = {}) {
   }
 
   if (node.children && typeof node.children === "object") {
-    return Object.values(node.children).some((child) => isNodeAvailable(child, context));
+    return Object.values(node.children).some((child) =>
+      isNodeAvailable(child, context),
+    );
   }
 
   if (typeof node.action !== "function") {
@@ -104,7 +106,9 @@ function getWhichKeyModel(path = [], numericBuffer = "", context = {}) {
 
   if (node && node.children) {
     const childKeys = Object.keys(node.children).sort((left, right) => {
-      const primary = left.localeCompare(right, undefined, { sensitivity: "base" });
+      const primary = left.localeCompare(right, undefined, {
+        sensitivity: "base",
+      });
       if (primary !== 0) {
         return primary;
       }

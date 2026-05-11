@@ -29,22 +29,34 @@ const { setEditorFocused, isEditorFocused } = require("./editorFocusState");
 const { computeStatuslineModeLabel } = require("./statuslineModeLabel");
 const { assertIntentShape, enforceInvariant } = require("./invariants");
 const { validateIntentPayload } = require("./contracts/intents");
-const { createInvalidPayloadError, createUnknownIntentError } = require("./contracts/errors");
+const {
+  createInvalidPayloadError,
+  createUnknownIntentError,
+} = require("./contracts/errors");
 const editorSurface = require("./adapters/renderer/editorSurface");
 const { broadcastUiShellPush } = require("./adapters/renderer/uiShellPush");
 const webContentsActions = require("./adapters/platform/webContentsActions");
-const { createNavigationHandlers } = require("./dispatcher/handlers/navigation");
+const {
+  createNavigationHandlers,
+} = require("./dispatcher/handlers/navigation");
 const { createCommandUiHandlers } = require("./dispatcher/handlers/commandUi");
 const { createBufferHandlers } = require("./dispatcher/handlers/buffers");
 const { createConfigHandlers } = require("./dispatcher/handlers/config");
 const { createEditorHandlers } = require("./dispatcher/handlers/editor");
-const { createHistoryBookmarksHandlers } = require("./dispatcher/handlers/historyBookmarks");
+const {
+  createHistoryBookmarksHandlers,
+} = require("./dispatcher/handlers/historyBookmarks");
 const { createTelescopeHandlers } = require("./dispatcher/handlers/telescope");
 const { createSessionHandlers } = require("./dispatcher/handlers/session");
 const { createMiscHandlers } = require("./dispatcher/handlers/misc");
 
 function blurFocusedWebInput(buffer) {
-  if (!buffer || buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+  if (
+    !buffer ||
+    buffer.isEditable ||
+    !buffer.webContents ||
+    buffer.webContents.isDestroyed()
+  ) {
     return;
   }
 
@@ -137,9 +149,18 @@ function openEditableFileBuffer(options = {}) {
 
 function getUrlPolicyConfig() {
   return {
-    allowHttpLoopback: configService.getConfigValue("browser.allow_http_loopback", true),
-    allowHttpPrivateLan: configService.getConfigValue("browser.allow_http_private_lan", true),
-    trustedHttpHosts: configService.getConfigValue("browser.trusted_http_hosts", []),
+    allowHttpLoopback: configService.getConfigValue(
+      "browser.allow_http_loopback",
+      true,
+    ),
+    allowHttpPrivateLan: configService.getConfigValue(
+      "browser.allow_http_private_lan",
+      true,
+    ),
+    trustedHttpHosts: configService.getConfigValue(
+      "browser.trusted_http_hosts",
+      [],
+    ),
   };
 }
 
@@ -188,14 +209,20 @@ function applyThemeEverywhere(win) {
   buffers.setContentUiOptions({
     thumbColor: payload.theme.scrollbarThumbColor,
     thumbActiveColor: payload.theme.scrollbarThumbActiveColor,
-    contentColorScheme: themeContext.contentColorScheme === "light" ? "light" : "dark",
+    contentColorScheme:
+      themeContext.contentColorScheme === "light" ? "light" : "dark",
   });
   buffers.refreshDashboardBuffers();
   broadcastUiShellPush({ win, buffers, type: "theme:update", payload });
 }
 
 function isReloadableWebBuffer(buffer) {
-  if (!buffer || buffer.isEditable || !buffer.webContents || buffer.webContents.isDestroyed()) {
+  if (
+    !buffer ||
+    buffer.isEditable ||
+    !buffer.webContents ||
+    buffer.webContents.isDestroyed()
+  ) {
     return false;
   }
 
@@ -265,7 +292,9 @@ function createIntentHandlers(dispatch) {
 let intentHandlers = null;
 
 function warnOnIntentCoverageGaps(handlers) {
-  const missing = Object.values(INTENTS).filter((type) => typeof handlers[type] !== "function");
+  const missing = Object.values(INTENTS).filter(
+    (type) => typeof handlers[type] !== "function",
+  );
   enforceInvariant(
     missing.length === 0,
     "missing dispatcher handlers for known intent types",

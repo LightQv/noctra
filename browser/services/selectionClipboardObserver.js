@@ -1,17 +1,27 @@
 const { clipboard } = require("electron");
 const { getConfigValue } = require("../../core/config/service");
 const notificationsService = require("../../core/notifications/service");
-const { bindPaneObservers, readSelection } = require("../../core/adapters/platform/webContentsObserver");
+const {
+  bindPaneObservers,
+  readSelection,
+} = require("../../core/adapters/platform/webContentsObserver");
 
 function attachPaneTracking(manager, buffer, paneResolver) {
   if (!buffer || !buffer.webContents) return;
 
   const maybeCopySelectionToClipboard = async () => {
-    if (!buffer.webContents || buffer.webContents.isDestroyed() || buffer.isEditable) {
+    if (
+      !buffer.webContents ||
+      buffer.webContents.isDestroyed() ||
+      buffer.isEditable
+    ) {
       return;
     }
 
-    const isEnabled = getConfigValue("browser.copy_selection_to_clipboard", false);
+    const isEnabled = getConfigValue(
+      "browser.copy_selection_to_clipboard",
+      false,
+    );
     if (!isEnabled) {
       return;
     }
@@ -38,7 +48,8 @@ function attachPaneTracking(manager, buffer, paneResolver) {
 
     const now = Date.now();
     const webContentsId = buffer.webContents.id;
-    const previous = manager.lastSelectionCopyByWebContentsId.get(webContentsId);
+    const previous =
+      manager.lastSelectionCopyByWebContentsId.get(webContentsId);
     if (
       previous &&
       previous.text === selectedText &&
@@ -63,7 +74,8 @@ function attachPaneTracking(manager, buffer, paneResolver) {
   };
 
   const onMouseEvent = (event, input) => {
-    if (!input || (input.type !== "mouseDown" && input.type !== "mouseUp")) return;
+    if (!input || (input.type !== "mouseDown" && input.type !== "mouseUp"))
+      return;
     if (input.type === "mouseUp") {
       setTimeout(() => {
         maybeCopySelectionToClipboard().catch(() => {});

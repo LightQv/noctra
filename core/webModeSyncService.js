@@ -2,9 +2,14 @@ function isUsableWebContents(webContents) {
   return Boolean(webContents && !webContents.isDestroyed());
 }
 
-function createWebModeSyncService({ syncWebModeWithFocusedElement, bindWebModeTracking }) {
+function createWebModeSyncService({
+  syncWebModeWithFocusedElement,
+  bindWebModeTracking,
+}) {
   if (typeof syncWebModeWithFocusedElement !== "function") {
-    throw new Error("createWebModeSyncService requires syncWebModeWithFocusedElement");
+    throw new Error(
+      "createWebModeSyncService requires syncWebModeWithFocusedElement",
+    );
   }
   if (typeof bindWebModeTracking !== "function") {
     throw new Error("createWebModeSyncService requires bindWebModeTracking");
@@ -25,38 +30,52 @@ function createWebModeSyncService({ syncWebModeWithFocusedElement, bindWebModeTr
   }
 
   function requestSync(webContents, delayMs = 40) {
-    if (!isUsableWebContents(webContents) || activeWebContents !== webContents) {
+    if (
+      !isUsableWebContents(webContents) ||
+      activeWebContents !== webContents
+    ) {
       return;
     }
 
     clearPendingSync();
 
-    syncTimer = setTimeout(() => {
-      syncTimer = null;
+    syncTimer = setTimeout(
+      () => {
+        syncTimer = null;
 
-      if (!isUsableWebContents(webContents) || activeWebContents !== webContents) {
-        return;
-      }
-
-      if (syncInFlight) {
-        syncPending = true;
-        return;
-      }
-
-      syncInFlight = true;
-      Promise.resolve(syncWebModeWithFocusedElement(webContents)).finally(() => {
-        syncInFlight = false;
-        if (!syncPending) {
+        if (
+          !isUsableWebContents(webContents) ||
+          activeWebContents !== webContents
+        ) {
           return;
         }
-        syncPending = false;
-        requestSync(webContents, 30);
-      });
-    }, Math.max(0, Number(delayMs) || 0));
+
+        if (syncInFlight) {
+          syncPending = true;
+          return;
+        }
+
+        syncInFlight = true;
+        Promise.resolve(syncWebModeWithFocusedElement(webContents)).finally(
+          () => {
+            syncInFlight = false;
+            if (!syncPending) {
+              return;
+            }
+            syncPending = false;
+            requestSync(webContents, 30);
+          },
+        );
+      },
+      Math.max(0, Number(delayMs) || 0),
+    );
   }
 
   function syncNowIfTracked(webContents) {
-    if (!isUsableWebContents(webContents) || activeWebContents !== webContents) {
+    if (
+      !isUsableWebContents(webContents) ||
+      activeWebContents !== webContents
+    ) {
       return Promise.resolve();
     }
     return Promise.resolve(syncWebModeWithFocusedElement(webContents));
@@ -86,7 +105,10 @@ function createWebModeSyncService({ syncWebModeWithFocusedElement, bindWebModeTr
         requestSync(webContents);
       },
       onBeforeMouseEvent(_event, input) {
-        if (!input || (input.type !== "mouseDown" && input.type !== "mouseUp")) {
+        if (
+          !input ||
+          (input.type !== "mouseDown" && input.type !== "mouseUp")
+        ) {
           return;
         }
         requestSync(webContents, input.type === "mouseDown" ? 10 : 35);

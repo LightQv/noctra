@@ -28,7 +28,12 @@ function wireWindowLifecycle({
       clearTimeout(persistWindowBoundsTimer);
     }
     persistWindowBoundsTimer = setTimeout(() => {
-      if (!win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) {
+      if (
+        !win ||
+        win.isDestroyed() ||
+        win.isMaximized() ||
+        win.isFullScreen()
+      ) {
         return;
       }
       const { width, height, x, y } = win.getBounds();

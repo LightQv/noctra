@@ -1,5 +1,8 @@
 const { BrowserView } = require("electron");
-const { markSurfaceRole, SURFACE_ROLES } = require("../../security/surfaceTrust");
+const {
+  markSurfaceRole,
+  SURFACE_ROLES,
+} = require("../../security/surfaceTrust");
 
 function createPanelViewHost({ windowRef, onMouseDown, onFocus }) {
   if (!windowRef || windowRef.isDestroyed()) {

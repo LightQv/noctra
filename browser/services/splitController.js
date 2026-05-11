@@ -84,7 +84,10 @@ function reconcileSplitSources(manager) {
     return;
   }
 
-  if (!manager.split.rightPaneSourceBuffer || !manager.buffers.includes(manager.split.rightPaneSourceBuffer)) {
+  if (
+    !manager.split.rightPaneSourceBuffer ||
+    !manager.buffers.includes(manager.split.rightPaneSourceBuffer)
+  ) {
     manager.split.rightPaneSourceBuffer = manager.getLeftBuffer();
     if (manager.split.rightPaneSourceBuffer) {
       manager.assignRightPaneSource(manager.split.rightPaneSourceBuffer);

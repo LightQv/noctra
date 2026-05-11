@@ -1,7 +1,13 @@
 const { BrowserView } = require("electron");
 const { EventEmitter } = require("events");
-const { applyScrollableUi, releaseChromiumPreferredColorScheme } = require("./contentUi");
-const { markSurfaceRole, SURFACE_ROLES } = require("../core/security/surfaceTrust");
+const {
+  applyScrollableUi,
+  releaseChromiumPreferredColorScheme,
+} = require("./contentUi");
+const {
+  markSurfaceRole,
+  SURFACE_ROLES,
+} = require("../core/security/surfaceTrust");
 const {
   UI_SCROLLBAR_THUMB_COLOR,
   UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
@@ -17,7 +23,8 @@ function getUrlDisplayTitle(rawUrl) {
     }
 
     const host = parsed.host || parsed.hostname;
-    const path = parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "";
+    const path =
+      parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "";
     return `${host}${path}` || parsed.href;
   } catch {
     return rawUrl;
@@ -36,7 +43,10 @@ class Buffer extends EventEmitter {
       webviewTag: false,
     };
 
-    if (typeof options.preloadPath === "string" && options.preloadPath.length > 0) {
+    if (
+      typeof options.preloadPath === "string" &&
+      options.preloadPath.length > 0
+    ) {
       webPreferences.preload = options.preloadPath;
     }
 
@@ -45,7 +55,10 @@ class Buffer extends EventEmitter {
     });
 
     this.webContents = this.view.webContents;
-    markSurfaceRole(this.webContents, options.surfaceRole || SURFACE_ROLES.UNTRUSTED_WEB);
+    markSurfaceRole(
+      this.webContents,
+      options.surfaceRole || SURFACE_ROLES.UNTRUSTED_WEB,
+    );
     this.url = "about:blank";
     this.virtualUrl = "";
     this.title = "[No title]";
@@ -94,7 +107,9 @@ class Buffer extends EventEmitter {
 
     this.webContents.on("page-favicon-updated", (_, favicons) => {
       const nextFavicon =
-        Array.isArray(favicons) && typeof favicons[0] === "string" ? favicons[0] : "";
+        Array.isArray(favicons) && typeof favicons[0] === "string"
+          ? favicons[0]
+          : "";
       if (this.faviconUrl === nextFavicon) {
         return;
       }

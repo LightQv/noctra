@@ -34,22 +34,38 @@ function applyOverlayLayout({
 
   const commandVisible = Boolean(visibility && visibility.commandVisible);
   const whichKeyVisible = Boolean(visibility && visibility.whichKeyVisible);
-  const selectionModalVisible = Boolean(visibility && visibility.selectionModalVisible);
+  const selectionModalVisible = Boolean(
+    visibility && visibility.selectionModalVisible,
+  );
   const telescopeVisible = Boolean(visibility && visibility.telescopeVisible);
 
-  const width = commandVisible ? Math.min(500, Math.max(bounds.width - 160, 300)) : 1;
+  const width = commandVisible
+    ? Math.min(500, Math.max(bounds.width - 160, 300))
+    : 1;
   const height = commandVisible ? 42 : 1;
-  const x = commandVisible ? Math.max(Math.floor((bounds.width - width) / 2), 0) : -10000;
+  const x = commandVisible
+    ? Math.max(Math.floor((bounds.width - width) / 2), 0)
+    : -10000;
   const y = commandVisible
-    ? Math.max(Math.floor((bounds.height - height) / 2), UI_SHELL_TABLINE_HEIGHT + 10)
+    ? Math.max(
+        Math.floor((bounds.height - height) / 2),
+        UI_SHELL_TABLINE_HEIGHT + 10,
+      )
     : -10000;
   commandOverlayView.setBounds({ x, y, width, height });
 
-  const whichWidth = whichKeyVisible ? Math.min(980, Math.max(bounds.width - 28, 560)) : 1;
+  const whichWidth = whichKeyVisible
+    ? Math.min(980, Math.max(bounds.width - 28, 560))
+    : 1;
   const whichHeight = whichKeyVisible ? 150 : 1;
-  const whichX = whichKeyVisible ? Math.max(Math.floor((bounds.width - whichWidth) / 2), 0) : -10000;
+  const whichX = whichKeyVisible
+    ? Math.max(Math.floor((bounds.width - whichWidth) / 2), 0)
+    : -10000;
   const whichY = whichKeyVisible
-    ? Math.max(bounds.height - UI_SHELL_STATUSLINE_HEIGHT - whichHeight - 12, UI_SHELL_TABLINE_HEIGHT + 12)
+    ? Math.max(
+        bounds.height - UI_SHELL_STATUSLINE_HEIGHT - whichHeight - 12,
+        UI_SHELL_TABLINE_HEIGHT + 12,
+      )
     : -10000;
   whichKeyOverlayView.setBounds({
     x: whichX,
@@ -58,12 +74,16 @@ function applyOverlayLayout({
     height: whichHeight,
   });
 
-  const modalWidth = selectionModalVisible ? Math.min(560, Math.max(bounds.width - 120, 320)) : 1;
-  const modalHeight = selectionModalVisible
-    ? computeSelectionModalHeight()
+  const modalWidth = selectionModalVisible
+    ? Math.min(560, Math.max(bounds.width - 120, 320))
     : 1;
-  const modalX = selectionModalVisible ? Math.max(Math.floor((bounds.width - modalWidth) / 2), 0) : -10000;
-  const modalY = selectionModalVisible ? Math.max(UI_SHELL_TABLINE_HEIGHT + 12, 0) : -10000;
+  const modalHeight = selectionModalVisible ? computeSelectionModalHeight() : 1;
+  const modalX = selectionModalVisible
+    ? Math.max(Math.floor((bounds.width - modalWidth) / 2), 0)
+    : -10000;
+  const modalY = selectionModalVisible
+    ? Math.max(UI_SHELL_TABLINE_HEIGHT + 12, 0)
+    : -10000;
   selectionModalView.setBounds({
     x: modalX,
     y: modalY,
@@ -71,11 +91,18 @@ function applyOverlayLayout({
     height: modalHeight,
   });
 
-  const telescopeWidth = telescopeVisible ? Math.min(1080, Math.max(bounds.width - 120, 520)) : 1;
+  const telescopeWidth = telescopeVisible
+    ? Math.min(1080, Math.max(bounds.width - 120, 520))
+    : 1;
   const telescopeHeight = telescopeVisible
     ? Math.max(
         240,
-        Math.floor((bounds.height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT) * 0.68),
+        Math.floor(
+          (bounds.height -
+            UI_SHELL_TABLINE_HEIGHT -
+            UI_SHELL_STATUSLINE_HEIGHT) *
+            0.68,
+        ),
       )
     : 1;
   const telescopeX = telescopeVisible
@@ -84,7 +111,9 @@ function applyOverlayLayout({
   const telescopeY = telescopeVisible
     ? Math.max(
         UI_SHELL_TABLINE_HEIGHT + 10,
-        Math.floor((bounds.height - UI_SHELL_STATUSLINE_HEIGHT - telescopeHeight) / 2),
+        Math.floor(
+          (bounds.height - UI_SHELL_STATUSLINE_HEIGHT - telescopeHeight) / 2,
+        ),
       )
     : -10000;
   telescopeView.setBounds({
@@ -96,7 +125,10 @@ function applyOverlayLayout({
 
   statuslineView.setBounds({
     x: 0,
-    y: Math.max(bounds.height - UI_SHELL_STATUSLINE_HEIGHT, UI_SHELL_TABLINE_HEIGHT + 1),
+    y: Math.max(
+      bounds.height - UI_SHELL_STATUSLINE_HEIGHT,
+      UI_SHELL_TABLINE_HEIGHT + 1,
+    ),
     width: bounds.width,
     height: UI_SHELL_STATUSLINE_HEIGHT,
   });
@@ -105,7 +137,10 @@ function applyOverlayLayout({
     x: Math.max(bounds.width - 452, 0),
     y: UI_SHELL_TABLINE_HEIGHT + 10,
     width: Math.min(452, bounds.width),
-    height: Math.max(bounds.height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT - 20, 1),
+    height: Math.max(
+      bounds.height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT - 20,
+      1,
+    ),
   });
 }
 

@@ -11,7 +11,9 @@ function createInputCoordinator({
     if (!nextWebContents) return;
 
     const activeBuffer = buffers.getActive();
-    const shouldTrackWebMode = Boolean(activeBuffer && !activeBuffer.isEditable);
+    const shouldTrackWebMode = Boolean(
+      activeBuffer && !activeBuffer.isEditable,
+    );
 
     if (
       activeInputWebContents === nextWebContents &&
@@ -25,7 +27,10 @@ function createInputCoordinator({
     }
 
     if (activeInputWebContents && inputListener) {
-      activeInputWebContents.removeListener("before-input-event", inputListener);
+      activeInputWebContents.removeListener(
+        "before-input-event",
+        inputListener,
+      );
     }
 
     webModeSyncService.unbind();
@@ -50,7 +55,10 @@ function createInputCoordinator({
 
   function dispose() {
     if (activeInputWebContents && inputListener) {
-      activeInputWebContents.removeListener("before-input-event", inputListener);
+      activeInputWebContents.removeListener(
+        "before-input-event",
+        inputListener,
+      );
     }
     webModeSyncService.unbind();
     activeInputWebContents = null;

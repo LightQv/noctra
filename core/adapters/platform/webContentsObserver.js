@@ -23,10 +23,15 @@ function bindPaneObservers(webContents, handlers = {}) {
   }
 
   const onMouseEvent =
-    typeof handlers.onMouseEvent === "function" ? handlers.onMouseEvent : () => {};
-  const onFocus = typeof handlers.onFocus === "function" ? handlers.onFocus : () => {};
+    typeof handlers.onMouseEvent === "function"
+      ? handlers.onMouseEvent
+      : () => {};
+  const onFocus =
+    typeof handlers.onFocus === "function" ? handlers.onFocus : () => {};
   const onDestroyed =
-    typeof handlers.onDestroyed === "function" ? handlers.onDestroyed : () => {};
+    typeof handlers.onDestroyed === "function"
+      ? handlers.onDestroyed
+      : () => {};
 
   webContents.on("before-mouse-event", onMouseEvent);
   webContents.on("focus", onFocus);

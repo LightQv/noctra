@@ -4,7 +4,10 @@ const { INTENTS } = require("../core/intents");
 const { enterCommandMode } = require("../core/modeTransitionService");
 const { getLeaderNode, getWhichKeyModel } = require("./leaderMap");
 const { rememberRepeatableIntent } = require("./repeat");
-const { hasSequenceTimedOut, consumePositiveCount } = require("./grammarPrimitives");
+const {
+  hasSequenceTimedOut,
+  consumePositiveCount,
+} = require("./grammarPrimitives");
 const {
   resetLeaderSession,
   startLeaderSession,
@@ -50,7 +53,11 @@ function showWhichKey(state) {
 
   return {
     type: INTENTS.SHOW_WHICHKEY,
-    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer, buildLeaderContext()),
+    model: getWhichKeyModel(
+      state.leaderPath,
+      state.leaderNumericBuffer,
+      buildLeaderContext(),
+    ),
     delayMs: state.whichKeyDisplayDelay,
     timeoutMs: state.whichKeyTimeout,
   };
@@ -63,7 +70,11 @@ function updateWhichKey(state) {
 
   return {
     type: INTENTS.UPDATE_WHICHKEY,
-    model: getWhichKeyModel(state.leaderPath, state.leaderNumericBuffer, buildLeaderContext()),
+    model: getWhichKeyModel(
+      state.leaderPath,
+      state.leaderNumericBuffer,
+      buildLeaderContext(),
+    ),
     delayMs: state.whichKeyDisplayDelay,
     timeoutMs: state.whichKeyTimeout,
   };
@@ -137,7 +148,10 @@ function handleLeaderSequence(state, input, now) {
     return hideWhichKeyAndReset(state);
   }
 
-  const nextNode = getLeaderNode([...state.leaderPath, matchedKey], buildLeaderContext());
+  const nextNode = getLeaderNode(
+    [...state.leaderPath, matchedKey],
+    buildLeaderContext(),
+  );
   if (!nextNode) {
     return hideWhichKeyAndReset(state);
   }

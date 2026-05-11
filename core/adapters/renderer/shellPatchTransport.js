@@ -9,9 +9,13 @@ function pushShellPatch(webContents, script, options = {}) {
 
   const userGesture = options.userGesture === true;
   const swallowErrors = options.swallowErrors !== false;
-  const onError = typeof options.onError === "function" ? options.onError : null;
+  const onError =
+    typeof options.onError === "function" ? options.onError : null;
 
-  const promise = webContents.executeJavaScript(String(script || ""), userGesture);
+  const promise = webContents.executeJavaScript(
+    String(script || ""),
+    userGesture,
+  );
   if (!swallowErrors && !onError) {
     return promise;
   }

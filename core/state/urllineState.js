@@ -5,18 +5,28 @@ function normalizeUrllineText(value) {
 
 function clampUrllineCursor(state) {
   const max = state.urllineBuffer.length;
-  const index = Number.isFinite(state.urllineCursorIndex) ? Math.trunc(state.urllineCursorIndex) : max;
+  const index = Number.isFinite(state.urllineCursorIndex)
+    ? Math.trunc(state.urllineCursorIndex)
+    : max;
   state.urllineCursorIndex = Math.max(0, Math.min(index, max));
 }
 
 function setUrllineCursor(state, index) {
-  const next = Number.isFinite(index) ? Math.trunc(index) : state.urllineBuffer.length;
-  state.urllineCursorIndex = Math.max(0, Math.min(next, state.urllineBuffer.length));
+  const next = Number.isFinite(index)
+    ? Math.trunc(index)
+    : state.urllineBuffer.length;
+  state.urllineCursorIndex = Math.max(
+    0,
+    Math.min(next, state.urllineBuffer.length),
+  );
 }
 
 function moveUrllineCursor(state, delta) {
   clampUrllineCursor(state);
-  state.urllineCursorIndex = Math.max(0, Math.min(state.urllineCursorIndex + delta, state.urllineBuffer.length));
+  state.urllineCursorIndex = Math.max(
+    0,
+    Math.min(state.urllineCursorIndex + delta, state.urllineBuffer.length),
+  );
 }
 
 function startUrllineEditState(state, pane, initialUrl) {
@@ -50,7 +60,9 @@ function deleteUrllineBackward(state) {
   clampUrllineCursor(state);
   if (state.urllineCursorIndex <= 0) return false;
   const cursor = state.urllineCursorIndex;
-  state.urllineBuffer = state.urllineBuffer.slice(0, cursor - 1) + state.urllineBuffer.slice(cursor);
+  state.urllineBuffer =
+    state.urllineBuffer.slice(0, cursor - 1) +
+    state.urllineBuffer.slice(cursor);
   state.urllineCursorIndex = cursor - 1;
   return true;
 }
@@ -59,7 +71,9 @@ function deleteUrllineForward(state) {
   clampUrllineCursor(state);
   const cursor = state.urllineCursorIndex;
   if (cursor >= state.urllineBuffer.length) return false;
-  state.urllineBuffer = state.urllineBuffer.slice(0, cursor) + state.urllineBuffer.slice(cursor + 1);
+  state.urllineBuffer =
+    state.urllineBuffer.slice(0, cursor) +
+    state.urllineBuffer.slice(cursor + 1);
   return true;
 }
 

@@ -18,7 +18,9 @@ function getSurfaceRole(webContents) {
   if (!webContents) {
     return SURFACE_ROLES.UNTRUSTED_WEB;
   }
-  return surfaceRoleByWebContents.get(webContents) || SURFACE_ROLES.UNTRUSTED_WEB;
+  return (
+    surfaceRoleByWebContents.get(webContents) || SURFACE_ROLES.UNTRUSTED_WEB
+  );
 }
 
 function isTrustedInternalRole(role) {

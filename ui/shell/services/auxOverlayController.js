@@ -1,4 +1,6 @@
-const { pushShellPatch } = require("../../../core/adapters/renderer/shellPatchTransport");
+const {
+  pushShellPatch,
+} = require("../../../core/adapters/renderer/shellPatchTransport");
 
 function showNotificationToast(toast = {}) {
   if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) {
@@ -7,10 +9,20 @@ function showNotificationToast(toast = {}) {
     return;
   }
 
-  const severity = toast.severity === "error" || toast.severity === "warning" ? toast.severity : "info";
+  const severity =
+    toast.severity === "error" || toast.severity === "warning"
+      ? toast.severity
+      : "info";
   const message = String(toast.message || "");
-  const timeoutMs = Number.isFinite(toast.timeoutMs) ? Math.max(800, Math.floor(toast.timeoutMs)) : 2200;
-  const accentColor = severity === "error" ? this.currentTheme.dangerTextColor : severity === "warning" ? "#f6c177" : this.currentTheme.mainColor;
+  const timeoutMs = Number.isFinite(toast.timeoutMs)
+    ? Math.max(800, Math.floor(toast.timeoutMs))
+    : 2200;
+  const accentColor =
+    severity === "error"
+      ? this.currentTheme.dangerTextColor
+      : severity === "warning"
+        ? "#f6c177"
+        : this.currentTheme.mainColor;
 
   pushShellPatch(
     this.toastOverlayView.webContents,
@@ -34,14 +46,18 @@ function showNotificationToast(toast = {}) {
     `,
     {
       onError(error) {
-        console.warn("[noctra:warning] toast_render_failed", error && error.message ? error.message : error);
+        console.warn(
+          "[noctra:warning] toast_render_failed",
+          error && error.message ? error.message : error,
+        );
       },
     },
   );
 }
 
 function flushPendingToasts() {
-  if (!this.window || !this.shellHostReady || this.pendingToasts.length === 0) return;
+  if (!this.window || !this.shellHostReady || this.pendingToasts.length === 0)
+    return;
   const queuedToasts = this.pendingToasts.splice(0, this.pendingToasts.length);
   for (const toast of queuedToasts) this.showNotificationToast(toast);
 }
@@ -73,14 +89,22 @@ function updateSelectionModal(model) {
     promptTitle: String(this.selectionModalModel?.promptTitle || ""),
     urlLine: String(this.selectionModalModel?.urlLine || ""),
     scopeLabel: String(this.selectionModalModel?.scopeLabel || ""),
-    items: Array.isArray(this.selectionModalModel?.items) ? this.selectionModalModel.items.map((item) => String(item || "")) : [],
-    indexHints: Array.isArray(this.selectionModalModel?.indexHints) ? this.selectionModalModel.indexHints.map((item) => String(item || "")) : [],
-    selectedIndex: Number.isFinite(this.selectionModalModel?.selectedIndex) ? Math.max(0, Math.floor(this.selectionModalModel.selectedIndex)) : -1,
+    items: Array.isArray(this.selectionModalModel?.items)
+      ? this.selectionModalModel.items.map((item) => String(item || ""))
+      : [],
+    indexHints: Array.isArray(this.selectionModalModel?.indexHints)
+      ? this.selectionModalModel.indexHints.map((item) => String(item || ""))
+      : [],
+    selectedIndex: Number.isFinite(this.selectionModalModel?.selectedIndex)
+      ? Math.max(0, Math.floor(this.selectionModalModel.selectedIndex))
+      : -1,
     footerLeft: String(this.selectionModalModel?.footerLeft || ""),
     footerRight: String(this.selectionModalModel?.footerRight || ""),
   };
 
-  pushShellPatch(this.selectionModalView.webContents, `
+  pushShellPatch(
+    this.selectionModalView.webContents,
+    `
       (function updateSelectionModal() {
         const titleNode = document.getElementById('selection-modal-title');
         const promptNode = document.getElementById('selection-modal-prompt');
@@ -122,7 +146,8 @@ function updateSelectionModal(model) {
 
         footerNode.innerHTML = '<span>' + escapeHtml(model.footerLeft) + '</span><span>' + escapeHtml(model.footerRight) + '</span>';
       })();
-    `);
+    `,
+  );
 
   this.relayout();
 }
@@ -163,7 +188,9 @@ function updateTelescope(model) {
       : [],
   };
 
-  pushShellPatch(this.telescopeView.webContents, `
+  pushShellPatch(
+    this.telescopeView.webContents,
+    `
       (function updateTelescope() {
         const titleNode = document.getElementById('telescope-prompt-title');
         const queryNode = document.getElementById('telescope-query');
@@ -199,7 +226,8 @@ function updateTelescope(model) {
           active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         }
       })();
-    `);
+    `,
+  );
 
   this.relayout();
 }
@@ -209,8 +237,13 @@ function computeSelectionModalHeight(model = null) {
   const hasPrompt = Boolean(String(activeModel.promptTitle || "").trim());
   const hasUrl = Boolean(String(activeModel.urlLine || "").trim());
   const hasScope = Boolean(String(activeModel.scopeLabel || "").trim());
-  const hasFooter = Boolean(String(activeModel.footerLeft || "").trim() || String(activeModel.footerRight || "").trim());
-  const itemCount = Array.isArray(activeModel.items) ? activeModel.items.length : 0;
+  const hasFooter = Boolean(
+    String(activeModel.footerLeft || "").trim() ||
+    String(activeModel.footerRight || "").trim(),
+  );
+  const itemCount = Array.isArray(activeModel.items)
+    ? activeModel.items.length
+    : 0;
   const base = 38;
   const prompt = hasPrompt ? 16 : 0;
   const url = hasUrl ? 14 : 0;
@@ -224,35 +257,47 @@ function computeSelectionModalHeight(model = null) {
 function updateStatuslineMode(mode) {
   this.statuslineMode = String(mode || "NORMAL");
   if (!this.statuslineView || !this.statuslineReady) return;
-  pushShellPatch(this.statuslineView.webContents, `
+  pushShellPatch(
+    this.statuslineView.webContents,
+    `
       (function updateStatuslineMode() {
         const node = document.getElementById('statusline-mode-label');
         if (!node) return;
         node.textContent = ${JSON.stringify(this.statuslineMode)};
       })();
-    `);
+    `,
+  );
 }
 
 function updateStatuslineScroll(percent) {
-  const normalized = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
+  const normalized = Number.isFinite(percent)
+    ? Math.max(0, Math.min(100, percent))
+    : 0;
   this.statuslineScroll = Math.round(normalized);
   if (!this.statuslineView || !this.statuslineReady) return;
-  pushShellPatch(this.statuslineView.webContents, `
+  pushShellPatch(
+    this.statuslineView.webContents,
+    `
       (function updateStatuslineScroll() {
         const node = document.getElementById('statusline-scroll');
         if (!node) return;
         node.textContent = ${JSON.stringify(`${this.statuslineScroll}%`)};
       })();
-    `);
+    `,
+  );
 }
 
 function updateStatuslineSplitIndicator(splitStatus = {}) {
-  const enabledRegularSplit = Boolean(splitStatus.enabled && splitStatus.mode === "regular");
+  const enabledRegularSplit = Boolean(
+    splitStatus.enabled && splitStatus.mode === "regular",
+  );
   const focusedPane = splitStatus.focusedPane === "right" ? "right" : "left";
   this.statuslineSplitIndicator = { visible: enabledRegularSplit, focusedPane };
   if (!this.statuslineView || !this.statuslineReady) return;
 
-  pushShellPatch(this.statuslineView.webContents, `
+  pushShellPatch(
+    this.statuslineView.webContents,
+    `
       (function updateStatuslineSplitIndicator() {
         const root = document.getElementById('statusline-split');
         const left = document.getElementById('statusline-split-left');
@@ -271,7 +316,8 @@ function updateStatuslineSplitIndicator(splitStatus = {}) {
         left.style.color = focusedPane === 'left' ? focusedColor : mutedColor;
         right.style.color = focusedPane === 'right' ? focusedColor : mutedColor;
       })();
-    `);
+    `,
+  );
 }
 
 module.exports = {

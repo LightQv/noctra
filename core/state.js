@@ -29,7 +29,8 @@ function applyConfig(config) {
     return;
   }
 
-  const globalConfig = config.global && typeof config.global === "object" ? config.global : {};
+  const globalConfig =
+    config.global && typeof config.global === "object" ? config.global : {};
   const inputConfig = globalConfig.input;
   const whichKeyConfig = globalConfig.whichkey;
 

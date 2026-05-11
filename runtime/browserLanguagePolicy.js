@@ -1,5 +1,6 @@
 function mapBrowserLanguageToAcceptLanguage(languageCode) {
-  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
+  const normalized =
+    typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
   if (normalized === "fr") {
     return "fr-FR,fr;q=0.9,en;q=0.8";
   }
@@ -12,11 +13,16 @@ function isGoogleHost(hostname) {
   }
 
   const normalized = hostname.trim().toLowerCase();
-  return normalized === "google.com" || normalized.endsWith(".google.com") || normalized.includes(".google.");
+  return (
+    normalized === "google.com" ||
+    normalized.endsWith(".google.com") ||
+    normalized.includes(".google.")
+  );
 }
 
 function mapBrowserLanguageToGoogleLocale(languageCode) {
-  const normalized = typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
+  const normalized =
+    typeof languageCode === "string" ? languageCode.trim().toLowerCase() : "en";
   if (normalized === "fr") {
     return { hl: "fr", gl: "FR", lr: "lang_fr" };
   }
@@ -35,7 +41,10 @@ function applyGoogleLocaleHint(rawUrl, preferredLanguage) {
     return rawUrl;
   }
 
-  if ((parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") || !isGoogleHost(parsedUrl.hostname)) {
+  if (
+    (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") ||
+    !isGoogleHost(parsedUrl.hostname)
+  ) {
     return rawUrl;
   }
 
@@ -65,31 +74,47 @@ function createBrowserLanguagePolicy({ session, configService }) {
       return;
     }
 
-    session.defaultSession.webRequest.onBeforeRequest({ urls: ["*://*/*"] }, (details, callback) => {
-      if (details.resourceType !== "mainFrame") {
+    session.defaultSession.webRequest.onBeforeRequest(
+      { urls: ["*://*/*"] },
+      (details, callback) => {
+        if (details.resourceType !== "mainFrame") {
+          callback({});
+          return;
+        }
+
+        const preferredLanguage = configService.getConfigValue(
+          "browser.language",
+          "en",
+        );
+        const redirectURL = applyGoogleLocaleHint(
+          details.url,
+          preferredLanguage,
+        );
+        if (redirectURL && redirectURL !== details.url) {
+          callback({ redirectURL });
+          return;
+        }
+
         callback({});
-        return;
-      }
+      },
+    );
 
-      const preferredLanguage = configService.getConfigValue("browser.language", "en");
-      const redirectURL = applyGoogleLocaleHint(details.url, preferredLanguage);
-      if (redirectURL && redirectURL !== details.url) {
-        callback({ redirectURL });
-        return;
-      }
-
-      callback({});
-    });
-
-    session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["*://*/*"] }, (details, callback) => {
-      const preferredLanguage = configService.getConfigValue("browser.language", "en");
-      const acceptLanguage = mapBrowserLanguageToAcceptLanguage(preferredLanguage);
-      const requestHeaders = {
-        ...(details.requestHeaders || {}),
-        "Accept-Language": acceptLanguage,
-      };
-      callback({ requestHeaders });
-    });
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+      { urls: ["*://*/*"] },
+      (details, callback) => {
+        const preferredLanguage = configService.getConfigValue(
+          "browser.language",
+          "en",
+        );
+        const acceptLanguage =
+          mapBrowserLanguageToAcceptLanguage(preferredLanguage);
+        const requestHeaders = {
+          ...(details.requestHeaders || {}),
+          "Accept-Language": acceptLanguage,
+        };
+        callback({ requestHeaders });
+      },
+    );
 
     browserLanguageHooksRegistered = true;
   }

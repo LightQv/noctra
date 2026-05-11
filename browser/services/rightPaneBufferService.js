@@ -1,5 +1,8 @@
 const Buffer = require("../buffers");
-const { attachView, detachView } = require("../../core/adapters/platform/contentViewHost");
+const {
+  attachView,
+  detachView,
+} = require("../../core/adapters/platform/contentViewHost");
 
 function ensureRightPaneBuffer(manager) {
   if (manager.split.rightPaneBuffer || !manager.window) return;

@@ -14,7 +14,9 @@ function createOverlayBrowserView(html) {
     },
   });
 
-  view.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(String(html || ""))}`);
+  view.webContents.loadURL(
+    `data:text/html;charset=utf-8,${encodeURIComponent(String(html || ""))}`,
+  );
   return view;
 }
 

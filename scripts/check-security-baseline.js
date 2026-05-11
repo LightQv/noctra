@@ -6,7 +6,8 @@ function isValidDownloadPolicy(value) {
 
 function runSecurityBaselineChecks(config = defaultConfig) {
   const errors = [];
-  const browser = config && typeof config === "object" ? config.browser : undefined;
+  const browser =
+    config && typeof config === "object" ? config.browser : undefined;
 
   if (!browser || typeof browser !== "object") {
     errors.push("Missing browser config section in defaults.");
@@ -25,7 +26,10 @@ function runSecurityBaselineChecks(config = defaultConfig) {
     errors.push("browser.trusted_http_hosts must be an array.");
   }
 
-  if (Array.isArray(browser.trusted_http_hosts) && browser.trusted_http_hosts.length !== 0) {
+  if (
+    Array.isArray(browser.trusted_http_hosts) &&
+    browser.trusted_http_hosts.length !== 0
+  ) {
     errors.push("browser.trusted_http_hosts must default to an empty array.");
   }
 
@@ -36,7 +40,9 @@ function runSecurityBaselineChecks(config = defaultConfig) {
   }
 
   if (!isValidDownloadPolicy(downloads.policy)) {
-    errors.push("browser.downloads.policy must be one of: deny, prompt, allow.");
+    errors.push(
+      "browser.downloads.policy must be one of: deny, prompt, allow.",
+    );
   }
 
   if (downloads.policy !== "prompt") {
@@ -44,10 +50,17 @@ function runSecurityBaselineChecks(config = defaultConfig) {
   }
 
   if (downloads.allow_trusted_surfaces !== false) {
-    errors.push("browser.downloads.allow_trusted_surfaces must default to false.");
+    errors.push(
+      "browser.downloads.allow_trusted_surfaces must default to false.",
+    );
   }
 
-  if (!(downloads.default_directory === null || typeof downloads.default_directory === "string")) {
+  if (
+    !(
+      downloads.default_directory === null ||
+      typeof downloads.default_directory === "string"
+    )
+  ) {
     errors.push("browser.downloads.default_directory must be null or string.");
   }
 

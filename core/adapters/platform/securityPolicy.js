@@ -9,20 +9,30 @@ const {
   resolveDownloadDecision,
 } = require("../../security/downloadPolicy");
 
-function registerSessionSecurityPolicy({ session, app, configService, notificationsService }) {
+function registerSessionSecurityPolicy({
+  session,
+  app,
+  configService,
+  notificationsService,
+}) {
   if (!session || !session.defaultSession) {
     return;
   }
 
   const defaultSession = session.defaultSession;
   defaultSession.setPermissionCheckHandler(() => false);
-  defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
-  });
+  defaultSession.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false);
+    },
+  );
 
   defaultSession.on("will-download", (event, item, webContents) => {
     const notify = (entry) => {
-      if (!notificationsService || typeof notificationsService.notify !== "function") {
+      if (
+        !notificationsService ||
+        typeof notificationsService.notify !== "function"
+      ) {
         return;
       }
       notificationsService.notify(entry);
@@ -39,10 +49,13 @@ function registerSessionSecurityPolicy({ session, app, configService, notificati
       isTrustedInternalRole,
       config: downloadConfig,
     });
-    const suggestedFilename = item && typeof item.getFilename === "function" ? item.getFilename() : "";
+    const suggestedFilename =
+      item && typeof item.getFilename === "function" ? item.getFilename() : "";
     const targetDirectory =
       downloadConfig.defaultDirectory ||
-      (app && typeof app.getPath === "function" ? app.getPath("downloads") : "");
+      (app && typeof app.getPath === "function"
+        ? app.getPath("downloads")
+        : "");
 
     if (decision.action === "deny") {
       event.preventDefault();
@@ -133,7 +146,11 @@ function registerSessionSecurityPolicy({ session, app, configService, notificati
   });
 }
 
-function registerWebContentsSecurityPolicy({ app, isAllowedNavigationUrl, notificationsService }) {
+function registerWebContentsSecurityPolicy({
+  app,
+  isAllowedNavigationUrl,
+  notificationsService,
+}) {
   if (!app || typeof app.on !== "function") {
     return;
   }

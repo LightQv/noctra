@@ -46,7 +46,12 @@ function restoreSessionSnapshot(manager, snapshot) {
     ? snapshot.buffers
         .map((entry) => {
           const url = typeof entry?.url === "string" ? entry.url.trim() : "";
-          if (!url || url === "about:blank" || url.startsWith("noctra://") || url.startsWith("data:")) {
+          if (
+            !url ||
+            url === "about:blank" ||
+            url.startsWith("noctra://") ||
+            url.startsWith("data:")
+          ) {
             return null;
           }
           return { url };
@@ -76,8 +81,13 @@ function restoreSessionSnapshot(manager, snapshot) {
     manager.create(entry.url, { activate: false });
   }
 
-  const rawActiveIndex = Number.isInteger(snapshot.activeIndex) ? snapshot.activeIndex : 0;
-  const safeActiveIndex = Math.max(0, Math.min(rawActiveIndex, manager.buffers.length - 1));
+  const rawActiveIndex = Number.isInteger(snapshot.activeIndex)
+    ? snapshot.activeIndex
+    : 0;
+  const safeActiveIndex = Math.max(
+    0,
+    Math.min(rawActiveIndex, manager.buffers.length - 1),
+  );
   manager.activeIndex = safeActiveIndex;
   manager.focusedPane = "left";
   manager.layoutViews();

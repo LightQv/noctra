@@ -14,7 +14,11 @@ function resolvePaneForBuffer(manager, buffer) {
 
 function handlePaneInteraction(manager, pane) {
   if (!manager.split.enabled) {
-    manager.notify({ kind: "pane-interaction", activeChanged: false, pane: "left" });
+    manager.notify({
+      kind: "pane-interaction",
+      activeChanged: false,
+      pane: "left",
+    });
     return;
   }
 
@@ -28,13 +32,21 @@ function handlePaneInteraction(manager, pane) {
       manager.layoutViews();
       manager.notify({ kind: "structure", activeChanged: true });
     } else {
-      manager.notify({ kind: "pane-interaction", activeChanged: false, pane: "right" });
+      manager.notify({
+        kind: "pane-interaction",
+        activeChanged: false,
+        pane: "right",
+      });
     }
     return;
   }
 
   if (manager.focusedPane === "left") {
-    manager.notify({ kind: "pane-interaction", activeChanged: false, pane: "left" });
+    manager.notify({
+      kind: "pane-interaction",
+      activeChanged: false,
+      pane: "left",
+    });
     return;
   }
 

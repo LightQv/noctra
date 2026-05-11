@@ -1,6 +1,4 @@
-const {
-  UI_SHELL_TABLINE_HEIGHT,
-} = require("../constants");
+const { UI_SHELL_TABLINE_HEIGHT } = require("../constants");
 const { DEFAULT_THEME } = require("../theme");
 const shellTemplateHost = require("./services/shellTemplateHost");
 const shellRenderBridge = require("./services/shellRenderBridge");
@@ -199,7 +197,10 @@ class UiShellManager {
   }
 
   applyThemeToWebContents(webContents) {
-    return shellRenderBridge.applyThemeToWebContentsBridge.call(this, webContents);
+    return shellRenderBridge.applyThemeToWebContentsBridge.call(
+      this,
+      webContents,
+    );
   }
 
   setTablineActions(actions = {}) {
@@ -261,7 +262,12 @@ class UiShellManager {
   }
 
   showCommand(text = "", cursorIndex = null, context = "shell") {
-    return commandOverlayController.showCommand.call(this, text, cursorIndex, context);
+    return commandOverlayController.showCommand.call(
+      this,
+      text,
+      cursorIndex,
+      context,
+    );
   }
 
   hideCommand() {
@@ -269,7 +275,12 @@ class UiShellManager {
   }
 
   showWhichKey(model, timeoutMs = 1200, delayMs = 0) {
-    return whichKeyOverlayController.showWhichKey.call(this, model, timeoutMs, delayMs);
+    return whichKeyOverlayController.showWhichKey.call(
+      this,
+      model,
+      timeoutMs,
+      delayMs,
+    );
   }
 
   updateWhichKey(
@@ -338,7 +349,10 @@ class UiShellManager {
   }
 
   resetWhichKeyHideTimer(timeoutMs) {
-    return whichKeyOverlayController.resetWhichKeyHideTimer.call(this, timeoutMs);
+    return whichKeyOverlayController.resetWhichKeyHideTimer.call(
+      this,
+      timeoutMs,
+    );
   }
 
   clearWhichKeyHideTimer() {
@@ -354,11 +368,19 @@ class UiShellManager {
   }
 
   updateStatuslineSplitIndicator(splitStatus = {}) {
-    return auxOverlayController.updateStatuslineSplitIndicator.call(this, splitStatus);
+    return auxOverlayController.updateStatuslineSplitIndicator.call(
+      this,
+      splitStatus,
+    );
   }
 
   updateCommand(text = "", cursorIndex = null, context = null) {
-    return commandOverlayController.updateCommand.call(this, text, cursorIndex, context);
+    return commandOverlayController.updateCommand.call(
+      this,
+      text,
+      cursorIndex,
+      context,
+    );
   }
 }
 

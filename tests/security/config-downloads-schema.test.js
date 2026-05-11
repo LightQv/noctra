@@ -25,6 +25,9 @@ test("config schema normalizes browser.downloads overrides", () => {
 
   assert.equal(config.browser.downloads.policy, "allow");
   assert.equal(config.browser.downloads.allow_trusted_surfaces, true);
-  assert.equal(config.browser.downloads.default_directory, "/tmp/noctra-downloads");
+  assert.equal(
+    config.browser.downloads.default_directory,
+    "/tmp/noctra-downloads",
+  );
   assert.equal(config.browser.downloads.auto_open, true);
 });

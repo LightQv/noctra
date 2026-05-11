@@ -17,9 +17,16 @@ function getFocusedMainBuffer(manager) {
 }
 
 function getActive(manager) {
-  if (manager.split.enabled && manager.split.mode === "regular" && manager.focusedPane === "right") {
+  if (
+    manager.split.enabled &&
+    manager.split.mode === "regular" &&
+    manager.focusedPane === "right"
+  ) {
     const left = getLeftBuffer(manager);
-    if (manager.split.rightPaneSourceBuffer && manager.split.rightPaneSourceBuffer !== left) {
+    if (
+      manager.split.rightPaneSourceBuffer &&
+      manager.split.rightPaneSourceBuffer !== left
+    ) {
       return manager.split.rightPaneSourceBuffer;
     }
 
@@ -39,7 +46,10 @@ function getActiveWebContents(manager) {
   if (manager.split.enabled && manager.focusedPane === "right") {
     if (manager.split.mode === "regular") {
       const left = getLeftBuffer(manager);
-      if (manager.split.rightPaneSourceBuffer && manager.split.rightPaneSourceBuffer !== left) {
+      if (
+        manager.split.rightPaneSourceBuffer &&
+        manager.split.rightPaneSourceBuffer !== left
+      ) {
         return manager.split.rightPaneSourceBuffer.webContents;
       }
 
@@ -67,7 +77,10 @@ function getRightPaneBuffer(manager) {
   }
 
   const left = getLeftBuffer(manager);
-  if (manager.split.rightPaneSourceBuffer && manager.split.rightPaneSourceBuffer !== left) {
+  if (
+    manager.split.rightPaneSourceBuffer &&
+    manager.split.rightPaneSourceBuffer !== left
+  ) {
     return manager.split.rightPaneSourceBuffer;
   }
 
@@ -103,7 +116,11 @@ function getAllWebContents(manager) {
     items.push(manager.split.rightPaneBuffer.webContents);
   }
 
-  if (manager.devtoolsView && manager.devtoolsView.webContents && !manager.devtoolsView.webContents.isDestroyed()) {
+  if (
+    manager.devtoolsView &&
+    manager.devtoolsView.webContents &&
+    !manager.devtoolsView.webContents.isDestroyed()
+  ) {
     items.push(manager.devtoolsView.webContents);
   }
 
@@ -121,7 +138,10 @@ function getBufferByWebContents(manager, webContents) {
     }
   }
 
-  if (manager.split.rightPaneBuffer && manager.split.rightPaneBuffer.webContents === webContents) {
+  if (
+    manager.split.rightPaneBuffer &&
+    manager.split.rightPaneBuffer.webContents === webContents
+  ) {
     return manager.split.rightPaneBuffer;
   }
 

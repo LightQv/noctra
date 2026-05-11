@@ -1,6 +1,9 @@
 const { setEditorMode } = require("../core/state/editorModeState");
 const { validateIpcPayload } = require("../core/contracts/ipc");
-const { createInvalidPayloadError, createUnauthorizedSenderError } = require("../core/contracts/errors");
+const {
+  createInvalidPayloadError,
+  createUnauthorizedSenderError,
+} = require("../core/contracts/errors");
 
 function registerRuntimeIpc({
   win,
@@ -29,20 +32,33 @@ function registerRuntimeIpc({
   registerIpcContracts,
   notificationsService,
 }) {
-  const isTrustedIpcSender = (event, expectedRole, { requireActiveBuffer = false } = {}) => {
+  const isTrustedIpcSender = (
+    event,
+    expectedRole,
+    { requireActiveBuffer = false } = {},
+  ) => {
     if (!win || !event || !event.sender) {
       return false;
     }
 
-    if (expectedRole === SURFACE_ROLES.TRUSTED_SHELL && event.sender !== win.webContents) {
+    if (
+      expectedRole === SURFACE_ROLES.TRUSTED_SHELL &&
+      event.sender !== win.webContents
+    ) {
       return false;
     }
 
-    if (expectedRole === SURFACE_ROLES.TRUSTED_SETTINGS && !buffers.isEditableWebContents(event.sender)) {
+    if (
+      expectedRole === SURFACE_ROLES.TRUSTED_SETTINGS &&
+      !buffers.isEditableWebContents(event.sender)
+    ) {
       return false;
     }
 
-    if (requireActiveBuffer && event.sender !== buffers.getActiveWebContents()) {
+    if (
+      requireActiveBuffer &&
+      event.sender !== buffers.getActiveWebContents()
+    ) {
       return false;
     }
 
@@ -51,16 +67,22 @@ function registerRuntimeIpc({
     }
 
     const senderFrameUrl =
-      event.senderFrame && typeof event.senderFrame.url === "string" ? event.senderFrame.url : "";
+      event.senderFrame && typeof event.senderFrame.url === "string"
+        ? event.senderFrame.url
+        : "";
     return isAllowedTrustedSurfaceUrl(senderFrameUrl);
   };
 
-  const isWindowSender = (event) => isTrustedIpcSender(event, SURFACE_ROLES.TRUSTED_SHELL);
+  const isWindowSender = (event) =>
+    isTrustedIpcSender(event, SURFACE_ROLES.TRUSTED_SHELL);
   const isEditableSender = (event, options = {}) =>
     isTrustedIpcSender(event, SURFACE_ROLES.TRUSTED_SETTINGS, options);
 
   const reportContractWarning = (error) => {
-    if (!notificationsService || typeof notificationsService.notify !== "function") {
+    if (
+      !notificationsService ||
+      typeof notificationsService.notify !== "function"
+    ) {
       return;
     }
     notificationsService.notify({
@@ -209,7 +231,10 @@ function registerRuntimeIpc({
   };
 
   const onEditorModeChange = (event, payload) => {
-    const nextMode = payload.mode === "INSERT" || payload.mode === "NORMAL" ? payload.mode : "NORMAL";
+    const nextMode =
+      payload.mode === "INSERT" || payload.mode === "NORMAL"
+        ? payload.mode
+        : "NORMAL";
     setEditorMode(state, nextMode);
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
@@ -221,7 +246,8 @@ function registerRuntimeIpc({
   };
 
   const onEditorOpenCommand = (event, payload) => {
-    const initialText = typeof payload.initialText === "string" ? payload.initialText : "";
+    const initialText =
+      typeof payload.initialText === "string" ? payload.initialText : "";
     enterCommandMode(state, {
       target: "EDITOR",
       initialText,
@@ -241,7 +267,9 @@ function registerRuntimeIpc({
   const onSettingsGet = async (_event) => {
     const activeBuffer = buffers.getActive();
     const configPath =
-      activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+      activeBuffer &&
+      activeBuffer.isEditable &&
+      typeof activeBuffer.editableFilePath === "string"
         ? activeBuffer.editableFilePath
         : configService.getConfigPath();
     try {
@@ -250,9 +278,18 @@ function registerRuntimeIpc({
       return {
         ok: true,
         content,
-        leaderKey: configService.getConfigValue("global.input.leader_key", "Space"),
-        relativeLineNumbers: configService.getConfigValue("global.editor.relative_line_numbers", true),
-        scrolloffLines: configService.getConfigValue("global.editor.scrolloff_lines", 3),
+        leaderKey: configService.getConfigValue(
+          "global.input.leader_key",
+          "Space",
+        ),
+        relativeLineNumbers: configService.getConfigValue(
+          "global.editor.relative_line_numbers",
+          true,
+        ),
+        scrolloffLines: configService.getConfigValue(
+          "global.editor.scrolloff_lines",
+          3,
+        ),
         ...buildThemePayload(themeContext),
       };
     } catch (error) {
@@ -263,7 +300,9 @@ function registerRuntimeIpc({
   const onSettingsSave = async (event, payload) => {
     const activeBuffer = buffers.getActive();
     const configPath =
-      activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
+      activeBuffer &&
+      activeBuffer.isEditable &&
+      typeof activeBuffer.editableFilePath === "string"
         ? activeBuffer.editableFilePath
         : configService.getConfigPath();
     try {
@@ -326,7 +365,11 @@ function registerRuntimeIpc({
       SURFACE_ROLES.TRUSTED_SHELL,
       onOpenSettings,
     ),
-    "ui-shell:new-tab": withEventBoundary("ui-shell:new-tab", SURFACE_ROLES.TRUSTED_SHELL, onNewTab),
+    "ui-shell:new-tab": withEventBoundary(
+      "ui-shell:new-tab",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onNewTab,
+    ),
     "ui-shell:open-history": withEventBoundary(
       "ui-shell:open-history",
       SURFACE_ROLES.TRUSTED_SHELL,

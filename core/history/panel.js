@@ -2,9 +2,7 @@ const { clipboard } = require("electron");
 const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
 const notificationsService = require("../notifications/service");
-const {
-  createPanelViewHost,
-} = require("../adapters/platform/panelViewHost");
+const { createPanelViewHost } = require("../adapters/platform/panelViewHost");
 const {
   createPanelRenderTransport,
 } = require("../adapters/renderer/panelRenderTransport");
@@ -144,7 +142,11 @@ class HistoryPanel {
       Math.min(maxFirstIndex, Number(this.treeFirstVisibleIndex) || 0),
     );
 
-    if (!Number.isFinite(selectedIndex) || selectedIndex < 0 || safeTotalRows === 0) {
+    if (
+      !Number.isFinite(selectedIndex) ||
+      selectedIndex < 0 ||
+      safeTotalRows === 0
+    ) {
       this.treeFirstVisibleIndex = firstVisibleIndex;
       return firstVisibleIndex;
     }
@@ -248,11 +250,17 @@ class HistoryPanel {
 
     this.treeKeyBuffer += key;
     const keymap = getNormalKeymap();
-    const { exact: exactBuilder, hasPrefix } = resolveKeySequenceMatch(keymap, this.treeKeyBuffer);
+    const { exact: exactBuilder, hasPrefix } = resolveKeySequenceMatch(
+      keymap,
+      this.treeKeyBuffer,
+    );
     if (exactBuilder) {
       const count = this.consumeTreeCount(1);
       this.treeKeyBuffer = "";
-      const handled = this.executeSharedTreeAction(exactBuilder.actionId, count);
+      const handled = this.executeSharedTreeAction(
+        exactBuilder.actionId,
+        count,
+      );
       if (!handled) return null;
       return { consumed: true, shouldRender: true };
     }
@@ -295,16 +303,16 @@ class HistoryPanel {
   isHistoryFilterActive() {
     return Boolean(
       this.filterEditState &&
-        this.treeKind === "history" &&
-        this.isFilterQueryMode(this.filterEditState.mode),
+      this.treeKind === "history" &&
+      this.isFilterQueryMode(this.filterEditState.mode),
     );
   }
 
   isBookmarksFilterActive() {
     return Boolean(
       this.filterEditState &&
-        this.treeKind === "bookmarks" &&
-        this.isFilterQueryMode(this.filterEditState.mode),
+      this.treeKind === "bookmarks" &&
+      this.isFilterQueryMode(this.filterEditState.mode),
     );
   }
 
@@ -368,7 +376,8 @@ class HistoryPanel {
     const prefixBonus = start === 0 ? 300 : 0;
     const proximityPenalty = start * 6;
     const spanPenalty = Math.max(0, haystack.length - needle.length);
-    const score = 1200 + exactBonus + prefixBonus - proximityPenalty - spanPenalty;
+    const score =
+      1200 + exactBonus + prefixBonus - proximityPenalty - spanPenalty;
     return {
       matched: true,
       score,
@@ -384,7 +393,9 @@ class HistoryPanel {
       return escapeHtml(source);
     }
     const before = escapeHtml(source.slice(0, match.start));
-    const hit = escapeHtml(source.slice(match.start, match.start + match.length));
+    const hit = escapeHtml(
+      source.slice(match.start, match.start + match.length),
+    );
     const after = escapeHtml(source.slice(match.start + match.length));
     return `${before}<span class="match-hit">${hit}</span>${after}`;
   }
@@ -443,8 +454,14 @@ class HistoryPanel {
             continue;
           }
 
-          const pushFolderWithDescendants = (folderNode, folderDepth, folderParentId) => {
-            const children = Array.isArray(folderNode.children) ? folderNode.children : [];
+          const pushFolderWithDescendants = (
+            folderNode,
+            folderDepth,
+            folderParentId,
+          ) => {
+            const children = Array.isArray(folderNode.children)
+              ? folderNode.children
+              : [];
             const isOpen = !collapsed.has(folderNode.id);
             out.push({
               type: "folder",
@@ -459,7 +476,11 @@ class HistoryPanel {
               matchStart: match.start,
             });
             if (!isOpen) return;
-            for (let childIndex = 0; childIndex < children.length; childIndex += 1) {
+            for (
+              let childIndex = 0;
+              childIndex < children.length;
+              childIndex += 1
+            ) {
               const child = children[childIndex];
               if (!child) continue;
               if (child.type === "entry") {
@@ -472,7 +493,11 @@ class HistoryPanel {
                   index: childIndex,
                 });
               } else if (child.type === "folder") {
-                pushFolderWithDescendants(child, folderDepth + 1, folderNode.id);
+                pushFolderWithDescendants(
+                  child,
+                  folderDepth + 1,
+                  folderNode.id,
+                );
               }
             }
           };
@@ -505,8 +530,10 @@ class HistoryPanel {
       }
     }
     out.sort((a, b) => {
-      if ((b.matchScore || 0) !== (a.matchScore || 0)) return (b.matchScore || 0) - (a.matchScore || 0);
-      if ((a.matchStart || 0) !== (b.matchStart || 0)) return (a.matchStart || 0) - (b.matchStart || 0);
+      if ((b.matchScore || 0) !== (a.matchScore || 0))
+        return (b.matchScore || 0) - (a.matchScore || 0);
+      if ((a.matchStart || 0) !== (b.matchStart || 0))
+        return (a.matchStart || 0) - (b.matchStart || 0);
       return String(a.id || "").localeCompare(String(b.id || ""));
     });
     return out;
@@ -531,7 +558,9 @@ class HistoryPanel {
     const nodes = this.getTreeFlatNodes();
     if (!nodes.length) return;
     if (this.treeKind === "bookmarks") {
-      const hasFavorite = nodes.some((node) => node.id === this.bookmarkCursor.nodeId);
+      const hasFavorite = nodes.some(
+        (node) => node.id === this.bookmarkCursor.nodeId,
+      );
       if (!hasFavorite) {
         this.bookmarkCursor = { nodeId: nodes[0].id };
       }
@@ -556,7 +585,10 @@ class HistoryPanel {
   jumpToLine(lineNumber) {
     const nodes = this.getTreeFlatNodes();
     if (!nodes.length) return;
-    const targetIndex = Math.max(0, Math.min(nodes.length - 1, Number(lineNumber) - 1));
+    const targetIndex = Math.max(
+      0,
+      Math.min(nodes.length - 1, Number(lineNumber) - 1),
+    );
     const node = nodes[targetIndex];
     if (!node) return;
     if (this.treeKind === "bookmarks") {
@@ -572,7 +604,9 @@ class HistoryPanel {
 
   createFavoriteSnapshot() {
     return {
-      root: this.deepClone(Array.isArray(this.bookmarkRoot) ? this.bookmarkRoot : []),
+      root: this.deepClone(
+        Array.isArray(this.bookmarkRoot) ? this.bookmarkRoot : [],
+      ),
       expanded: Array.from(this.bookmarkExpanded || []),
       cursor: this.deepClone(this.bookmarkCursor || { nodeId: null }),
       clipboard: this.deepClone(this.bookmarkClipboard),
@@ -584,8 +618,12 @@ class HistoryPanel {
       return false;
     }
 
-    this.bookmarkRoot = this.deepClone(Array.isArray(snapshot.root) ? snapshot.root : []);
-    this.bookmarkExpanded = new Set(Array.isArray(snapshot.expanded) ? snapshot.expanded : []);
+    this.bookmarkRoot = this.deepClone(
+      Array.isArray(snapshot.root) ? snapshot.root : [],
+    );
+    this.bookmarkExpanded = new Set(
+      Array.isArray(snapshot.expanded) ? snapshot.expanded : [],
+    );
     this.bookmarkCursor = this.deepClone(snapshot.cursor || { nodeId: null });
     this.bookmarkClipboard = this.deepClone(snapshot.clipboard || null);
     this.bookmarkEditState = null;
@@ -601,7 +639,10 @@ class HistoryPanel {
   recordFavoriteMutationSnapshot() {
     this.bookmarkUndoStack.push(this.createFavoriteSnapshot());
     if (this.bookmarkUndoStack.length > this.maxFavoriteHistory) {
-      this.bookmarkUndoStack.splice(0, this.bookmarkUndoStack.length - this.maxFavoriteHistory);
+      this.bookmarkUndoStack.splice(
+        0,
+        this.bookmarkUndoStack.length - this.maxFavoriteHistory,
+      );
     }
     this.bookmarkRedoStack = [];
   }
@@ -613,7 +654,10 @@ class HistoryPanel {
     const previous = this.bookmarkUndoStack.pop();
     this.bookmarkRedoStack.push(this.createFavoriteSnapshot());
     if (this.bookmarkRedoStack.length > this.maxFavoriteHistory) {
-      this.bookmarkRedoStack.splice(0, this.bookmarkRedoStack.length - this.maxFavoriteHistory);
+      this.bookmarkRedoStack.splice(
+        0,
+        this.bookmarkRedoStack.length - this.maxFavoriteHistory,
+      );
     }
     return this.applyFavoriteSnapshot(previous);
   }
@@ -625,7 +669,10 @@ class HistoryPanel {
     const next = this.bookmarkRedoStack.pop();
     this.bookmarkUndoStack.push(this.createFavoriteSnapshot());
     if (this.bookmarkUndoStack.length > this.maxFavoriteHistory) {
-      this.bookmarkUndoStack.splice(0, this.bookmarkUndoStack.length - this.maxFavoriteHistory);
+      this.bookmarkUndoStack.splice(
+        0,
+        this.bookmarkUndoStack.length - this.maxFavoriteHistory,
+      );
     }
     return this.applyFavoriteSnapshot(next);
   }
@@ -634,7 +681,12 @@ class HistoryPanel {
     if (!input || input.type !== "keyDown") {
       return false;
     }
-    return Boolean(input.ctrl && !input.meta && !input.alt && String(input.key).toLowerCase() === "r");
+    return Boolean(
+      input.ctrl &&
+      !input.meta &&
+      !input.alt &&
+      String(input.key).toLowerCase() === "r",
+    );
   }
 
   startFavoriteRename() {
@@ -888,13 +940,19 @@ class HistoryPanel {
       return true;
     }
 
-    if (key === "ArrowLeft" || (input.ctrl && String(key).toLowerCase() === "h")) {
+    if (
+      key === "ArrowLeft" ||
+      (input.ctrl && String(key).toLowerCase() === "h")
+    ) {
       this.clampFavoriteEditCursor(edit);
       edit.cursor = Math.max(0, edit.cursor - 1);
       return true;
     }
 
-    if (key === "ArrowRight" || (input.ctrl && String(key).toLowerCase() === "l")) {
+    if (
+      key === "ArrowRight" ||
+      (input.ctrl && String(key).toLowerCase() === "l")
+    ) {
       this.clampFavoriteEditCursor(edit);
       edit.cursor = Math.min(String(edit.value || "").length, edit.cursor + 1);
       return true;
@@ -1019,14 +1077,20 @@ class HistoryPanel {
       return true;
     }
 
-    if (key === "ArrowLeft" || (input.ctrl && String(key).toLowerCase() === "h")) {
+    if (
+      key === "ArrowLeft" ||
+      (input.ctrl && String(key).toLowerCase() === "h")
+    ) {
       this.clampFilterEditCursor(edit);
       edit.cursor = Math.max(0, edit.cursor - 1);
       edit.navActive = false;
       return true;
     }
 
-    if (key === "ArrowRight" || (input.ctrl && String(key).toLowerCase() === "l")) {
+    if (
+      key === "ArrowRight" ||
+      (input.ctrl && String(key).toLowerCase() === "l")
+    ) {
       this.clampFilterEditCursor(edit);
       edit.cursor = Math.min(String(edit.value || "").length, edit.cursor + 1);
       edit.navActive = false;
@@ -1407,7 +1471,9 @@ class HistoryPanel {
   }
 
   isTextInputActive() {
-    return Boolean(this.filterEditState || this.bookmarkEditState || this.deleteAllArmed);
+    return Boolean(
+      this.filterEditState || this.bookmarkEditState || this.deleteAllArmed,
+    );
   }
 
   getWidthPx() {
@@ -1530,7 +1596,10 @@ class HistoryPanel {
     if (!current) return startIndex;
     const parentId = current.parentId || null;
     let idx = startIndex;
-    while (idx + 1 < flatNodes.length && (flatNodes[idx + 1].parentId || null) === parentId) {
+    while (
+      idx + 1 < flatNodes.length &&
+      (flatNodes[idx + 1].parentId || null) === parentId
+    ) {
       idx += 1;
     }
     return idx;
@@ -1583,7 +1652,8 @@ class HistoryPanel {
     const entries = [];
     for (const node of slice) {
       if (node.type === "day") days.add(node.dateKey);
-      else if (node.type === "entry") entries.push({ dateKey: node.dateKey, entryId: node.entry.id });
+      else if (node.type === "entry")
+        entries.push({ dateKey: node.dateKey, entryId: node.entry.id });
     }
     for (const { dateKey, entryId } of entries) {
       if (!days.has(dateKey)) historyService.deleteEntry(dateKey, entryId);
@@ -1596,7 +1666,11 @@ class HistoryPanel {
     const idx = Math.max(0, Math.min(next.length - 1, from));
     const node = next[idx];
     this.cursor = node
-      ? { type: node.type, dateKey: node.dateKey, entryId: node.entry ? node.entry.id : null }
+      ? {
+          type: node.type,
+          dateKey: node.dateKey,
+          entryId: node.entry ? node.entry.id : null,
+        }
       : { type: "day", dateKey: null, entryId: null };
   }
 
@@ -1639,13 +1713,19 @@ class HistoryPanel {
 
     const footerSegments = [];
     if (footerText) {
-      footerSegments.push(`<span class="foot-text" title="${footerText}">${footerText}</span>`);
+      footerSegments.push(
+        `<span class="foot-text" title="${footerText}">${footerText}</span>`,
+      );
     }
     if (footerHint) {
-      footerSegments.push(`<span class="foot-hint" title="${footerHint}">${footerHint}</span>`);
+      footerSegments.push(
+        `<span class="foot-hint" title="${footerHint}">${footerHint}</span>`,
+      );
     }
     if (footerValue) {
-      footerSegments.push(`<span class="foot-input" title="${footerValue}">${footerValue}</span>`);
+      footerSegments.push(
+        `<span class="foot-input" title="${footerValue}">${footerValue}</span>`,
+      );
     }
 
     const selectedTreeIndex = this.getSelectedTreeIndex();
@@ -1659,13 +1739,25 @@ class HistoryPanel {
         : "none";
     this.lastSelectedTreeIndex = selectedTreeIndex;
 
-    const panelHeight = this.visible && this.window
-      ? Math.max(1, this.window.getContentBounds().height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT)
-      : 1;
+    const panelHeight =
+      this.visible && this.window
+        ? Math.max(
+            1,
+            this.window.getContentBounds().height -
+              UI_SHELL_TABLINE_HEIGHT -
+              UI_SHELL_STATUSLINE_HEIGHT,
+          )
+        : 1;
     const estimatedHeaderHeight = 34;
     const estimatedFooterHeight = 30;
-    const estimatedListHeight = Math.max(1, panelHeight - estimatedHeaderHeight - estimatedFooterHeight);
-    const viewportRows = Math.max(1, Math.floor(estimatedListHeight / TREE_LAYOUT.rowMinHeight));
+    const estimatedListHeight = Math.max(
+      1,
+      panelHeight - estimatedHeaderHeight - estimatedFooterHeight,
+    );
+    const viewportRows = Math.max(
+      1,
+      Math.floor(estimatedListHeight / TREE_LAYOUT.rowMinHeight),
+    );
     const nextFirstVisibleIndex = this.computeNextFirstVisibleIndex({
       selectedIndex: selectedTreeIndex,
       direction: scrollDirection,
@@ -1751,7 +1843,10 @@ class HistoryPanel {
           this.cursor.type === "entry" &&
           this.cursor.dateKey === node.dateKey &&
           this.cursor.entryId === node.entry.id;
-        const text = this.renderTextWithMatch(node.entry.title || node.entry.url, query);
+        const text = this.renderTextWithMatch(
+          node.entry.title || node.entry.url,
+          query,
+        );
         const time = escapeHtml(this.formatDateTime(node.entry));
         return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${text}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`;
       });
@@ -1859,7 +1954,10 @@ class HistoryPanel {
   }
 
   getFavoriteNodeClipboardMarker(nodeId) {
-    if (!this.bookmarkClipboard || this.bookmarkClipboard.sourceNodeId !== nodeId) {
+    if (
+      !this.bookmarkClipboard ||
+      this.bookmarkClipboard.sourceNodeId !== nodeId
+    ) {
       return "";
     }
 
@@ -1891,7 +1989,9 @@ class HistoryPanel {
     const nodes = this.isBookmarksFilterActive()
       ? this.getFilteredFavoriteFlatNodes()
       : this.getFavoriteFlatNodes();
-    const query = this.isBookmarksFilterActive() ? this.getActiveFilterQuery() : "";
+    const query = this.isBookmarksFilterActive()
+      ? this.getActiveFilterQuery()
+      : "";
     if (!nodes.length) {
       rows.push(
         `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No item yet.</span></span><span class="time time-hidden"></span></div>`,
@@ -1903,7 +2003,9 @@ class HistoryPanel {
       if (node.type === "folder") {
         const open = node.forceOpen ? true : this.bookmarkExpanded.has(node.id);
         const selected = this.isFavoriteNodeSelected(node);
-        const siblingNodes = nodes.filter((item) => item.parentId === node.parentId);
+        const siblingNodes = nodes.filter(
+          (item) => item.parentId === node.parentId,
+        );
         const branch = node.index === siblingNodes.length - 1 ? "└" : "│";
         const indentPx =
           node.depth > 0
@@ -1918,7 +2020,10 @@ class HistoryPanel {
             ? `<span class="tree-cols"><span class="icon guide">${branch}</span></span>`
             : "";
         const folderText = this.isBookmarksFilterActive()
-          ? this.renderTextWithMatch(this.getFavoriteFolderDisplayName(node), query)
+          ? this.renderTextWithMatch(
+              this.getFavoriteFolderDisplayName(node),
+              query,
+            )
           : escapeHtml(this.getFavoriteFolderDisplayName(node));
         rows.push(
           `<div class="row row-meta day ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span>${guideHtml}<span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
@@ -1926,7 +2031,9 @@ class HistoryPanel {
       } else {
         const selected = this.isFavoriteNodeSelected(node);
         const entryTextSource =
-          this.isBookmarksFilterActive() && this.filterEditState?.filterScope === "entry" && this.filterEditState?.filterField === "url"
+          this.isBookmarksFilterActive() &&
+          this.filterEditState?.filterScope === "entry" &&
+          this.filterEditState?.filterField === "url"
             ? String(node.entry?.url || "")
             : this.getFavoriteEntryDisplayName(node);
         const entryText = this.isBookmarksFilterActive()
@@ -2163,7 +2270,13 @@ class HistoryPanel {
       : null;
 
     const now = Date.now();
-    if (hasSequenceTimedOut(now, this.treeLastKeyTime, this.state?.sequenceTimeout)) {
+    if (
+      hasSequenceTimedOut(
+        now,
+        this.treeLastKeyTime,
+        this.state?.sequenceTimeout,
+      )
+    ) {
       this.treeCountBuffer = "";
       this.treeKeyBuffer = "";
     }
@@ -2244,7 +2357,12 @@ class HistoryPanel {
     }
 
     if (this.treeDeletePending) {
-      if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta") {
+      if (
+        key === "Shift" ||
+        key === "Control" ||
+        key === "Alt" ||
+        key === "Meta"
+      ) {
         return true;
       }
       if (key === "Escape") {
@@ -2252,7 +2370,12 @@ class HistoryPanel {
         this.render();
         return true;
       }
-      if (!input.ctrl && !input.meta && !input.alt && /^[0-9]$/.test(String(key))) {
+      if (
+        !input.ctrl &&
+        !input.meta &&
+        !input.alt &&
+        /^[0-9]$/.test(String(key))
+      ) {
         if (this.treeDeletePendingG) {
           this.clearTreeDeletePending();
           this.render();
@@ -2287,16 +2410,27 @@ class HistoryPanel {
         return true;
       }
 
-      const count = Math.max(1, Number.parseInt(this.treeDeleteCountBuffer || "1", 10));
+      const count = Math.max(
+        1,
+        Number.parseInt(this.treeDeleteCountBuffer || "1", 10),
+      );
       const hasExplicitCount = this.treeDeleteCountBuffer.length > 0;
-      if ((key === "j" || key === "ArrowDown") && currentIndex >= 0 && hasExplicitCount) {
+      if (
+        (key === "j" || key === "ArrowDown") &&
+        currentIndex >= 0 &&
+        hasExplicitCount
+      ) {
         const target = Math.min(flat.length - 1, currentIndex + count);
         this.deleteRangeInTree(currentIndex, target);
         this.clearTreeDeletePending();
         this.render();
         return true;
       }
-      if ((key === "k" || key === "ArrowUp") && currentIndex >= 0 && hasExplicitCount) {
+      if (
+        (key === "k" || key === "ArrowUp") &&
+        currentIndex >= 0 &&
+        hasExplicitCount
+      ) {
         const target = Math.max(0, currentIndex - count);
         this.deleteRangeInTree(currentIndex, target);
         this.clearTreeDeletePending();
@@ -2339,8 +2473,7 @@ class HistoryPanel {
       this.clearFavoriteEdit();
       this.startFilterPrompt();
       this.reconcileFilterCursor();
-    }
-    else if (key === "H") this.switchTreeByOffset(-1);
+    } else if (key === "H") this.switchTreeByOffset(-1);
     else if (key === "L") this.switchTreeByOffset(1);
     else if (key === "ArrowDown") this.moveCursor(1);
     else if (key === "ArrowUp") this.moveCursor(-1);
@@ -2355,7 +2488,9 @@ class HistoryPanel {
           if (!(this.filterEditState.collapsedFolderIds instanceof Set)) {
             this.filterEditState.collapsedFolderIds = new Set();
           }
-          this.filterEditState.collapsedFolderIds.delete(currentFavoriteNode.id);
+          this.filterEditState.collapsedFolderIds.delete(
+            currentFavoriteNode.id,
+          );
         }
         if (currentFavoriteNode && currentFavoriteNode.type === "folder") {
           this.bookmarkExpanded.add(currentFavoriteNode.id);
@@ -2437,15 +2572,13 @@ class HistoryPanel {
           persist: false,
         });
       }
-    }
-    else if (key === "d") {
+    } else if (key === "d") {
       this.treeCountBuffer = "";
       this.treeKeyBuffer = "";
       this.treeDeletePending = true;
       this.treeDeleteCountBuffer = "";
       this.armTreeDeletePendingTimeout();
-    }
-    else if (key === "D") {
+    } else if (key === "D") {
       this.confirmDeleteAll = "";
       this.deleteAllArmed = true;
     } else if (!isBookmarks && key === "t")

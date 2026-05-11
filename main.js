@@ -1,6 +1,14 @@
 const path = require("path");
 const fs = require("fs");
-const { app, BrowserWindow, ipcMain, clipboard, nativeTheme, screen, session } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  clipboard,
+  nativeTheme,
+  screen,
+  session,
+} = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
 const state = require("./core/state");
@@ -25,10 +33,21 @@ const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const telescopeService = require("./core/telescope/service");
 const { resolveFocusSnapshot } = require("./core/focusResolver");
 const { resolveInputPriority } = require("./core/inputPriorityResolver");
-const { setMode, enterInsertMode, enterNormalMode, enterCommandMode } = require("./core/modeTransitionService");
-const { setEditorFocused, isEditorFocused } = require("./core/editorFocusState");
+const {
+  setMode,
+  enterInsertMode,
+  enterNormalMode,
+  enterCommandMode,
+} = require("./core/modeTransitionService");
+const {
+  setEditorFocused,
+  isEditorFocused,
+} = require("./core/editorFocusState");
 const { computeStatuslineModeLabel } = require("./core/statuslineModeLabel");
-const { assertInputPipelinePreconditions, assertModeWriteBoundary } = require("./core/invariants");
+const {
+  assertInputPipelinePreconditions,
+  assertModeWriteBoundary,
+} = require("./core/invariants");
 const sessionService = require("./core/session/service");
 const notificationsService = require("./core/notifications/service");
 const { validateNavigableUrl } = require("./core/security/urlPolicy");
@@ -38,16 +57,24 @@ const {
   getSurfaceRole,
   isAllowedTrustedSurfaceUrl,
 } = require("./core/security/surfaceTrust");
-const { performWindowAction } = require("./core/adapters/platform/windowActions");
+const {
+  performWindowAction,
+} = require("./core/adapters/platform/windowActions");
 const webContentsActions = require("./core/adapters/platform/webContentsActions");
-const { bindWebModeTracking } = require("./core/adapters/platform/webContentsEvents");
+const {
+  bindWebModeTracking,
+} = require("./core/adapters/platform/webContentsEvents");
 const {
   registerSessionSecurityPolicy: registerSessionSecurityPolicyAdapter,
   registerWebContentsSecurityPolicy: registerWebContentsSecurityPolicyAdapter,
 } = require("./core/adapters/platform/securityPolicy");
-const { registerIpcContracts } = require("./core/adapters/platform/ipcRegistry");
+const {
+  registerIpcContracts,
+} = require("./core/adapters/platform/ipcRegistry");
 const editorSurface = require("./core/adapters/renderer/editorSurface");
-const { broadcastUiShellPush } = require("./core/adapters/renderer/uiShellPush");
+const {
+  broadcastUiShellPush,
+} = require("./core/adapters/renderer/uiShellPush");
 const { createWebModeSyncService } = require("./core/webModeSyncService");
 const { getNormalActionMap, getModActionMap } = require("./motions/keymap");
 const { createInputCoordinator } = require("./runtime/inputCoordinator");
@@ -55,12 +82,17 @@ const { registerRuntimeIpc } = require("./runtime/ipcRegistration");
 const { wireWindowLifecycle } = require("./runtime/windowLifecycle");
 const { createSmokeScenarios } = require("./runtime/smokeScenarios");
 const { bootstrapWindowRuntime } = require("./runtime/windowBootstrap");
-const { createBrowserLanguagePolicy } = require("./runtime/browserLanguagePolicy");
+const {
+  createBrowserLanguagePolicy,
+} = require("./runtime/browserLanguagePolicy");
 const { createThemeRuntime } = require("./runtime/themeRuntime");
 const { createUrlPolicyRuntime } = require("./runtime/urlPolicyRuntime");
 const { createConfigRuntime } = require("./runtime/configRuntime");
 const { createUrllineCoordinator } = require("./runtime/urllineCoordinator");
-const { resetLeaderSession, resetSequenceBuffers } = require("./core/state/leaderState");
+const {
+  resetLeaderSession,
+  resetSequenceBuffers,
+} = require("./core/state/leaderState");
 const {
   moveUrllineCursor,
   setUrllineCursor,
@@ -131,15 +163,28 @@ function handleRawInput(event, input) {
     bookmarkInsertScopeModal,
     telescopeService,
   });
-  const priority = resolveInputPriority(normalized, focusSnapshot, state, process.platform);
-  assertInputPipelinePreconditions({ input: normalized, priority, focusSnapshot });
+  const priority = resolveInputPriority(
+    normalized,
+    focusSnapshot,
+    state,
+    process.platform,
+  );
+  assertInputPipelinePreconditions({
+    input: normalized,
+    priority,
+    focusSnapshot,
+  });
 
   if (focusSnapshot.bookmarkModalActive) {
     const wasActive = true;
     const consumed = bookmarkInsertScopeModal.handleInput(normalized);
     if (consumed) {
       event.preventDefault();
-      if (wasActive && !bookmarkInsertScopeModal.isActive() && focusSnapshot.historyPanelVisible) {
+      if (
+        wasActive &&
+        !bookmarkInsertScopeModal.isActive() &&
+        focusSnapshot.historyPanelVisible
+      ) {
         historyPanel.reloadData();
         historyPanel.render();
       }
@@ -171,7 +216,10 @@ function handleRawInput(event, input) {
     }
   }
 
-  if (priority.shouldRouteFocusedTreeInput && historyPanel.handleFocusedInput(normalized)) {
+  if (
+    priority.shouldRouteFocusedTreeInput &&
+    historyPanel.handleFocusedInput(normalized)
+  ) {
     event.preventDefault();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     updateTablineOptions();
@@ -235,8 +283,13 @@ function syncWebBufferModeWithFocusedElement(webContents) {
   }
 
   const activeBuffer = buffers.getActive();
-  const editorFocused = isEditorFocused(state) && Boolean(activeBuffer && activeBuffer.isEditable);
-  if (!activeBuffer || activeBuffer.webContents !== webContents || activeBuffer.isEditable) {
+  const editorFocused =
+    isEditorFocused(state) && Boolean(activeBuffer && activeBuffer.isEditable);
+  if (
+    !activeBuffer ||
+    activeBuffer.webContents !== webContents ||
+    activeBuffer.isEditable
+  ) {
     return Promise.resolve();
   }
 
@@ -257,7 +310,11 @@ function syncWebBufferModeWithFocusedElement(webContents) {
         return;
       }
       const latestActive = buffers.getActive();
-      if (!latestActive || latestActive.webContents !== webContents || latestActive.isEditable) {
+      if (
+        !latestActive ||
+        latestActive.webContents !== webContents ||
+        latestActive.isEditable
+      ) {
         return;
       }
 
@@ -265,7 +322,8 @@ function syncWebBufferModeWithFocusedElement(webContents) {
         state.mode === "COMMAND" ||
         state.urllineEditing ||
         historyPanel.isFocused() ||
-        (isEditorFocused(state) && Boolean(latestActive && latestActive.isEditable)) ||
+        (isEditorFocused(state) &&
+          Boolean(latestActive && latestActive.isEditable)) ||
         (state.mode !== "NORMAL" && state.mode !== "INSERT")
       ) {
         return;
@@ -278,7 +336,11 @@ function syncWebBufferModeWithFocusedElement(webContents) {
       }
 
       setMode(state, nextMode, "web-focus-sync");
-      assertModeWriteBoundary({ mode: nextMode, state, source: "web-focus-sync" });
+      assertModeWriteBoundary({
+        mode: nextMode,
+        state,
+        source: "web-focus-sync",
+      });
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
     })
     .catch(() => {});
@@ -330,7 +392,9 @@ function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
     }
 
     if (node.children && typeof node.children === "object") {
-      results.push(...findLeaderSequencesForAction(node.children, targetAction, nextPath));
+      results.push(
+        ...findLeaderSequencesForAction(node.children, targetAction, nextPath),
+      );
     }
   }
 
@@ -361,9 +425,14 @@ function findModMappingsForAction(modMap, targetAction) {
   for (const [key, actionId] of Object.entries(modMap)) {
     if (actionId === targetAction) {
       const keyText = String(key);
-      const withShift = keyText.length === 1 && keyText !== keyText.toLowerCase();
+      const withShift =
+        keyText.length === 1 && keyText !== keyText.toLowerCase();
       const displayKey = keyText.length === 1 ? keyText.toUpperCase() : keyText;
-      hits.push(withShift ? `${modLabel}+Shift+${displayKey}` : `${modLabel}+${displayKey}`);
+      hits.push(
+        withShift
+          ? `${modLabel}+Shift+${displayKey}`
+          : `${modLabel}+${displayKey}`,
+      );
     }
   }
   return hits;
@@ -379,7 +448,10 @@ function findShortcutLabelForAction(actionId) {
   const leader = configService.getConfigValue("keymap.leader", {});
 
   const labels = [];
-  const normalHits = findNormalMappingsForAction(getNormalActionMap(), actionId);
+  const normalHits = findNormalMappingsForAction(
+    getNormalActionMap(),
+    actionId,
+  );
   if (normalHits.length > 0) {
     labels.push(normalHits[0]);
   }
@@ -402,7 +474,10 @@ function findShortcutLabelForAction(actionId) {
 
 function updateTablineActions() {
   const leaderTree = configService.getConfigValue("keymap.leader", {});
-  const openSettingsSeqs = findLeaderSequencesForAction(leaderTree, "open_settings");
+  const openSettingsSeqs = findLeaderSequencesForAction(
+    leaderTree,
+    "open_settings",
+  );
   const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
   const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
   const newBufferShortcut = findShortcutLabelForAction("new_buffer");
@@ -432,7 +507,10 @@ function updateTablineActions() {
 
 function updateTablineOptions() {
   uiShell.setTablineOptions({
-    showFavicon: configService.getConfigValue("global.ui.tabline.show_favicon", false),
+    showFavicon: configService.getConfigValue(
+      "global.ui.tabline.show_favicon",
+      false,
+    ),
     dimActiveBuffer: historyPanel.isFocused(),
   });
 }
@@ -501,7 +579,6 @@ const { applyReloadedConfig } = createConfigRuntime({
   updateUrllineRender,
 });
 
-
 function normalizeHistoryUrl(rawUrl) {
   if (typeof rawUrl !== "string") return "";
   const trimmed = rawUrl.trim();
@@ -518,8 +595,6 @@ function normalizeHistoryUrl(rawUrl) {
     return trimmed;
   }
 }
-
-
 
 function createWindow() {
   const runtime = bootstrapWindowRuntime({

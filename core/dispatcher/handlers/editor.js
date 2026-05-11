@@ -1,5 +1,8 @@
 const { INTENTS } = require("../../intents");
-const { setEditorFocused, toggleEditorFocused } = require("../../editorFocusState");
+const {
+  setEditorFocused,
+  toggleEditorFocused,
+} = require("../../editorFocusState");
 const { setEditorMode } = require("../../state/editorModeState");
 
 function createEditorHandlers(deps) {

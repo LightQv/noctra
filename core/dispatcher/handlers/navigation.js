@@ -1,12 +1,20 @@
 const { INTENTS } = require("../../intents");
 
 function createNavigationHandlers(deps) {
-  const { buffers, notificationsService, buildSearchUrl, normalizeUrl, webContentsActions } = deps;
+  const {
+    buffers,
+    notificationsService,
+    buildSearchUrl,
+    normalizeUrl,
+    webContentsActions,
+  } = deps;
 
   return {
     [INTENTS.SCROLL]: ({ intent }) => {
       const buf = buffers.getActive();
-      webContentsActions.scrollByIntent(buf.webContents, intent.direction, intent.amount).catch(() => {});
+      webContentsActions
+        .scrollByIntent(buf.webContents, intent.direction, intent.amount)
+        .catch(() => {});
     },
     [INTENTS.SCROLL_TOP]: () => {
       const buf = buffers.getActive();

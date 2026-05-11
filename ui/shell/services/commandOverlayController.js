@@ -1,4 +1,6 @@
-const { pushShellPatch } = require("../../../core/adapters/renderer/shellPatchTransport");
+const {
+  pushShellPatch,
+} = require("../../../core/adapters/renderer/shellPatchTransport");
 
 function isCommandVisible() {
   return this.commandVisible;
@@ -42,12 +44,15 @@ function updateCommand(text = "", cursorIndex = null, context = null) {
 
   const beforeText = nextText.slice(0, nextCursor);
   const afterText = nextText.slice(nextCursor);
-  const cursorClass = nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
+  const cursorClass =
+    nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
   const isEditorContext = this.commandContext === "editor";
   const commandTitle = isEditorContext ? "Ex" : "Cmdline";
   const commandPrefix = "";
 
-  pushShellPatch(this.commandOverlayView.webContents, `
+  pushShellPatch(
+    this.commandOverlayView.webContents,
+    `
       (function updateCommandOverlayText() {
         const titleNode = document.getElementById('command-title');
         const prefixNode = document.getElementById('command-prefix');
@@ -61,7 +66,8 @@ function updateCommand(text = "", cursorIndex = null, context = null) {
         afterNode.textContent = ${JSON.stringify(afterText)};
         cursorNode.className = ${JSON.stringify(cursorClass)};
       })();
-    `);
+    `,
+  );
 }
 
 module.exports = {

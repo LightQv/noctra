@@ -28,7 +28,11 @@ function closeSplitDevtools({ targetWebContents, devtoolsView }) {
     targetWebContents.closeDevTools();
   }
 
-  if (devtoolsView && devtoolsView.webContents && !devtoolsView.webContents.isDestroyed()) {
+  if (
+    devtoolsView &&
+    devtoolsView.webContents &&
+    !devtoolsView.webContents.isDestroyed()
+  ) {
     devtoolsView.webContents.destroy();
   }
 }

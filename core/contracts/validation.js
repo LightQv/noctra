@@ -62,7 +62,11 @@ function createStrictObjectValidator(shape = {}) {
   const knownKeys = new Set(Object.keys(shape));
   return (value) => {
     if (!isPlainObject(value)) {
-      return { ok: false, message: "expected object", details: { reason: "not_object" } };
+      return {
+        ok: false,
+        message: "expected object",
+        details: { reason: "not_object" },
+      };
     }
 
     const unknownKeys = Object.keys(value).filter((key) => !knownKeys.has(key));
@@ -80,7 +84,11 @@ function createStrictObjectValidator(shape = {}) {
         return {
           ok: false,
           message: `invalid field: ${key} (${result.message})`,
-          details: { reason: "field_invalid", field: key, fieldError: result.message },
+          details: {
+            reason: "field_invalid",
+            field: key,
+            fieldError: result.message,
+          },
         };
       }
     }

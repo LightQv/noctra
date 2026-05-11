@@ -52,14 +52,19 @@ function bootstrapWindowRuntime({
   }
 
   function isBoundsVisibleOnAnyDisplay(bounds) {
-    if (!bounds || !Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)) {
+    if (
+      !bounds ||
+      !Number.isFinite(bounds.width) ||
+      !Number.isFinite(bounds.height)
+    ) {
       return false;
     }
 
     const displays = screen.getAllDisplays();
     return displays.some((display) => {
       const area = display.workArea;
-      const intersectsHorizontally = bounds.x < area.x + area.width && bounds.x + bounds.width > area.x;
+      const intersectsHorizontally =
+        bounds.x < area.x + area.width && bounds.x + bounds.width > area.x;
       const intersectsVertically =
         bounds.y < area.y + area.height && bounds.y + bounds.height > area.y;
       return intersectsHorizontally && intersectsVertically;
@@ -69,11 +74,20 @@ function bootstrapWindowRuntime({
   const config = configService.initConfig();
   state.applyConfig(config);
   applyBrowserLanguagePreference();
-  const initialWidth = configService.getConfigValue("global.window.width", 1200);
-  const initialHeight = configService.getConfigValue("global.window.height", 800);
+  const initialWidth = configService.getConfigValue(
+    "global.window.width",
+    1200,
+  );
+  const initialHeight = configService.getConfigValue(
+    "global.window.height",
+    800,
+  );
   const initialX = configService.getConfigValue("global.window.x", null);
   const initialY = configService.getConfigValue("global.window.y", null);
-  const initialIsMaximized = configService.getConfigValue("global.window.is_maximized", false);
+  const initialIsMaximized = configService.getConfigValue(
+    "global.window.is_maximized",
+    false,
+  );
 
   const isMac = process.platform === "darwin";
 
@@ -95,7 +109,8 @@ function bootstrapWindowRuntime({
     windowOptions.frame = false;
   }
 
-  const hasConfiguredPosition = isFiniteInteger(initialX) && isFiniteInteger(initialY);
+  const hasConfiguredPosition =
+    isFiniteInteger(initialX) && isFiniteInteger(initialY);
   if (hasConfiguredPosition) {
     const candidateBounds = {
       x: initialX,
@@ -151,18 +166,28 @@ function bootstrapWindowRuntime({
   });
 
   buffers.init(win);
-  buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
+  buffers.setUrllineVisible(
+    configService.getConfigValue("global.ui.urlline.enabled", false),
+  );
   historyPanel.init({ window: win, buffers, state });
   historyPanel.setOnFocusChange(() => {
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     updateTablineOptions();
   });
-  historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+  historyPanel.setWidthRatio(
+    configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2),
+  );
   historyPanel.setTreeScrollContextLines(
-    configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+    configService.getConfigValue(
+      "global.ui.sidepanel.tree_scroll_context_lines",
+      3,
+    ),
   );
   historyPanel.setTreeDeleteOperatorTimeoutMs(
-    configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+    configService.getConfigValue(
+      "global.ui.sidepanel.delete_operator_timeout_ms",
+      900,
+    ),
   );
   const historyPanelWebContents = historyPanel.getWebContents();
   if (historyPanelWebContents) {
@@ -250,7 +275,10 @@ function bootstrapWindowRuntime({
     uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
     uiShell.updateSplitDivider(buffers.getSplitStatus());
 
-    if (activeChanged || inputCoordinator.getActiveInputWebContents() !== active.webContents) {
+    if (
+      activeChanged ||
+      inputCoordinator.getActiveInputWebContents() !== active.webContents
+    ) {
       inputCoordinator.bindInputToActiveBuffer();
     }
 
@@ -272,8 +300,13 @@ function bootstrapWindowRuntime({
         return;
       }
 
-      const nowMs = Number.isFinite(change.timestampMs) ? change.timestampMs : Date.now();
-      if (lastRecordedVisit.url === normalizedUrl && nowMs - lastRecordedVisit.atMs <= 1200) {
+      const nowMs = Number.isFinite(change.timestampMs)
+        ? change.timestampMs
+        : Date.now();
+      if (
+        lastRecordedVisit.url === normalizedUrl &&
+        nowMs - lastRecordedVisit.atMs <= 1200
+      ) {
         return;
       }
 
@@ -317,7 +350,8 @@ function bootstrapWindowRuntime({
     const shouldApplyFromSystem =
       themeContext.configuredMode === "auto" ||
       themeContext.contentMode === "auto" ||
-      (themeContext.contentMode === "match" && themeContext.configuredMode === "custom");
+      (themeContext.contentMode === "match" &&
+        themeContext.configuredMode === "custom");
     if (!shouldApplyFromSystem) {
       return;
     }

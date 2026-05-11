@@ -21,15 +21,26 @@ function getUrllineRenderModel(manager) {
 
   const bounds = manager.window.getContentBounds();
   const left = manager.getLeftBuffer();
-  const rightSource = manager.split.mode === "regular" ? manager.split.rightPaneSourceBuffer : null;
-  const rightRegular = manager.split.mode === "regular" ? manager.split.rightPaneBuffer : null;
-  const showSplit = manager.split.enabled && (rightSource || rightRegular || manager.split.mode === "devtools");
-  const dividerWidth = showSplit && getConfigValue("global.split.divider.enabled", true) ? 1 : 0;
+  const rightSource =
+    manager.split.mode === "regular"
+      ? manager.split.rightPaneSourceBuffer
+      : null;
+  const rightRegular =
+    manager.split.mode === "regular" ? manager.split.rightPaneBuffer : null;
+  const showSplit =
+    manager.split.enabled &&
+    (rightSource || rightRegular || manager.split.mode === "devtools");
+  const dividerWidth =
+    showSplit && getConfigValue("global.split.divider.enabled", true) ? 1 : 0;
   const contentX = Math.max(0, manager.leftInsetPx);
   const contentWidth = Math.max(bounds.width - contentX, 2);
   const availableSplitWidth = Math.max(contentWidth - dividerWidth, 2);
-  const rightWidth = showSplit ? Math.max(Math.floor(availableSplitWidth * manager.split.ratio), 1) : 0;
-  const leftWidth = showSplit ? Math.max(availableSplitWidth - rightWidth, 1) : contentWidth;
+  const rightWidth = showSplit
+    ? Math.max(Math.floor(availableSplitWidth * manager.split.ratio), 1)
+    : 0;
+  const leftWidth = showSplit
+    ? Math.max(availableSplitWidth - rightWidth, 1)
+    : contentWidth;
   const rightX = contentX + leftWidth + dividerWidth;
 
   const useMirroredRight =
@@ -54,7 +65,9 @@ function getUrllineRenderModel(manager) {
       width: leftWidth,
       url: left.url || "about:blank",
       canGoBack: Boolean(left.webContents?.navigationHistory?.canGoBack?.()),
-      canGoForward: Boolean(left.webContents?.navigationHistory?.canGoForward?.()),
+      canGoForward: Boolean(
+        left.webContents?.navigationHistory?.canGoForward?.(),
+      ),
     });
   }
 
@@ -65,8 +78,12 @@ function getUrllineRenderModel(manager) {
       top: UI_SHELL_TABLINE_HEIGHT,
       width: rightWidth,
       url: rightPaneBuffer.url || "about:blank",
-      canGoBack: Boolean(rightPaneBuffer.webContents?.navigationHistory?.canGoBack?.()),
-      canGoForward: Boolean(rightPaneBuffer.webContents?.navigationHistory?.canGoForward?.()),
+      canGoBack: Boolean(
+        rightPaneBuffer.webContents?.navigationHistory?.canGoBack?.(),
+      ),
+      canGoForward: Boolean(
+        rightPaneBuffer.webContents?.navigationHistory?.canGoForward?.(),
+      ),
     });
   }
 
@@ -81,9 +98,15 @@ function layoutViews(manager) {
   const shellBottomInset = UI_SHELL_STATUSLINE_HEIGHT;
 
   const left = manager.getLeftBuffer();
-  const rightSource = manager.split.mode === "regular" ? manager.split.rightPaneSourceBuffer : null;
-  const rightRegular = manager.split.mode === "regular" ? manager.split.rightPaneBuffer : null;
-  const showSplit = manager.split.enabled && (rightSource || rightRegular || manager.split.mode === "devtools");
+  const rightSource =
+    manager.split.mode === "regular"
+      ? manager.split.rightPaneSourceBuffer
+      : null;
+  const rightRegular =
+    manager.split.mode === "regular" ? manager.split.rightPaneBuffer : null;
+  const showSplit =
+    manager.split.enabled &&
+    (rightSource || rightRegular || manager.split.mode === "devtools");
 
   const useMirroredRight =
     showSplit &&
@@ -94,10 +117,13 @@ function layoutViews(manager) {
     manager.ensureRightPaneBuffer();
   }
 
-  const showSplitWithRegular = manager.split.enabled && (Boolean(rightSource) || Boolean(rightRegular));
+  const showSplitWithRegular =
+    manager.split.enabled && (Boolean(rightSource) || Boolean(rightRegular));
 
   const visibleRightMainBuffer =
-    manager.split.mode === "regular" && rightSource && !useMirroredRight ? rightSource : null;
+    manager.split.mode === "regular" && rightSource && !useMirroredRight
+      ? rightSource
+      : null;
 
   const rightVisibleBuffer =
     manager.split.mode === "regular" && useMirroredRight
@@ -124,7 +150,10 @@ function layoutViews(manager) {
   const getPaneBounds = (isRightPane, x, width) => {
     const paneInset = getPaneInset(isRightPane);
     const y = shellTop + paneInset;
-    const height = Math.max(bounds.height - shellTop - shellBottomInset - paneInset, 1);
+    const height = Math.max(
+      bounds.height - shellTop - shellBottomInset - paneInset,
+      1,
+    );
     return {
       x,
       y,
@@ -133,17 +162,26 @@ function layoutViews(manager) {
     };
   };
 
-  const splitDividerEnabled = getConfigValue("global.split.divider.enabled", true);
+  const splitDividerEnabled = getConfigValue(
+    "global.split.divider.enabled",
+    true,
+  );
   const dividerWidth = showSplit && splitDividerEnabled ? 1 : 0;
   const contentX = Math.max(0, manager.leftInsetPx);
   const contentWidth = Math.max(bounds.width - contentX, 2);
   const availableSplitWidth = Math.max(contentWidth - dividerWidth, 2);
-  const rightWidth = showSplit ? Math.max(Math.floor(availableSplitWidth * manager.split.ratio), 1) : 0;
-  const leftWidth = showSplit ? Math.max(availableSplitWidth - rightWidth, 1) : contentWidth;
+  const rightWidth = showSplit
+    ? Math.max(Math.floor(availableSplitWidth * manager.split.ratio), 1)
+    : 0;
+  const leftWidth = showSplit
+    ? Math.max(availableSplitWidth - rightWidth, 1)
+    : contentWidth;
   const rightX = contentX + leftWidth + dividerWidth;
 
   manager.splitDivider.visible = showSplit && dividerWidth > 0;
-  manager.splitDivider.offsetPx = manager.splitDivider.visible ? contentX + leftWidth : 0;
+  manager.splitDivider.offsetPx = manager.splitDivider.visible
+    ? contentX + leftWidth
+    : 0;
 
   for (const buffer of manager.buffers) {
     if (buffer === left || buffer === visibleRightMainBuffer) {
@@ -156,7 +194,10 @@ function layoutViews(manager) {
           isRightBuffer ? rightWidth : leftWidth,
         ),
       );
-      setViewAutoResize(buffer.view, { width: !showSplitWithRegular, height: true });
+      setViewAutoResize(buffer.view, {
+        width: !showSplitWithRegular,
+        height: true,
+      });
     } else {
       setViewAutoResize(buffer.view, { width: false, height: false });
       setViewBounds(buffer.view, { x: -10000, y: -10000, width: 1, height: 1 });
@@ -174,17 +215,33 @@ function layoutViews(manager) {
       setViewAutoResize(rightRegular.view, { width: !showSplit, height: true });
     } else {
       setViewAutoResize(rightRegular.view, { width: false, height: false });
-      setViewBounds(rightRegular.view, { x: -10000, y: -10000, width: 1, height: 1 });
+      setViewBounds(rightRegular.view, {
+        x: -10000,
+        y: -10000,
+        width: 1,
+        height: 1,
+      });
     }
   }
 
   if (manager.devtoolsView) {
     if (showSplit && manager.split.mode === "devtools") {
-      setViewBounds(manager.devtoolsView, getPaneBounds(true, rightX, rightWidth));
-      setViewAutoResize(manager.devtoolsView, { width: !showSplit, height: true });
+      setViewBounds(
+        manager.devtoolsView,
+        getPaneBounds(true, rightX, rightWidth),
+      );
+      setViewAutoResize(manager.devtoolsView, {
+        width: !showSplit,
+        height: true,
+      });
     } else {
       setViewAutoResize(manager.devtoolsView, { width: false, height: false });
-      setViewBounds(manager.devtoolsView, { x: -10000, y: -10000, width: 1, height: 1 });
+      setViewBounds(manager.devtoolsView, {
+        x: -10000,
+        y: -10000,
+        width: 1,
+        height: 1,
+      });
     }
   }
 

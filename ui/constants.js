@@ -13,7 +13,8 @@ const UI_CHROME_TAB_GAP = 8;
 const UI_CHROME_TABLINE_ACTION_GAP = UI_CHROME_TAB_GAP;
 const UI_CHROME_TABLINE_TABS_LEFT_PADDING = 4;
 const UI_CHROME_TABLINE_ACTIONS_RIGHT_PADDING = 12;
-const UI_CHROME_EDITOR_HEADER_HORIZONTAL_PADDING = UI_CHROME_TABLINE_ACTIONS_RIGHT_PADDING;
+const UI_CHROME_EDITOR_HEADER_HORIZONTAL_PADDING =
+  UI_CHROME_TABLINE_ACTIONS_RIGHT_PADDING;
 const UI_CHROME_ICON_GLYPH_SIZE = 16;
 
 const UI_MAIN_COLOR = "#89dceb";
@@ -25,10 +26,22 @@ const UI_FONT_FAMILY =
   '"JetBrainsMono Nerd Font Mono", "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
 const UI_FONT_REGULAR_URL = pathToFileURL(
-  path.resolve(__dirname, "..", "assets", "fonts", "JetBrainsMonoNerdFontMono-Regular.ttf"),
+  path.resolve(
+    __dirname,
+    "..",
+    "assets",
+    "fonts",
+    "JetBrainsMonoNerdFontMono-Regular.ttf",
+  ),
 ).href;
 const UI_FONT_BOLD_URL = pathToFileURL(
-  path.resolve(__dirname, "..", "assets", "fonts", "JetBrainsMonoNerdFontMono-Bold.ttf"),
+  path.resolve(
+    __dirname,
+    "..",
+    "assets",
+    "fonts",
+    "JetBrainsMonoNerdFontMono-Bold.ttf",
+  ),
 ).href;
 
 const UI_FONT_FACE_CSS = `

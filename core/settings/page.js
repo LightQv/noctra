@@ -14,7 +14,9 @@ const { resolveTheme, toCssVars } = require("../../ui/theme");
 function readCodeMirrorAsset(assetPath) {
   try {
     const resolved = require.resolve(assetPath);
-    return fs.readFileSync(resolved, "utf8").replace(/<\/script/gi, "<\\/script");
+    return fs
+      .readFileSync(resolved, "utf8")
+      .replace(/<\/script/gi, "<\\/script");
   } catch {
     return "";
   }
@@ -22,7 +24,9 @@ function readCodeMirrorAsset(assetPath) {
 
 const CODEMIRROR_CSS = readCodeMirrorAsset("codemirror/lib/codemirror.css");
 const CODEMIRROR_JS = readCodeMirrorAsset("codemirror/lib/codemirror.js");
-const CODEMIRROR_SEARCH_CURSOR_JS = readCodeMirrorAsset("codemirror/addon/search/searchcursor.js");
+const CODEMIRROR_SEARCH_CURSOR_JS = readCodeMirrorAsset(
+  "codemirror/addon/search/searchcursor.js",
+);
 const CODEMIRROR_VIM_JS = readCodeMirrorAsset("codemirror/keymap/vim.js");
 const CODEMIRROR_YAML_JS = readCodeMirrorAsset("codemirror/mode/yaml/yaml.js");
 
@@ -38,7 +42,12 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "", options = {}) {
+function buildSettingsPageHtml(
+  configPath,
+  themeInput = null,
+  initialContent = "",
+  options = {},
+) {
   const viewTitle =
     typeof options.viewTitle === "string" && options.viewTitle.trim().length > 0
       ? options.viewTitle.trim()
@@ -48,7 +57,9 @@ function buildSettingsPageHtml(configPath, themeInput = null, initialContent = "
       ? themeInput.theme
       : themeInput;
   const sourceColorScheme =
-    themeInput && typeof themeInput === "object" && themeInput.colorScheme === "light"
+    themeInput &&
+    typeof themeInput === "object" &&
+    themeInput.colorScheme === "light"
       ? "light"
       : "dark";
   const theme = resolveTheme({

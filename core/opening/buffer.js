@@ -87,19 +87,38 @@ function toRgba(input, alpha, fallback) {
 }
 
 function buildDashboardHtml(dashboard = {}, themeInput = {}) {
-  const colorScheme = themeInput && themeInput.colorScheme === "light" ? "light" : "dark";
+  const colorScheme =
+    themeInput && themeInput.colorScheme === "light" ? "light" : "dark";
   const baseTheme =
-    themeInput && themeInput.theme && typeof themeInput.theme === "object" ? themeInput.theme : {};
+    themeInput && themeInput.theme && typeof themeInput.theme === "object"
+      ? themeInput.theme
+      : {};
   const theme = resolveTheme({
     mode: colorScheme,
     overrides: baseTheme,
   });
 
-  const gradientTop = mixHex(theme.appBackground, theme.surfaceBackground, 0.72);
-  const gradientMid = mixHex(theme.appBackground, theme.surfaceBackground, 0.58);
+  const gradientTop = mixHex(
+    theme.appBackground,
+    theme.surfaceBackground,
+    0.72,
+  );
+  const gradientMid = mixHex(
+    theme.appBackground,
+    theme.surfaceBackground,
+    0.58,
+  );
   const gradientBottom = theme.appBackground;
-  const glowTint = toRgba(theme.mainColor, colorScheme === "light" ? 0.18 : 0.16, "transparent");
-  const buttonBorder = toRgba(theme.mainColor, colorScheme === "light" ? 0.42 : 0.34, theme.borderColor);
+  const glowTint = toRgba(
+    theme.mainColor,
+    colorScheme === "light" ? 0.18 : 0.16,
+    "transparent",
+  );
+  const buttonBorder = toRgba(
+    theme.mainColor,
+    colorScheme === "light" ? 0.42 : 0.34,
+    theme.borderColor,
+  );
   const buttonBackground = toRgba(
     theme.elevatedBackground,
     colorScheme === "light" ? 0.88 : 0.72,
@@ -207,7 +226,10 @@ function buildOpeningBufferSpec(openingBufferConfig = {}, themeInput = {}) {
   const mode = normalizeMode(openingBufferConfig.mode);
 
   if (mode === "url") {
-    const rawUrl = typeof openingBufferConfig.url === "string" ? openingBufferConfig.url : "";
+    const rawUrl =
+      typeof openingBufferConfig.url === "string"
+        ? openingBufferConfig.url
+        : "";
     const resolvedUrl = resolveUrlInput(rawUrl);
 
     if (resolvedUrl) {

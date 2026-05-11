@@ -41,10 +41,18 @@ function createCommandUiHandlers(deps) {
       runEditableExCommand(activeEditableBuffer, intent.command);
     },
     [INTENTS.SHOW_WHICHKEY]: ({ intent }) => {
-      uiShell.showWhichKey(intent.model || null, intent.timeoutMs, intent.delayMs);
+      uiShell.showWhichKey(
+        intent.model || null,
+        intent.timeoutMs,
+        intent.delayMs,
+      );
     },
     [INTENTS.UPDATE_WHICHKEY]: ({ intent }) => {
-      uiShell.updateWhichKey(intent.model || null, intent.timeoutMs, intent.delayMs);
+      uiShell.updateWhichKey(
+        intent.model || null,
+        intent.timeoutMs,
+        intent.delayMs,
+      );
     },
     [INTENTS.HIDE_WHICHKEY]: () => {
       uiShell.hideWhichKey();

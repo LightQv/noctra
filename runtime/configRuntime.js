@@ -20,13 +20,23 @@ function createConfigRuntime({
     resetSequenceBuffers(state);
 
     applyBrowserLanguagePreference();
-    buffers.setUrllineVisible(configService.getConfigValue("global.ui.urlline.enabled", false));
-    historyPanel.setWidthRatio(configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2));
+    buffers.setUrllineVisible(
+      configService.getConfigValue("global.ui.urlline.enabled", false),
+    );
+    historyPanel.setWidthRatio(
+      configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2),
+    );
     historyPanel.setTreeScrollContextLines(
-      configService.getConfigValue("global.ui.sidepanel.tree_scroll_context_lines", 3),
+      configService.getConfigValue(
+        "global.ui.sidepanel.tree_scroll_context_lines",
+        3,
+      ),
     );
     historyPanel.setTreeDeleteOperatorTimeoutMs(
-      configService.getConfigValue("global.ui.sidepanel.delete_operator_timeout_ms", 900),
+      configService.getConfigValue(
+        "global.ui.sidepanel.delete_operator_timeout_ms",
+        900,
+      ),
     );
 
     if (refreshLayout) {

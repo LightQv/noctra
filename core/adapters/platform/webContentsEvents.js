@@ -12,9 +12,13 @@ function bindWebModeTracking(webContents, callbacks = {}) {
       ? callbacks.onFocusChangedInPage
       : () => {};
   const onBeforeMouseEvent =
-    typeof callbacks.onBeforeMouseEvent === "function" ? callbacks.onBeforeMouseEvent : () => {};
+    typeof callbacks.onBeforeMouseEvent === "function"
+      ? callbacks.onBeforeMouseEvent
+      : () => {};
   const onDidFinishLoad =
-    typeof callbacks.onDidFinishLoad === "function" ? callbacks.onDidFinishLoad : () => {};
+    typeof callbacks.onDidFinishLoad === "function"
+      ? callbacks.onDidFinishLoad
+      : () => {};
 
   webContents.on("focus-changed-in-page", onFocusChangedInPage);
   webContents.on("before-mouse-event", onBeforeMouseEvent);

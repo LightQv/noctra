@@ -13,7 +13,8 @@ function createPanelRenderTransport({ resolveWebContents, delayMs = 16 } = {}) {
   }
 
   function scheduleHtmlRender(html) {
-    const webContents = typeof resolveWebContents === "function" ? resolveWebContents() : null;
+    const webContents =
+      typeof resolveWebContents === "function" ? resolveWebContents() : null;
     if (!webContents) {
       return;
     }
@@ -26,7 +27,8 @@ function createPanelRenderTransport({ resolveWebContents, delayMs = 16 } = {}) {
     clearTimer();
     renderTimer = setTimeout(() => {
       renderTimer = null;
-      const nextWebContents = typeof resolveWebContents === "function" ? resolveWebContents() : null;
+      const nextWebContents =
+        typeof resolveWebContents === "function" ? resolveWebContents() : null;
       if (!nextWebContents) {
         return;
       }

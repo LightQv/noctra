@@ -15,12 +15,19 @@ function createThemeRuntime({
     const themeConfig = configService.getConfigValue("global.theme", {});
     const systemPrefersDark = nativeTheme.shouldUseDarkColors;
     const configuredMode = normalizeThemeMode(
-      typeof themeConfig?.mode === "string" ? themeConfig.mode : themeConfig?.name,
+      typeof themeConfig?.mode === "string"
+        ? themeConfig.mode
+        : themeConfig?.name,
       "dark",
     );
     const resolvedMode = resolveThemeMode(themeConfig, { systemPrefersDark });
-    const contentMode = normalizeContentThemeMode(themeConfig?.content_mode, "dark");
-    const contentColorScheme = resolveContentColorScheme(themeConfig, { systemPrefersDark });
+    const contentMode = normalizeContentThemeMode(
+      themeConfig?.content_mode,
+      "dark",
+    );
+    const contentColorScheme = resolveContentColorScheme(themeConfig, {
+      systemPrefersDark,
+    });
     const theme = resolveTheme(themeConfig, { systemPrefersDark });
 
     return {
@@ -33,7 +40,10 @@ function createThemeRuntime({
   }
 
   function buildThemePayload(themeContext) {
-    const theme = themeContext && themeContext.theme ? themeContext.theme : themeContext || {};
+    const theme =
+      themeContext && themeContext.theme
+        ? themeContext.theme
+        : themeContext || {};
     const resolvedMode =
       themeContext && typeof themeContext.resolvedMode === "string"
         ? themeContext.resolvedMode
@@ -48,7 +58,8 @@ function createThemeRuntime({
   }
 
   function syncContentUiTheme(theme) {
-    const contentColorScheme = theme.contentColorScheme === "light" ? "light" : "dark";
+    const contentColorScheme =
+      theme.contentColorScheme === "light" ? "light" : "dark";
     buffers.setContentUiOptions({
       thumbColor: theme.scrollbarThumbColor,
       thumbActiveColor: theme.scrollbarThumbActiveColor,
@@ -63,7 +74,9 @@ function createThemeRuntime({
     syncContentUiTheme({
       ...payload.theme,
       contentColorScheme:
-        themeContext && themeContext.contentColorScheme === "light" ? "light" : "dark",
+        themeContext && themeContext.contentColorScheme === "light"
+          ? "light"
+          : "dark",
     });
     buffers.refreshDashboardBuffers();
     if (shouldBroadcast) {

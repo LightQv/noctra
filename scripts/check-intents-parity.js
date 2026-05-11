@@ -50,7 +50,10 @@ function main() {
 
   console.error("INTENTS.md parity check failed.");
   if (result.missing.size > 0) {
-    console.error("Missing from INTENTS.md:", sorted(result.missing).join(", "));
+    console.error(
+      "Missing from INTENTS.md:",
+      sorted(result.missing).join(", "),
+    );
   }
   if (result.extra.size > 0) {
     console.error("Extra in INTENTS.md:", sorted(result.extra).join(", "));

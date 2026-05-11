@@ -1,7 +1,10 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { isExactVersion, findDynamicVersions } = require("../../scripts/check-dependency-versions");
+const {
+  isExactVersion,
+  findDynamicVersions,
+} = require("../../scripts/check-dependency-versions");
 
 test("exact version matcher accepts pinned versions", () => {
   assert.equal(isExactVersion("1.2.3"), true);

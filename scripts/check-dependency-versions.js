@@ -1,7 +1,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/;
+const EXACT_VERSION_REGEX =
+  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/;
 
 function isExactVersion(value) {
   return typeof value === "string" && EXACT_VERSION_REGEX.test(value.trim());
@@ -24,7 +25,9 @@ function findDynamicVersions(pkg) {
     }
   }
 
-  return problems.sort((a, b) => `${a.section}:${a.name}`.localeCompare(`${b.section}:${b.name}`));
+  return problems.sort((a, b) =>
+    `${a.section}:${a.name}`.localeCompare(`${b.section}:${b.name}`),
+  );
 }
 
 function main() {

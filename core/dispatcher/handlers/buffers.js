@@ -38,12 +38,18 @@ function createBufferHandlers(deps) {
     [INTENTS.CLOSE_LEFT_BUFFERS]: () => buffers.closeLeftOfActive(),
     [INTENTS.CLOSE_RIGHT_BUFFERS]: () => buffers.closeRightOfActive(),
     [INTENTS.SPLIT_VERTICAL]: () => {
-      const ratio = configService.getConfigValue("global.split.regular_ratio", 0.5);
+      const ratio = configService.getConfigValue(
+        "global.split.regular_ratio",
+        0.5,
+      );
       buffers.openVerticalSplit(ratio);
     },
     [INTENTS.SPLIT_CLOSE_RIGHT]: () => buffers.closeRightSplit(),
     [INTENTS.SPLIT_DEVTOOLS]: () => {
-      const ratio = configService.getConfigValue("global.split.devtools_ratio", 0.25);
+      const ratio = configService.getConfigValue(
+        "global.split.devtools_ratio",
+        0.25,
+      );
       buffers.openDevtoolsSplit(ratio);
     },
     [INTENTS.FOCUS_SPLIT_LEFT]: () => buffers.focusSplitLeft(),

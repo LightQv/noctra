@@ -269,6 +269,10 @@ class BufferManager {
     return closeRightOfActive(this);
   }
 
+  getClosedBufferCount() {
+    return this.closedBuffers.length;
+  }
+
   openVerticalSplit(ratio = 0.5) {
     return openVerticalSplit(this, ratio);
   }

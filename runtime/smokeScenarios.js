@@ -1,3 +1,5 @@
+const { Menu } = require("electron");
+
 function createSmokeScenarios({
   app,
   win,
@@ -309,7 +311,12 @@ function createSmokeScenarios({
     }
     const scenario = process.env.NOCTRA_SMOKE_SCENARIO || "startup";
     const scenarioRunners = {
-      startup: async () => {},
+      startup: async () => {
+        const menu = Menu.getApplicationMenu();
+        if (!menu) {
+          throw new Error("Application menu is null after startup");
+        }
+      },
       "overlay-panel-split": async () => {
         dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
         buffers.openVerticalSplit(0.5);

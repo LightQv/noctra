@@ -1,4 +1,4 @@
-const { runSmoke } = require("../../helpers/smoke");
+const { runSmoke } = require("../helpers/smoke");
 
 runSmoke({ scenario: "session-lifecycle", timeoutMs: 30000 }).catch(
   (error) => {

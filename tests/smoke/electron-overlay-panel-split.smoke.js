@@ -1,4 +1,4 @@
-const { runSmoke } = require("../../helpers/smoke");
+const { runSmoke } = require("../helpers/smoke");
 
 runSmoke({ scenario: "overlay-panel-split", timeoutMs: 20000 }).catch(
   (error) => {

@@ -8,8 +8,8 @@ This project is keyboard-first, modal, and architecture-conscious. Contributions
 
 - Read `README.md` for project goals and current scope.
 - Read `docs/architecture-map.md` for module boundaries before structural edits.
-- Read `AGENTS.md` for architecture guardrails and design priorities.
 - Read `INTENTS.md` before changing parser/dispatcher behavior.
+- Read `docs/testing.md` for test scopes and command matrix.
 - For user-facing behavior changes, verify modal consistency (`NORMAL`, `INSERT`, `COMMAND`).
 
 ## Development setup
@@ -72,8 +72,11 @@ Noctra has automated tests and a canonical CI gate:
 - Run `npm run format:check` for formatting checks.
 - Run `npm run check:intents` for intent contract/doc parity.
 - Run `npm run check:security-baseline` for security default policy drift.
+- Run `npm run check:deps-locked` for exact dependency version policy.
 - Run `npm test` for unit/contract coverage.
 - Run `npm run ci:test` for the canonical local parity/security smoke gate.
+
+Test scope rules and scoped commands are documented in `docs/testing.md`.
 
 For IPC-facing changes, complete `docs/ipc-security-checklist.md` before opening a PR.
 

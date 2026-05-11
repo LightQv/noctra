@@ -46,6 +46,7 @@ Reference:
 
 - [Architecture](docs/architecture.md)
 - [Architecture Map](docs/architecture-map.md)
+- [Testing Guide](docs/testing.md)
 - [Intent Contract](INTENTS.md)
 - [Intent Lifecycle Workflow](docs/intent-lifecycle.md)
 - [IPC Security Checklist](docs/ipc-security-checklist.md)

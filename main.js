@@ -577,7 +577,12 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  registerSessionSecurityPolicyAdapter({ session });
+  registerSessionSecurityPolicyAdapter({
+    session,
+    app,
+    configService,
+    notificationsService,
+  });
   registerWebContentsSecurityPolicyAdapter({
     app,
     isAllowedNavigationUrl,

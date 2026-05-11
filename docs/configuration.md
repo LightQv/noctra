@@ -62,6 +62,11 @@ browser:
   allow_http_loopback: true
   allow_http_private_lan: true
   trusted_http_hosts: []
+  downloads:
+    policy: "prompt"
+    allow_trusted_surfaces: false
+    default_directory: null
+    auto_open: false
 ```
 
 ## URL security policy
@@ -88,6 +93,16 @@ browser:
     - "casaos.local"
     - "my-homelab-box"
 ```
+
+## Download governance policy
+
+- `browser.downloads.policy` controls download behavior:
+  - `deny`: block all downloads.
+  - `prompt`: require explicit user confirmation through the native save dialog (default).
+  - `allow`: allow downloads without confirmation dialog.
+- `allow_trusted_surfaces` controls whether trusted internal surfaces can initiate downloads.
+- `default_directory` sets an optional preferred destination directory.
+- `auto_open` enables opening files after download completion (disabled by default).
 
 ## Theme modes
 

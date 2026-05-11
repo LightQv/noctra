@@ -321,6 +321,12 @@ const defaultConfig = {
     allow_http_loopback: true,
     allow_http_private_lan: true,
     trusted_http_hosts: [],
+    downloads: {
+      policy: "prompt",
+      allow_trusted_surfaces: false,
+      default_directory: null,
+      auto_open: false,
+    },
   },
 };
 

@@ -95,7 +95,9 @@ test("session security policy enforces deny-all permission handlers", () => {
   const sessionState = {
     checkHandler: null,
     requestHandler: null,
+    willDownloadHandler: null,
   };
+  const notifications = [];
   const session = {
     defaultSession: {
       setPermissionCheckHandler(handler) {
@@ -104,12 +106,43 @@ test("session security policy enforces deny-all permission handlers", () => {
       setPermissionRequestHandler(handler) {
         sessionState.requestHandler = handler;
       },
+      on(eventName, handler) {
+        if (eventName === "will-download") {
+          sessionState.willDownloadHandler = handler;
+        }
+      },
     },
   };
 
-  registerSessionSecurityPolicy({ session });
+  registerSessionSecurityPolicy({
+    session,
+    app: {
+      getPath(key) {
+        return key === "downloads" ? "/tmp/downloads" : "";
+      },
+    },
+    configService: {
+      getConfigValue(key, fallback) {
+        if (key === "browser.downloads") {
+          return {
+            policy: "prompt",
+            allow_trusted_surfaces: false,
+            default_directory: null,
+            auto_open: false,
+          };
+        }
+        return fallback;
+      },
+    },
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
   assert.equal(typeof sessionState.checkHandler, "function");
   assert.equal(typeof sessionState.requestHandler, "function");
+  assert.equal(typeof sessionState.willDownloadHandler, "function");
   assert.equal(sessionState.checkHandler(), false);
 
   let requestDecision = null;
@@ -117,6 +150,40 @@ test("session security policy enforces deny-all permission handlers", () => {
     requestDecision = allowed;
   });
   assert.equal(requestDecision, false);
+
+  let prevented = false;
+  let saveDialogOptions = null;
+  const item = {
+    getFilename() {
+      return "report.txt";
+    },
+    setSaveDialogOptions(value) {
+      saveDialogOptions = value;
+    },
+    once(eventName, handler) {
+      if (eventName === "done") {
+        handler({}, "cancelled");
+      }
+    },
+  };
+
+  sessionState.willDownloadHandler(
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    item,
+    {},
+  );
+
+  assert.equal(prevented, false);
+  assert.deepEqual(saveDialogOptions, {
+    openPath: false,
+    defaultPath: "/tmp/downloads/report.txt",
+  });
+  assert.equal(notifications.some((entry) => entry.code === "security_download_prompt_required"), true);
+  assert.equal(notifications.some((entry) => entry.code === "download_cancelled_by_user"), true);
 });
 
 test("webContents security policy blocks window open and denied navigation", () => {

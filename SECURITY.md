@@ -40,6 +40,7 @@ Current implementation and tests aim to provide the following baseline:
 - Untrusted web content is not intended to receive privileged internal preload bridges in tested runtime paths.
 - Privileged IPC paths are explicit-contract based and include sender/role/frame trust checks.
 - Trusted internal surfaces are constrained by navigation and CSP policy controls.
+- Downloads are governed by explicit `will-download` policy with deny/prompt/allow controls.
 - Canonical security and regression validation runs via `npm run ci:test`.
 
 These statements describe current project reality; they are not a claim of complete exploit-proofing.

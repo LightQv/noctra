@@ -19,6 +19,7 @@ Use this checklist before publishing a new Noctra release.
 
 - [ ] Confirm security-sensitive defaults remain intentional.
 - [ ] Confirm trusted surface and IPC boundary tests are green.
+- [ ] Confirm download governance (`will-download` deny/prompt/allow) behavior matches policy.
 - [ ] Review `npm audit --audit-level=high` output.
 
 ## Documentation sync

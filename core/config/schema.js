@@ -134,6 +134,19 @@ function normalizeBrowserLanguage(value, fallback = "en") {
   return fallback;
 }
 
+function normalizeDownloadPolicy(value, fallback = "prompt") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "deny" || normalized === "prompt" || normalized === "allow") {
+    return normalized;
+  }
+
+  return fallback;
+}
+
 function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
   if (!isPlainObject(node)) {
     return null;
@@ -503,6 +516,31 @@ function normalizeConfig(rawConfig) {
 
     if (Array.isArray(input.browser.trusted_http_hosts)) {
       normalized.browser.trusted_http_hosts = normalizeTrustedHosts(input.browser.trusted_http_hosts);
+    }
+
+    if (isPlainObject(input.browser.downloads)) {
+      normalized.browser.downloads.policy = normalizeDownloadPolicy(
+        input.browser.downloads.policy,
+        defaults.browser.downloads.policy,
+      );
+
+      if (typeof input.browser.downloads.allow_trusted_surfaces === "boolean") {
+        normalized.browser.downloads.allow_trusted_surfaces =
+          input.browser.downloads.allow_trusted_surfaces;
+      }
+
+      if (typeof input.browser.downloads.default_directory === "string") {
+        const nextDirectory = input.browser.downloads.default_directory.trim();
+        normalized.browser.downloads.default_directory = nextDirectory.length > 0 ? nextDirectory : null;
+      }
+
+      if (input.browser.downloads.default_directory === null) {
+        normalized.browser.downloads.default_directory = null;
+      }
+
+      if (typeof input.browser.downloads.auto_open === "boolean") {
+        normalized.browser.downloads.auto_open = input.browser.downloads.auto_open;
+      }
     }
   }
 

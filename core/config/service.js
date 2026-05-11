@@ -153,6 +153,23 @@ function addThemeComments(yamlText) {
       output.push("  # Auto-copy selected page text to clipboard on mouse selection");
     }
 
+    if (inBrowserSection && /^  downloads:\s*$/.test(line)) {
+      output.push("  # Download governance policy: deny | prompt | allow");
+      output.push("  # prompt requires explicit user confirmation via native save dialog");
+    }
+
+    if (inBrowserSection && /^    allow_trusted_surfaces:\s*/.test(line)) {
+      output.push("    # Trusted internal surfaces are blocked from downloads unless explicitly enabled");
+    }
+
+    if (inBrowserSection && /^    default_directory:\s*/.test(line)) {
+      output.push("    # Optional default directory for prompt/allow policies (null uses OS downloads)");
+    }
+
+    if (inBrowserSection && /^    auto_open:\s*/.test(line)) {
+      output.push("    # Auto-open downloaded files after completion (not recommended)");
+    }
+
     if (/^  opening_buffer:\s*$/.test(line)) {
       output.push("  # Startup page mode");
       inOpeningBufferSection = true;

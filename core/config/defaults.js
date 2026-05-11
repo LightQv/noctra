@@ -38,6 +38,9 @@ const defaultConfig = {
     theme: {
       mode: "dark",
       content_mode: "dark",
+      // Base palette when mode is custom: dark | light | auto
+      // Determines native chrome (devTools) and web content match behavior
+      custom_base: "dark",
       overrides: {
         appBackground: "#0f131a",
         surfaceBackground: "#171b22",

@@ -3,15 +3,12 @@ const { EventEmitter } = require("events");
 const {
   applyScrollableUi,
   releaseChromiumPreferredColorScheme,
+  resetChromiumPreferredColorSchemeState,
 } = require("./contentUi");
 const {
   markSurfaceRole,
   SURFACE_ROLES,
 } = require("../core/security/surfaceTrust");
-const {
-  UI_SCROLLBAR_THUMB_COLOR,
-  UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
-} = require("../ui/constants");
 
 function getUrlDisplayTitle(rawUrl) {
   if (!rawUrl) return "Loading...";
@@ -70,8 +67,6 @@ class Buffer extends EventEmitter {
       hideDelayMs: 700,
       trackColor: "transparent",
       contentColorScheme: "dark",
-      thumbColor: UI_SCROLLBAR_THUMB_COLOR,
-      thumbActiveColor: UI_SCROLLBAR_THUMB_ACTIVE_COLOR,
     };
 
     this.webContents.on("did-finish-load", () => {
@@ -120,6 +115,15 @@ class Buffer extends EventEmitter {
     this.webContents.on("did-navigate-in-page", (_, url) => {
       this.url = this.virtualUrl || url;
       this.emit("updated", { kind: "metadata" });
+    });
+
+    this.webContents.on("devtools-opened", () => {
+      this.applyContentUi();
+    });
+
+    this.webContents.on("devtools-closed", () => {
+      resetChromiumPreferredColorSchemeState(this.webContents);
+      this.applyContentUi();
     });
   }
 

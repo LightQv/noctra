@@ -111,14 +111,20 @@ browser:
 - `dark`
 - `light`
 - `auto`
-- `custom`
+- `custom` (requires `global.theme.custom_base`)
+
+`global.theme.custom_base` accepts (only when `mode` is `custom`):
+
+- `dark` — base palette is dark, devTools is dark
+- `light` — base palette is light, devTools is light
+- `auto` — follows OS dynamically
 
 `global.theme.content_mode` accepts:
 
 - `dark`
 - `light`
 - `auto`
-- `match`
+- `match` — follows the resolved app theme
 
 ## Leader mapping rules
 

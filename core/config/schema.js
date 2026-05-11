@@ -121,6 +121,19 @@ function normalizeContentThemeMode(value, fallback = "dark") {
   return fallback;
 }
 
+function normalizeCustomBase(value, fallback = "dark") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "dark" || normalized === "light" || normalized === "auto") {
+    return normalized;
+  }
+
+  return fallback;
+}
+
 function normalizeBrowserLanguage(value, fallback = "en") {
   if (typeof value !== "string") {
     return fallback;
@@ -391,6 +404,11 @@ function normalizeConfig(rawConfig) {
     normalizedGlobal.theme.content_mode = normalizeContentThemeMode(
       themeSection.content_mode,
       defaults.global.theme.content_mode,
+    );
+
+    normalizedGlobal.theme.custom_base = normalizeCustomBase(
+      themeSection.custom_base,
+      defaults.global.theme.custom_base,
     );
 
     if (isPlainObject(themeSection.overrides)) {

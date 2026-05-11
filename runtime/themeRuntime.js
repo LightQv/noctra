@@ -6,6 +6,7 @@ function createThemeRuntime({
   resolveContentColorScheme,
   normalizeThemeMode,
   normalizeContentThemeMode,
+  normalizeCustomBase,
   toCssVars,
   buffers,
   uiShell,
@@ -28,6 +29,7 @@ function createThemeRuntime({
     const contentColorScheme = resolveContentColorScheme(themeConfig, {
       systemPrefersDark,
     });
+    const customBase = normalizeCustomBase(themeConfig?.custom_base, "dark");
     const theme = resolveTheme(themeConfig, { systemPrefersDark });
 
     return {
@@ -36,6 +38,7 @@ function createThemeRuntime({
       resolvedMode,
       contentMode,
       contentColorScheme,
+      customBase,
     };
   }
 
@@ -70,6 +73,13 @@ function createThemeRuntime({
   function applyTheme(themeContext, options = {}) {
     const shouldBroadcast = Boolean(options.broadcast);
     const payload = buildThemePayload(themeContext);
+    const uiFollowsSystem =
+      themeContext.configuredMode === "auto" ||
+      (themeContext.configuredMode === "custom" &&
+        themeContext.customBase === "auto");
+    nativeTheme.themeSource = uiFollowsSystem
+      ? "system"
+      : themeContext.resolvedMode;
     uiShell.setTheme(payload.theme);
     syncContentUiTheme({
       ...payload.theme,

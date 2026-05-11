@@ -347,11 +347,14 @@ function bootstrapWindowRuntime({
 
   const onNativeThemeUpdated = () => {
     const themeContext = resolveCurrentTheme();
-    const shouldApplyFromSystem =
+    const uiFollowsSystem =
       themeContext.configuredMode === "auto" ||
+      (themeContext.configuredMode === "custom" &&
+        themeContext.customBase === "auto");
+    const shouldApplyFromSystem =
+      uiFollowsSystem ||
       themeContext.contentMode === "auto" ||
-      (themeContext.contentMode === "match" &&
-        themeContext.configuredMode === "custom");
+      (themeContext.contentMode === "match" && uiFollowsSystem);
     if (!shouldApplyFromSystem) {
       return;
     }

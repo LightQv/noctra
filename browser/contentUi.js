@@ -190,8 +190,8 @@ function buildScrollbarScript(options = {}, useThemeFallback = false) {
           window.matchMedia = function patchedMatchMedia(query) {
             const rawQuery = typeof query === 'string' ? query : String(query || '');
             const normalized = rawQuery.toLowerCase();
-            const checksDark = /\(\s*prefers-color-scheme\s*:\s*dark\s*\)/i.test(normalized);
-            const checksLight = /\(\s*prefers-color-scheme\s*:\s*light\s*\)/i.test(normalized);
+            const checksDark = /[(]\\s*prefers-color-scheme\\s*:\\s*dark\\s*[)]/i.test(normalized);
+            const checksLight = /[(]\\s*prefers-color-scheme\\s*:\\s*light\\s*[)]/i.test(normalized);
 
             if (!checksDark && !checksLight) {
               return window.__vb_match_media_original__(query);

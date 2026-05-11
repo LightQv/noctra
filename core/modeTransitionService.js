@@ -15,7 +15,7 @@ function warnIllegalTransition(message, details) {
   }
 }
 
-function setMode(state, nextMode, reason = "") {
+function setMode(state, nextMode, _reason = "") {
   if (!state || typeof state !== "object") {
     return false;
   }

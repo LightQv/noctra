@@ -220,7 +220,7 @@ function buildOpeningBufferSpec(openingBufferConfig = {}, themeInput = {}) {
     return {
       kind: "url",
       url: "about:blank",
-      warning: `Invalid opening buffer URL \"${rawUrl}\". Falling back to about:blank.`,
+      warning: `Invalid opening buffer URL "${rawUrl}". Falling back to about:blank.`,
     };
   }
 

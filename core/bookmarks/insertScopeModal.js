@@ -78,7 +78,6 @@ class BookmarkInsertScopeModal {
     if (this.isConfirmStep()) {
       const duplicateInScope = this.hasDuplicateInCurrentScope();
       const confirmSelected = this.confirmIndex === 0;
-      const cancelSelected = this.confirmIndex === 1;
       return {
         title: "Bookmark",
         promptTitle,

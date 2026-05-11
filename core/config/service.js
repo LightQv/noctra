@@ -81,7 +81,7 @@ function addThemeComments(yamlText) {
       inOpeningBufferSection = false;
     }
 
-    if (/^  [a-zA-Z0-9_]+:\s*$/.test(line)) {
+    if (/^ {2}[a-zA-Z0-9_]+:\s*$/.test(line)) {
       inThemeSection = false;
       inOpeningBufferSection = false;
       inBrowserSection = false;
@@ -107,33 +107,33 @@ function addThemeComments(yamlText) {
       continue;
     }
 
-    if (/^  theme:\s*$/.test(line)) {
+    if (/^ {2}theme:\s*$/.test(line)) {
       output.push("  # Theme controls for Noctra shell and surfaces");
       inThemeSection = true;
       inOpeningBufferSection = false;
       inBrowserSection = false;
     }
 
-    if (inThemeSection && /^    mode:\s*/.test(line)) {
+    if (inThemeSection && /^ {4}mode:\s*/.test(line)) {
       output.push("    # App theme mode: dark | light | auto | custom");
       output.push("    # custom uses global.theme.overrides");
     }
 
-    if (inThemeSection && /^    content_mode:\s*/.test(line)) {
+    if (inThemeSection && /^ {4}content_mode:\s*/.test(line)) {
       output.push("    # Browser content mode: dark | light | auto | match");
       output.push("    # match follows app theme, but custom falls back to auto(system)");
     }
 
-    if (inThemeSection && /^    overrides:\s*$/.test(line)) {
+    if (inThemeSection && /^ {4}overrides:\s*$/.test(line)) {
       output.push("    # Overrides are applied only when mode is custom");
       output.push("    # Supported override keys are prefilled below with dark defaults");
     }
 
-    if (/^    telescope:\s*$/.test(line)) {
+    if (/^ {4}telescope:\s*$/.test(line)) {
       output.push("    # Telescope overlay UI settings");
     }
 
-    if (/^      prompt_position:\s*/.test(line)) {
+    if (/^ {6}prompt_position:\s*/.test(line)) {
       output.push("      # Prompt position: top | bottom");
     }
 
@@ -144,40 +144,40 @@ function addThemeComments(yamlText) {
       inOpeningBufferSection = false;
     }
 
-    if (inBrowserSection && /^  language:\s*/.test(line)) {
+    if (inBrowserSection && /^ {2}language:\s*/.test(line)) {
       output.push("  # Preferred website language: en | fr");
       output.push("  # Mapped to Accept-Language and known locale hints for requests");
     }
 
-    if (inBrowserSection && /^  copy_selection_to_clipboard:\s*/.test(line)) {
+    if (inBrowserSection && /^ {2}copy_selection_to_clipboard:\s*/.test(line)) {
       output.push("  # Auto-copy selected page text to clipboard on mouse selection");
     }
 
-    if (inBrowserSection && /^  downloads:\s*$/.test(line)) {
+    if (inBrowserSection && /^ {2}downloads:\s*$/.test(line)) {
       output.push("  # Download governance policy: deny | prompt | allow");
       output.push("  # prompt requires explicit user confirmation via native save dialog");
     }
 
-    if (inBrowserSection && /^    allow_trusted_surfaces:\s*/.test(line)) {
+    if (inBrowserSection && /^ {4}allow_trusted_surfaces:\s*/.test(line)) {
       output.push("    # Trusted internal surfaces are blocked from downloads unless explicitly enabled");
     }
 
-    if (inBrowserSection && /^    default_directory:\s*/.test(line)) {
+    if (inBrowserSection && /^ {4}default_directory:\s*/.test(line)) {
       output.push("    # Optional default directory for prompt/allow policies (null uses OS downloads)");
     }
 
-    if (inBrowserSection && /^    auto_open:\s*/.test(line)) {
+    if (inBrowserSection && /^ {4}auto_open:\s*/.test(line)) {
       output.push("    # Auto-open downloaded files after completion (not recommended)");
     }
 
-    if (/^  opening_buffer:\s*$/.test(line)) {
+    if (/^ {2}opening_buffer:\s*$/.test(line)) {
       output.push("  # Startup page mode");
       inOpeningBufferSection = true;
       inThemeSection = false;
       inBrowserSection = false;
     }
 
-    if (inOpeningBufferSection && /^    mode:\s*/.test(line)) {
+    if (inOpeningBufferSection && /^ {4}mode:\s*/.test(line)) {
       output.push("    # Opening mode: blank | url | dashboard");
       output.push("    # url uses global.opening_buffer.url");
     }

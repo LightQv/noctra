@@ -31,7 +31,9 @@ function createSmokeScenarios({
         if (check()) {
           return;
         }
-      } catch {}
+      } catch (_error) {
+        void _error;
+      }
       await sleep(intervalMs);
     }
     throw new Error(`Timed out waiting for ${description}`);
@@ -55,7 +57,9 @@ function createSmokeScenarios({
     const trustedUrlBefore = win.webContents.getURL();
     try {
       await win.webContents.loadURL("https://example.com");
-    } catch {}
+    } catch (_error) {
+      void _error;
+    }
     await sleep(200);
     const trustedUrlAfter = win.webContents.getURL();
     if (trustedUrlAfter !== trustedUrlBefore) {
@@ -100,7 +104,6 @@ function createSmokeScenarios({
     const fail = (message) => failures.push(message);
     const configPath = configService.getConfigPath();
     const originalContent = fs.readFileSync(configPath, "utf8");
-    const marker = `# smoke-settings-lifecycle-${Date.now()}`;
     dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
     await waitForCondition(() => Boolean(buffers.getActive() && buffers.getActive().isEditable), {
       timeoutMs: 3500,

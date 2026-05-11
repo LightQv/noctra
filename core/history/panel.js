@@ -35,14 +35,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function pathKey(path = []) {
-  return path.join("/");
-}
-
-function isPlainObject(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 const TREE_LAYOUT = UI_TREE_LAYOUT;
 
 const TREE_LINE_JUMP_STEP = 10;

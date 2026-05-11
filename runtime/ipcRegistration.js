@@ -142,15 +142,15 @@ function registerRuntimeIpc({
     performWindowAction(win, action);
   };
 
-  const onOpenSettings = (event) => {
+  const onOpenSettings = (_event) => {
     dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
   };
 
-  const onNewTab = (event) => {
+  const onNewTab = (_event) => {
     dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
   };
 
-  const onOpenHistory = (event) => {
+  const onOpenHistory = (_event) => {
     dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
@@ -203,7 +203,7 @@ function registerRuntimeIpc({
     }
   };
 
-  const onEditorToggleContext = (event) => {
+  const onEditorToggleContext = (_event) => {
     dispatch(win, { type: INTENTS.TOGGLE_FOCUS_CONTEXT }, state);
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
@@ -214,7 +214,7 @@ function registerRuntimeIpc({
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
-  const onEditorFocusRequest = (event) => {
+  const onEditorFocusRequest = (_event) => {
     setEditorFocused(state, true);
     focusActiveEditorSurface();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
@@ -231,14 +231,14 @@ function registerRuntimeIpc({
     dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
   };
 
-  const onEditorReady = (event) => {
+  const onEditorReady = (_event) => {
     setEditorFocused(state, true);
     setEditorMode(state, "NORMAL");
     focusActiveEditorSurface({ forceNormal: true });
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
-  const onSettingsGet = async (event) => {
+  const onSettingsGet = async (_event) => {
     const activeBuffer = buffers.getActive();
     const configPath =
       activeBuffer && activeBuffer.isEditable && typeof activeBuffer.editableFilePath === "string"
@@ -279,7 +279,7 @@ function registerRuntimeIpc({
     }
   };
 
-  const onSettingsClose = async (event) => {
+  const onSettingsClose = async (_event) => {
     dispatch(win, { type: INTENTS.CLOSE_BUFFER }, state);
     return { ok: true };
   };

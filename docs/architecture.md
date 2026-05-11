@@ -2,6 +2,8 @@
 
 Noctra uses an intent-driven architecture: inputs are parsed into intents, then executed by a dispatcher against browser and UI services.
 
+Contributor module index: `docs/architecture-map.md`.
+
 ## Runtime flow
 
 High-level path:

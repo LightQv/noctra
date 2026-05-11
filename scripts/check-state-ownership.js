@@ -21,7 +21,7 @@ const OWNERS = {
 const ASSIGNMENT_REGEX =
   /\bstate\.(mode|leaderActive|leaderPath|leaderNumericBuffer|leaderLastKeyTime|commandBuffer|commandCursorIndex|commandTarget|urllineEditing|urllinePane|urllineBuffer|urllineCursorIndex|editorFocus|editorMode)\s*=(?!=)/g;
 
-const SCAN_ROOTS = ["main.js", "runtime", "core", "motions", "ui", "browser", "tests"];
+const SCAN_ROOTS = ["main.js", "runtime", "core", "motions", "ui", "browser"];
 const EXCLUDED_DIRS = new Set(["node_modules", "dist", "coverage", ".git"]);
 
 function toPosixPath(filePath) {
@@ -136,6 +136,7 @@ if (require.main === module) {
 module.exports = {
   OWNERS,
   ASSIGNMENT_REGEX,
+  SCAN_ROOTS,
   collectJsFiles,
   scanFile,
   scanStateOwnership,

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { validateNavigableUrl } = require("../core/security/urlPolicy");
+const { validateNavigableUrl } = require("../../core/security/urlPolicy");
 
 test("url policy allows https and about:blank", () => {
   assert.equal(validateNavigableUrl("https://example.com").ok, true);

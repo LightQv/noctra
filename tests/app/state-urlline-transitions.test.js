@@ -8,7 +8,7 @@ const {
   insertUrllineTextAtCursor,
   deleteUrllineBackward,
   deleteUrllineForward,
-} = require("../core/state/urllineState");
+} = require("../../core/state/urllineState");
 
 function createState() {
   return {

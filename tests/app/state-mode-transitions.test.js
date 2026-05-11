@@ -6,7 +6,7 @@ const {
   enterNormalMode,
   enterCommandMode,
   exitCommandMode,
-} = require("../core/modeTransitionService");
+} = require("../../core/modeTransitionService");
 
 function createState() {
   return {

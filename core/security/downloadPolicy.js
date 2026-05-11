@@ -1,5 +1,16 @@
 const path = require("path");
 
+const INVALID_FILENAME_CHARS_REGEX = /[<>:"/\\|?*]/g;
+
+function replaceControlCharacters(value) {
+  let output = "";
+  for (const character of value) {
+    const code = character.charCodeAt(0);
+    output += code <= 31 ? "_" : character;
+  }
+  return output;
+}
+
 function normalizeDownloadConfig(config = {}) {
   const policy =
     config && (config.policy === "deny" || config.policy === "allow" || config.policy === "prompt")
@@ -23,8 +34,13 @@ function normalizeDownloadConfig(config = {}) {
 function sanitizeDownloadFilename(name) {
   const source = typeof name === "string" && name.trim().length > 0 ? name.trim() : "download.bin";
   const base = path.basename(source);
-  const sanitized = base.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").replace(/\s+/g, " ").trim();
-  return sanitized.length > 0 ? sanitized : "download.bin";
+  const sanitized = base
+    .replace(INVALID_FILENAME_CHARS_REGEX, "_")
+    .replace(/\r|\n|\t/g, "_");
+  const withoutControls = replaceControlCharacters(sanitized)
+    .replace(/\s+/g, " ")
+    .trim();
+  return withoutControls.length > 0 ? withoutControls : "download.bin";
 }
 
 function buildSafeDownloadPath(directory, filename) {

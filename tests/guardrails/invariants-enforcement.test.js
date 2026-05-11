@@ -12,8 +12,8 @@ function loadInvariantsWithEnv(env = {}) {
   if (Object.hasOwn(env, "CI")) process.env.CI = env.CI;
   if (Object.hasOwn(env, "NOCTRA_INVARIANTS")) process.env.NOCTRA_INVARIANTS = env.NOCTRA_INVARIANTS;
 
-  delete require.cache[require.resolve("../core/invariants")];
-  const invariants = require("../core/invariants");
+  delete require.cache[require.resolve("../../core/invariants")];
+  const invariants = require("../../core/invariants");
 
   return {
     invariants,
@@ -21,7 +21,7 @@ function loadInvariantsWithEnv(env = {}) {
       process.env.NODE_ENV = previous.NODE_ENV;
       process.env.CI = previous.CI;
       process.env.NOCTRA_INVARIANTS = previous.NOCTRA_INVARIANTS;
-      delete require.cache[require.resolve("../core/invariants")];
+      delete require.cache[require.resolve("../../core/invariants")];
     },
   };
 }

@@ -13,6 +13,7 @@ Use this checklist before publishing a new Noctra release.
 - [ ] Run `npm run lint`.
 - [ ] Run `npm run format:check`.
 - [ ] Run `npm run check:intents`.
+- [ ] Run `npm run check:security-baseline`.
 - [ ] Run `npm run ci:test`.
 
 ## Security and policy checks
@@ -20,13 +21,14 @@ Use this checklist before publishing a new Noctra release.
 - [ ] Confirm security-sensitive defaults remain intentional.
 - [ ] Confirm trusted surface and IPC boundary tests are green.
 - [ ] Confirm download governance (`will-download` deny/prompt/allow) behavior matches policy.
-- [ ] Review `npm audit --audit-level=high` output.
+- [ ] Run `npm audit --audit-level=high` (blocking on high severity findings).
 
 ## Documentation sync
 
 - [ ] `INTENTS.md` matches `core/intents.js`.
 - [ ] Update relevant docs in `docs/` and `README.md`.
 - [ ] Confirm `CONTRIBUTING.md` references current workflows.
+- [ ] Confirm `docs/release-hygiene-status.md` matches active CI gate behavior.
 
 ## Packaging status
 

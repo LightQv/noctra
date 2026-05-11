@@ -7,6 +7,7 @@ This project is keyboard-first, modal, and architecture-conscious. Contributions
 ## Before you start
 
 - Read `README.md` for project goals and current scope.
+- Read `docs/architecture-map.md` for module boundaries before structural edits.
 - Read `AGENTS.md` for architecture guardrails and design priorities.
 - Read `INTENTS.md` before changing parser/dispatcher behavior.
 - For user-facing behavior changes, verify modal consistency (`NORMAL`, `INSERT`, `COMMAND`).
@@ -25,6 +26,7 @@ Config is loaded from `~/.config/noctra/config.yml` (auto-generated if missing).
 - Keep keymap behavior data-driven; avoid hardcoding in motion handlers.
 - Emit intents from motion/command layers, and execute in dispatcher/services.
 - Keep emitted intents aligned with `core/intents.js` and `INTENTS.md`.
+- Follow `docs/intent-lifecycle.md` for any intent or contract change.
 - Avoid leaking Electron-specific details across module boundaries.
 - Prefer small modules and explicit domain naming.
 - Keep changes focused and reviewable.
@@ -69,8 +71,11 @@ Noctra has automated tests and a canonical CI gate:
 - Run `npm run lint` for static checks.
 - Run `npm run format:check` for formatting checks.
 - Run `npm run check:intents` for intent contract/doc parity.
+- Run `npm run check:security-baseline` for security default policy drift.
 - Run `npm test` for unit/contract coverage.
 - Run `npm run ci:test` for the canonical local parity/security smoke gate.
+
+For IPC-facing changes, complete `docs/ipc-security-checklist.md` before opening a PR.
 
 Also include a short manual test plan for behavior-sensitive changes.
 

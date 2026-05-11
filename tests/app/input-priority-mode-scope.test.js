@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { resolveInputPriority } = require("../core/inputPriorityResolver");
+const { resolveInputPriority } = require("../../core/inputPriorityResolver");
 
 test("leader key is prioritized over focused tree routing", () => {
   const priority = resolveInputPriority(

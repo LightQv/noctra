@@ -1,21 +1,21 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { registerIpcContracts } = require("../core/adapters/platform/ipcRegistry");
+const { registerIpcContracts } = require("../../core/adapters/platform/ipcRegistry");
 const {
   registerSessionSecurityPolicy,
   registerWebContentsSecurityPolicy,
-} = require("../core/adapters/platform/securityPolicy");
+} = require("../../core/adapters/platform/securityPolicy");
 const {
   createPanelRenderTransport,
-} = require("../core/adapters/renderer/panelRenderTransport");
-const { pushShellPatch } = require("../core/adapters/renderer/shellPatchTransport");
-const { bindWebModeTracking } = require("../core/adapters/platform/webContentsEvents");
-const { createWebModeSyncService } = require("../core/webModeSyncService");
+} = require("../../core/adapters/renderer/panelRenderTransport");
+const { pushShellPatch } = require("../../core/adapters/renderer/shellPatchTransport");
+const { bindWebModeTracking } = require("../../core/adapters/platform/webContentsEvents");
+const { createWebModeSyncService } = require("../../core/webModeSyncService");
 const {
   markSurfaceRole,
   SURFACE_ROLES,
-} = require("../core/security/surfaceTrust");
+} = require("../../core/security/surfaceTrust");
 const {
   isUsableWindow,
   attachView,
@@ -23,15 +23,15 @@ const {
   setViewBounds,
   setViewAutoResize,
   setTopView,
-} = require("../core/adapters/platform/contentViewHost");
+} = require("../../core/adapters/platform/contentViewHost");
 const {
   openSplitDevtools,
   closeSplitDevtools,
-} = require("../core/adapters/platform/devtoolsHost");
+} = require("../../core/adapters/platform/devtoolsHost");
 const {
   bindPaneObservers,
   readSelection,
-} = require("../core/adapters/platform/webContentsObserver");
+} = require("../../core/adapters/platform/webContentsObserver");
 
 test("ipc registry registers and unregisters events and handlers symmetrically", () => {
   const eventListeners = new Map();

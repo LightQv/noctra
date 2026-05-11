@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { isAllowedTrustedSurfaceUrl } = require("../core/security/surfaceTrust");
+const { isAllowedTrustedSurfaceUrl } = require("../../core/security/surfaceTrust");
 
 test("trusted surface URL policy allows only strict internal forms", () => {
   assert.equal(isAllowedTrustedSurfaceUrl("about:blank"), true);

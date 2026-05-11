@@ -7,7 +7,7 @@ const {
   moveCommandCursor,
   deleteCommandBackward,
   deleteCommandForward,
-} = require("../core/state/commandState");
+} = require("../../core/state/commandState");
 
 function createState() {
   return {

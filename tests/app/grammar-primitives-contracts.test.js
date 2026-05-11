@@ -5,7 +5,7 @@ const {
   hasSequenceTimedOut,
   consumePositiveCount,
   resolveKeySequenceMatch,
-} = require("../motions/grammarPrimitives");
+} = require("../../motions/grammarPrimitives");
 
 test("count parser keeps positive integer fallback", () => {
   assert.equal(consumePositiveCount("3", 1), 3);

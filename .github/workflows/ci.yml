@@ -44,5 +44,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Dependency audit (informational)
+      - name: Dependency audit (blocking high severity)
         run: npm audit --audit-level=high

@@ -3,15 +3,7 @@ const globals = require("globals");
 
 module.exports = [
   {
-    ignores: [
-      "node_modules/**",
-      "assets/**",
-      "*.png",
-      "package-lock.json",
-      "OSS_READINESS_STABILIZATION_PLAN.md",
-      "senior-feedback-working-diff.md",
-      "modal_browser_architecture_v_2.md",
-    ],
+    ignores: ["node_modules/**", "assets/**", "*.png", "package-lock.json"],
   },
   js.configs.recommended,
   {

@@ -45,12 +45,16 @@ Start here:
 Reference:
 
 - [Architecture](docs/architecture.md)
+- [Architecture Map](docs/architecture-map.md)
 - [Intent Contract](INTENTS.md)
+- [Intent Lifecycle Workflow](docs/intent-lifecycle.md)
+- [IPC Security Checklist](docs/ipc-security-checklist.md)
 - [FAQ](docs/faq.md)
 - [Security Policy](SECURITY.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Contributing](CONTRIBUTING.md)
 - [Release Checklist](docs/release-checklist.md)
+- [Release Hygiene Status](docs/release-hygiene-status.md)
 
 Tutorials:
 

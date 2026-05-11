@@ -1,9 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { validateIntentPayload } = require("../core/contracts/intents");
-const { INTENTS } = require("../core/intents");
-const { createUnknownIntentError } = require("../core/contracts/errors");
+const { validateIntentPayload } = require("../../core/contracts/intents");
+const { INTENTS } = require("../../core/intents");
+const { createUnknownIntentError } = require("../../core/contracts/errors");
 
 test("intent contracts accept valid payload", () => {
   const result = validateIntentPayload(INTENTS.SCROLL, {

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { resolveKeySequenceMatch } = require("../motions/grammarPrimitives");
+const { resolveKeySequenceMatch } = require("../../motions/grammarPrimitives");
 
 test("exact mapping wins when exact key exists", () => {
   const keymap = {

@@ -6,8 +6,8 @@ const {
   sanitizeDownloadFilename,
   buildSafeDownloadPath,
   resolveDownloadDecision,
-} = require("../core/security/downloadPolicy");
-const { isTrustedInternalRole, SURFACE_ROLES } = require("../core/security/surfaceTrust");
+} = require("../../core/security/downloadPolicy");
+const { isTrustedInternalRole, SURFACE_ROLES } = require("../../core/security/surfaceTrust");
 
 test("download policy normalizes defaults", () => {
   const result = normalizeDownloadConfig({});

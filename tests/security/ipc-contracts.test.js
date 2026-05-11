@@ -1,8 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { validateIpcPayload } = require("../core/contracts/ipc");
-const { registerRuntimeIpc } = require("../runtime/ipcRegistration");
+const { validateIpcPayload } = require("../../core/contracts/ipc");
+const { registerRuntimeIpc } = require("../../runtime/ipcRegistration");
 
 function createRuntimeHarness() {
   const notifications = [];

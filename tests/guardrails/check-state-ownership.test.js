@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { scanStateOwnership } = require("../scripts/check-state-ownership");
+const { scanStateOwnership, SCAN_ROOTS } = require("../../scripts/check-state-ownership");
 
 function writeFile(root, relPath, content) {
   const absolute = path.join(root, relPath);
@@ -59,6 +59,19 @@ test("state ownership ignores comparisons and non-assignments", () => {
         "",
       ].join("\n"),
     );
+
+    const violations = scanStateOwnership(repo);
+    assert.equal(violations.length, 0);
+  });
+});
+
+test("state ownership scan roots exclude tests directory", () => {
+  assert.equal(SCAN_ROOTS.includes("tests"), false);
+});
+
+test("state ownership ignores unauthorized writes inside tests files", () => {
+  withTempRepo((repo) => {
+    writeFile(repo, "tests/fake-writer.test.js", 'function x(state){ state.mode = "COMMAND"; }\n');
 
     const violations = scanStateOwnership(repo);
     assert.equal(violations.length, 0);

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { normalizeConfigWithDiagnostics } = require("../core/config/schema");
+const { normalizeConfigWithDiagnostics } = require("../../core/config/schema");
 
 test("detects unknown top-level keys", () => {
   const result = normalizeConfigWithDiagnostics({ bad_top: true });

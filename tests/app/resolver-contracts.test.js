@@ -1,8 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { resolveFocusOwner } = require("../core/focusResolver");
-const { resolveSemanticContext } = require("../core/semanticContextResolver");
+const { resolveFocusOwner } = require("../../core/focusResolver");
+const { resolveSemanticContext } = require("../../core/semanticContextResolver");
 
 test("focus owner priority prefers modal and panel surfaces", () => {
   assert.equal(resolveFocusOwner({ bookmarkModalActive: true, commandMode: true }), "BOOKMARK_MODAL");

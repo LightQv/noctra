@@ -8,7 +8,7 @@ const {
   appendLeaderNumeric,
   popLeaderNumeric,
   resetSequenceBuffers,
-} = require("../core/state/leaderState");
+} = require("../../core/state/leaderState");
 
 function createState() {
   return {

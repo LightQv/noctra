@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { normalizeConfig } = require("../core/config/schema");
+const { normalizeConfig } = require("../../core/config/schema");
 
 test("config schema keeps prompt download policy defaults", () => {
   const config = normalizeConfig({});

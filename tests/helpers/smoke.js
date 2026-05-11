@@ -14,12 +14,8 @@ function runSmoke({ scenario, timeoutMs = 20000 }) {
     const projectRoot = path.resolve(__dirname, "..", "..");
 
     const args = ["."];
-    if (process.env.CI_DISABLE_SETUID_SANDBOX === "1") {
-      args.unshift(
-        "--disable-gpu",
-        "--disable-software-rasterizer",
-        "--disable-setuid-sandbox",
-      );
+    if (process.env.CI_NO_SANDBOX === "1") {
+      args.unshift("--no-sandbox");
     }
 
     const child = spawn(electronBin, args, {

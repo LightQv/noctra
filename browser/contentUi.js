@@ -15,7 +15,9 @@ function isInternalVirtualUrl(url) {
 }
 
 function isExpectedDebuggerError(error) {
-  const message = String(error && error.message ? error.message : "").toLowerCase();
+  const message = String(
+    error && error.message ? error.message : "",
+  ).toLowerCase();
   return (
     message.includes("target closed") ||
     message.includes("session closed") ||
@@ -74,24 +76,23 @@ function applyChromiumPreferredColorScheme(executor, scheme) {
           : [],
     });
 
-    Promise.resolve(command)
-      .catch((error) => {
-        if (isExpectedDebuggerError(error)) {
-          state.attachedByUs = false;
-          return;
-        }
+    Promise.resolve(command).catch((error) => {
+      if (isExpectedDebuggerError(error)) {
+        state.attachedByUs = false;
+        return;
+      }
 
-        if (!isExpectedDebuggerError(error)) {
-          notificationsService.notify({
-            severity: "warning",
-            code: "content_color_scheme_apply_failed",
-            message: "Failed to apply emulated color scheme",
-            source: "browser.contentUi",
-            context: { error: error.message },
-            persist: false,
-          });
-        }
-      });
+      if (!isExpectedDebuggerError(error)) {
+        notificationsService.notify({
+          severity: "warning",
+          code: "content_color_scheme_apply_failed",
+          message: "Failed to apply emulated color scheme",
+          source: "browser.contentUi",
+          context: { error: error.message },
+          persist: false,
+        });
+      }
+    });
 
     return true;
   } catch (error) {
@@ -100,7 +101,9 @@ function applyChromiumPreferredColorScheme(executor, scheme) {
       return true;
     }
 
-    const message = String(error && error.message ? error.message : "").toLowerCase();
+    const message = String(
+      error && error.message ? error.message : "",
+    ).toLowerCase();
     if (message.includes("another debugger is already attached")) {
       state.cdpUnavailable = true;
       return false;
@@ -138,7 +141,8 @@ function releaseChromiumPreferredColorScheme(executor) {
       notificationsService.notify({
         severity: "warning",
         code: "content_color_scheme_debugger_detach_failed",
-        message: "Failed to detach debugger while releasing color scheme control",
+        message:
+          "Failed to detach debugger while releasing color scheme control",
         source: "browser.contentUi",
         context: { error: error.message },
         persist: false,
@@ -149,19 +153,35 @@ function releaseChromiumPreferredColorScheme(executor) {
   DEBUGGER_STATE_BY_ID.delete(id);
 }
 
+function resetChromiumPreferredColorSchemeState(executor) {
+  const id = typeof executor?.id === "number" ? executor.id : -1;
+  if (id < 0) return;
+  const state = DEBUGGER_STATE_BY_ID.get(id);
+  if (state) {
+    state.cdpUnavailable = false;
+    state.attachedByUs = false;
+  }
+}
+
 function buildScrollbarScript(options = {}, useThemeFallback = false) {
-  const width = Number.isFinite(options.widthPx) ? Math.max(2, Math.floor(options.widthPx)) : 6;
+  const width = Number.isFinite(options.widthPx)
+    ? Math.max(2, Math.floor(options.widthPx))
+    : 6;
   const hideDelayMs = Number.isFinite(options.hideDelayMs)
     ? Math.max(100, Math.floor(options.hideDelayMs))
     : 700;
   const thumb =
-    typeof options.thumbColor === "string" ? options.thumbColor : UI_SCROLLBAR_THUMB_COLOR;
+    typeof options.thumbColor === "string"
+      ? options.thumbColor
+      : UI_SCROLLBAR_THUMB_COLOR;
   const thumbActive =
     typeof options.thumbActiveColor === "string"
       ? options.thumbActiveColor
       : UI_SCROLLBAR_THUMB_ACTIVE_COLOR;
-  const track = typeof options.trackColor === "string" ? options.trackColor : "transparent";
-  const contentColorScheme = options.contentColorScheme === "light" ? "light" : "dark";
+  const track =
+    typeof options.trackColor === "string" ? options.trackColor : "transparent";
+  const contentColorScheme =
+    options.contentColorScheme === "light" ? "light" : "dark";
 
   const fallbackThemeScript = useThemeFallback
     ? `
@@ -190,8 +210,8 @@ function buildScrollbarScript(options = {}, useThemeFallback = false) {
           window.matchMedia = function patchedMatchMedia(query) {
             const rawQuery = typeof query === 'string' ? query : String(query || '');
             const normalized = rawQuery.toLowerCase();
-            const checksDark = /\(\s*prefers-color-scheme\s*:\s*dark\s*\)/i.test(normalized);
-            const checksLight = /\(\s*prefers-color-scheme\s*:\s*light\s*\)/i.test(normalized);
+            const checksDark = /[(]\\s*prefers-color-scheme\\s*:\\s*dark\\s*[)]/i.test(normalized);
+            const checksLight = /[(]\\s*prefers-color-scheme\\s*:\\s*light\\s*[)]/i.test(normalized);
 
             if (!checksDark && !checksLight) {
               return window.__vb_match_media_original__(query);
@@ -264,8 +284,12 @@ function applyScrollableUi(executor, options = {}) {
     return;
   }
 
-  const url = typeof executor.getURL === "function" ? String(executor.getURL() || "") : "";
-  const contentColorScheme = options.contentColorScheme === "light" ? "light" : "dark";
+  const url =
+    typeof executor.getURL === "function"
+      ? String(executor.getURL() || "")
+      : "";
+  const contentColorScheme =
+    options.contentColorScheme === "light" ? "light" : "dark";
   const canUseCdpThemeControl = applyChromiumPreferredColorScheme(
     executor,
     isInternalVirtualUrl(url) ? null : contentColorScheme,
@@ -279,4 +303,5 @@ function applyScrollableUi(executor, options = {}) {
 module.exports = {
   applyScrollableUi,
   releaseChromiumPreferredColorScheme,
+  resetChromiumPreferredColorSchemeState,
 };

@@ -21,7 +21,8 @@ function shouldShowToast(severity) {
     return false;
   }
 
-  const toastConfig = config.toast && typeof config.toast === "object" ? config.toast : {};
+  const toastConfig =
+    config.toast && typeof config.toast === "object" ? config.toast : {};
   if (toastConfig[severity] === false) {
     return false;
   }
@@ -30,16 +31,16 @@ function shouldShowToast(severity) {
 }
 
 function getToastTimeoutMs(severity) {
-  const timeoutConfig =
-    (function resolveTimeoutConfig() {
-      try {
-        const { getConfigValue } = require("../config/service");
-        return getConfigValue("global.notifications.timeout_ms", {}) || {};
-      } catch {
-        return {};
-      }
-    })();
-  const fallback = severity === "error" ? 6500 : severity === "warning" ? 3600 : 2200;
+  const timeoutConfig = (function resolveTimeoutConfig() {
+    try {
+      const { getConfigValue } = require("../config/service");
+      return getConfigValue("global.notifications.timeout_ms", {}) || {};
+    } catch {
+      return {};
+    }
+  })();
+  const fallback =
+    severity === "error" ? 6500 : severity === "warning" ? 3600 : 2200;
   const value = timeoutConfig[severity];
   if (!Number.isFinite(value)) {
     return fallback;
@@ -64,7 +65,8 @@ function shouldPersist(severity, options = {}) {
 
 function writeDevLog(event) {
   const prefix = `[noctra:${event.severity}] ${event.code}`;
-  const contextPart = event.context && typeof event.context === "object" ? event.context : {};
+  const contextPart =
+    event.context && typeof event.context === "object" ? event.context : {};
   if (event.severity === "error") {
     console.error(prefix, event.message, contextPart);
     return;
@@ -78,10 +80,15 @@ function writeDevLog(event) {
 
 function notify(input = {}) {
   const severity =
-    input.severity === "error" || input.severity === "warning" || input.severity === "info"
+    input.severity === "error" ||
+    input.severity === "warning" ||
+    input.severity === "info"
       ? input.severity
       : "info";
-  const code = typeof input.code === "string" && input.code.trim() ? input.code.trim() : "generic";
+  const code =
+    typeof input.code === "string" && input.code.trim()
+      ? input.code.trim()
+      : "generic";
   const message = typeof input.message === "string" ? input.message : "";
   const source = typeof input.source === "string" ? input.source : "app";
   const event = {
@@ -90,7 +97,8 @@ function notify(input = {}) {
     code,
     message,
     source,
-    context: input.context && typeof input.context === "object" ? input.context : {},
+    context:
+      input.context && typeof input.context === "object" ? input.context : {},
   };
 
   writeDevLog(event);

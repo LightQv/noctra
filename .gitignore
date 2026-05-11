@@ -1,6 +1,3 @@
 node_modules
 AGENTS.md
-INTENTS.md
-SESSION_NOTES.local.md
 .env
-.env.local

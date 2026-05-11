@@ -31,10 +31,16 @@ const defaultConfig = {
       statusline: {
         enabled: true,
       },
+      telescope: {
+        prompt_position: "top",
+      },
     },
     theme: {
       mode: "dark",
       content_mode: "dark",
+      // Base palette when mode is custom: dark | light | auto
+      // Determines native chrome (devTools) and web content match behavior
+      custom_base: "dark",
       overrides: {
         appBackground: "#0f131a",
         surfaceBackground: "#171b22",
@@ -154,6 +160,35 @@ const defaultConfig = {
     },
   },
   keymap: {
+    normal: {
+      j: "scroll_down",
+      k: "scroll_up",
+      gg: "scroll_top",
+      G: "scroll_bottom",
+      h: "scroll_left",
+      l: "scroll_right",
+      gh: "nav_back",
+      gl: "nav_forward",
+      r: "reload_page",
+      ".": "repeat_last_action",
+      H: "buffer_prev",
+      L: "buffer_next",
+      i: "enter_insert",
+      o: "open_url_prompt",
+      b: "new_buffer",
+      "|": "split_vertical",
+    },
+    mod: {
+      d: "scroll_half_down",
+      u: "scroll_half_up",
+      f: "page_down",
+      b: "page_up",
+      h: "focus_split_left",
+      l: "focus_split_right",
+      q: "close_focused",
+      t: "new_buffer",
+      T: "reopen_buffer",
+    },
     leader: {
       ",": {
         label: "Open settings",
@@ -252,6 +287,27 @@ const defaultConfig = {
           },
         },
       },
+      f: {
+        label: "Find...",
+        children: {
+          h: {
+            label: "History",
+            action: "telescope_open_history",
+          },
+          d: {
+            label: "Bookmarks",
+            action: "telescope_open_bookmarks",
+          },
+          b: {
+            label: "Buffers",
+            action: "telescope_open_buffers",
+          },
+          Enter: {
+            label: "Resume last find",
+            action: "telescope_reopen_last",
+          },
+        },
+      },
       o: {
         label: "Toggle tree focus",
         action: "history_toggle_focus",
@@ -265,11 +321,14 @@ const defaultConfig = {
   browser: {
     language: "en",
     copy_selection_to_clipboard: false,
-    chromium: {
-      web_preferences: {
-        context_isolation: true,
-        node_integration: false,
-      },
+    allow_http_loopback: true,
+    allow_http_private_lan: true,
+    trusted_http_hosts: [],
+    downloads: {
+      policy: "prompt",
+      allow_trusted_surfaces: false,
+      default_directory: null,
+      auto_open: false,
     },
   },
 };

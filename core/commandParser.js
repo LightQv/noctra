@@ -1,5 +1,23 @@
 const { INTENTS } = require("./intents");
 const { resolveInputTarget } = require("./resolver");
+const configService = require("./config/service");
+
+function getUrlPolicyConfig() {
+  return {
+    allowHttpLoopback: configService.getConfigValue(
+      "browser.allow_http_loopback",
+      true,
+    ),
+    allowHttpPrivateLan: configService.getConfigValue(
+      "browser.allow_http_private_lan",
+      true,
+    ),
+    trustedHttpHosts: configService.getConfigValue(
+      "browser.trusted_http_hosts",
+      [],
+    ),
+  };
+}
 
 function parseCommand(raw) {
   const normalized = raw.trim();
@@ -21,6 +39,7 @@ function parseCommand(raw) {
       {
         const target = resolveInputTarget(arg, {
           defaultSearchEngine: "duckduckgo",
+          urlPolicy: getUrlPolicyConfig(),
         });
         if (target.kind === "invalid") {
           return { type: INTENTS.UNKNOWN_COMMAND, raw };
@@ -37,6 +56,7 @@ function parseCommand(raw) {
       {
         const target = resolveInputTarget(arg, {
           defaultSearchEngine: "duckduckgo",
+          urlPolicy: getUrlPolicyConfig(),
         });
         if (target.kind === "invalid") {
           return { type: INTENTS.UNKNOWN_COMMAND, raw };
@@ -148,11 +168,17 @@ function parseCommand(raw) {
       }
 
       if (["on", "enable", "enabled", "true", "1"].includes(option)) {
-        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD, enabled: true };
+        return {
+          type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD,
+          enabled: true,
+        };
       }
 
       if (["off", "disable", "disabled", "false", "0"].includes(option)) {
-        return { type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD, enabled: false };
+        return {
+          type: INTENTS.TOGGLE_COPY_SELECTION_TO_CLIPBOARD,
+          enabled: false,
+        };
       }
 
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
@@ -169,7 +195,8 @@ function parseCommand(raw) {
       if (option === "toggle") return { type: INTENTS.HISTORY_TOGGLE };
       if (option === "focus") return { type: INTENTS.HISTORY_TOGGLE_FOCUS };
       if (option === "delete-all") return { type: INTENTS.HISTORY_DELETE_ALL };
-      if (option === "delete-today") return { type: INTENTS.HISTORY_DELETE_TODAY };
+      if (option === "delete-today")
+        return { type: INTENTS.HISTORY_DELETE_TODAY };
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 
@@ -179,7 +206,8 @@ function parseCommand(raw) {
       if (option === "hide") return { type: INTENTS.BOOKMARKS_HIDE };
       if (option === "toggle") return { type: INTENTS.BOOKMARKS_TOGGLE };
       if (option === "focus") return { type: INTENTS.BOOKMARKS_TOGGLE_FOCUS };
-      if (option === "delete-all") return { type: INTENTS.BOOKMARKS_DELETE_ALL };
+      if (option === "delete-all")
+        return { type: INTENTS.BOOKMARKS_DELETE_ALL };
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 

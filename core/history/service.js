@@ -6,7 +6,10 @@ const { resolveUserPath } = require("../storage/path");
 
 function getHistoryFilePath() {
   return resolveUserPath(
-    getConfigValue("global.storage.history_file", "~/.config/noctra/history.yml"),
+    getConfigValue(
+      "global.storage.history_file",
+      "~/.config/noctra/history.yml",
+    ),
     "~/.config/noctra/history.yml",
   );
 }
@@ -65,12 +68,21 @@ function getDateKeyFromTimestamp(timestampMs) {
   return `${year}-${month}-${day}`;
 }
 
-function recordVisit({ url, title, timestampMs = Date.now(), timestampIso = null } = {}) {
+function recordVisit({
+  url,
+  title,
+  timestampMs = Date.now(),
+  timestampIso = null,
+} = {}) {
   if (typeof url !== "string" || !url.trim()) {
     return;
   }
   const safeUrl = url.trim();
-  if (safeUrl.startsWith("about:") || safeUrl.startsWith("data:") || safeUrl.startsWith("noctra://")) {
+  if (
+    safeUrl.startsWith("about:") ||
+    safeUrl.startsWith("data:") ||
+    safeUrl.startsWith("noctra://")
+  ) {
     return;
   }
 
@@ -82,7 +94,9 @@ function recordVisit({ url, title, timestampMs = Date.now(), timestampIso = null
     url: safeUrl,
     title: typeof title === "string" && title.trim() ? title.trim() : safeUrl,
     timestamp_iso: timestampIso || new Date(timestampMs).toISOString(),
-    timestamp_ms: Number.isFinite(timestampMs) ? Math.floor(timestampMs) : Date.now(),
+    timestamp_ms: Number.isFinite(timestampMs)
+      ? Math.floor(timestampMs)
+      : Date.now(),
   };
   entries.unshift(entry);
   history[dateKey] = entries;
@@ -93,20 +107,26 @@ function readHistoryTree() {
   const history = readHistoryObject();
   return sortDateKeysDesc(Object.keys(history)).map((dateKey) => ({
     key: dateKey,
-    entries: (Array.isArray(history[dateKey]) ? history[dateKey] : []).map((entry) => ({
-      id: String(entry.id || ""),
-      url: String(entry.url || ""),
-      title: String(entry.title || entry.url || ""),
-      timestampIso: String(entry.timestamp_iso || ""),
-      timestampMs: Number.isFinite(entry.timestamp_ms) ? entry.timestamp_ms : null,
-    })),
+    entries: (Array.isArray(history[dateKey]) ? history[dateKey] : []).map(
+      (entry) => ({
+        id: String(entry.id || ""),
+        url: String(entry.url || ""),
+        title: String(entry.title || entry.url || ""),
+        timestampIso: String(entry.timestamp_iso || ""),
+        timestampMs: Number.isFinite(entry.timestamp_ms)
+          ? entry.timestamp_ms
+          : null,
+      }),
+    ),
   }));
 }
 
 function deleteEntry(dateKey, entryId) {
   const history = readHistoryObject();
   if (!Array.isArray(history[dateKey])) return;
-  history[dateKey] = history[dateKey].filter((entry) => String(entry.id || "") !== String(entryId));
+  history[dateKey] = history[dateKey].filter(
+    (entry) => String(entry.id || "") !== String(entryId),
+  );
   if (!Array.isArray(history[dateKey])) {
     history[dateKey] = [];
   }

@@ -21,6 +21,7 @@ const { INTENTS } = require("./core/intents");
 const {
   normalizeThemeMode,
   normalizeContentThemeMode,
+  normalizeCustomBase,
   resolveTheme,
   resolveThemeMode,
   resolveContentColorScheme,
@@ -118,6 +119,7 @@ const themeRuntime = createThemeRuntime({
   resolveContentColorScheme,
   normalizeThemeMode,
   normalizeContentThemeMode,
+  normalizeCustomBase,
   toCssVars,
   buffers,
   uiShell,

@@ -153,6 +153,16 @@ function releaseChromiumPreferredColorScheme(executor) {
   DEBUGGER_STATE_BY_ID.delete(id);
 }
 
+function resetChromiumPreferredColorSchemeState(executor) {
+  const id = typeof executor?.id === "number" ? executor.id : -1;
+  if (id < 0) return;
+  const state = DEBUGGER_STATE_BY_ID.get(id);
+  if (state) {
+    state.cdpUnavailable = false;
+    state.attachedByUs = false;
+  }
+}
+
 function buildScrollbarScript(options = {}, useThemeFallback = false) {
   const width = Number.isFinite(options.widthPx)
     ? Math.max(2, Math.floor(options.widthPx))
@@ -293,4 +303,5 @@ function applyScrollableUi(executor, options = {}) {
 module.exports = {
   applyScrollableUi,
   releaseChromiumPreferredColorScheme,
+  resetChromiumPreferredColorSchemeState,
 };

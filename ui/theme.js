@@ -132,6 +132,7 @@ const LIGHT_THEME = Object.freeze({
 
 const THEME_MODES = new Set(["dark", "light", "auto", "custom"]);
 const CONTENT_THEME_MODES = new Set(["dark", "light", "auto", "match"]);
+const CUSTOM_BASE_MODES = new Set(["dark", "light", "auto"]);
 
 function readConfiguredThemeMode(themeConfig = {}) {
   if (typeof themeConfig?.mode === "string") {
@@ -167,7 +168,11 @@ function resolveThemeMode(themeConfig = {}, options = {}) {
   const configuredMode = normalizeThemeMode(rawMode, "dark");
 
   if (configuredMode === "custom") {
-    return "custom";
+    const customBase = normalizeCustomBase(themeConfig?.custom_base, "dark");
+    if (customBase === "auto") {
+      return options.systemPrefersDark === false ? "light" : "dark";
+    }
+    return customBase;
   }
 
   if (configuredMode !== "auto") {
@@ -188,6 +193,19 @@ function normalizeContentThemeMode(input, fallback = "dark") {
   }
 
   return CONTENT_THEME_MODES.has(fallback) ? fallback : "dark";
+}
+
+function normalizeCustomBase(input, fallback = "dark") {
+  if (typeof input !== "string") {
+    return CUSTOM_BASE_MODES.has(fallback) ? fallback : "dark";
+  }
+
+  const normalized = input.trim().toLowerCase();
+  if (CUSTOM_BASE_MODES.has(normalized)) {
+    return normalized;
+  }
+
+  return CUSTOM_BASE_MODES.has(fallback) ? fallback : "dark";
 }
 
 function resolveContentColorScheme(themeConfig = {}, options = {}) {
@@ -353,6 +371,7 @@ module.exports = {
   LIGHT_THEME,
   normalizeThemeMode,
   normalizeContentThemeMode,
+  normalizeCustomBase,
   resolveThemeMode,
   resolveContentColorScheme,
   resolveTheme,

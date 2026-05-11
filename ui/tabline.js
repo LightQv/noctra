@@ -38,6 +38,7 @@ function renderTabline(
   const palette = {
     shellBackground: theme.shellBackground || DEFAULT_THEME.shellBackground,
     borderColor: theme.borderColor || DEFAULT_THEME.borderColor,
+    borderStrongColor: theme.borderStrongColor || DEFAULT_THEME.borderStrongColor,
     textColor: theme.textColor || DEFAULT_THEME.textColor,
     mutedTextColor: theme.mutedTextColor || DEFAULT_THEME.mutedTextColor,
     elevatedBackground:
@@ -239,7 +240,8 @@ function renderTabline(
         zIndex: '999998',
         background: ${JSON.stringify(palette.shellBackground)},
         color: ${JSON.stringify(palette.textColor)},
-        borderBottom: ${JSON.stringify(`1px solid ${palette.borderColor}`)},
+        borderBottom: ${JSON.stringify(`1px solid ${palette.borderStrongColor}`)},
+        boxSizing: 'border-box',
         fontFamily: ${JSON.stringify(palette.fontFamily)},
         fontSize: '12px',
         lineHeight: '1',

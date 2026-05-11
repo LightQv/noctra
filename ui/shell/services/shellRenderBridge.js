@@ -19,7 +19,10 @@ function renderTablineBridge(snapshot) {
       this.windowChrome,
       this.tablineActions,
       this.currentTheme,
-      this.tablineOptions,
+      {
+        ...this.tablineOptions,
+        urllineVisible: Boolean(this.urllineModel?.panes?.length),
+      },
     );
   }, 16);
 }

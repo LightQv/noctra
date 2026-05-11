@@ -1775,7 +1775,7 @@ class HistoryPanel {
       html,body{height:100%}
       body{margin:0;background:var(--ui-bg-panel,#161b24);color:var(--ui-text,#c9d1df);font:12px "JetBrainsMono Nerd Font Mono", monospace;border-right:1px solid var(--ui-border-strong,#2a3140);box-sizing:border-box}
       .wrap{display:flex;flex-direction:column;height:100%;position:relative}
-      .head{padding:8px 10px;border-bottom:1px solid var(--ui-border,#2f3440);display:flex;gap:8px;align-items:center}
+      .head{padding:8px 10px;border-bottom:1px solid var(--ui-border,#2f3440);display:flex;gap:8px;align-items:center;height:34px;box-sizing:border-box}
       .tree-head-item{color:var(--ui-text-muted,#7f8aa3)}
       .tree-head-item.active{color:var(--ui-accent,#89dceb);font-weight:600}
       .list{padding:6px 0;overflow-x:hidden;overflow-y:auto;flex:1}

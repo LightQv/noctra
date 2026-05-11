@@ -74,12 +74,12 @@ Ship one focused stabilization pass that improves architecture consistency, secu
 - **Estimate:** M
 - **Dependencies:** #4 preferred
 - **Tasks:**
-  - Default-deny plain HTTP loopback/private LAN; allow explicit opt-in config.
+  - Preserve developer-first local HTTP defaults (loopback/private LAN allowed) while blocking unsafe schemes and non-local HTTP by default; keep explicit allowlist config for additional hosts.
   - Narrow trusted surface identity (avoid broad `data:` trust semantics).
   - Ensure policy is documented in config docs.
 - **Acceptance checks:**
-  - Default policy is secure-by-default.
-  - Dev/local workflows still possible through explicit config.
+  - Default policy is secure-by-default for non-local navigation, while preserving local developer workflows.
+  - Local/LAN behavior and host allowlist controls are explicitly documented.
 
 ### 6) Add Explicit Download Governance
 - **Priority:** P2

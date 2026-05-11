@@ -67,9 +67,18 @@ browser:
 ## URL security policy
 
 - `https://` URLs are always allowed.
-- `http://` URLs are allowed for loopback and private LAN by default.
+- `http://` URLs are allowed by default only for developer-local targets (loopback and private LAN).
+- Non-local `http://` targets are blocked unless listed in `trusted_http_hosts`.
 - `trusted_http_hosts` allows specific extra HTTP hosts.
 - Unsafe schemes like `javascript:`, `data:`, and `file:` are blocked.
+
+Optional hardening for stricter environments:
+
+```yaml
+browser:
+  allow_http_loopback: false
+  allow_http_private_lan: false
+```
 
 Example trusted hosts:
 

@@ -1,8 +1,8 @@
 # Commands
 
-Use `:` in command mode to run the following commands.
+Use `:` in `COMMAND` mode to run the following commands.
 
-## Navigation and open
+## Navigation and Open
 
 - `:open <target>`: open URL/search target in active buffer
 - `:tab`, `:tabe`, `:tabnew [target]`: open new buffer (optionally with target)
@@ -21,26 +21,26 @@ Use `:` in command mode to run the following commands.
 - `:bcloseleft`: close buffers to the left
 - `:bcloseright`: close buffers to the right
 
-## Split management
+## Split Management
 
 - `:split`: open vertical split
 - `:splitq`: close right split
 - `:splitd`: open devtools in split
 
-## UI and settings
+## UI and Settings
 
 - `:settings`, `:config`: open settings buffer
 - `:notifications`, `:notifs`: open notifications buffer
 - `:config-reload`: reload config file
 
-## URL line
+## URL Line
 
 - `:urlline`
 - `:urlline toggle`
 - `:urlline on`
 - `:urlline off`
 
-## Theme and language
+## Theme and Language
 
 - `:theme dark`
 - `:theme light`
@@ -50,14 +50,14 @@ Use `:` in command mode to run the following commands.
 - `:lang fr`
 - `:lang fr!` (reload-aware variant)
 
-## Clipboard behavior
+## Clipboard Behavior
 
 - `:copy-selection`
 - `:copy-selection toggle`
 - `:copy-selection on`
 - `:copy-selection off`
 
-## Context and panels
+## Context and Panels
 
 - `:focus-context`
 - `:context`
@@ -75,5 +75,6 @@ Use `:` in command mode to run the following commands.
 
 ## Notes
 
-- Unknown or malformed commands resolve to an unknown-command intent.
-- URL-like and query-like inputs are normalized through resolver logic.
+- Unknown or malformed commands resolve to `UNKNOWN_COMMAND` intent.
+- URL-like and query-like inputs are normalized before dispatch.
+- Some commands have aliases (for example `:tab`, `:tabe`, `:tabnew`).

@@ -1,50 +1,78 @@
 # Architecture
 
-Noctra is structured around intent-driven input handling with strict module boundaries.
+Noctra uses an intent-driven architecture: inputs are parsed into intents, then executed by a dispatcher against browser and UI services.
 
-## Core pipeline
+Contributor module index: `docs/architecture-map.md`.
 
-1. Input events are captured and normalized.
-2. Motion handlers map key sequences to action builders.
-3. Action builders emit typed intents.
-4. Dispatcher executes intents through browser/UI services.
-5. State and visual layers synchronize.
+## Runtime flow
 
 High-level path:
 
 `motions/* -> core/input.js -> core/dispatcher.js -> browser/* + ui/*`
 
-## Design principles
+Flow details:
 
-- Modal consistency over feature sprawl.
-- Data-driven keymaps over hardcoded branches.
-- Clear separation of concerns between parser, state, dispatcher, and engine APIs.
-- Browser actions behind stable intent boundaries.
+1. Keyboard input enters mode handlers in `motions/*`.
+2. `core/input.js` normalizes and routes input by mode and context.
+3. Motion and command parsers emit intent objects from `core/intents.js`.
+4. `core/dispatcher.js` executes intents via domain handlers.
+5. Browser and UI modules apply side effects and sync visual state.
 
-## Important modules
+Contract boundaries:
 
-- `core/state.js`: app-level mode and sequence state.
-- `core/input.js`: input normalization and routing.
+- Dispatcher payload validation: `core/contracts/intents.js`.
+- IPC payload validation: `core/contracts/ipc.js`.
+- Unified boundary errors: `core/contracts/errors.js`.
+- Validation policy is fail-closed for malformed payloads (reject + warn).
+
+## Module responsibilities
+
+- `main.js`: app bootstrap and orchestration entrypoint.
+- `core/state.js`: shared runtime state.
+- `core/input.js`: input normalization and mode/context routing.
 - `core/dispatcher.js`: intent execution boundary.
+- `core/contracts/*`: runtime payload contracts and standardized boundary errors.
 - `core/commandParser.js`: `:` command parsing.
 - `core/config/*`: defaults, schema normalization, config I/O.
-- `motions/*`: mode handlers, action builders, key maps.
-- `browser/*`: buffer lifecycle and webContents orchestration.
-- `ui/*`: shell UI widgets and theming.
+- `motions/*`: mode behavior and mapping resolution.
+- `browser/*`: buffers, splits, webContents lifecycle.
+- `ui/*`: shell rendering, overlays, settings, notifications.
+
+## Adapter boundaries
+
+Noctra isolates Electron-specific primitives behind adapters where possible.
+
+Platform adapters (`core/adapters/platform/*`) cover operations such as:
+
+- BrowserView lifecycle and layout hosts
+- webContents event binding and observers
+- security and IPC registration boundaries
+- devtools and content view host operations
+
+Renderer adapters (`core/adapters/renderer/*`) cover operations such as:
+
+- shell patch transport
+- panel render transport
+- editor surface bridge calls
+
+These boundaries are active today, but extraction is still incremental across some lifecycle-sensitive paths.
 
 ## Keymap model
 
-- NORMAL and modifier defaults are defined centrally.
-- Leader tree is merged from defaults + user config.
-- Runtime behavior honors normalized config schema.
+- Normal and modifier defaults are data-driven.
+- Leader mappings merge defaults with user overrides from config.
+- Runtime guards and context routing apply after keymap resolution.
 
-## Persistence model
+## Data model
 
-Persistent user data (history, bookmarks, sessions, notifications) is file-backed under `~/.config/noctra/` by default.
+User data is file-backed under `~/.config/noctra/` by default:
 
-## Future compatibility
+- `history.yml`
+- `bookmarks.yml`
+- `sessions.yml`
+- `notifications.yml`
 
-Noctra is built with multi-engine ambitions.
+## Engine scope
 
-- Chromium is the current adapter target via Electron.
-- Architecture aims to keep engine-specific details isolated so alternate engines can be introduced with minimal impact on motion/parser layers.
+Current runtime engine is Chromium through Electron.
+The architecture is designed to keep engine details isolated, but multi-engine runtime support is a future goal, not a current feature.

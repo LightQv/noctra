@@ -42,7 +42,9 @@ class BookmarkInsertScopeModal {
   }
 
   getCurrentFolders() {
-    return bookmarksService.listFolderChildrenByPath(this.getCurrentFolderPath());
+    return bookmarksService.listFolderChildrenByPath(
+      this.getCurrentFolderPath(),
+    );
   }
 
   getCurrentPage() {
@@ -63,7 +65,10 @@ class BookmarkInsertScopeModal {
   hasDuplicateInCurrentScope() {
     const url = String(this.entry?.url || "").trim();
     if (!url) return false;
-    return bookmarksService.hasEntryUrlAtFolderPath(this.getCurrentFolderPath(), url);
+    return bookmarksService.hasEntryUrlAtFolderPath(
+      this.getCurrentFolderPath(),
+      url,
+    );
   }
 
   buildModel() {
@@ -78,7 +83,6 @@ class BookmarkInsertScopeModal {
     if (this.isConfirmStep()) {
       const duplicateInScope = this.hasDuplicateInCurrentScope();
       const confirmSelected = this.confirmIndex === 0;
-      const cancelSelected = this.confirmIndex === 1;
       return {
         title: "Bookmark",
         promptTitle,
@@ -87,7 +91,9 @@ class BookmarkInsertScopeModal {
         items: [duplicateInScope ? "confirm (exists)" : "confirm", "cancel"],
         indexHints: ["(enter)", "(esc)"],
         selectedIndex: duplicateInScope ? 1 : confirmSelected ? 0 : 1,
-        footerLeft: duplicateInScope ? "URL already exists in this folder" : "h/l choose",
+        footerLeft: duplicateInScope
+          ? "URL already exists in this folder"
+          : "h/l choose",
         footerRight: duplicateInScope ? "confirm disabled" : "Enter confirm",
       };
     }
@@ -107,7 +113,8 @@ class BookmarkInsertScopeModal {
     }
 
     const footerLeft = totalPages > 1 ? "h/l page" : "";
-    const footerRight = totalPages > 1 ? `page ${page + 1}/${totalPages}` : "0-9 select";
+    const footerRight =
+      totalPages > 1 ? `page ${page + 1}/${totalPages}` : "0-9 select";
     return {
       title: "Bookmark",
       promptTitle,

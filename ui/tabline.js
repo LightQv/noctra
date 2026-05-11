@@ -22,7 +22,14 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme = {}, options = {}) {
+function renderTabline(
+  webContents,
+  snapshot,
+  chrome = {},
+  actions = {},
+  theme = {},
+  options = {},
+) {
   if (!webContents || webContents.isDestroyed()) return;
 
   const showFavicon = Boolean(options.showFavicon);
@@ -33,17 +40,21 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
     borderColor: theme.borderColor || DEFAULT_THEME.borderColor,
     textColor: theme.textColor || DEFAULT_THEME.textColor,
     mutedTextColor: theme.mutedTextColor || DEFAULT_THEME.mutedTextColor,
-    elevatedBackground: theme.elevatedBackground || DEFAULT_THEME.elevatedBackground,
+    elevatedBackground:
+      theme.elevatedBackground || DEFAULT_THEME.elevatedBackground,
     borderMutedColor: theme.borderMutedColor || DEFAULT_THEME.borderMutedColor,
     softTextColor: theme.softTextColor || DEFAULT_THEME.softTextColor,
-    windowControlBackground: theme.windowControlBackground || DEFAULT_THEME.windowControlBackground,
+    windowControlBackground:
+      theme.windowControlBackground || DEFAULT_THEME.windowControlBackground,
     dangerBackground: theme.dangerBackground || DEFAULT_THEME.dangerBackground,
     dangerTextColor: theme.dangerTextColor || DEFAULT_THEME.dangerTextColor,
     subtleBackground: theme.subtleBackground || DEFAULT_THEME.subtleBackground,
-    accentPillBackground: theme.accentPillBackground || DEFAULT_THEME.accentPillBackground,
+    accentPillBackground:
+      theme.accentPillBackground || DEFAULT_THEME.accentPillBackground,
     accentPillBorder: theme.accentPillBorder || DEFAULT_THEME.accentPillBorder,
     mainColor: theme.mainColor || DEFAULT_THEME.mainColor,
-    secondaryActiveTextColor: theme.secondaryActiveTextColor || DEFAULT_THEME.secondaryActiveTextColor,
+    secondaryActiveTextColor:
+      theme.secondaryActiveTextColor || DEFAULT_THEME.secondaryActiveTextColor,
     fontFamily: theme.fontFamily || DEFAULT_THEME.fontFamily || UI_FONT_FAMILY,
   };
 
@@ -56,7 +67,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
     .map((buffer) => {
       const title = escapeHtml(buffer.title || buffer.url || "[No title]");
       const faviconUrl =
-        typeof buffer.faviconUrl === "string" && buffer.faviconUrl.trim().length > 0
+        typeof buffer.faviconUrl === "string" &&
+        buffer.faviconUrl.trim().length > 0
           ? buffer.faviconUrl.trim()
           : "";
       const faviconMarkup =
@@ -80,11 +92,13 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
   const maximizeLabel = isMaximized ? "Restore" : "Maximize";
   const maximizeIcon = isMaximized ? "[]" : "[ ]";
   const configLabel =
-    typeof actions?.settings?.label === "string" && actions.settings.label.trim().length > 0
+    typeof actions?.settings?.label === "string" &&
+    actions.settings.label.trim().length > 0
       ? actions.settings.label
       : "Config";
   const configIcon =
-    typeof actions?.settings?.icon === "string" && actions.settings.icon.trim().length > 0
+    typeof actions?.settings?.icon === "string" &&
+    actions.settings.icon.trim().length > 0
       ? actions.settings.icon
       : "󱁿";
   const configShortcut =
@@ -93,11 +107,13 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
       ? actions.settings.shortcutLabel
       : "Cmd+, | Ctrl+,";
   const historyLabel =
-    typeof actions?.history?.label === "string" && actions.history.label.trim().length > 0
+    typeof actions?.history?.label === "string" &&
+    actions.history.label.trim().length > 0
       ? actions.history.label
       : "History";
   const historyIcon =
-    typeof actions?.history?.icon === "string" && actions.history.icon.trim().length > 0
+    typeof actions?.history?.icon === "string" &&
+    actions.history.icon.trim().length > 0
       ? actions.history.icon
       : "󰋚";
   const historyShortcut =
@@ -106,11 +122,13 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
       ? actions.history.shortcutLabel
       : "<leader> e | :history show";
   const newTabLabel =
-    typeof actions?.newTab?.label === "string" && actions.newTab.label.trim().length > 0
+    typeof actions?.newTab?.label === "string" &&
+    actions.newTab.label.trim().length > 0
       ? actions.newTab.label
       : "New buffer";
   const newTabIcon =
-    typeof actions?.newTab?.icon === "string" && actions.newTab.icon.trim().length > 0
+    typeof actions?.newTab?.icon === "string" &&
+    actions.newTab.icon.trim().length > 0
       ? actions.newTab.icon
       : "+";
   const newTabShortcut =
@@ -156,8 +174,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
 
           if (actionButton) {
             const action = actionButton.getAttribute('data-window-action');
-            if (action && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('window:action', { action });
+            if (action && window.uiShell && typeof window.uiShell.windowAction === 'function') {
+              window.uiShell.windowAction(action);
             }
             return;
           }
@@ -165,15 +183,15 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           const tablineActionButton = target.closest('[data-tabline-action]');
           if (tablineActionButton) {
             const tablineAction = tablineActionButton.getAttribute('data-tabline-action');
-            if (tablineAction === 'new-tab' && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('tabline:new-tab');
+            if (tablineAction === 'new-tab' && window.uiShell && typeof window.uiShell.newTab === 'function') {
+              window.uiShell.newTab();
               return;
             }
-            if (tablineAction === 'open-settings' && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('tabline:open-settings');
+            if (tablineAction === 'open-settings' && window.uiShell && typeof window.uiShell.openSettings === 'function') {
+              window.uiShell.openSettings();
             }
-            if (tablineAction === 'open-history' && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('tabline:open-history');
+            if (tablineAction === 'open-history' && window.uiShell && typeof window.uiShell.openHistory === 'function') {
+              window.uiShell.openHistory();
             }
             return;
           }
@@ -182,8 +200,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
 
           if (closeButton) {
             const closeId = Number.parseInt(closeButton.dataset.tabId, 10);
-            if (Number.isInteger(closeId) && window.uiShell && window.uiShell.emit) {
-              window.uiShell.emit('tab:close', { id: closeId });
+            if (Number.isInteger(closeId) && window.uiShell && typeof window.uiShell.closeTab === 'function') {
+              window.uiShell.closeTab(closeId);
             }
             return;
           }
@@ -192,8 +210,8 @@ function renderTabline(webContents, snapshot, chrome = {}, actions = {}, theme =
           if (!tab) return;
 
           const tabId = Number.parseInt(tab.dataset.tabId, 10);
-          if (Number.isInteger(tabId) && window.uiShell && window.uiShell.emit) {
-            window.uiShell.emit('tab:activate', { id: tabId });
+          if (Number.isInteger(tabId) && window.uiShell && typeof window.uiShell.activateTab === 'function') {
+            window.uiShell.activateTab(tabId);
           }
         });
 

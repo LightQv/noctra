@@ -4,6 +4,12 @@ const { handleNormal } = require("../motions/normal");
 const { handleInsert } = require("../motions/insert");
 const { handleCommand } = require("../motions/command");
 const { dispatch } = require("./dispatcher");
+const historyPanel = require("./history/panel");
+const { resolveSemanticContext } = require("./semanticContextResolver");
+
+function getSemanticContext() {
+  return resolveSemanticContext({ state, buffers, historyPanel });
+}
 
 function shouldPreventDefault(input) {
   if (input.type !== "keyDown") return false;
@@ -14,7 +20,7 @@ function shouldPreventDefault(input) {
 
   const activeBuffer = buffers.getActive();
 
-  if (state.interactionContext === "EDITOR" && activeBuffer?.isEditable) {
+  if (getSemanticContext() === "editor" && activeBuffer?.isEditable) {
     return false;
   }
 
@@ -40,7 +46,7 @@ function handleInput(win, input) {
 
   if (
     state.mode !== "COMMAND" &&
-    state.interactionContext === "EDITOR" &&
+    getSemanticContext() === "editor" &&
     activeBuffer?.isEditable
   ) {
     return;

@@ -2,6 +2,8 @@
 
 This tutorial covers the core persistence workflow.
 
+Examples reflect current defaults and file-backed storage behavior.
+
 ## Sessions
 
 Use sessions to snapshot and restore browsing context.
@@ -54,3 +56,8 @@ By default, data is stored in:
 - `~/.config/noctra/sessions.yml`
 
 You can override these paths in `global.storage` config.
+
+See also:
+
+- [Commands](../commands.md)
+- [Configuration](../configuration.md)

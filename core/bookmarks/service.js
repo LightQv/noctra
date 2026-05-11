@@ -38,13 +38,18 @@ function getSeedBookmarksTree() {
 
 function getBookmarksFilePath() {
   return resolveUserPath(
-    getConfigValue("global.storage.bookmarks_file", "~/.config/noctra/bookmarks.yml"),
+    getConfigValue(
+      "global.storage.bookmarks_file",
+      "~/.config/noctra/bookmarks.yml",
+    ),
     "~/.config/noctra/bookmarks.yml",
   );
 }
 
 function writeYamlObject(filePath, payload) {
-  const yaml = stringify(payload && typeof payload === "object" ? payload : { root: [] });
+  const yaml = stringify(
+    payload && typeof payload === "object" ? payload : { root: [] },
+  );
   const tmpPath = `${filePath}.tmp`;
   fs.writeFileSync(tmpPath, yaml, "utf8");
   fs.renameSync(tmpPath, filePath);
@@ -159,7 +164,8 @@ function getFolderChildrenByPath(rootNodes, folderIdPath = []) {
   let cursor = Array.isArray(rootNodes) ? rootNodes : [];
   for (const folderId of folderIdPath) {
     const next = cursor.find(
-      (node) => node && node.type === "folder" && String(node.id) === String(folderId),
+      (node) =>
+        node && node.type === "folder" && String(node.id) === String(folderId),
     );
     if (!next) return null;
     if (!Array.isArray(next.children)) {
@@ -200,7 +206,9 @@ function hasEntryUrlAtFolderPath(folderIdPath = [], url = "") {
   if (!children) return false;
   return children.some(
     (node) =>
-      node && node.type === "entry" && String(node.url || "").trim() === normalizedUrl,
+      node &&
+      node.type === "entry" &&
+      String(node.url || "").trim() === normalizedUrl,
   );
 }
 

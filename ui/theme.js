@@ -191,7 +191,10 @@ function normalizeContentThemeMode(input, fallback = "dark") {
 }
 
 function resolveContentColorScheme(themeConfig = {}, options = {}) {
-  const contentMode = normalizeContentThemeMode(themeConfig?.content_mode, "dark");
+  const contentMode = normalizeContentThemeMode(
+    themeConfig?.content_mode,
+    "dark",
+  );
   if (contentMode === "dark" || contentMode === "light") {
     return contentMode;
   }
@@ -233,32 +236,56 @@ function pickOverrides(overrides = {}) {
 }
 
 function resolveTheme(themeConfig = {}, options = {}) {
-  const configuredMode = normalizeThemeMode(readConfiguredThemeMode(themeConfig), "dark");
+  const configuredMode = normalizeThemeMode(
+    readConfiguredThemeMode(themeConfig),
+    "dark",
+  );
   const effectiveMode = resolveThemeMode(themeConfig, options);
   const baseTheme = effectiveMode === "light" ? LIGHT_THEME : DEFAULT_THEME;
-  const overrides = configuredMode === "custom" ? pickOverrides(themeConfig.overrides) : {};
+  const overrides =
+    configuredMode === "custom" ? pickOverrides(themeConfig.overrides) : {};
   const theme = {
     ...baseTheme,
     ...overrides,
   };
 
-  if (!Object.prototype.hasOwnProperty.call(overrides, "secondaryActiveTextColor")) {
-    theme.secondaryActiveTextColor = mixHex(theme.mainColor, theme.mutedTextColor, 0.55);
+  if (
+    !Object.prototype.hasOwnProperty.call(overrides, "secondaryActiveTextColor")
+  ) {
+    theme.secondaryActiveTextColor = mixHex(
+      theme.mainColor,
+      theme.mutedTextColor,
+      0.55,
+    );
   }
 
-  if (!Object.prototype.hasOwnProperty.call(overrides, "accentPillBackground")) {
-    theme.accentPillBackground = mixHex(theme.mainColor, theme.surfaceBackground, 0.18);
+  if (
+    !Object.prototype.hasOwnProperty.call(overrides, "accentPillBackground")
+  ) {
+    theme.accentPillBackground = mixHex(
+      theme.mainColor,
+      theme.surfaceBackground,
+      0.18,
+    );
   }
 
   if (!Object.prototype.hasOwnProperty.call(overrides, "accentPillBorder")) {
     theme.accentPillBorder = mixHex(theme.mainColor, theme.borderColor, 0.42);
   }
 
-  if (!Object.prototype.hasOwnProperty.call(overrides, "editorGutterBorderColor")) {
-    theme.editorGutterBorderColor = mixHex(theme.borderColor, theme.appBackground, 0.6);
+  if (
+    !Object.prototype.hasOwnProperty.call(overrides, "editorGutterBorderColor")
+  ) {
+    theme.editorGutterBorderColor = mixHex(
+      theme.borderColor,
+      theme.appBackground,
+      0.6,
+    );
   }
 
-  if (!Object.prototype.hasOwnProperty.call(overrides, "editorDialogBorderColor")) {
+  if (
+    !Object.prototype.hasOwnProperty.call(overrides, "editorDialogBorderColor")
+  ) {
     theme.editorDialogBorderColor = theme.borderStrongColor;
   }
 
@@ -266,7 +293,8 @@ function resolveTheme(themeConfig = {}, options = {}) {
 }
 
 function toCssVars(theme = {}) {
-  const shellBackground = theme.shellBackground || DEFAULT_THEME.shellBackground;
+  const shellBackground =
+    theme.shellBackground || DEFAULT_THEME.shellBackground;
   return {
     "--ui-bg-app": theme.appBackground,
     "--ui-bg-surface": theme.surfaceBackground,

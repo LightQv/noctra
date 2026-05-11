@@ -13,6 +13,8 @@ Set in `.env`:
 - `NOCTRA_CONFIG_POLICY=customizable` (default): keep and normalize user config.
 - `NOCTRA_CONFIG_POLICY=strict`: overwrite with defaults each load.
 
+Apply config changes at runtime with `:config-reload`.
+
 ## Main sections
 
 - `global.input`: leader key and sequence timeout
@@ -57,7 +59,50 @@ keymap:
 browser:
   language: "en"
   copy_selection_to_clipboard: false
+  allow_http_loopback: true
+  allow_http_private_lan: true
+  trusted_http_hosts: []
+  downloads:
+    policy: "prompt"
+    allow_trusted_surfaces: false
+    default_directory: null
+    auto_open: false
 ```
+
+## URL security policy
+
+- `https://` URLs are always allowed.
+- `http://` URLs are allowed by default only for developer-local targets (loopback and private LAN).
+- Non-local `http://` targets are blocked unless listed in `trusted_http_hosts`.
+- `trusted_http_hosts` allows specific extra HTTP hosts.
+- Unsafe schemes like `javascript:`, `data:`, and `file:` are blocked.
+
+Optional hardening for stricter environments:
+
+```yaml
+browser:
+  allow_http_loopback: false
+  allow_http_private_lan: false
+```
+
+Example trusted hosts:
+
+```yaml
+browser:
+  trusted_http_hosts:
+    - "casaos.local"
+    - "my-homelab-box"
+```
+
+## Download governance policy
+
+- `browser.downloads.policy` controls download behavior:
+  - `deny`: block all downloads.
+  - `prompt`: require explicit user confirmation through the native save dialog (default).
+  - `allow`: allow downloads without confirmation dialog.
+- `allow_trusted_surfaces` controls whether trusted internal surfaces can initiate downloads.
+- `default_directory` sets an optional preferred destination directory.
+- `auto_open` enables opening files after download completion (disabled by default).
 
 ## Theme modes
 
@@ -78,8 +123,9 @@ browser:
 ## Leader mapping rules
 
 - Only `keymap.leader` is user-configurable.
-- Node supports either `action` or nested `children`.
+- Each node supports either `action` or nested `children`.
 - `action` must be a known action ID accepted by config schema.
+- Invalid mapping values are ignored during normalization.
 
 ## Storage defaults
 

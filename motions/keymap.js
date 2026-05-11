@@ -1,5 +1,5 @@
 const { ACTION_BUILDERS } = require("./actionBuilders");
-const { NORMAL_KEY_ACTIONS, MOD_KEY_ACTIONS } = require("./constants");
+const { getConfigValue } = require("../core/config/service");
 
 function getBuilderFor(actionId) {
   if (!actionId || typeof actionId !== "string") {
@@ -10,9 +10,10 @@ function getBuilderFor(actionId) {
 }
 
 function getNormalKeymap() {
+  const normalActions = getConfigValue("keymap.normal", {});
   const runtime = {};
 
-  for (const [keys, actionId] of Object.entries(NORMAL_KEY_ACTIONS)) {
+  for (const [keys, actionId] of Object.entries(normalActions)) {
     const builder = getBuilderFor(actionId);
     if (!builder) continue;
     runtime[keys] = builder;
@@ -25,12 +26,23 @@ function getModAction(key) {
   if (!key) return null;
 
   const keyText = String(key);
-  const actionId = MOD_KEY_ACTIONS[keyText] || MOD_KEY_ACTIONS[keyText.toLowerCase()];
+  const modActions = getConfigValue("keymap.mod", {});
+  const actionId = modActions[keyText] || modActions[keyText.toLowerCase()];
   const builder = getBuilderFor(actionId);
   return builder || null;
+}
+
+function getNormalActionMap() {
+  return getConfigValue("keymap.normal", {});
+}
+
+function getModActionMap() {
+  return getConfigValue("keymap.mod", {});
 }
 
 module.exports = {
   getNormalKeymap,
   getModAction,
+  getNormalActionMap,
+  getModActionMap,
 };

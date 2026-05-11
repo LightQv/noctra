@@ -1,8 +1,9 @@
 const { INTENTS } = require("../core/intents");
+const { enterNormalMode } = require("../core/modeTransitionService");
 
 function handleInsert(state, key) {
   if (key === "Escape") {
-    state.mode = "NORMAL";
+    enterNormalMode(state, "insert-escape");
     return { type: INTENTS.ENTER_NORMAL };
   }
 

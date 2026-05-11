@@ -15,7 +15,7 @@ npm run start
 
 ## 5-10 min: Open and move across buffers
 
-1. Press `:` and run `tabnew github.com`.
+1. Press `:` and run `:tabnew github.com`.
 2. Run `:tabnew news.ycombinator.com`.
 3. Switch with `H` and `L`.
 4. Close one with `:bdelete`.
@@ -26,7 +26,7 @@ npm run start
 1. Press `i` to enter `INSERT` mode.
 2. Interact with a web input field.
 3. Press `Escape` to return to `NORMAL`.
-4. Press `:` and run `open docs.github.com`.
+4. Press `:` and run `:open docs.github.com`.
 
 ## 15-20 min: Panels and split workflow
 
@@ -50,7 +50,7 @@ npm run start
 3. Adjust `global.input.leader_key`.
 4. Save and run `:config-reload`.
 
-You now have a full working baseline.
+You now have a solid baseline for daily usage.
 
 Continue with:
 

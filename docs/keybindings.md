@@ -4,9 +4,9 @@ This page documents current default keybindings.
 
 Notes:
 
-- Defaults come from `motions/constants.js` and config defaults.
-- Classic NORMAL and tree motions are internal defaults.
+- Normal and modifier defaults are built-in.
 - Leader mappings are configurable through `keymap.leader`.
+- Tree-local edit/navigation shortcuts in the side panel are internal for now.
 
 ## NORMAL mode
 
@@ -83,3 +83,9 @@ keymap:
 ```
 
 Valid `action` IDs are constrained by schema and comments in generated config.
+
+## Customization scope
+
+- User customization is supported for `keymap.leader`.
+- `global.input.leader_key` is configurable.
+- Normal/modifier and tree-local defaults are intentionally fixed in current versions.

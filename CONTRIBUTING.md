@@ -7,7 +7,9 @@ This project is keyboard-first, modal, and architecture-conscious. Contributions
 ## Before you start
 
 - Read `README.md` for project goals and current scope.
-- Read `AGENTS.md` for architecture guardrails and design priorities.
+- Read `docs/architecture-map.md` for module boundaries before structural edits.
+- Read `INTENTS.md` before changing parser/dispatcher behavior.
+- Read `docs/testing.md` for test scopes and command matrix.
 - For user-facing behavior changes, verify modal consistency (`NORMAL`, `INSERT`, `COMMAND`).
 
 ## Development setup
@@ -23,6 +25,8 @@ Config is loaded from `~/.config/noctra/config.yml` (auto-generated if missing).
 
 - Keep keymap behavior data-driven; avoid hardcoding in motion handlers.
 - Emit intents from motion/command layers, and execute in dispatcher/services.
+- Keep emitted intents aligned with `core/intents.js` and `INTENTS.md`.
+- Follow `docs/intent-lifecycle.md` for any intent or contract change.
 - Avoid leaking Electron-specific details across module boundaries.
 - Prefer small modules and explicit domain naming.
 - Keep changes focused and reviewable.
@@ -62,7 +66,21 @@ Examples:
 
 ## Testing guidance
 
-No formal test suite is wired yet. Until then, include a manual test plan in PRs.
+Noctra has automated tests and a canonical CI gate:
+
+- Run `npm run lint` for static checks.
+- Run `npm run format:check` for formatting checks.
+- Run `npm run check:intents` for intent contract/doc parity.
+- Run `npm run check:security-baseline` for security default policy drift.
+- Run `npm run check:deps-locked` for exact dependency version policy.
+- Run `npm test` for unit/contract coverage.
+- Run `npm run ci:test` for the canonical local parity/security smoke gate.
+
+Test scope rules and scoped commands are documented in `docs/testing.md`.
+
+For IPC-facing changes, complete `docs/ipc-security-checklist.md` before opening a PR.
+
+Also include a short manual test plan for behavior-sensitive changes.
 
 At minimum, list:
 
@@ -109,8 +127,8 @@ When opening an issue, include:
 - Actual behavior
 - Logs or screenshots if relevant
 
+For suspected security issues, do not open a public issue. Use the private reporting path documented in `SECURITY.md`.
+
 ## Code of conduct
 
-Please be respectful, constructive, and specific in discussion and review.
-
-If a formal `CODE_OF_CONDUCT.md` is added later, this section will defer to it.
+Please follow `CODE_OF_CONDUCT.md` in all project spaces.

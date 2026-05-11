@@ -37,7 +37,9 @@ function telescopeScore(query, candidate) {
 }
 
 function formatDateTime(value) {
-  const timestampMs = Number.isFinite(value) ? value : Date.parse(String(value || ""));
+  const timestampMs = Number.isFinite(value)
+    ? value
+    : Date.parse(String(value || ""));
   if (!Number.isFinite(timestampMs)) return "--";
   return new Intl.DateTimeFormat(undefined, {
     year: "numeric",
@@ -127,7 +129,8 @@ class TelescopeService {
     const all = buffers.getBuffers();
     return all.map((buffer, index) => {
       const id = Number.isFinite(buffer?.id) ? buffer.id : index + 1;
-      const title = String(buffer?.title || "[No title]").trim() || "[No title]";
+      const title =
+        String(buffer?.title || "[No title]").trim() || "[No title]";
       return {
         key: String(id),
         title,
@@ -142,7 +145,10 @@ class TelescopeService {
     const scored = [];
     for (let index = 0; index < this.items.length; index += 1) {
       const item = this.items[index];
-      const score = telescopeScore(this.query, `${item.title} ${item.subtitle} ${item.rightText}`);
+      const score = telescopeScore(
+        this.query,
+        `${item.title} ${item.subtitle} ${item.rightText}`,
+      );
       if (score === Number.NEGATIVE_INFINITY) continue;
       scored.push({ item, score, index });
     }
@@ -176,8 +182,10 @@ class TelescopeService {
     this.active = true;
     this.mode = "INSERT";
     this.pendingG = false;
-    this.context = context === "bookmarks" || context === "buffers" ? context : "history";
-    this.promptPosition = options.promptPosition === "bottom" ? "bottom" : "top";
+    this.context =
+      context === "bookmarks" || context === "buffers" ? context : "history";
+    this.promptPosition =
+      options.promptPosition === "bottom" ? "bottom" : "top";
     this.query = typeof options.query === "string" ? options.query : "";
     this.selectedIndex = Number.isFinite(options.selectedIndex)
       ? Math.max(0, Math.floor(options.selectedIndex))
@@ -236,7 +244,12 @@ class TelescopeService {
 
   handleInput(input) {
     if (!this.active || !input || input.type !== "keyDown") {
-      return { consumed: false, close: false, intent: null, modeChanged: false };
+      return {
+        consumed: false,
+        close: false,
+        intent: null,
+        modeChanged: false,
+      };
     }
 
     const key = String(input.key || "");
@@ -247,7 +260,12 @@ class TelescopeService {
       this.pendingG = false;
       if (this.mode === "INSERT") {
         this.mode = "NORMAL";
-        return { consumed: true, close: false, intent: null, modeChanged: true };
+        return {
+          consumed: true,
+          close: false,
+          intent: null,
+          modeChanged: true,
+        };
       }
       this.rememberLastSession();
       return { consumed: true, close: true, intent: null, modeChanged: false };
@@ -261,11 +279,21 @@ class TelescopeService {
     if (this.mode === "INSERT") {
       if (key === "ArrowUp" || key === "k" || (isCtrlNav && lower === "p")) {
         this.move(-1);
-        return { consumed: true, close: false, intent: null, modeChanged: false };
+        return {
+          consumed: true,
+          close: false,
+          intent: null,
+          modeChanged: false,
+        };
       }
       if (key === "ArrowDown" || key === "j" || (isCtrlNav && lower === "n")) {
         this.move(1);
-        return { consumed: true, close: false, intent: null, modeChanged: false };
+        return {
+          consumed: true,
+          close: false,
+          intent: null,
+          modeChanged: false,
+        };
       }
       if (key === "Backspace") {
         this.pendingG = false;
@@ -274,14 +302,24 @@ class TelescopeService {
           this.selectedIndex = 0;
           this.recomputeResults();
         }
-        return { consumed: true, close: false, intent: null, modeChanged: false };
+        return {
+          consumed: true,
+          close: false,
+          intent: null,
+          modeChanged: false,
+        };
       }
       if (key.length === 1 && !input.ctrl && !input.meta && !input.alt) {
         this.pendingG = false;
         this.query += key;
         this.selectedIndex = 0;
         this.recomputeResults();
-        return { consumed: true, close: false, intent: null, modeChanged: false };
+        return {
+          consumed: true,
+          close: false,
+          intent: null,
+          modeChanged: false,
+        };
       }
       return { consumed: true, close: false, intent: null, modeChanged: false };
     }
@@ -298,7 +336,8 @@ class TelescopeService {
     }
     if (key === "G") {
       this.pendingG = false;
-      if (this.filteredItems.length > 0) this.selectedIndex = this.filteredItems.length - 1;
+      if (this.filteredItems.length > 0)
+        this.selectedIndex = this.filteredItems.length - 1;
       return { consumed: true, close: false, intent: null, modeChanged: false };
     }
     if (key === "g") {

@@ -8,6 +8,10 @@ Not yet. It is usable and evolving, but still early-stage (`v0.1.0`).
 
 Electron gives a fast path to ship a keyboard-first browser shell on Chromium while keeping room for adapter-based engine expansion later.
 
+## Where can I see the intent list?
+
+See `INTENTS.md` for the current intent contract.
+
 ## Where is my config file?
 
 `~/.config/noctra/config.yml`
@@ -52,3 +56,9 @@ Also, invalid configs can be auto-repaired and backed up.
 ## How can I contribute?
 
 Start with `CONTRIBUTING.md` and open a focused pull request.
+
+## How do I report a security vulnerability?
+
+Use GitHub Private Vulnerability Reporting for this repository.
+
+See `SECURITY.md` for the full policy and disclosure expectations.

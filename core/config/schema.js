@@ -1,4 +1,5 @@
 const { defaultConfig } = require("./defaults");
+const { normalizeTrustedHosts } = require("../security/urlPolicy");
 
 const ACTION_IDS = new Set([
   "scroll_down",
@@ -133,6 +134,23 @@ function normalizeBrowserLanguage(value, fallback = "en") {
   return fallback;
 }
 
+function normalizeDownloadPolicy(value, fallback = "prompt") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === "deny" ||
+    normalized === "prompt" ||
+    normalized === "allow"
+  ) {
+    return normalized;
+  }
+
+  return fallback;
+}
+
 function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
   if (!isPlainObject(node)) {
     return null;
@@ -177,6 +195,37 @@ function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
   return normalized;
 }
 
+function normalizeDiscreteKeymap(inputMap, defaultMap) {
+  const normalized = { ...(isPlainObject(defaultMap) ? defaultMap : {}) };
+  if (!isPlainObject(inputMap)) {
+    return normalized;
+  }
+
+  for (const [rawKey, rawActionId] of Object.entries(inputMap)) {
+    if (typeof rawKey !== "string") {
+      continue;
+    }
+
+    const key = rawKey.trim();
+    if (!key) {
+      continue;
+    }
+
+    if (typeof rawActionId !== "string") {
+      continue;
+    }
+
+    const actionId = rawActionId.trim();
+    if (!ACTION_IDS.has(actionId)) {
+      continue;
+    }
+
+    normalized[key] = actionId;
+  }
+
+  return normalized;
+}
+
 function normalizeConfig(rawConfig) {
   const defaults = cloneDefaults();
   const input = isPlainObject(rawConfig) ? rawConfig : {};
@@ -184,23 +233,40 @@ function normalizeConfig(rawConfig) {
   const normalized = cloneDefaults();
   const normalizedGlobal = normalized.global;
 
-  const inputSection = isPlainObject(inputGlobal.input) ? inputGlobal.input : null;
-  const whichKeySection = isPlainObject(inputGlobal.whichkey) ? inputGlobal.whichkey : null;
+  const inputSection = isPlainObject(inputGlobal.input)
+    ? inputGlobal.input
+    : null;
+  const whichKeySection = isPlainObject(inputGlobal.whichkey)
+    ? inputGlobal.whichkey
+    : null;
   const uiSection = isPlainObject(inputGlobal.ui) ? inputGlobal.ui : null;
-  const themeSection = isPlainObject(inputGlobal.theme) ? inputGlobal.theme : null;
-  const splitSection = isPlainObject(inputGlobal.split) ? inputGlobal.split : null;
-  const editorSection = isPlainObject(inputGlobal.editor) ? inputGlobal.editor : null;
-  const storageSection = isPlainObject(inputGlobal.storage) ? inputGlobal.storage : null;
+  const themeSection = isPlainObject(inputGlobal.theme)
+    ? inputGlobal.theme
+    : null;
+  const splitSection = isPlainObject(inputGlobal.split)
+    ? inputGlobal.split
+    : null;
+  const editorSection = isPlainObject(inputGlobal.editor)
+    ? inputGlobal.editor
+    : null;
+  const storageSection = isPlainObject(inputGlobal.storage)
+    ? inputGlobal.storage
+    : null;
   const notificationsSection = isPlainObject(inputGlobal.notifications)
     ? inputGlobal.notifications
     : null;
-  const windowSection = isPlainObject(inputGlobal.window) ? inputGlobal.window : null;
+  const windowSection = isPlainObject(inputGlobal.window)
+    ? inputGlobal.window
+    : null;
   const openingBufferSection = isPlainObject(inputGlobal.opening_buffer)
     ? inputGlobal.opening_buffer
     : null;
 
   if (isPlainObject(inputSection)) {
-    if (typeof inputSection.leader_key === "string" && inputSection.leader_key.trim()) {
+    if (
+      typeof inputSection.leader_key === "string" &&
+      inputSection.leader_key.trim()
+    ) {
       normalizedGlobal.input.leader_key = inputSection.leader_key.trim();
     }
 
@@ -232,8 +298,22 @@ function normalizeConfig(rawConfig) {
     );
   }
 
-  const userLeaderTree = isPlainObject(input.keymap) ? input.keymap.leader : null;
-  const normalizedUserLeaderNode = normalizeLeaderNode({ label: "Leader", children: userLeaderTree });
+  const keymapSection = isPlainObject(input.keymap) ? input.keymap : null;
+  const userNormalMap = keymapSection ? keymapSection.normal : null;
+  const userModMap = keymapSection ? keymapSection.mod : null;
+  const userLeaderTree = keymapSection ? keymapSection.leader : null;
+  normalized.keymap.normal = normalizeDiscreteKeymap(
+    userNormalMap,
+    defaults.keymap.normal,
+  );
+  normalized.keymap.mod = normalizeDiscreteKeymap(
+    userModMap,
+    defaults.keymap.mod,
+  );
+  const normalizedUserLeaderNode = normalizeLeaderNode({
+    label: "Leader",
+    children: userLeaderTree,
+  });
   if (normalizedUserLeaderNode && normalizedUserLeaderNode.children) {
     normalized.keymap.leader = normalizedUserLeaderNode.children;
   } else {
@@ -241,15 +321,24 @@ function normalizeConfig(rawConfig) {
   }
 
   if (isPlainObject(uiSection)) {
-    if (isPlainObject(uiSection.tabline) && typeof uiSection.tabline.enabled === "boolean") {
+    if (
+      isPlainObject(uiSection.tabline) &&
+      typeof uiSection.tabline.enabled === "boolean"
+    ) {
       normalizedGlobal.ui.tabline.enabled = uiSection.tabline.enabled;
     }
 
-    if (isPlainObject(uiSection.tabline) && typeof uiSection.tabline.show_favicon === "boolean") {
+    if (
+      isPlainObject(uiSection.tabline) &&
+      typeof uiSection.tabline.show_favicon === "boolean"
+    ) {
       normalizedGlobal.ui.tabline.show_favicon = uiSection.tabline.show_favicon;
     }
 
-    if (isPlainObject(uiSection.urlline) && typeof uiSection.urlline.enabled === "boolean") {
+    if (
+      isPlainObject(uiSection.urlline) &&
+      typeof uiSection.urlline.enabled === "boolean"
+    ) {
       normalizedGlobal.ui.urlline.enabled = uiSection.urlline.enabled;
     }
 
@@ -275,12 +364,17 @@ function normalizeConfig(rawConfig) {
       );
     }
 
-    if (isPlainObject(uiSection.statusline) && typeof uiSection.statusline.enabled === "boolean") {
+    if (
+      isPlainObject(uiSection.statusline) &&
+      typeof uiSection.statusline.enabled === "boolean"
+    ) {
       normalizedGlobal.ui.statusline.enabled = uiSection.statusline.enabled;
     }
 
     if (isPlainObject(uiSection.telescope)) {
-      const promptPosition = String(uiSection.telescope.prompt_position || "").trim().toLowerCase();
+      const promptPosition = String(uiSection.telescope.prompt_position || "")
+        .trim()
+        .toLowerCase();
       if (promptPosition === "top" || promptPosition === "bottom") {
         normalizedGlobal.ui.telescope.prompt_position = promptPosition;
       }
@@ -321,7 +415,10 @@ function normalizeConfig(rawConfig) {
       0.1,
     );
 
-    if (isPlainObject(splitSection.divider) && typeof splitSection.divider.enabled === "boolean") {
+    if (
+      isPlainObject(splitSection.divider) &&
+      typeof splitSection.divider.enabled === "boolean"
+    ) {
       normalizedGlobal.split.divider.enabled = splitSection.divider.enabled;
     }
 
@@ -330,14 +427,16 @@ function normalizeConfig(rawConfig) {
         typeof splitSection.focus_keys.left === "string" &&
         splitSection.focus_keys.left.trim()
       ) {
-        normalizedGlobal.split.focus_keys.left = splitSection.focus_keys.left.trim();
+        normalizedGlobal.split.focus_keys.left =
+          splitSection.focus_keys.left.trim();
       }
 
       if (
         typeof splitSection.focus_keys.right === "string" &&
         splitSection.focus_keys.right.trim()
       ) {
-        normalizedGlobal.split.focus_keys.right = splitSection.focus_keys.right.trim();
+        normalizedGlobal.split.focus_keys.right =
+          splitSection.focus_keys.right.trim();
       }
     }
   }
@@ -348,21 +447,35 @@ function normalizeConfig(rawConfig) {
     }
 
     if (typeof editorSection.start_in_normal_mode === "boolean") {
-      normalizedGlobal.editor.start_in_normal_mode = editorSection.start_in_normal_mode;
+      normalizedGlobal.editor.start_in_normal_mode =
+        editorSection.start_in_normal_mode;
     }
 
     if (typeof editorSection.relative_line_numbers === "boolean") {
-      normalizedGlobal.editor.relative_line_numbers = editorSection.relative_line_numbers;
+      normalizedGlobal.editor.relative_line_numbers =
+        editorSection.relative_line_numbers;
     }
 
     normalizedGlobal.editor.scrolloff_lines = Math.floor(
-      normalizeNumber(editorSection.scrolloff_lines, defaults.global.editor.scrolloff_lines, 0),
+      normalizeNumber(
+        editorSection.scrolloff_lines,
+        defaults.global.editor.scrolloff_lines,
+        0,
+      ),
     );
   }
 
   if (isPlainObject(storageSection)) {
-    for (const key of ["history_file", "bookmarks_file", "sessions_file", "notifications_file"]) {
-      if (typeof storageSection[key] === "string" && storageSection[key].trim()) {
+    for (const key of [
+      "history_file",
+      "bookmarks_file",
+      "sessions_file",
+      "notifications_file",
+    ]) {
+      if (
+        typeof storageSection[key] === "string" &&
+        storageSection[key].trim()
+      ) {
         normalizedGlobal.storage[key] = storageSection[key].trim();
       }
     }
@@ -376,7 +489,8 @@ function normalizeConfig(rawConfig) {
     if (isPlainObject(notificationsSection.toast)) {
       for (const key of ["info", "warning", "error"]) {
         if (typeof notificationsSection.toast[key] === "boolean") {
-          normalizedGlobal.notifications.toast[key] = notificationsSection.toast[key];
+          normalizedGlobal.notifications.toast[key] =
+            notificationsSection.toast[key];
         }
       }
     }
@@ -392,7 +506,8 @@ function normalizeConfig(rawConfig) {
     }
 
     if (typeof notificationsSection.persist_errors === "boolean") {
-      normalizedGlobal.notifications.persist_errors = notificationsSection.persist_errors;
+      normalizedGlobal.notifications.persist_errors =
+        notificationsSection.persist_errors;
     }
   }
 
@@ -404,11 +519,17 @@ function normalizeConfig(rawConfig) {
       normalizeNumber(windowSection.height, defaults.global.window.height, 300),
     );
 
-    if (typeof windowSection.x === "number" && Number.isFinite(windowSection.x)) {
+    if (
+      typeof windowSection.x === "number" &&
+      Number.isFinite(windowSection.x)
+    ) {
       normalizedGlobal.window.x = Math.floor(windowSection.x);
     }
 
-    if (typeof windowSection.y === "number" && Number.isFinite(windowSection.y)) {
+    if (
+      typeof windowSection.y === "number" &&
+      Number.isFinite(windowSection.y)
+    ) {
       normalizedGlobal.window.y = Math.floor(windowSection.y);
     }
 
@@ -432,33 +553,19 @@ function normalizeConfig(rawConfig) {
 
     if (isPlainObject(openingBufferSection.dashboard)) {
       if (typeof openingBufferSection.dashboard.header === "string") {
-        normalizedGlobal.opening_buffer.dashboard.header = openingBufferSection.dashboard.header;
+        normalizedGlobal.opening_buffer.dashboard.header =
+          openingBufferSection.dashboard.header;
       }
 
       if (typeof openingBufferSection.dashboard.footer === "string") {
-        normalizedGlobal.opening_buffer.dashboard.footer = openingBufferSection.dashboard.footer;
+        normalizedGlobal.opening_buffer.dashboard.footer =
+          openingBufferSection.dashboard.footer;
       }
 
       normalizedGlobal.opening_buffer.dashboard.buttons = normalizeStringArray(
         openingBufferSection.dashboard.buttons,
         defaults.global.opening_buffer.dashboard.buttons,
       );
-    }
-  }
-
-  if (isPlainObject(input.browser) && isPlainObject(input.browser.chromium)) {
-    const chromiumConfig = input.browser.chromium;
-
-    if (isPlainObject(chromiumConfig.web_preferences)) {
-      if (typeof chromiumConfig.web_preferences.context_isolation === "boolean") {
-        normalized.browser.chromium.web_preferences.context_isolation =
-          chromiumConfig.web_preferences.context_isolation;
-      }
-
-      if (typeof chromiumConfig.web_preferences.node_integration === "boolean") {
-        normalized.browser.chromium.web_preferences.node_integration =
-          chromiumConfig.web_preferences.node_integration;
-      }
     }
   }
 
@@ -469,13 +576,108 @@ function normalizeConfig(rawConfig) {
     );
 
     if (typeof input.browser.copy_selection_to_clipboard === "boolean") {
-      normalized.browser.copy_selection_to_clipboard = input.browser.copy_selection_to_clipboard;
+      normalized.browser.copy_selection_to_clipboard =
+        input.browser.copy_selection_to_clipboard;
+    }
+
+    if (typeof input.browser.allow_http_loopback === "boolean") {
+      normalized.browser.allow_http_loopback =
+        input.browser.allow_http_loopback;
+    }
+
+    if (typeof input.browser.allow_http_private_lan === "boolean") {
+      normalized.browser.allow_http_private_lan =
+        input.browser.allow_http_private_lan;
+    }
+
+    if (Array.isArray(input.browser.trusted_http_hosts)) {
+      normalized.browser.trusted_http_hosts = normalizeTrustedHosts(
+        input.browser.trusted_http_hosts,
+      );
+    }
+
+    if (isPlainObject(input.browser.downloads)) {
+      normalized.browser.downloads.policy = normalizeDownloadPolicy(
+        input.browser.downloads.policy,
+        defaults.browser.downloads.policy,
+      );
+
+      if (typeof input.browser.downloads.allow_trusted_surfaces === "boolean") {
+        normalized.browser.downloads.allow_trusted_surfaces =
+          input.browser.downloads.allow_trusted_surfaces;
+      }
+
+      if (typeof input.browser.downloads.default_directory === "string") {
+        const nextDirectory = input.browser.downloads.default_directory.trim();
+        normalized.browser.downloads.default_directory =
+          nextDirectory.length > 0 ? nextDirectory : null;
+      }
+
+      if (input.browser.downloads.default_directory === null) {
+        normalized.browser.downloads.default_directory = null;
+      }
+
+      if (typeof input.browser.downloads.auto_open === "boolean") {
+        normalized.browser.downloads.auto_open =
+          input.browser.downloads.auto_open;
+      }
     }
   }
 
   return normalized;
 }
 
+function isLeaderNodePath(pathKey) {
+  return pathKey === "keymap.leader" || pathKey.startsWith("keymap.leader.");
+}
+
+function collectUnknownConfigKeys(
+  rawNode,
+  schemaNode,
+  pathKey = "",
+  unknownKeys = [],
+) {
+  if (!isPlainObject(rawNode) || !isPlainObject(schemaNode)) {
+    return unknownKeys;
+  }
+
+  const schemaKeys = new Set(Object.keys(schemaNode));
+  for (const key of Object.keys(rawNode)) {
+    const nextPath = pathKey ? `${pathKey}.${key}` : key;
+    if (!schemaKeys.has(key)) {
+      if (pathKey === "keymap.normal" || pathKey === "keymap.mod") {
+        continue;
+      }
+      if (isLeaderNodePath(pathKey)) {
+        continue;
+      }
+      unknownKeys.push(nextPath);
+      continue;
+    }
+
+    const rawValue = rawNode[key];
+    const schemaValue = schemaNode[key];
+    if (isLeaderNodePath(nextPath)) {
+      continue;
+    }
+    collectUnknownConfigKeys(rawValue, schemaValue, nextPath, unknownKeys);
+  }
+
+  return unknownKeys;
+}
+
+function normalizeConfigWithDiagnostics(rawConfig) {
+  const input = isPlainObject(rawConfig) ? rawConfig : {};
+  const unknownKeys = collectUnknownConfigKeys(input, defaultConfig);
+  return {
+    config: normalizeConfig(rawConfig),
+    diagnostics: {
+      unknownKeys,
+    },
+  };
+}
+
 module.exports = {
   normalizeConfig,
+  normalizeConfigWithDiagnostics,
 };

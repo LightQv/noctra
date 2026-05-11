@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide gets you from clone to productive usage quickly.
+This guide gets you from install to a usable daily workflow.
 
 ## 1) Install dependencies
 
@@ -30,7 +30,7 @@ Basic flow:
 
 - `:open github.com` opens a URL in the current buffer.
 - `:tabnew` opens a new buffer.
-- `:tabnew example.com` opens URL in a new buffer.
+- `:tabnew example.com` opens a URL in a new buffer.
 - `:buffer 2` switches to buffer 2.
 - `:bdelete` closes active buffer.
 
@@ -46,6 +46,8 @@ Start with these edits:
 - Toggle URL line with `global.ui.urlline.enabled`.
 - Customize leader mappings under `keymap.leader`.
 
+Then run `:config-reload`.
+
 ## 6) Optional env policy
 
 From `.env.example`:
@@ -55,7 +57,8 @@ From `.env.example`:
 
 ## 7) Continue learning
 
-- `docs/tutorials/first-30-minutes.md`
-- `docs/keybindings.md`
-- `docs/commands.md`
-- `docs/configuration.md`
+- [Tutorial: First 30 Minutes](docs/tutorials/first-30-minutes.md)
+- [Keybindings](docs/keybindings.md)
+- [Commands](docs/commands.md)
+- [Configuration](docs/configuration.md)
+- [Security Policy](../SECURITY.md)

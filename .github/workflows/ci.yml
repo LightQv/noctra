@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  hardening-gate:
+  security-hardening-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Canonical hardening gate
+      - name: Canonical security-hardening gate
         run: xvfb-run -a npm run ci:test
 
   dependency-audit:

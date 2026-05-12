@@ -57,7 +57,7 @@ function applyOverlayLayout({
   const whichWidth = whichKeyVisible
     ? Math.min(980, Math.max(bounds.width - 28, 560))
     : 1;
-  const whichHeight = whichKeyVisible ? 150 : 1;
+  const whichHeight = whichKeyVisible ? 160 : 1;
   const whichX = whichKeyVisible
     ? Math.max(Math.floor((bounds.width - whichWidth) / 2), 0)
     : -10000;

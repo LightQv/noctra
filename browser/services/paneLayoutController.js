@@ -60,7 +60,7 @@ function getUrllineRenderModel(manager) {
   if (canShowUrllineForBuffer(manager, left)) {
     panes.push({
       pane: "left",
-      x: 0,
+      x: contentX,
       top: UI_SHELL_TABLINE_HEIGHT,
       width: leftWidth,
       url: left.url || "about:blank",

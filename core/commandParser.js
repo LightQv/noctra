@@ -219,6 +219,8 @@ function parseCommand(raw) {
       if (option === "focus") return { type: INTENTS.DOWNLOADS_TOGGLE_FOCUS };
       if (option === "clear-all")
         return { type: INTENTS.DOWNLOADS_CLEAR_ALL };
+      if (option === "live")
+        return { type: INTENTS.DOWNLOADS_LIVE_MODAL };
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 

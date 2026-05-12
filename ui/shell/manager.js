@@ -14,6 +14,7 @@ const {
   TELESCOPE_OVERLAY_HTML,
   STATUSLINE_OVERLAY_HTML,
   TOAST_OVERLAY_HTML,
+  DOWNLOADS_MODAL_OVERLAY_HTML,
 } = require("./services/shellTemplates");
 
 class UiShellManager {
@@ -45,6 +46,10 @@ class UiShellManager {
     this.statuslineReady = false;
     this.toastOverlayView = null;
     this.toastOverlayReady = false;
+    this.downloadsModalView = null;
+    this.downloadsModalReady = false;
+    this.downloadsModalVisible = false;
+    this.downloadsModalModel = null;
     this.statuslineMode = "NORMAL";
     this.statuslineScroll = 0;
     this.statuslineSplitIndicator = {
@@ -96,6 +101,7 @@ class UiShellManager {
     this.initializeTelescopeView();
     this.initializeStatuslineView();
     this.initializeToastOverlayView();
+    this.initializeDownloadsModalView();
 
     this.window.on("resize", () => this.relayout());
     this.window.on("maximize", () => this.relayout());
@@ -180,6 +186,20 @@ class UiShellManager {
       autoResize: { width: false, height: false },
       onReady() {
         this.flushPendingToasts();
+      },
+    });
+  }
+
+  initializeDownloadsModalView() {
+    return overlayLifecycle.initializeOverlayView.call(this, {
+      viewKey: "downloadsModalView",
+      readyKey: "downloadsModalReady",
+      html: DOWNLOADS_MODAL_OVERLAY_HTML,
+      autoResize: { width: false, height: false },
+      onReady() {
+        if (this.downloadsModalModel) {
+          this.updateDownloadsModal(this.downloadsModalModel);
+        }
       },
     });
   }
@@ -338,6 +358,26 @@ class UiShellManager {
 
   computeSelectionModalHeight(model = null) {
     return auxOverlayController.computeSelectionModalHeight.call(this, model);
+  }
+
+  isDownloadsModalVisible() {
+    return auxOverlayController.isDownloadsModalVisible.call(this);
+  }
+
+  showDownloadsModal(model) {
+    return auxOverlayController.showDownloadsModal.call(this, model);
+  }
+
+  hideDownloadsModal() {
+    return auxOverlayController.hideDownloadsModal.call(this);
+  }
+
+  updateDownloadsModal(model) {
+    return auxOverlayController.updateDownloadsModal.call(this, model);
+  }
+
+  computeDownloadsModalHeight(model = null) {
+    return auxOverlayController.computeDownloadsModalHeight.call(this, model);
   }
 
   resetWhichKeyShowTimer(delayMs) {

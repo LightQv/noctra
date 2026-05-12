@@ -89,6 +89,10 @@ function createHistoryBookmarksHandlers(deps) {
         historyPanel.render();
       }
     },
+    [INTENTS.DOWNLOADS_LIVE_MODAL]: () => {
+      const downloadsModal = require("../../downloads/modal");
+      downloadsModal.open();
+    },
   };
 }
 

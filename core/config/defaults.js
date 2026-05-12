@@ -317,6 +317,10 @@ const defaultConfig = {
         label: "Open notifications",
         action: "open_notifications",
       },
+      D: {
+        label: "Live downloads",
+        action: "downloads_live_modal",
+      },
     },
   },
   browser: {

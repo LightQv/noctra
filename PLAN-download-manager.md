@@ -156,8 +156,8 @@ Add `DOWNLOADS_MODAL_OVERLAY_HTML` — centered card with:
 - [x] `gd` → reveals file in finder/explorer
 - [x] 200-entry limit prunes oldest entries
 - [x] App icon progress bar accurate across multiple simultaneous downloads
-- [ ] Modal opens via `<leader> D` and tabline icon
-- [ ] Empty modal → toast instead
-- [ ] Modal shows live progress bars
-- [ ] Modal keyboard controls work (j/k/p/c/x/o/r/Esc)
-- [ ] Modal closes on Esc, focus returns correctly
+- [x] Modal opens via `<leader> D` and tabline icon
+- [x] Empty modal → toast instead
+- [x] Modal shows live progress bars
+- [x] Modal keyboard controls work (j/k/p/c/x/o/r/Esc)
+- [x] Modal closes on Esc, focus returns correctly

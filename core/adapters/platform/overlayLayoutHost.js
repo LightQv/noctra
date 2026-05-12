@@ -4,6 +4,7 @@ function applyOverlayLayout({
   visibility,
   chrome,
   computeSelectionModalHeight,
+  computeDownloadsModalHeight,
 }) {
   if (!windowRef) {
     return;
@@ -16,6 +17,7 @@ function applyOverlayLayout({
     telescopeView,
     statuslineView,
     toastOverlayView,
+    downloadsModalView,
   } = overlays || {};
 
   if (
@@ -24,7 +26,8 @@ function applyOverlayLayout({
     !selectionModalView ||
     !telescopeView ||
     !statuslineView ||
-    !toastOverlayView
+    !toastOverlayView ||
+    !downloadsModalView
   ) {
     return;
   }
@@ -38,6 +41,9 @@ function applyOverlayLayout({
     visibility && visibility.selectionModalVisible,
   );
   const telescopeVisible = Boolean(visibility && visibility.telescopeVisible);
+  const downloadsModalVisible = Boolean(
+    visibility && visibility.downloadsModalVisible,
+  );
 
   const width = commandVisible
     ? Math.min(500, Math.max(bounds.width - 160, 300))
@@ -123,6 +129,25 @@ function applyOverlayLayout({
     height: telescopeHeight,
   });
 
+  const downloadsModalWidth = downloadsModalVisible
+    ? Math.min(560, Math.max(bounds.width - 120, 320))
+    : 1;
+  const downloadsModalHeight = downloadsModalVisible
+    ? (computeDownloadsModalHeight || (() => 160))()
+    : 1;
+  const downloadsModalX = downloadsModalVisible
+    ? Math.max(Math.floor((bounds.width - downloadsModalWidth) / 2), 0)
+    : -10000;
+  const downloadsModalY = downloadsModalVisible
+    ? Math.max(UI_SHELL_TABLINE_HEIGHT + 12, 0)
+    : -10000;
+  downloadsModalView.setBounds({
+    x: downloadsModalX,
+    y: downloadsModalY,
+    width: downloadsModalWidth,
+    height: downloadsModalHeight,
+  });
+
   statuslineView.setBounds({
     x: 0,
     y: Math.max(
@@ -167,6 +192,10 @@ function applyOverlayStack(windowRef, stack = {}) {
 
   if (stack.commandVisible && stack.commandOverlayView) {
     windowRef.setTopBrowserView(stack.commandOverlayView);
+  }
+
+  if (stack.downloadsModalVisible && stack.downloadsModalView) {
+    windowRef.setTopBrowserView(stack.downloadsModalView);
   }
 
   if (stack.toastOverlayView) {

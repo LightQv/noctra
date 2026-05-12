@@ -36,6 +36,7 @@ const ACTION_IDS = new Set([
   "bookmarks_add_scoped_prompt",
   "downloads_toggle",
   "downloads_toggle_focus",
+  "downloads_live_modal",
   "telescope_open_history",
   "telescope_open_bookmarks",
   "telescope_open_buffers",

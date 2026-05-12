@@ -122,6 +122,21 @@ function renderTabline(
     actions.history.shortcutLabel.trim().length > 0
       ? actions.history.shortcutLabel
       : "<leader> e | :history show";
+  const downloadsLabel =
+    typeof actions?.downloads?.label === "string" &&
+    actions.downloads.label.trim().length > 0
+      ? actions.downloads.label
+      : "Downloads";
+  const downloadsIcon =
+    typeof actions?.downloads?.icon === "string" &&
+    actions.downloads.icon.trim().length > 0
+      ? actions.downloads.icon
+      : "󰇚";
+  const downloadsShortcut =
+    typeof actions?.downloads?.shortcutLabel === "string" &&
+    actions.downloads.shortcutLabel.trim().length > 0
+      ? actions.downloads.shortcutLabel
+      : "<leader> D | :downloads live";
   const newTabLabel =
     typeof actions?.newTab?.label === "string" &&
     actions.newTab.label.trim().length > 0
@@ -146,7 +161,11 @@ function renderTabline(
     `${newTabLabel} (${newTabShortcut})`,
   )}" aria-label="${escapeHtml(newTabLabel)}"><span class="tab-new-icon">${escapeHtml(newTabIcon)}</span></button>`;
 
-  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-history" title="${escapeHtml(
+  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-downloads" title="${escapeHtml(
+    `${downloadsLabel} (${downloadsShortcut})`,
+  )}" aria-label="Open downloads"><span class="tabline-action-icon">${escapeHtml(
+    downloadsIcon,
+  )}</span></button><button class="tabline-action-btn" type="button" data-tabline-action="open-history" title="${escapeHtml(
     `${historyLabel} (${historyShortcut})`,
   )}" aria-label="Open history"><span class="tabline-action-icon">${escapeHtml(
     historyIcon,
@@ -193,6 +212,9 @@ function renderTabline(
             }
             if (tablineAction === 'open-history' && window.uiShell && typeof window.uiShell.openHistory === 'function') {
               window.uiShell.openHistory();
+            }
+            if (tablineAction === 'open-downloads' && window.uiShell && typeof window.uiShell.openDownloads === 'function') {
+              window.uiShell.openDownloads();
             }
             return;
           }

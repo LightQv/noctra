@@ -177,6 +177,11 @@ function registerRuntimeIpc({
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
+  const onOpenDownloads = (_event) => {
+    dispatch(win, { type: INTENTS.DOWNLOADS_LIVE_MODAL }, state);
+    uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  };
+
   const onTabActivate = (event, payload) => {
     const bufferId = payload.id;
     buffers.switchTo(bufferId);
@@ -374,6 +379,11 @@ function registerRuntimeIpc({
       "ui-shell:open-history",
       SURFACE_ROLES.TRUSTED_SHELL,
       onOpenHistory,
+    ),
+    "ui-shell:open-downloads": withEventBoundary(
+      "ui-shell:open-downloads",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onOpenDownloads,
     ),
     "ui-shell:tab-activate": withEventBoundary(
       "ui-shell:tab-activate",

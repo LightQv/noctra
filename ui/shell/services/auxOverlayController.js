@@ -287,6 +287,96 @@ function updateStatuslineScroll(percent) {
   );
 }
 
+function isDownloadsModalVisible() {
+  return this.downloadsModalVisible;
+}
+
+function showDownloadsModal(model) {
+  this.downloadsModalVisible = true;
+  this.downloadsModalModel = model || null;
+  this.syncOverlayStack();
+  this.updateDownloadsModal(this.downloadsModalModel);
+}
+
+function hideDownloadsModal() {
+  this.downloadsModalVisible = false;
+  this.downloadsModalModel = null;
+  this.relayout();
+}
+
+function updateDownloadsModal(model) {
+  this.downloadsModalModel = model || this.downloadsModalModel || null;
+  if (!this.downloadsModalVisible) return;
+  if (!this.downloadsModalView || !this.downloadsModalReady) return;
+
+  const safeModel = {
+    title: String(this.downloadsModalModel?.title || "Live Downloads"),
+    items: Array.isArray(this.downloadsModalModel?.items)
+      ? this.downloadsModalModel.items.map((item) => ({
+          glyph: String(item?.glyph || ""),
+          filename: String(item?.filename || ""),
+          bar: String(item?.bar || ""),
+          rightText: String(item?.rightText || ""),
+          selected: Boolean(item?.selected),
+        }))
+      : [],
+    footerLeft: String(this.downloadsModalModel?.footerLeft || ""),
+    footerRight: String(this.downloadsModalModel?.footerRight || ""),
+  };
+
+  pushShellPatch(
+    this.downloadsModalView.webContents,
+    `
+      (function updateDownloadsModal() {
+        const titleNode = document.getElementById('downloads-modal-title');
+        const listNode = document.getElementById('downloads-modal-list');
+        const footerNode = document.getElementById('downloads-modal-footer');
+        if (!titleNode || !listNode || !footerNode) return;
+
+        const escapeHtml = (value) => String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+
+        const model = ${JSON.stringify(safeModel)};
+        titleNode.textContent = model.title;
+
+        if (!model.items.length) {
+          listNode.innerHTML = '<div class="downloads-modal-empty">no active downloads</div>';
+        } else {
+          listNode.innerHTML = model.items.map((item) => {
+            const selected = item.selected ? ' selected' : '';
+            return '<div class="downloads-modal-row' + selected + '">' +
+              '<span class="downloads-modal-glyph">' + escapeHtml(item.glyph) + '</span>' +
+              '<span class="downloads-modal-info">' +
+                '<span class="downloads-modal-filename">' + escapeHtml(item.filename) + '</span>' +
+                '<span class="downloads-modal-bar">' + escapeHtml(item.bar) + '</span>' +
+              '</span>' +
+              '<span class="downloads-modal-right">' + escapeHtml(item.rightText) + '</span>' +
+            '</div>';
+          }).join('');
+        }
+
+        footerNode.innerHTML = '<span>' + escapeHtml(model.footerLeft) + '</span><span>' + escapeHtml(model.footerRight) + '</span>';
+      })();
+    `,
+  );
+
+  this.relayout();
+}
+
+function computeDownloadsModalHeight(model = null) {
+  const activeModel = model || this.downloadsModalModel || {};
+  const itemCount = Array.isArray(activeModel.items) ? activeModel.items.length : 0;
+  const base = 38;
+  const content = itemCount > 0 ? itemCount * 44 + 8 : 22;
+  const footer = 14;
+  const total = base + content + footer;
+  return Math.max(108, Math.min(520, total));
+}
+
 function updateStatuslineSplitIndicator(splitStatus = {}) {
   const enabledRegularSplit = Boolean(
     splitStatus.enabled && splitStatus.mode === "regular",
@@ -332,6 +422,11 @@ module.exports = {
   hideTelescope,
   updateTelescope,
   computeSelectionModalHeight,
+  isDownloadsModalVisible,
+  showDownloadsModal,
+  hideDownloadsModal,
+  updateDownloadsModal,
+  computeDownloadsModalHeight,
   updateStatuslineMode,
   updateStatuslineScroll,
   updateStatuslineSplitIndicator,

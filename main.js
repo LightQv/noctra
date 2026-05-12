@@ -8,6 +8,7 @@ const {
   nativeTheme,
   screen,
   session,
+  dialog,
 } = require("electron");
 const buffers = require("./browser/manager");
 const { handleInput, shouldPreventDefault } = require("./core/input");
@@ -103,8 +104,14 @@ const {
   deleteUrllineBackward,
   deleteUrllineForward,
 } = require("./core/state/urllineState");
+const { createAppMenu } = require("./core/adapters/platform/appMenu");
+const { openDoc } = require("./core/adapters/platform/openExternal");
+const { isBookmarkableBuffer } = require("./core/bookmarks/eligibility");
+app.setName("Noctra");
+
 let win;
 let smokeScenarios = null;
+let appMenu;
 
 const browserLanguagePolicy = createBrowserLanguagePolicy({
   session,
@@ -192,6 +199,7 @@ function handleRawInput(event, input) {
       }
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       updateTablineOptions();
+      if (appMenu) appMenu.sync();
       return;
     }
   }
@@ -214,6 +222,7 @@ function handleRawInput(event, input) {
       if (result.intent) {
         dispatch(win, result.intent, state);
       }
+      if (appMenu) appMenu.sync();
       return;
     }
   }
@@ -225,6 +234,7 @@ function handleRawInput(event, input) {
     event.preventDefault();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     updateTablineOptions();
+    if (appMenu) appMenu.sync();
     return;
   }
 
@@ -234,12 +244,14 @@ function handleRawInput(event, input) {
       ...normalized,
       pasteText: clipboard.readText(),
     });
+    if (appMenu) appMenu.sync();
     return;
   }
 
   if (priority.shouldRouteUrllineInput) {
     event.preventDefault();
     handleUrllineInput(event, normalized);
+    if (appMenu) appMenu.sync();
     return;
   }
 
@@ -249,12 +261,14 @@ function handleRawInput(event, input) {
       ...normalized,
       pasteText: clipboard.readText(),
     });
+    if (appMenu) appMenu.sync();
     return;
   }
 
   if (priority.isOpenSettingsShortcut) {
     event.preventDefault();
     dispatch(win, { type: INTENTS.OPEN_SETTINGS_BUFFER }, state);
+    if (appMenu) appMenu.sync();
     return;
   }
 
@@ -265,6 +279,7 @@ function handleRawInput(event, input) {
     } else {
       dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
     }
+    if (appMenu) appMenu.sync();
     return;
   }
 
@@ -273,6 +288,7 @@ function handleRawInput(event, input) {
   }
 
   handleInput(win, normalized);
+  if (appMenu) appMenu.sync();
 }
 
 function syncWebBufferModeWithFocusedElement(webContents) {
@@ -344,6 +360,7 @@ function syncWebBufferModeWithFocusedElement(webContents) {
         source: "web-focus-sync",
       });
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      if (appMenu) appMenu.sync();
     })
     .catch(() => {});
 }
@@ -651,6 +668,22 @@ function createWindow() {
 
   win = runtime.win;
   smokeScenarios = runtime.smokeScenarios;
+
+  appMenu = createAppMenu({
+    win,
+    state,
+    buffers,
+    historyPanel,
+    dispatch,
+    INTENTS,
+    app,
+    dialog,
+    isBookmarkableBuffer,
+    openDoc,
+    configService,
+  });
+  appMenu.sync();
+  buffers.subscribe(() => appMenu.rebuild());
 }
 
 app.whenReady().then(() => {

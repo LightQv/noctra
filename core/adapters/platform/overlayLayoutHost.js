@@ -130,7 +130,7 @@ function applyOverlayLayout({
   });
 
   const downloadsModalWidth = downloadsModalVisible
-    ? Math.min(560, Math.max(bounds.width - 120, 320))
+    ? Math.min(980, Math.max(bounds.width - 28, 560))
     : 1;
   const downloadsModalHeight = downloadsModalVisible
     ? (computeDownloadsModalHeight || (() => 160))()

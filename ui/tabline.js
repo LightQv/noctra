@@ -357,6 +357,10 @@ function renderTabline(
         icon.style.fontSize = '${UI_CHROME_ICON_GLYPH_SIZE + 2}px';
       });
 
+      root.querySelectorAll('[data-tabline-action="open-downloads"] .tabline-action-icon').forEach((icon) => {
+        icon.style.fontSize = '12px';
+      });
+
       root.querySelectorAll('.window-btn').forEach((button) => {
         Object.assign(button.style, {
           border: 'none',

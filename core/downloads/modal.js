@@ -14,14 +14,14 @@ function getStateGlyph(state, isPaused) {
   if (state === "completed") return "✓";
   if (state === "cancelled") return "✗";
   if (state === "interrupted") return "⚠";
-  if (isPaused) return "⏸";
+  if (isPaused || state === "paused") return "⏸";
   return "▶";
 }
 
 function getRightText(entry) {
   const { state, progress, formattedTotal, formattedReceived } = entry;
   if (state === "progressing") {
-    const pct = Math.round(progress * 100);
+    const pct = Math.round((Number.isFinite(progress) ? progress : 0) * 100);
     return `${pct}% · ${formattedReceived} / ${formattedTotal}`;
   }
   if (state === "paused") {
@@ -29,6 +29,9 @@ function getRightText(entry) {
   }
   if (state === "completed") {
     return formattedTotal;
+  }
+  if (state === "cancelled" || state === "interrupted") {
+    return state.charAt(0).toUpperCase() + state.slice(1);
   }
   return `${formattedReceived} / ${formattedTotal}`;
 }
@@ -46,35 +49,65 @@ class DownloadsModal {
   }
 
   open() {
-    const { active } = downloadsService.getEntries();
-    const liveItems = active.filter(
-      (a) => a.state === "progressing" || a.state === "paused",
-    );
+    const { active, persisted } = downloadsService.getEntries();
 
-    if (liveItems.length === 0) {
+    // Combine active and persisted, deduplicate (active wins)
+    const seen = new Set();
+    const combined = [];
+    for (const a of active) {
+      combined.push(a);
+      seen.add(a.id);
+    }
+    for (const p of persisted) {
+      if (!seen.has(p.id)) {
+        combined.push(p);
+      }
+    }
+
+    // Sort: unfinished first, then by startTime desc
+    const isUnfinished = (e) => e.state === "progressing" || e.state === "paused";
+    combined.sort((a, b) => {
+      const aUnfinished = isUnfinished(a);
+      const bUnfinished = isUnfinished(b);
+      if (aUnfinished && !bUnfinished) return -1;
+      if (!aUnfinished && bUnfinished) return 1;
+      return (b.startTime || 0) - (a.startTime || 0);
+    });
+
+    const items = combined.slice(0, 5);
+
+    if (items.length === 0) {
       uiShell.showNotificationToast({
         severity: "info",
-        message: "No active downloads",
+        message: "No downloads",
         timeoutMs: 2000,
       });
       return;
     }
 
-    this.items = liveItems.map((entry) => ({ ...entry }));
+    this.items = items.map((entry) => ({ ...entry }));
     this.selectedIndex = 0;
     this.active = true;
 
     this.unsubscribe = downloadsService.subscribe((snapshot) => {
       if (!this.active) return;
-      // Merge live updates into our snapshot; keep stale items
-      const activeMap = new Map();
-      for (const a of snapshot.active) {
-        activeMap.set(a.id, a);
+      // Merge updates from both active and persisted; keep stale items
+      const mergedMap = new Map();
+      for (const a of snapshot.active) mergedMap.set(a.id, a);
+      for (const p of snapshot.persisted) {
+        if (!mergedMap.has(p.id)) mergedMap.set(p.id, p);
       }
       for (let i = 0; i < this.items.length; i += 1) {
-        const updated = activeMap.get(this.items[i].id);
+        const updated = mergedMap.get(this.items[i].id);
         if (updated) {
-          this.items[i] = { ...updated };
+          this.items[i] = {
+            ...updated,
+            progress: Number.isFinite(updated.progress)
+              ? updated.progress
+              : updated.totalBytes > 0
+                ? updated.receivedBytes / updated.totalBytes
+                : 0,
+          };
         }
       }
       this.rerender();
@@ -95,19 +128,26 @@ class DownloadsModal {
   }
 
   buildModel() {
-    const items = this.items.map((entry, index) => ({
-      glyph: getStateGlyph(entry.state, entry.isPaused),
-      filename: entry.filename,
-      bar: buildProgressBar(entry.progress),
-      rightText: getRightText(entry),
-      selected: index === this.selectedIndex,
-    }));
+    const items = this.items.map((entry, index) => {
+      const progress = Number.isFinite(entry.progress)
+        ? entry.progress
+        : entry.totalBytes > 0
+          ? entry.receivedBytes / entry.totalBytes
+          : 0;
+      return {
+        glyph: getStateGlyph(entry.state, entry.isPaused),
+        filename: entry.filename,
+        bar: buildProgressBar(progress),
+        rightText: getRightText({ ...entry, progress }),
+        selected: index === this.selectedIndex,
+      };
+    });
 
     return {
-      title: "Live Downloads",
+      title: "Downloads",
       items,
       footerLeft: `${this.items.length} item${this.items.length !== 1 ? "s" : ""}`,
-      footerRight: "j/k nav · p pause/resume · c cancel · o open · Esc close",
+      footerRight: "j/k nav · p pause/resume · c cancel · o open · r retry · d folder · Esc close",
     };
   }
 

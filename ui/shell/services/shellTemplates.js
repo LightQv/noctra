@@ -836,7 +836,7 @@ const DOWNLOADS_MODAL_OVERLAY_HTML = `
       .downloads-modal-row {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
         min-height: 22px;
         line-height: 18px;
         padding: 2px 6px;
@@ -856,21 +856,16 @@ const DOWNLOADS_MODAL_OVERLAY_HTML = `
         text-align: center;
       }
 
-      .downloads-modal-info {
+      .downloads-modal-filename {
         min-width: 0;
         flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-      }
-
-      .downloads-modal-filename {
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
       }
 
       .downloads-modal-bar {
+        flex: 0 0 auto;
         color: var(--ui-accent, #89dceb);
         font-size: 11px;
         line-height: 1;
@@ -878,11 +873,11 @@ const DOWNLOADS_MODAL_OVERLAY_HTML = `
       }
 
       .downloads-modal-right {
+        flex: 0 0 auto;
         color: var(--ui-text-muted, #7d8aa3);
         white-space: nowrap;
         text-align: right;
         font-size: 11px;
-        flex: 0 0 auto;
       }
 
       .downloads-modal-row.selected .downloads-modal-right {
@@ -899,7 +894,7 @@ const DOWNLOADS_MODAL_OVERLAY_HTML = `
   </head>
   <body>
     <fieldset id="downloads-modal">
-      <legend id="downloads-modal-title">Live Downloads</legend>
+      <legend id="downloads-modal-title">Downloads</legend>
       <div id="downloads-modal-list"></div>
       <div id="downloads-modal-footer"></div>
     </fieldset>

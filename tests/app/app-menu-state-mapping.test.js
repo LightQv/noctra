@@ -131,6 +131,8 @@ function createDeps(overrides = {}) {
     bookmarksService: overrides.bookmarksService || {
       readBookmarksTree: () => ({ root: [] }),
     },
+    entryIcons: overrides.entryIcons || null,
+    nativeTheme: overrides.nativeTheme || { shouldUseDarkColors: () => false },
   };
 }
 

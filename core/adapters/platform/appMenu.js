@@ -13,6 +13,8 @@ function createAppMenu({
   configService,
   historyService,
   bookmarksService,
+  entryIcons,
+  nativeTheme,
 }) {
   let lastSnapshot = null;
   const isMac = process.platform === "darwin";
@@ -26,6 +28,16 @@ function createAppMenu({
   function truncateLabel(label, maxLen = 60) {
     const s = String(label || "").trim();
     return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
+  }
+
+  function pickEntryIcon() {
+    if (!entryIcons) return null;
+    if (isMac) return entryIcons.macos || null;
+    const isDark =
+      nativeTheme && typeof nativeTheme.shouldUseDarkColors === "function"
+        ? nativeTheme.shouldUseDarkColors()
+        : false;
+    return isDark ? entryIcons.dark : entryIcons.light;
   }
 
   function getRecentHistoryEntries(count = 5) {
@@ -44,7 +56,7 @@ function createAppMenu({
     return entries;
   }
 
-  function buildBookmarkSubmenu(nodes) {
+  function buildBookmarkSubmenu(nodes, activeEntryIcon) {
     if (!Array.isArray(nodes) || nodes.length === 0) {
       return [];
     }
@@ -52,14 +64,14 @@ function createAppMenu({
       if (node.type === "folder") {
         const item = {
           label: node.name || "Untitled Folder",
-          submenu: buildBookmarkSubmenu(node.children || []),
+          submenu: buildBookmarkSubmenu(node.children || [], activeEntryIcon),
         };
         if (folderIcon) {
           item.icon = folderIcon;
         }
         return item;
       }
-      return {
+      const item = {
         label: truncateLabel(node.title || node.url || "Untitled"),
         click: () =>
           dispatchAndSync(
@@ -68,6 +80,10 @@ function createAppMenu({
             state,
           ),
       };
+      if (activeEntryIcon) {
+        item.icon = activeEntryIcon;
+      }
+      return item;
     });
   }
 
@@ -139,6 +155,10 @@ function createAppMenu({
       canEnterNormal: state.mode === "INSERT",
       canEnterInsert: state.mode === "NORMAL" && active && !active.isEditable,
       copySelectionEnabled,
+      osDarkMode:
+        nativeTheme && typeof nativeTheme.shouldUseDarkColors === "function"
+          ? nativeTheme.shouldUseDarkColors()
+          : false,
       buffers: bufferList.slice(0, 30).map((b) => ({
         id: b.id,
         title: b.title || "[No title]",
@@ -171,6 +191,7 @@ function createAppMenu({
     if (a.canEnterNormal !== b.canEnterNormal) return false;
     if (a.canEnterInsert !== b.canEnterInsert) return false;
     if (a.copySelectionEnabled !== b.copySelectionEnabled) return false;
+    if (a.osDarkMode !== b.osDarkMode) return false;
 
     if (a.buffers.length !== b.buffers.length) return false;
     for (let i = 0; i < a.buffers.length; i += 1) {
@@ -208,6 +229,8 @@ function createAppMenu({
   }
 
   function buildTemplate(snapshot) {
+    const activeEntryIcon = pickEntryIcon();
+
     const noctraMenu = {
       label: app.getName(),
       submenu: [
@@ -329,15 +352,21 @@ function createAppMenu({
     };
 
     const recentHistory = getRecentHistoryEntries(5);
-    const historyEntriesItems = recentHistory.map((entry) => ({
-      label: truncateLabel(entry.title || entry.url || "Untitled"),
-      click: () =>
-        dispatchAndSync(
-          win,
-          { type: INTENTS.OPEN_URL, url: entry.url },
-          state,
-        ),
-    }));
+    const historyEntriesItems = recentHistory.map((entry) => {
+      const item = {
+        label: truncateLabel(entry.title || entry.url || "Untitled"),
+        click: () =>
+          dispatchAndSync(
+            win,
+            { type: INTENTS.OPEN_URL, url: entry.url },
+            state,
+          ),
+      };
+      if (activeEntryIcon) {
+        item.icon = activeEntryIcon;
+      }
+      return item;
+    });
 
     const historyMenu = {
       label: "History",
@@ -389,7 +418,7 @@ function createAppMenu({
       bookmarksService && typeof bookmarksService.readBookmarksTree === "function"
         ? bookmarksService.readBookmarksTree()
         : { root: [] };
-    const bookmarkTreeItems = buildBookmarkSubmenu(bookmarkTree.root || []);
+    const bookmarkTreeItems = buildBookmarkSubmenu(bookmarkTree.root || [], activeEntryIcon);
 
     const bookmarksMenu = {
       label: "Bookmarks",

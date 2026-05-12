@@ -54,6 +54,12 @@ const INTENTS = {
   OPEN_SETTINGS_BUFFER: "OPEN_SETTINGS_BUFFER",
   CONFIG_RELOAD: "CONFIG_RELOAD",
   QUIT: "QUIT",
+  OPEN_URL: "OPEN_URL",
+  SESSION_SAVE: "SESSION_SAVE",
+  SESSION_RESTORE: "SESSION_RESTORE",
+  HISTORY_DELETE_ALL: "HISTORY_DELETE_ALL",
+  HISTORY_DELETE_TODAY: "HISTORY_DELETE_TODAY",
+  OPEN_NOTIFICATIONS_BUFFER: "OPEN_NOTIFICATIONS_BUFFER",
 };
 
 function createMockBuffer(id, title, isEditable = false) {
@@ -116,6 +122,14 @@ function createDeps(overrides = {}) {
         overrides.copySelectionEnabled !== undefined
           ? overrides.copySelectionEnabled
           : defaultValue,
+    },
+    historyService: overrides.historyService || {
+      readHistoryTree: () => [],
+      deleteToday: () => {},
+      deleteAll: () => {},
+    },
+    bookmarksService: overrides.bookmarksService || {
+      readBookmarksTree: () => ({ root: [] }),
     },
   };
 }
@@ -189,6 +203,25 @@ test("appMenu rebuild forces refresh", () => {
   mockMenu.buildFromTemplate = origBuildFromTemplate;
 });
 
+test("setFolderIcon triggers rebuild", () => {
+  let buildCount = 0;
+  const origBuildFromTemplate = mockMenu.buildFromTemplate;
+  mockMenu.buildFromTemplate = (template) => {
+    buildCount += 1;
+    lastMenuTemplate = template;
+    return { items: template };
+  };
+
+  const deps = createDeps();
+  const appMenu = createAppMenu(deps);
+  appMenu.sync();
+  appMenu.setFolderIcon({ isEmpty: () => false });
+
+  assert.equal(buildCount, 2);
+
+  mockMenu.buildFromTemplate = origBuildFromTemplate;
+});
+
 test("buffer list is capped at 30 items", () => {
   const manyBuffers = [];
   for (let i = 1; i <= 35; i += 1) {
@@ -255,7 +288,9 @@ test("checkbox items reflect panel visibility", () => {
 
   const viewMenu = lastMenuTemplate.find((m) => m.label === "View");
   const urlLine = viewMenu.submenu.find((item) => item.label === "Show URL Line");
-  const historyPanel = viewMenu.submenu.find(
+
+  const historyMenu = lastMenuTemplate.find((m) => m.label === "History");
+  const historyPanel = historyMenu.submenu.find(
     (item) => item.label === "Show History Panel",
   );
 
@@ -295,4 +330,170 @@ test("copy selection label reflects enabled state", () => {
     (item) => item.label && item.label.includes("Copy Selection"),
   );
   assert.equal(copyItemDisabled.label, "Enable Copy Selection to Clipboard");
+});
+
+test("history menu contains session and clear actions", () => {
+  const active = createMockBuffer(1, "Test", false);
+
+  const deps = createDeps({
+    buffers: [active],
+    active,
+    mode: "NORMAL",
+  });
+  const appMenu = createAppMenu(deps);
+  appMenu.sync();
+
+  const historyMenu = lastMenuTemplate.find((m) => m.label === "History");
+  assert.ok(historyMenu, "History menu should exist");
+
+  const clearToday = historyMenu.submenu.find(
+    (item) => item.label === "Clear Today's History",
+  );
+  const clearAll = historyMenu.submenu.find(
+    (item) => item.label === "Clear All History",
+  );
+  const saveSession = historyMenu.submenu.find(
+    (item) => item.label === "Save Session Snapshot",
+  );
+  const restoreSession = historyMenu.submenu.find(
+    (item) => item.label === "Restore Session Snapshot",
+  );
+
+  assert.ok(clearToday, "Clear Today's History should exist");
+  assert.ok(clearAll, "Clear All History should exist");
+  assert.ok(saveSession, "Save Session Snapshot should exist");
+  assert.equal(saveSession.accelerator, "CmdOrCtrl+Shift+S");
+  assert.ok(restoreSession, "Restore Session Snapshot should exist");
+  assert.equal(restoreSession.accelerator, "CmdOrCtrl+Shift+R");
+});
+
+test("bookmarks menu contains add actions and tree", () => {
+  const active = createMockBuffer(1, "Test", false);
+
+  const deps = createDeps({
+    buffers: [active],
+    active,
+    mode: "NORMAL",
+    bookmarksService: {
+      readBookmarksTree: () => ({
+        root: [
+          {
+            type: "folder",
+            id: "f-1",
+            name: "Dev",
+            children: [
+              {
+                type: "entry",
+                id: "e-1",
+                title: "GitHub",
+                url: "https://github.com",
+              },
+            ],
+          },
+        ],
+      }),
+    },
+  });
+  const appMenu = createAppMenu(deps);
+  appMenu.sync();
+
+  const bookmarksMenu = lastMenuTemplate.find((m) => m.label === "Bookmarks");
+  assert.ok(bookmarksMenu, "Bookmarks menu should exist");
+
+  const addRoot = bookmarksMenu.submenu.find(
+    (item) => item.label === "Add Bookmark (Root)",
+  );
+  const addScoped = bookmarksMenu.submenu.find(
+    (item) => item.label === "Add Bookmark (Scoped)",
+  );
+  assert.ok(addRoot, "Add Bookmark (Root) should exist");
+  assert.ok(addScoped, "Add Bookmark (Scoped) should exist");
+
+  const folderItem = bookmarksMenu.submenu.find(
+    (item) => item.label === "Dev",
+  );
+  assert.ok(folderItem, "Bookmark folder 'Dev' should exist");
+  assert.ok(Array.isArray(folderItem.submenu), "Folder should have submenu");
+
+  const entryItem = folderItem.submenu.find(
+    (item) => item.label === "GitHub",
+  );
+  assert.ok(entryItem, "Bookmark entry 'GitHub' should exist");
+});
+
+test("tools menu contains notifications", () => {
+  const active = createMockBuffer(1, "Test", false);
+
+  const deps = createDeps({
+    buffers: [active],
+    active,
+    mode: "NORMAL",
+  });
+  const appMenu = createAppMenu(deps);
+  appMenu.sync();
+
+  const toolsMenu = lastMenuTemplate.find((m) => m.label === "Tools");
+  assert.ok(toolsMenu, "Tools menu should exist");
+
+  const notifications = toolsMenu.submenu.find(
+    (item) => item.label === "Notifications",
+  );
+  assert.ok(notifications, "Notifications should exist in Tools menu");
+});
+
+test("history menu lists recent entries", () => {
+  const active = createMockBuffer(1, "Test", false);
+
+  const deps = createDeps({
+    buffers: [active],
+    active,
+    mode: "NORMAL",
+    historyService: {
+      readHistoryTree: () => [
+        {
+          key: "2024-01-01",
+          entries: [
+            { id: "1", url: "https://example.com", title: "Example" },
+            { id: "2", url: "https://test.com", title: "Test" },
+          ],
+        },
+        {
+          key: "2023-12-31",
+          entries: [
+            { id: "3", url: "https://old.com", title: "Old Site" },
+          ],
+        },
+      ],
+      deleteToday: () => {},
+      deleteAll: () => {},
+    },
+  });
+  const appMenu = createAppMenu(deps);
+  appMenu.sync();
+
+  const historyMenu = lastMenuTemplate.find((m) => m.label === "History");
+  const entryItems = historyMenu.submenu.filter(
+    (item) =>
+      item.label &&
+      item.label !== "Show History Panel" &&
+      item.label !== "Clear Today's History" &&
+      item.label !== "Clear All History" &&
+      item.label !== "Save Session Snapshot" &&
+      item.label !== "Restore Session Snapshot" &&
+      item.type !== "separator",
+  );
+
+  assert.equal(entryItems.length, 3, "Should list 3 history entries");
+  assert.ok(
+    entryItems.some((item) => item.label === "Example"),
+    "Should contain 'Example' entry",
+  );
+  assert.ok(
+    entryItems.some((item) => item.label === "Test"),
+    "Should contain 'Test' entry",
+  );
+  assert.ok(
+    entryItems.some((item) => item.label === "Old Site"),
+    "Should contain 'Old Site' entry",
+  );
 });

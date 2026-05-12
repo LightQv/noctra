@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 const {
   app,
   BrowserWindow,
@@ -30,6 +31,7 @@ const {
 } = require("./ui/theme");
 const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
+const bookmarksService = require("./core/bookmarks/service");
 const historyPanel = require("./core/history/panel");
 const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const telescopeService = require("./core/telescope/service");
@@ -681,9 +683,21 @@ function createWindow() {
     isBookmarkableBuffer,
     openDoc,
     configService,
+    historyService,
+    bookmarksService,
   });
   appMenu.sync();
   buffers.subscribe(() => appMenu.rebuild());
+
+  app.getFileIcon(os.homedir(), { size: "small" })
+    .then((icon) => {
+      if (icon && !icon.isEmpty()) {
+        appMenu.setFolderIcon(icon);
+      }
+    })
+    .catch(() => {
+      // Native folder icon unavailable, ignore
+    });
 }
 
 app.whenReady().then(() => {

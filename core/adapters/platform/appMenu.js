@@ -11,15 +11,65 @@ function createAppMenu({
   isBookmarkableBuffer,
   openDoc,
   configService,
+  historyService,
+  bookmarksService,
 }) {
   let lastSnapshot = null;
   const isMac = process.platform === "darwin";
+  let folderIcon = null;
 
   function dispatchAndSync(win, intent, state) {
     dispatch(win, intent, state);
     sync();
   }
 
+  function truncateLabel(label, maxLen = 60) {
+    const s = String(label || "").trim();
+    return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
+  }
+
+  function getRecentHistoryEntries(count = 5) {
+    if (!historyService || typeof historyService.readHistoryTree !== "function") {
+      return [];
+    }
+    const tree = historyService.readHistoryTree();
+    const entries = [];
+    for (const day of tree) {
+      for (const entry of day.entries) {
+        entries.push(entry);
+        if (entries.length >= count) break;
+      }
+      if (entries.length >= count) break;
+    }
+    return entries;
+  }
+
+  function buildBookmarkSubmenu(nodes) {
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      return [];
+    }
+    return nodes.map((node) => {
+      if (node.type === "folder") {
+        const item = {
+          label: node.name || "Untitled Folder",
+          submenu: buildBookmarkSubmenu(node.children || []),
+        };
+        if (folderIcon) {
+          item.icon = folderIcon;
+        }
+        return item;
+      }
+      return {
+        label: truncateLabel(node.title || node.url || "Untitled"),
+        click: () =>
+          dispatchAndSync(
+            win,
+            { type: INTENTS.OPEN_URL, url: node.url },
+            state,
+          ),
+      };
+    });
+  }
 
   function captureSnapshot() {
     const active = buffers.getActive();
@@ -275,6 +325,82 @@ function createAppMenu({
               state,
             ),
         },
+      ],
+    };
+
+    const recentHistory = getRecentHistoryEntries(5);
+    const historyEntriesItems = recentHistory.map((entry) => ({
+      label: truncateLabel(entry.title || entry.url || "Untitled"),
+      click: () =>
+        dispatchAndSync(
+          win,
+          { type: INTENTS.OPEN_URL, url: entry.url },
+          state,
+        ),
+    }));
+
+    const historyMenu = {
+      label: "History",
+      submenu: [
+        {
+          label: "Show History Panel",
+          type: "checkbox",
+          checked: snapshot.historyVisible,
+          click: () =>
+            dispatchAndSync(win, { type: INTENTS.HISTORY_TOGGLE }, state),
+        },
+        { type: "separator" },
+        {
+          label: "Clear Today's History",
+          click: () => {
+            if (historyService && typeof historyService.deleteToday === "function") {
+              historyService.deleteToday();
+            }
+            sync();
+          },
+        },
+        {
+          label: "Clear All History",
+          click: () => {
+            if (historyService && typeof historyService.deleteAll === "function") {
+              historyService.deleteAll();
+            }
+            sync();
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Save Session Snapshot",
+          accelerator: "CmdOrCtrl+Shift+S",
+          click: () =>
+            dispatchAndSync(win, { type: INTENTS.SESSION_SAVE }, state),
+        },
+        {
+          label: "Restore Session Snapshot",
+          accelerator: "CmdOrCtrl+Shift+R",
+          click: () =>
+            dispatchAndSync(win, { type: INTENTS.SESSION_RESTORE }, state),
+        },
+        ...(historyEntriesItems.length > 0 ? [{ type: "separator" }, ...historyEntriesItems] : []),
+      ],
+    };
+
+    const bookmarkTree =
+      bookmarksService && typeof bookmarksService.readBookmarksTree === "function"
+        ? bookmarksService.readBookmarksTree()
+        : { root: [] };
+    const bookmarkTreeItems = buildBookmarkSubmenu(bookmarkTree.root || []);
+
+    const bookmarksMenu = {
+      label: "Bookmarks",
+      submenu: [
+        {
+          label: "Show Bookmarks Panel",
+          type: "checkbox",
+          checked: snapshot.bookmarksVisible,
+          click: () =>
+            dispatchAndSync(win, { type: INTENTS.BOOKMARKS_TOGGLE }, state),
+        },
         { type: "separator" },
         {
           label: "Add Bookmark (Root)",
@@ -292,6 +418,7 @@ function createAppMenu({
               state,
             ),
         },
+        ...(bookmarkTreeItems.length > 0 ? [{ type: "separator" }, ...bookmarkTreeItems] : []),
       ],
     };
 
@@ -303,18 +430,6 @@ function createAppMenu({
           type: "checkbox",
           checked: snapshot.urllineVisible,
           click: () => dispatchAndSync(win, { type: INTENTS.TOGGLE_URLLINE }, state),
-        },
-        {
-          label: "Show History Panel",
-          type: "checkbox",
-          checked: snapshot.historyVisible,
-          click: () => dispatchAndSync(win, { type: INTENTS.HISTORY_TOGGLE }, state),
-        },
-        {
-          label: "Show Bookmarks Panel",
-          type: "checkbox",
-          checked: snapshot.bookmarksVisible,
-          click: () => dispatchAndSync(win, { type: INTENTS.BOOKMARKS_TOGGLE }, state),
         },
         { type: "separator" },
         {
@@ -369,6 +484,17 @@ function createAppMenu({
       ],
     };
 
+    const toolsMenu = {
+      label: "Tools",
+      submenu: [
+        {
+          label: "Notifications",
+          click: () =>
+            dispatchAndSync(win, { type: INTENTS.OPEN_NOTIFICATIONS_BUFFER }, state),
+        },
+      ],
+    };
+
     const helpMenu = {
       label: "Help",
       submenu: [
@@ -401,7 +527,16 @@ function createAppMenu({
       ],
     };
 
-    return [noctraMenu, fileMenu, editMenu, viewMenu, helpMenu];
+    return [
+      noctraMenu,
+      fileMenu,
+      editMenu,
+      historyMenu,
+      bookmarksMenu,
+      viewMenu,
+      toolsMenu,
+      helpMenu,
+    ];
   }
 
   function sync() {
@@ -416,7 +551,12 @@ function createAppMenu({
     sync();
   }
 
-  return { sync, rebuild };
+  function setFolderIcon(icon) {
+    folderIcon = icon || null;
+    rebuild();
+  }
+
+  return { sync, rebuild, setFolderIcon };
 }
 
 module.exports = {

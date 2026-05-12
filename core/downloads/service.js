@@ -1,5 +1,6 @@
 const { shell, BrowserWindow } = require("electron");
 const downloadsStore = require("./store");
+const notificationsService = require("../notifications/service");
 const { sanitizeDownloadFilename } = require("../security/downloadPolicy");
 
 const activeDownloads = new Map();
@@ -119,7 +120,11 @@ function getEntries() {
   }
   active.sort((a, b) => b.startTime - a.startTime);
 
-  const persisted = downloadsStore.readDownloads();
+  const persisted = downloadsStore.readDownloads().map((entry) => ({
+    ...entry,
+    formattedTotal: formatBytes(entry.totalBytes),
+    formattedReceived: formatBytes(entry.receivedBytes),
+  }));
   return { active, persisted };
 }
 
@@ -201,6 +206,7 @@ function registerDownload(item, webContents, safePath) {
           startTime: download.startTime,
           endTime: download.endTime,
         });
+        notifyDownload(download.filename, "completed");
       } else if (state === "cancelled" || state === "interrupted") {
         downloadsStore.appendDownload({
           id: download.id,
@@ -213,6 +219,9 @@ function registerDownload(item, webContents, safePath) {
           startTime: download.startTime,
           endTime: download.endTime,
         });
+        if (state === "interrupted") {
+          notifyDownload(download.filename, "interrupted");
+        }
       }
 
       // Keep active reference briefly so UI can show final state, then remove
@@ -233,10 +242,21 @@ function findActiveById(id) {
   return activeDownloads.get(String(id)) || null;
 }
 
+function notifyDownload(filename, message) {
+  notificationsService.notify({
+    severity: "info",
+    code: "download_status",
+    message: `${filename}'s download ${message}`,
+    source: "core.downloads.service",
+    persist: false,
+  });
+}
+
 function pause(id) {
   const download = findActiveById(id);
   if (!download || typeof download.item.pause !== "function") return false;
   download.item.pause();
+  notifyDownload(download.filename, "paused");
   return true;
 }
 
@@ -244,6 +264,7 @@ function resume(id) {
   const download = findActiveById(id);
   if (!download || typeof download.item.resume !== "function") return false;
   download.item.resume();
+  notifyDownload(download.filename, "resumed");
   return true;
 }
 
@@ -251,6 +272,7 @@ function cancel(id) {
   const download = findActiveById(id);
   if (!download || typeof download.item.cancel !== "function") return false;
   download.item.cancel();
+  notifyDownload(download.filename, "cancelled");
   return true;
 }
 

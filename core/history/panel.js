@@ -2177,14 +2177,19 @@ class HistoryPanel {
                   ? "⚠"
                   : "?";
       const name = escapeHtml(entry.filename || "Unknown");
-      const progressText =
-        state === "progressing" || state === "paused"
-          ? `${Math.round((entry.progress || 0) * 100)}% · ${entry.formattedReceived || "0 B"}${entry.formattedTotal ? ` / ${entry.formattedTotal}` : ""}`
-          : state === "completed"
-            ? entry.formattedTotal || ""
-            : state;
-      const text = `${glyph} ${name}`;
-      return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${text}</span></span><span class="time">${escapeHtml(progressText)}</span></div>`;
+      let progressText = "";
+      if (state === "progressing") {
+        progressText = `${Math.round((entry.progress || 0) * 100)}% · ${entry.formattedReceived || "0 B"}${entry.formattedTotal ? ` / ${entry.formattedTotal}` : ""}`;
+      } else if (state === "paused") {
+        progressText = `${entry.formattedReceived || "0 B"}${entry.formattedTotal ? ` / ${entry.formattedTotal}` : ""}`;
+      } else if (state === "completed") {
+        progressText = entry.formattedTotal || "";
+      } else if (state === "cancelled" || state === "interrupted") {
+        progressText = `${entry.formattedReceived || "0 B"}${entry.formattedTotal ? ` / ${entry.formattedTotal}` : ""}`;
+      } else {
+        progressText = state;
+      }
+      return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon file-glyph">${glyph}</span></span><span class="text">${name}</span></span><span class="time">${escapeHtml(progressText)}</span></div>`;
     });
   }
 

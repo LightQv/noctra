@@ -518,6 +518,11 @@ function createAppMenu({
       label: "Tools",
       submenu: [
         {
+          label: "Downloads",
+          click: () =>
+            dispatchAndSync(win, { type: INTENTS.DOWNLOADS_LIVE_MODAL }, state),
+        },
+        {
           label: "Notifications",
           click: () =>
             dispatchAndSync(win, { type: INTENTS.OPEN_NOTIFICATIONS_BUFFER }, state),

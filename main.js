@@ -522,7 +522,6 @@ function updateTablineActions() {
   const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
   const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
   const newBufferShortcut = findShortcutLabelForAction("new_buffer");
-  const historyToggleShortcut = findShortcutLabelForAction("history_toggle");
   const downloadsLiveShortcut = findShortcutLabelForAction("downloads_live_modal");
   const newTabShortcut = [newBufferShortcut, ":tab", ":tabnew", ":tabe"]
     .filter((value, index, list) => value && list.indexOf(value) === index)
@@ -538,11 +537,6 @@ function updateTablineActions() {
       label: "Config",
       icon: "󰒓",
       shortcutLabel: `${systemShortcut} | ${vimShortcut}`,
-    },
-    history: {
-      label: "History",
-      icon: "󰋚",
-      shortcutLabel: historyToggleShortcut || "<leader> e | :history show",
     },
     downloads: {
       label: "Downloads",

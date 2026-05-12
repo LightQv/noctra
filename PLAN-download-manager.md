@@ -1,202 +1,163 @@
-# Plan: Download Manager with Live Modal
+# Plan: Download Manager
 
 ## Status
-- **Decision**: C — Modal and sidepanel can coexist; modal takes keyboard priority until `Esc`, then focus returns to the underlying panel.
-- **Progress bar**: Unicode block glyphs (`██████████░░ 83%`)
-- **Modal scope**: Active/paused only; completed items left visible if they finish while modal is open, cleared on next reopen
-- **Sidepanel width**: Shared `0.2` ratio with history/bookmarks panel (single `leftInset` value)
+- **Sidepanel**: ✅ Implemented as third tab in `core/history/panel.js` alongside History and Bookmarks
+- **Modal**: 🔄 Phase 2 — live active/paused overlay (see below)
 - **Retention**: Auto-prune after 200 entries (same as notifications)
+- **Storage**: `~/.config/noctra/downloads.yml`
 
 ---
 
-## Files to Create
+## What Was Built
 
-### Domain Layer
+### 1. `core/downloads/store.js`
+YAML-backed storage mirroring `core/notifications/store.js`.
+- Descending chronological order, atomic writes, 200-entry limit
+- Functions: `readDownloads()`, `writeDownloads()`, `appendDownload()`, `removeDownloadsByIds()`
 
-#### 1. `core/downloads/store.js`
-Mirrors `core/notifications/store.js`.
-- Persists to `~/.config/noctra/downloads.yml` in **descending chronological order** (newest first)
-- Atomic write: `tmp` → `rename`
-- 200-entry limit (same as notifications)
-- Schema per entry:
-  ```yaml
-  - id: "<uuid>"
-    url: "https://example.com/file.zip"
-    filename: "file.zip"
-    savePath: "/Users/.../Downloads/file.zip"
-    state: pending | paused | completed | cancelled | failed
-    totalBytes: 10485760
-    receivedBytes: 4194304
-    startTime: 1715500800000
-    endTime: null
-    mimeType: "application/zip"
-  ```
-- Functions: `getDownloadsFilePath()`, `ensureDownloadsFile()`, `readDownloads()`, `writeDownloads(entries)`, `appendDownload(entry, limit = 200)`, `updateDownload(id, patch)`, `removeDownload(id)`
+### 2. `core/downloads/service.js`
+Active `DownloadItem` tracking via `Map<id, {item, ...}>`.
+- `registerDownload(item, webContents, safePath)` — wired from `will-download`
+- `pause(id)`, `resume(id)`, `cancel(id)`, `openFile(id)`, `showInFolder(id)`, `clearCompleted()`, `removePersistedByIds()`
+- `getEntries()` returns `{active[], persisted[]}` with formatted bytes
+- App icon progress via `BrowserWindow.setProgressBar()` and macOS dock badge
+- Toast notifications on mutations (pause/resume/cancel/complete/interrupt)
+- Emits to subscribers on every state change
 
-#### 2. `core/downloads/service.js`
-Owns active `DownloadItem` references via `Map<id, item>`.
-- `registerDownload(item, webContents)` — called from `will-download`
-  - Applies policy (deny/prompt/allow), sets save path
-  - Attaches `updated`/`done` listeners
-  - Persists initial state to YAML
-  - Triggers app icon progress update
-- `pause(id)`, `resume(id)`, `cancel(id)`, `open(id)`, `reveal(id)`, `removeFromList(id)`
-- `getActiveDownloads()`, `getAllDownloads()`, `subscribe(listener)`, `unsubscribe(listener)`
-- **App icon integration**:
-  - `BrowserWindow.setProgressBar(progress)` where `progress = max(received/total)` across active downloads
-  - `-1` when no active downloads remain
-  - macOS: `app.dock.setBadge(String(activeCount))` when active downloads exist
-  - macOS: `app.dock.downloadFinished(filePath)` on individual completion
-- Emits structured events: `{ type: 'updated'|'done'|'removed', download }`
-
-#### 3. `core/downloads/panel.js`
-Sidepanel `BrowserView` using `createPanelViewHost`, patterned after `core/history/panel.js`.
+### 3. Sidepanel Integration (`core/history/panel.js`)
+Downloads implemented as `treeKind === "downloads"` — reuses all existing panel infrastructure.
 
 **Row layout**:
 ```
-▶  file.zip                    4.2 MB / 10 MB   [████████░░░░░░░░░░] 40%  ↓ 2.1 MB/s
-⏸  archive.tar.gz              1.1 MB / 5.0 MB  [████░░░░░░░░░░░░░░] 22%  paused
-✓  document.pdf                2.3 MB           done
-✗  big.iso                     0 B / 4.0 GB     [░░░░░░░░░░░░░░░░░░] 0%   cancelled
+▶  file.zip                    46% · 2.3 MB / 5.0 MB
+⏸  archive.tar.gz             1.1 MB / 5.0 MB
+✓  document.pdf               2.3 MB
+✗  big.iso                    0 B / 4.0 GB
 ```
 
-**Glyphs**: `▶` downloading, `⏸` paused, `✓` completed, `✗` cancelled/failed, `⚠` failed.
+**Keybindings** (panel-focused only):
+- `j`/`k` — navigate
+- `d` — pause/resume active download
+- `x` — cancel active / remove finished (floating y/n prompt)
+- `D` — clear all finished downloads (floating y/n prompt)
+- `r` — retry failed/interrupted download
+- `o` or `Enter` — open downloaded file
+- `gd` — show containing folder
+- `H`/`L` — cycle tabs (history ↔ bookmarks ↔ downloads)
 
-**Navigation**: `j`/`k`, `gg`/`G`, `<count>j`/`<count>k`, `Ctrl+d`/`Ctrl+u`
-**Actions**:
-- `p` — Pause / Resume toggle
-- `dd` — Cancel active download, or Remove from list if finished/cancelled/failed
-- `o` — Open file (completed only)
-- `r` — Reveal in folder
-- `y` — Yank path (or URL if incomplete) to clipboard
-- `Enter` or `l` — Smart action: open if completed, toggle pause/resume if active, or open live modal if active/paused
-- `Esc` — Unfocus panel
+**Architecture note**: `d` is pause/resume; `x` is cancel/remove because `d` is already a delete-operator prefix in the sidepanel input state machine. `dd` is architecturally impossible as a single key match without rewriting the operator system.
 
-**Reactivity**: Subscribes to `downloadService` events. Every `updated`/`done`/`removed` event triggers `render()` without user intervention.
+### 4. Intents / Commands / Actions
+- Intents: `DOWNLOADS_SHOW`, `DOWNLOADS_HIDE`, `DOWNLOADS_TOGGLE`, `DOWNLOADS_TOGGLE_FOCUS`, `DOWNLOADS_CLEAR_ALL`
+- Action builders: `downloads_toggle`, `downloads_toggle_focus`
+- Commands: `:downloads show/hide/toggle/focus/clear-all`
 
-**Shared left inset**: Uses same `buffers.setLeftInset(width)` as history panel. Only one sidepanel visible at a time.
+### 5. Dispatcher & Context
+- Handlers live in `core/dispatcher/handlers/historyBookmarks.js`
+- `core/semanticContextResolver.js` returns `"downloads"` context
+- `core/focusResolver.js` and `core/statuslineModeLabel.js` required **no changes** — they already reference `historyPanel` generically
 
-#### 4. `core/downloads/modal.js`
-Centered overlay `BrowserView` for active/paused downloads only.
+### 6. Config
+- `global.storage.downloads_file` added to `defaults.js` and `schema.js`
 
-**Layout**:
-```
-┌─ Live Downloads ─────────────────────────┐
-│                                          │
-│  1. ▶  file.zip                          │
-│        ████████████████████░░░░░░░░  67%   │
-│        6.7 MB / 10 MB   ↓ 1.2 MB/s        │
-│                                          │
-│  2. ⏸  archive.tar.gz                    │
-│        ████████░░░░░░░░░░░░░░░░░░░  25%   │
-│        1.2 MB / 5.0 MB   paused           │
-│                                          │
-│  j/k navigate | p pause/resume | c cancel │
-│  x remove | o open | r reveal | Esc close │
-└──────────────────────────────────────────┘
-```
-
-**Behavior**:
-- Opens via `:downloads live`, `<leader> D`, or sidepanel `Enter`/`l` on active/paused item
-- Shows only active/paused downloads at open time
-- If a download completes while modal is open, it stays visible (stale state) until modal is closed and reopened
-- `j`/`k` navigate, `p` pause/resume, `c` cancel, `x` remove, `o` open, `r` reveal, `Esc` close
-- Subscribes to service events for live progress updates
-- Centered overlay, ~520×280px (adapts to content count)
+### 7. Security Integration
+- `core/adapters/platform/securityPolicy.js` calls `downloadsService.registerDownload()` on allowed/prompted `will-download`
 
 ---
 
-### Dispatcher / Intents / Commands
+## Phase 2: Live Downloads Modal
 
-#### 5. `core/dispatcher/handlers/downloads.js`
-New handler file wiring intents to panel/service/modal.
-Dependencies: `downloadService`, `downloadPanel`, `downloadModal`, `buffers`, `uiShell`, `notificationsService`, `clipboard`.
+### Goal
+Centered overlay showing **active/paused downloads only** with live progress bars, keyboard controls, and automatic updates. Modal takes keyboard priority; `Esc` closes it.
 
-#### 6. Update `core/intents.js`
-Add intents:
-- `DOWNLOADS_SHOW`
-- `DOWNLOADS_HIDE`
-- `DOWNLOADS_TOGGLE`
-- `DOWNLOADS_TOGGLE_FOCUS`
-- `DOWNLOADS_LIVE_MODAL`
-- `DOWNLOAD_PAUSE`
-- `DOWNLOAD_RESUME`
-- `DOWNLOAD_CANCEL`
-- `DOWNLOAD_OPEN`
-- `DOWNLOAD_REVEAL`
-- `DOWNLOAD_REMOVE`
+### Design Decisions
+1. **Modal scope on open**: Show only active/paused at open time; completed items stay visible as stale state until modal closes. Avoids items disappearing under the user's cursor.
+2. **Progress bar style**: Unicode block glyphs (`██████░░░░`) for visual density.
+3. **Pause/resume key in modal**: `p` (distinct from sidepanel's `d` since modal has no operator state machine; keeping keys distinct avoids confusion).
+4. **Default keybinding**: `<leader> D` opens the live modal.
+5. **Empty list behavior**: If no active/paused downloads exist when opening (via icon button or `<leader> D`), show a toast notification instead of opening an empty modal.
+6. **Tabline icon button**: Add a downloads icon to the tabline action buttons (right side) with a tooltip hint on hover, matching the existing icon button pattern.
 
-#### 7. Update `motions/actionBuilders.js`
-Add builders:
-- `downloads_toggle` → `<leader> d`
-- `downloads_toggle_focus` → focus when panel already visible
-- `downloads_live_modal` → `<leader> D`
+### Approach
+Follow the **bookmark insert scope modal** pattern exactly:
+1. Custom HTML overlay view managed by `uiShellManager`
+2. Controller class (`core/downloads/modal.js`) with `open()`/`close()`/`handleInput()`
+3. Input routed via `main.js` before tree/buffer input
+4. Focus resolver updated for `downloadsModalActive`
 
-#### 8. Update `core/commandParser.js`
-Add commands:
-- `:downloads` → `DOWNLOADS_SHOW`
-- `:downloads hide` → `DOWNLOADS_HIDE`
-- `:downloads toggle` → `DOWNLOADS_TOGGLE`
-- `:downloads focus` → `DOWNLOADS_TOGGLE_FOCUS`
-- `:downloads live` → `DOWNLOADS_LIVE_MODAL`
-- `:download pause <id>` → `DOWNLOAD_PAUSE`
-- `:download resume <id>` → `DOWNLOAD_RESUME`
-- `:download cancel <id>` → `DOWNLOAD_CANCEL`
-- `:download open <id>` → `DOWNLOAD_OPEN`
-- `:download reveal <id>` → `DOWNLOAD_REVEAL`
-- `:download remove <id>` → `DOWNLOAD_REMOVE`
+### Files to Create
 
----
+#### `core/downloads/modal.js`
+Controller class:
+- `open()` — captures snapshot of active downloads, shows overlay. If no active/paused downloads, shows toast and returns without opening.
+- `close()` — hides overlay, unsubscribes from live updates
+- `isActive()` — boolean
+- `handleInput(input)` — `j`/`k`, `p`, `c`, `x`, `o`, `r`, `Escape`
+- `rerender()` — pushes updated HTML to overlay view
+- Subscribes to `downloadsService` for live progress while open
 
-### Integration
+### Files to Modify
 
-#### 9. Update `core/adapters/platform/securityPolicy.js`
-Replace simple `will-download` handler with `downloadService.registerDownload(item, webContents)`.
-The service then applies policy, sets save path, attaches listeners, and persists state.
+#### `ui/shell/services/shellTemplates.js`
+Add `DOWNLOADS_MODAL_OVERLAY_HTML` — centered card with:
+- Title: "Live Downloads"
+- List of active/paused items with Unicode block progress bars
+- Footer hint row
 
-#### 10. Update `runtime/windowBootstrap.js`
-- Initialize `downloadPanel` alongside `historyPanel`
-- Initialize `downloadModal`
-- Wire `downloadPanel` `before-input-event` to `handleRawInput`
-- Add `downloadPanel` to focus snapshot resolution
-- Subscribe to `downloadService` for app icon progress updates
+#### `ui/shell/manager.js`
+- Add `downloadsModalView`, `downloadsModalReady`, `downloadsModalVisible`
+- `initializeDownloadsModalView()` following `initializeSelectionModalView()` pattern
 
-#### 11. Update `main.js`
-- Import `downloadPanel`, `downloadModal`, `downloadService`
-- Route focused input to `downloadPanel.handleFocusedInput()` when panel is focused (same pattern as `historyPanel`)
-- Update `getStatuslineModeLabel()` and tabline/statusline sync when download panel focus changes
+#### `core/adapters/platform/overlayLayoutHost.js`
+- Add `downloadsModalView` to `applyOverlayLayout` and `applyOverlayStack`
+- Centered positioning: ~560px wide, height adapts to item count
+- Z-order: above selection modal, below toast
 
-#### 12. Update `core/config/defaults.js` & `schema.js`
-Add:
-```yaml
-global:
-  storage:
-    downloads_file: null  # defaults to ~/.config/noctra/downloads.yml
-```
+#### `core/focusResolver.js`
+- Add `downloadsModalActive` to snapshot
+- Return `"DOWNLOADS_MODAL"` as focus owner when active
 
----
+#### `main.js`
+- Import `downloadsModal`
+- Route input to `downloadsModal.handleInput()` when `focusSnapshot.downloadsModalActive`
+- On close, return focus to underlying panel if visible
 
-## Focus Coexistence Rules
+#### `core/dispatcher/handlers/historyBookmarks.js`
+- Add `DOWNLOADS_LIVE_MODAL` intent → `downloadsModal.open()`
 
-- Modal and sidepanel **can coexist**
-- Modal always takes **keyboard priority** when visible
-- `Esc` closes modal, focus returns to whatever was underneath (sidepanel if visible, else normal buffer flow)
-- Sidepanel can be opened/closed independently while modal is open, but modal retains keyboard focus
-- Pattern matches existing bookmark modal behavior
+#### `core/intents.js`
+- Add `DOWNLOADS_LIVE_MODAL`
+
+#### `core/commandParser.js`
+- Add `:downloads live` → `DOWNLOADS_LIVE_MODAL`
+
+#### `motions/actionBuilders.js`
+- Add `downloads_live_modal` action builder
+
+#### `core/config/schema.js`
+- Add `downloads_live_modal` to `ACTION_IDS`
+
+#### Tabline Integration
+- Add downloads icon button to tabline actions with tooltip hint on hover
+- Clicking the icon triggers `DOWNLOADS_LIVE_MODAL` intent
+- Icon should reflect active download state (e.g., badge or color change when downloads are active)
 
 ---
 
 ## Testing Checklist
 
-- [ ] Download starts → appears in sidepanel + modal + YAML store
-- [ ] Progress updates → sidepanel re-renders live, modal bar advances
-- [ ] Pause (`p`) → state toggles, glyph changes, download item pauses/resumes
-- [ ] Cancel (`dd` on active) → state becomes cancelled, removed from modal on next reopen
-- [ ] Complete → state becomes completed, app progress bar resets, dock badge clears
-- [ ] `dd` on completed → removed from list and YAML
-- [ ] `o` on completed → opens file with default app
-- [ ] `r` → reveals file in finder/explorer
-- [ ] `y` → copies path (or URL) to clipboard
-- [ ] 200-entry limit prunes oldest entries
-- [ ] Modal reopen clears completed items, shows only active/paused
-- [ ] App icon progress bar accurate across multiple simultaneous downloads
+- [x] Download starts → appears in sidepanel + YAML store
+- [x] Progress updates → sidepanel re-renders live
+- [x] Pause (`d`) → state toggles, glyph changes, download item pauses/resumes
+- [x] Cancel (`x`) → state becomes cancelled, removed after 2s grace period
+- [x] Complete → state becomes completed, app progress bar resets, dock badge clears
+- [x] `D` on finished → clears all completed/cancelled/failed
+- [x] `o` on completed → opens file with default app
+- [x] `gd` → reveals file in finder/explorer
+- [x] 200-entry limit prunes oldest entries
+- [x] App icon progress bar accurate across multiple simultaneous downloads
+- [ ] Modal opens via `<leader> D` and tabline icon
+- [ ] Empty modal → toast instead
+- [ ] Modal shows live progress bars
+- [ ] Modal keyboard controls work (j/k/p/c/x/o/r/Esc)
+- [ ] Modal closes on Esc, focus returns correctly

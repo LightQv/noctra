@@ -55,6 +55,10 @@ const INTENT_PAYLOAD_CONTRACTS = {
   [INTENTS.OPEN_URL]: withBaseFields({
     url: validateString,
   }),
+  [INTENTS.SEARCH_WEB]: withBaseFields({
+    engine: validateString,
+    query: validateString,
+  }),
   [INTENTS.NEW_BUFFER]: withBaseFields({
     url: optional(validateString),
   }),

@@ -5,6 +5,15 @@ const { validateIntentPayload } = require("../../core/contracts/intents");
 const { INTENTS } = require("../../core/intents");
 const { createUnknownIntentError } = require("../../core/contracts/errors");
 
+test("intent contracts accept SEARCH_WEB payload", () => {
+  const result = validateIntentPayload(INTENTS.SEARCH_WEB, {
+    type: INTENTS.SEARCH_WEB,
+    engine: "google",
+    query: "toto",
+  });
+  assert.equal(result.ok, true);
+});
+
 test("intent contracts accept valid payload", () => {
   const result = validateIntentPayload(INTENTS.SCROLL, {
     type: INTENTS.SCROLL,

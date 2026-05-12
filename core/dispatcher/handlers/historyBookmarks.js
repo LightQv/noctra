@@ -68,6 +68,27 @@ function createHistoryBookmarksHandlers(deps) {
       }
       bookmarkInsertScopeModal.open(candidate);
     },
+    [INTENTS.DOWNLOADS_SHOW]: () => historyPanel.showTree("downloads"),
+    [INTENTS.DOWNLOADS_HIDE]: () => historyPanel.hide(),
+    [INTENTS.DOWNLOADS_TOGGLE]: () => {
+      if (historyPanel.isVisible() && historyPanel.treeKind === "downloads") {
+        historyPanel.hide();
+      } else {
+        historyPanel.showTree("downloads");
+      }
+    },
+    [INTENTS.DOWNLOADS_TOGGLE_FOCUS]: () => {
+      historyPanel.setTreeKind("downloads");
+      historyPanel.toggleFocus();
+    },
+    [INTENTS.DOWNLOADS_CLEAR_ALL]: () => {
+      const { downloadsService } = require("../../downloads/service");
+      downloadsService.clearCompleted();
+      if (historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+    },
   };
 }
 

@@ -119,6 +119,7 @@ const defaultConfig = {
       bookmarks_file: "~/.config/noctra/bookmarks.yml",
       sessions_file: "~/.config/noctra/sessions.yml",
       notifications_file: "~/.config/noctra/notifications.yml",
+      downloads_file: "~/.config/noctra/downloads.yml",
     },
     notifications: {
       enabled: true,

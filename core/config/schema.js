@@ -34,6 +34,8 @@ const ACTION_IDS = new Set([
   "bookmarks_toggle_focus",
   "bookmarks_add_root_active",
   "bookmarks_add_scoped_prompt",
+  "downloads_toggle",
+  "downloads_toggle_focus",
   "telescope_open_history",
   "telescope_open_bookmarks",
   "telescope_open_buffers",
@@ -489,6 +491,7 @@ function normalizeConfig(rawConfig) {
       "bookmarks_file",
       "sessions_file",
       "notifications_file",
+      "downloads_file",
     ]) {
       if (
         typeof storageSection[key] === "string" &&

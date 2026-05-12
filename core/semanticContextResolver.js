@@ -1,7 +1,9 @@
 const { isEditorFocused } = require("./editorFocusState");
 
 function normalizeTreeKind(treeKind) {
-  return treeKind === "bookmarks" ? "bookmarks" : "history";
+  if (treeKind === "bookmarks") return "bookmarks";
+  if (treeKind === "downloads") return "downloads";
+  return "history";
 }
 
 function resolveSemanticContext({

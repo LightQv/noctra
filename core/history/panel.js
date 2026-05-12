@@ -1,6 +1,7 @@
 const { clipboard } = require("electron");
 const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
+const downloadsService = require("../downloads/service");
 const notificationsService = require("../notifications/service");
 const { createPanelViewHost } = require("../adapters/platform/panelViewHost");
 const {
@@ -62,9 +63,16 @@ class HistoryPanel {
     this.maxFavoriteHistory = 50;
     this.filterEditState = null;
 
+    this.downloadCursor = { id: null };
+    this.downloadEntries = { active: [], persisted: [] };
+    this.downloadsSubscription = null;
+
     this.treeKind = "history";
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
+    this.confirmItemDelete = false;
+    this.confirmItemDeleteLabel = "";
+    this.confirmItemDeleteId = null;
     this.previousEditorFocus = false;
     this.treeCountBuffer = "";
     this.treeKeyBuffer = "";
@@ -181,6 +189,9 @@ class HistoryPanel {
     if (this.treeKind === "bookmarks") {
       return nodes.findIndex((node) => node.id === this.bookmarkCursor.nodeId);
     }
+    if (this.treeKind === "downloads") {
+      return nodes.findIndex((node) => node.id === this.downloadCursor.id);
+    }
     return nodes.findIndex(
       (node) =>
         node.type === this.cursor.type &&
@@ -280,6 +291,9 @@ class HistoryPanel {
         return this.getFilteredFavoriteFlatNodes();
       }
       return this.getFavoriteFlatNodes();
+    }
+    if (this.treeKind === "downloads") {
+      return this.getDownloadFlatNodes();
     }
     if (this.isHistoryFilterActive()) {
       return this.getFilteredHistoryFlatNodes();
@@ -1131,8 +1145,10 @@ class HistoryPanel {
   renderFooter() {
     const defaultText =
       this.treeKind === "bookmarks"
-        ? "a: add, y/m: yank/move, p: paste, r: rename, dd: delete, d{motion}: range, u: undo, n: count, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
-        : "dd: delete, d{motion}: range, D: delete-all, t: timestamp, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u";
+          ? "a: add, y/m: yank/move, p: paste, r: rename, dd: delete, d{motion}: range, u: undo, n: count, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
+          : this.treeKind === "downloads"
+            ? "d: pause/resume, x: cancel/remove, D: clear finished, r: retry, o: open file, gd: show folder, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
+            : "dd: delete, d{motion}: range, D: delete-all, t: timestamp, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u";
 
     if (this.treeDeletePending) {
       return {
@@ -1140,6 +1156,15 @@ class HistoryPanel {
         text: "",
         hint: "d pending: d, G, gg, <n>j/<n>k, Esc: Cancel",
         value: this.treeDeleteCountBuffer,
+      };
+    }
+
+    if (this.confirmItemDelete) {
+      return {
+        tone: "danger",
+        text: "",
+        hint: "y/n + Enter, Esc: Cancel",
+        value: "",
       };
     }
 
@@ -1217,11 +1242,17 @@ class HistoryPanel {
     let rawValue = "";
     let cursor = 0;
 
-    if (this.deleteAllArmed) {
+    if (this.confirmItemDelete) {
+      label = String(this.confirmItemDeleteLabel || "Confirm");
+      rawValue = String(this.confirmDeleteAll || "");
+      cursor = rawValue.length;
+    } else if (this.deleteAllArmed) {
       label =
         this.treeKind === "bookmarks"
           ? "Delete all bookmarks"
-          : "Delete all history";
+          : this.treeKind === "downloads"
+            ? "Clear finished downloads"
+            : "Delete all history";
       rawValue = String(this.confirmDeleteAll || "");
       cursor = rawValue.length;
     } else if (this.filterEditState) {
@@ -1342,7 +1373,8 @@ class HistoryPanel {
   }
 
   setTreeKind(kind) {
-    if (kind !== "history" && kind !== "bookmarks") return;
+    if (kind !== "history" && kind !== "bookmarks" && kind !== "downloads")
+      return;
     if (this.treeKind === kind) return;
     this.treeKind = kind;
     this.clearFavoriteEdit();
@@ -1358,7 +1390,7 @@ class HistoryPanel {
 
   switchTreeByOffset(offset) {
     if (!Number.isFinite(offset) || offset === 0) return;
-    const order = ["history", "bookmarks"];
+    const order = ["history", "bookmarks", "downloads"];
     const idx = Math.max(0, order.indexOf(this.treeKind));
     const next =
       order[
@@ -1378,6 +1410,21 @@ class HistoryPanel {
 
     this.bookmarkRoot = bookmarksService.readBookmarksTree().root;
     this.reconcileFavoriteState();
+
+    if (this.treeKind === "downloads") {
+      this.downloadEntries = downloadsService.getEntries();
+      if (!this.downloadsSubscription) {
+        this.downloadsSubscription = downloadsService.subscribe(() => {
+          if (this.treeKind === "downloads") {
+            this.downloadEntries = downloadsService.getEntries();
+            this.render();
+          }
+        });
+      }
+    } else if (this.downloadsSubscription) {
+      this.downloadsSubscription();
+      this.downloadsSubscription = null;
+    }
   }
 
   show() {
@@ -1399,6 +1446,10 @@ class HistoryPanel {
     this.clearTreeNormalState();
     this.clearTreeDeletePendingTimer();
     this.resetTreeScrollState();
+    if (this.downloadsSubscription) {
+      this.downloadsSubscription();
+      this.downloadsSubscription = null;
+    }
     if (this.state) {
       setEditorFocused(this.state, this.previousEditorFocus);
     }
@@ -1467,7 +1518,9 @@ class HistoryPanel {
   }
 
   getTreeKind() {
-    return this.treeKind === "bookmarks" ? "bookmarks" : "history";
+    if (this.treeKind === "bookmarks") return "bookmarks";
+    if (this.treeKind === "downloads") return "downloads";
+    return "history";
   }
 
   isTextInputActive() {
@@ -1528,6 +1581,10 @@ class HistoryPanel {
   moveCursor(delta) {
     if (this.treeKind === "bookmarks") {
       this.moveFavoriteCursor(delta);
+      return;
+    }
+    if (this.treeKind === "downloads") {
+      this.moveDownloadCursor(delta);
       return;
     }
     const nodes = this.getTreeFlatNodes();
@@ -1688,9 +1745,12 @@ class HistoryPanel {
   render() {
     if (!this.getWebContents()) return;
     const isBookmarks = this.treeKind === "bookmarks";
+    const isDownloads = this.treeKind === "downloads";
     const rows = isBookmarks
       ? this.renderFavoriteRows()
-      : this.renderHistoryRows();
+      : isDownloads
+        ? this.renderDownloadRows()
+        : this.renderHistoryRows();
     const footer = this.renderFooter();
     const footerTone = footer.tone || "muted";
     const footerText = escapeHtml(footer.text || "");
@@ -1700,6 +1760,10 @@ class HistoryPanel {
       this.treeKind === "history" ? "tree-head-item active" : "tree-head-item";
     const bookmarkHeadClass =
       this.treeKind === "bookmarks"
+        ? "tree-head-item active"
+        : "tree-head-item";
+    const downloadsHeadClass =
+      this.treeKind === "downloads"
         ? "tree-head-item active"
         : "tree-head-item";
 
@@ -1778,6 +1842,7 @@ class HistoryPanel {
       .head{padding:8px 10px;border-bottom:1px solid var(--ui-border,#2f3440);display:flex;gap:8px;align-items:center;height:34px;box-sizing:border-box}
       .tree-head-item{color:var(--ui-text-muted,#7f8aa3)}
       .tree-head-item.active{color:var(--ui-accent,#89dceb);font-weight:600}
+      .tree-head-item{cursor:pointer;user-select:none}
       .list{padding:6px 0;overflow-x:hidden;overflow-y:auto;flex:1}
       .row{display:flex;align-items:stretch;gap:0;min-height:${TREE_LAYOUT.rowMinHeight}px}
       .row.row-no-meta .time{width:0;flex:0 0 0;padding:0;overflow:hidden}
@@ -1824,7 +1889,7 @@ class HistoryPanel {
       .filter-nav-active .floating-input-cursor{background:var(--ui-text-muted,#7f8aa3);opacity:.55}
       .filter-nav-active .floating-input-caret{background:var(--ui-text-muted,#7f8aa3);opacity:.65}
       .filter-prompt-active .floating-input{border-color:color-mix(in srgb, var(--ui-accent,#89dceb) 40%, var(--ui-border,#2f3440))}
-    </style><div class="wrap ${this.focused ? "focused" : "unfocused"} ${filterModeClass}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${bookmarkHeadClass}">Bookmarks</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
+    </style><div class="wrap ${this.focused ? "focused" : "unfocused"} ${filterModeClass}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${bookmarkHeadClass}">Bookmarks</span><span class="${downloadsHeadClass}">Downloads</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
 
     this.scheduleRender(html);
   }
@@ -2062,6 +2127,67 @@ class HistoryPanel {
     return rows;
   }
 
+  getDownloadFlatNodes() {
+    const { active, persisted } = this.downloadEntries;
+    const out = [];
+    for (const entry of active) {
+      out.push({ kind: "active", id: String(entry.id), entry });
+    }
+    for (const entry of persisted) {
+      out.push({ kind: "persisted", id: String(entry.id), entry });
+    }
+    return out;
+  }
+
+  moveDownloadCursor(delta) {
+    const nodes = this.getDownloadFlatNodes();
+    if (!nodes.length) return;
+    let idx = nodes.findIndex((node) => node.id === this.downloadCursor.id);
+    if (idx === -1) idx = 0;
+    idx = Math.max(0, Math.min(nodes.length - 1, idx + delta));
+    this.downloadCursor = { id: nodes[idx].id };
+  }
+
+  getCurrentDownloadEntry() {
+    const nodes = this.getDownloadFlatNodes();
+    return nodes.find((node) => node.id === this.downloadCursor.id) || null;
+  }
+
+  renderDownloadRows() {
+    const nodes = this.getDownloadFlatNodes();
+    if (!nodes.length) {
+      return [
+        `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No downloads yet.</span></span><span class="time time-hidden"></span></div>`,
+      ];
+    }
+    return nodes.map((node) => {
+      const selected = node.id === this.downloadCursor.id;
+      const entry = node.entry;
+      const state = entry.state || "unknown";
+      const glyph =
+        state === "progressing"
+          ? "▶"
+          : state === "paused"
+            ? "⏸"
+            : state === "completed"
+              ? "✓"
+              : state === "cancelled"
+                ? "✗"
+                : state === "interrupted"
+                  ? "⚠"
+                  : "?";
+      const name = escapeHtml(entry.filename || "Unknown");
+      const progressText =
+        state === "progressing" || state === "paused"
+          ? `${Math.round((entry.progress || 0) * 100)}% · ${entry.formattedReceived || "0 B"}${entry.formattedTotal ? ` / ${entry.formattedTotal}` : ""}`
+          : state === "completed"
+            ? entry.formattedTotal || ""
+            : state;
+      const text = `${glyph} ${name}`;
+      return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${text}</span></span><span class="time">${escapeHtml(progressText)}</span></div>`;
+    });
+  }
+
   saveBookmarks() {
     bookmarksService.writeBookmarksTree({ root: this.bookmarkRoot });
     this.bookmarkRoot = bookmarksService.readBookmarksTree().root;
@@ -2263,6 +2389,7 @@ class HistoryPanel {
     if (this.state && this.state.mode === "COMMAND") return false;
     const key = input.key;
     const isBookmarks = this.treeKind === "bookmarks";
+    const isDownloads = this.treeKind === "downloads";
     const bookmarkNodes = isBookmarks ? this.getFavoriteFlatNodes() : [];
     const currentFavoriteNode = isBookmarks
       ? bookmarkNodes.find((node) => node.id === this.bookmarkCursor.nodeId) ||
@@ -2315,6 +2442,55 @@ class HistoryPanel {
       }
     }
 
+    if (this.confirmItemDelete) {
+      this.clearTreeNormalState();
+      if (key === "Enter") {
+        const answer = this.confirmDeleteAll.trim().toLowerCase();
+        if (answer === "y") {
+          if (this.treeKind === "downloads") {
+            const current = this.getCurrentDownloadEntry();
+            if (current) {
+              if (current.kind === "active") {
+                downloadsService.cancel(current.id);
+              } else {
+                downloadsService.removePersistedByIds([current.id]);
+              }
+            }
+          }
+        }
+        this.confirmDeleteAll = "";
+        this.confirmItemDelete = false;
+        this.confirmItemDeleteId = null;
+        this.reloadData();
+        this.render();
+        return true;
+      }
+      if (key === "Escape") {
+        this.confirmDeleteAll = "";
+        this.confirmItemDelete = false;
+        this.confirmItemDeleteId = null;
+        this.render();
+        return true;
+      }
+      if (key === "Backspace") {
+        this.confirmDeleteAll = this.confirmDeleteAll.slice(0, -1);
+        this.render();
+        return true;
+      }
+      if (
+        !input.ctrl &&
+        !input.meta &&
+        !input.alt &&
+        typeof key === "string" &&
+        key.length === 1
+      ) {
+        this.confirmDeleteAll += key;
+        this.render();
+        return true;
+      }
+      return true;
+    }
+
     if (this.deleteAllArmed) {
       this.clearTreeNormalState();
       if (key === "Enter") {
@@ -2323,7 +2499,11 @@ class HistoryPanel {
           if (isBookmarks) {
             this.recordFavoriteMutationSnapshot();
             bookmarksService.deleteAll();
-          } else historyService.deleteAll();
+          } else if (this.treeKind === "downloads") {
+            downloadsService.clearCompleted();
+          } else {
+            historyService.deleteAll();
+          }
         }
         this.confirmDeleteAll = "";
         this.deleteAllArmed = false;
@@ -2463,6 +2643,19 @@ class HistoryPanel {
       return true;
     }
 
+    if (this.treeKeyBuffer === "g" && key === "d") {
+      this.treeKeyBuffer = "";
+      this.treeCountBuffer = "";
+      if (this.treeKind === "downloads") {
+        const current = this.getCurrentDownloadEntry();
+        if (current) {
+          downloadsService.showInFolder(current.id);
+        }
+      }
+      this.render();
+      return true;
+    }
+
     const shared = this.resolveSharedTreeNormalAction(input);
     if (shared?.consumed) {
       if (shared.shouldRender) this.render();
@@ -2477,7 +2670,7 @@ class HistoryPanel {
     else if (key === "L") this.switchTreeByOffset(1);
     else if (key === "ArrowDown") this.moveCursor(1);
     else if (key === "ArrowUp") this.moveCursor(-1);
-    else if (key === "l" || key === "ArrowRight") {
+    else if (!isDownloads && (key === "l" || key === "ArrowRight")) {
       if (isBookmarks) {
         if (
           this.isBookmarksFilterActive() &&
@@ -2497,7 +2690,7 @@ class HistoryPanel {
         }
       } else if (this.cursor.type === "day")
         this.expanded.add(this.cursor.dateKey);
-    } else if (key === "h" || key === "ArrowLeft") {
+    } else if (!isDownloads && (key === "h" || key === "ArrowLeft")) {
       if (isBookmarks) {
         const liveNodes = this.getFavoriteFlatNodes();
         const liveNode =
@@ -2535,9 +2728,9 @@ class HistoryPanel {
           entryId: null,
         };
       }
-    } else if (key === "Enter") this.openCurrent(Boolean(input.shift));
-    else if (key === "o" || key === "O") this.openCurrent(key === "O");
-    else if (key === "y") {
+    } else if (!isDownloads && key === "Enter") this.openCurrent(Boolean(input.shift));
+    else if (!isDownloads && (key === "o" || key === "O")) this.openCurrent(key === "O");
+    else if (!isDownloads && key === "y") {
       if (isBookmarks) {
         this.copyOrMoveCurrentFavorite(false);
       } else {
@@ -2571,6 +2764,53 @@ class HistoryPanel {
           source: "core.history.panel",
           persist: false,
         });
+      }
+    } else if (this.treeKind === "downloads") {
+      const current = this.getCurrentDownloadEntry();
+      if (key === "d") {
+        if (current && current.kind === "active") {
+          const entry = current.entry;
+          if (entry.isPaused) {
+            downloadsService.resume(current.id);
+          } else {
+            downloadsService.pause(current.id);
+          }
+        }
+      } else if (key === "x") {
+        if (current) {
+          this.confirmItemDelete = true;
+          this.confirmItemDeleteId = current.id;
+          this.confirmItemDeleteLabel =
+            current.kind === "active"
+              ? "Cancel download"
+              : "Remove download";
+          this.confirmDeleteAll = "";
+        }
+      } else if (key === "D") {
+        this.confirmDeleteAll = "";
+        this.deleteAllArmed = true;
+      } else if (key === "r") {
+        if (current) {
+          const info = downloadsService.getRetryInfo(current.id);
+          if (info && info.url && this.buffers) {
+            const active = this.buffers.getActive();
+            if (active && active.webContents && !active.isEditable) {
+              active.webContents.downloadURL(info.url);
+            }
+          }
+        }
+      } else if (key === "o") {
+        if (current) {
+          downloadsService.openFile(current.id);
+        }
+      } else if (key === "Enter") {
+        if (current) {
+          downloadsService.openFile(current.id);
+        }
+      } else if (key === "Escape") {
+        this.unfocus();
+      } else {
+        return false;
       }
     } else if (key === "d") {
       this.treeCountBuffer = "";

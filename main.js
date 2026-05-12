@@ -1,11 +1,14 @@
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
+const { execFile } = require("child_process");
 const {
   app,
   BrowserWindow,
   ipcMain,
   clipboard,
   nativeTheme,
+  nativeImage,
   screen,
   session,
   dialog,
@@ -30,6 +33,7 @@ const {
 } = require("./ui/theme");
 const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
+const bookmarksService = require("./core/bookmarks/service");
 const historyPanel = require("./core/history/panel");
 const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const telescopeService = require("./core/telescope/service");
@@ -112,6 +116,7 @@ app.setName("Noctra");
 let win;
 let smokeScenarios = null;
 let appMenu;
+let entryIcons = null;
 
 const browserLanguagePolicy = createBrowserLanguagePolicy({
   session,
@@ -598,6 +603,55 @@ const { applyReloadedConfig } = createConfigRuntime({
   updateUrllineRender,
 });
 
+function generateMenuIcon(glyph, strokeColor, outputPath) {
+  return new Promise((resolve, reject) => {
+    if (fs.existsSync(outputPath)) {
+      resolve(outputPath);
+      return;
+    }
+    const dir = path.dirname(outputPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const fontPath = path.join(
+      __dirname,
+      "assets",
+      "fonts",
+      "JetBrainsMonoNerdFontMono-Regular.ttf",
+    );
+    execFile(
+      "magick",
+      [
+        "-background",
+        "none",
+        "-fill",
+        "transparent",
+        "-stroke",
+        strokeColor,
+        "-strokewidth",
+        "1",
+        "-font",
+        fontPath,
+        "-pointsize",
+        "14",
+        "-gravity",
+        "center",
+        "-size",
+        "16x16",
+        `caption:${glyph}`,
+        outputPath,
+      ],
+      (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(outputPath);
+        }
+      },
+    );
+  });
+}
+
 function normalizeHistoryUrl(rawUrl) {
   if (typeof rawUrl !== "string") return "";
   const trimmed = rawUrl.trim();
@@ -681,12 +735,26 @@ function createWindow() {
     isBookmarkableBuffer,
     openDoc,
     configService,
+    historyService,
+    bookmarksService,
+    entryIcons,
+    nativeTheme,
   });
   appMenu.sync();
   buffers.subscribe(() => appMenu.rebuild());
+
+  app.getFileIcon(os.homedir(), { size: "small" })
+    .then((icon) => {
+      if (icon && !icon.isEmpty()) {
+        appMenu.setFolderIcon(icon);
+      }
+    })
+    .catch(() => {
+      // Native folder icon unavailable, ignore
+    });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerSessionSecurityPolicyAdapter({
     session,
     app,
@@ -698,7 +766,37 @@ app.whenReady().then(() => {
     isAllowedNavigationUrl,
     notificationsService,
   });
+
+  try {
+    const blackPath = path.join(__dirname, "assets", "menu-icons", "entry-black.png");
+    const whitePath = path.join(__dirname, "assets", "menu-icons", "entry-white.png");
+    await Promise.all([
+      generateMenuIcon("\uf15b", "#000000", blackPath),
+      generateMenuIcon("\uf15b", "#ffffff", whitePath),
+    ]);
+    if (process.platform === "darwin") {
+      const macosImg = nativeImage.createFromPath(blackPath);
+      if (!macosImg.isEmpty()) {
+        macosImg.setTemplateImage(true);
+        entryIcons = { macos: macosImg };
+      }
+    } else {
+      const darkImg = nativeImage.createFromPath(whitePath);
+      const lightImg = nativeImage.createFromPath(blackPath);
+      if (!darkImg.isEmpty() && !lightImg.isEmpty()) {
+        entryIcons = { dark: darkImg, light: lightImg };
+      }
+    }
+  } catch {
+    // Icon generation failed, menu will fall back to text-only
+  }
+
   createWindow();
+
+  nativeTheme.on("updated", () => {
+    if (appMenu) appMenu.rebuild();
+  });
+
   if (smokeScenarios) {
     smokeScenarios.maybeScheduleSmokeExit();
   }

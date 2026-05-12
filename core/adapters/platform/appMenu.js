@@ -139,6 +139,7 @@ function createAppMenu({
       canGoBack,
       canGoForward,
       canReload,
+      canSplitDevtools,
       isBookmarkable: isBookmarkableBuffer(active),
       splitEnabled: buffers.isSplitEnabled(),
       splitMode: buffers.getSplitStatus().mode,

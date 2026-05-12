@@ -92,7 +92,7 @@ function applyOverlayLayout({
   });
 
   const telescopeWidth = telescopeVisible
-    ? Math.min(1080, Math.max(bounds.width - 120, 520))
+    ? Math.min(980, Math.max(bounds.width - 28, 560))
     : 1;
   const telescopeHeight = telescopeVisible
     ? Math.max(

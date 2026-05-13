@@ -62,6 +62,12 @@ Every emitted intent must be executable by the dispatcher.
 - `BOOKMARKS_DELETE_ALL`: Delete all bookmarks.
 - `BOOKMARKS_ADD_ROOT_ACTIVE`: Add active page to root bookmarks.
 - `BOOKMARKS_ADD_SCOPED_PROMPT`: Open scoped bookmark insertion prompt.
+- `DOWNLOADS_SHOW`: Show downloads panel.
+- `DOWNLOADS_HIDE`: Hide downloads panel.
+- `DOWNLOADS_TOGGLE`: Toggle downloads panel visibility.
+- `DOWNLOADS_TOGGLE_FOCUS`: Toggle focus between downloads panel and web content.
+- `DOWNLOADS_CLEAR_ALL`: Clear all download entries.
+- `DOWNLOADS_LIVE_MODAL`: Show live download modal.
 - `TELESCOPE_OPEN_HISTORY`: Open telescope search for history entries.
 - `TELESCOPE_OPEN_BOOKMARKS`: Open telescope search for bookmarks.
 - `TELESCOPE_OPEN_BUFFERS`: Open telescope search for buffers.

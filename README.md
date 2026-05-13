@@ -32,6 +32,72 @@ Optional environment policy:
 - `NOCTRA_CONFIG_POLICY=customizable` (default)
 - `NOCTRA_CONFIG_POLICY=strict`
 
+## Download
+
+Prebuilt releases are available on the [Releases](https://github.com/LightQv/noctra/releases) page.
+
+| Platform | Format | Notes                                                                                                                                |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| macOS    | `.dmg` | Drag to Applications. Unsigned builds show a Gatekeeper warning on first launch — right-click the app and select **Open** to bypass. |
+| macOS    | `.zip` | Portable archive.                                                                                                                    |
+| Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`.                                                                                            |
+| Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`.                                                                                             |
+
+## Packaging (for developers)
+
+Noctra uses [Electron Forge](https://www.electronforge.io/) for packaging.
+
+```bash
+# Build distributables for the current platform
+npm run make
+
+# Package only (no installer)
+npm run package
+
+# Build for a specific platform
+npm run make -- --platform=darwin
+npm run make -- --platform=linux
+```
+
+Output artifacts are written to `out/make/`.
+
+### Creating a release
+
+Releases are created via GitHub Actions. Only maintainers with write access can do this:
+
+1. Go to **Actions → "Create Release" → "Run workflow"**.
+2. Enter the version (e.g., `0.1.1`) and release notes.
+3. Click **Run workflow**.
+4. The workflow will bump `package.json`, create a tag, build artifacts for macOS and Linux, and publish the release automatically.
+
+### macOS code signing
+
+To produce a signed, notarized macOS build:
+
+1. Join the [Apple Developer Program](https://developer.apple.com/programs/) ($99/year).
+2. Export your signing identity and create an app-specific password.
+3. Add these repository secrets in GitHub:
+   - `APPLE_ID`
+   - `APPLE_PASSWORD`
+   - `APPLE_TEAM_ID`
+   - `APPLE_IDENTITY` (optional)
+
+The release workflow will automatically sign and notarize when these secrets are present.
+
+### App icons
+
+Icons are generated from `assets/icons/icon.svg` via `scripts/generate-icons.js`. To regenerate:
+
+```bash
+node scripts/generate-icons.js
+```
+
+This produces:
+
+- `assets/icons/icon.png` — 1024x1024 master
+- `assets/icons/icon_512.png` — Linux app icon
+- `assets/icons/icon.icns` — macOS app icon bundle
+
 ## Documentation
 
 Start here:

@@ -2,15 +2,23 @@
 
 This guide gets you from install to a usable daily workflow.
 
-## 1) Install dependencies
+## 1) Install Noctra
+
+### Option A: Download a release (recommended)
+
+Grab the latest `.dmg` (macOS) or `.deb`/`.rpm` (Linux) from the [Releases](https://github.com/LightQv/noctra/releases) page.
+
+On macOS, the app is currently unsigned. On first launch, right-click the app and select **Open** to bypass Gatekeeper.
+
+### Option B: Build from source
+
+Requirements:
+
+- Node.js 20+
+- npm 10+
 
 ```bash
 npm install
-```
-
-## 2) Start Noctra
-
-```bash
 npm run start
 ```
 

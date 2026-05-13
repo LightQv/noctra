@@ -7,6 +7,10 @@ This page tracks the current OSS guardrails that must stay green for release rea
 - `hardening-gate` (required): runs `npm run ci:test`.
 - `dependency-audit` (required): runs `npm audit --audit-level=high` and fails on high severity findings.
 
+## Release CI
+
+- `build-release` (on tag push): builds signed/unsigned macOS `.dmg`/`.zip` and Linux `.deb`/`.rpm`/`.zip` artifacts, then creates a GitHub Release with attached binaries.
+
 ## Included checks in `npm run ci:test`
 
 - Lint: `npm run lint`

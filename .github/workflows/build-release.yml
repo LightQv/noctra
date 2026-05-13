@@ -1,0 +1,180 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 0.1.1)"
+        required: true
+      notes:
+        description: "Release notes (markdown supported)"
+        required: true
+
+jobs:
+  bump-and-tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Error: Version must be in semver format X.Y.Z (e.g., 0.1.1)"
+            exit 1
+          fi
+          echo "Version format valid: $VERSION"
+
+      - name: Check version is newer
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          NEW="${{ github.event.inputs.version }}"
+          if [ "$(printf '%s\n%s' "$CURRENT" "$NEW" | sort -V | head -n1)" != "$CURRENT" ]; then
+            echo "Error: New version ($NEW) must be greater than current version ($CURRENT)"
+            exit 1
+          fi
+          echo "Version bump valid: $CURRENT → $NEW"
+
+      - name: Bump version in package.json
+        id: bump
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit, tag, and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(release): bump version to ${{ github.event.inputs.version }}"
+          git tag "${{ steps.bump.outputs.tag }}"
+          git push origin main
+          git push origin "${{ steps.bump.outputs.tag }}"
+
+      - name: Create draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.bump.outputs.tag }}" \
+            --title "Noctra ${{ github.event.inputs.version }}" \
+            --notes "${{ github.event.inputs.notes }}" \
+            --draft
+
+  build-macos:
+    needs: bump-and-tag
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-and-tag.outputs.tag }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS distributables
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_IDENTITY: ${{ secrets.APPLE_IDENTITY }}
+        run: npm run make -- --platform=darwin
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: out/make/
+          if-no-files-found: error
+
+  build-linux:
+    needs: bump-and-tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump-and-tag.outputs.tag }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y icnsutils graphicsmagick
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Linux distributables
+        run: npm run make -- --platform=linux
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: out/make/
+          if-no-files-found: error
+
+  attach-and-publish:
+    needs: [build-macos, build-linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-artifacts
+          path: artifacts/macos
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-artifacts
+          path: artifacts/linux
+
+      - name: Attach artifacts to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
+        run: |
+          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" \) | while read -r file; do
+            echo "Uploading: $file"
+            gh release upload "$RELEASE_TAG" "$file" --clobber
+          done
+
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
+        run: |
+          gh release edit "$RELEASE_TAG" --draft=false
+          echo "Release $RELEASE_TAG published successfully"

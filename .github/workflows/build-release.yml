@@ -212,7 +212,7 @@ jobs:
           useradd -m builder
           chown -R builder:builder .
           su builder -c "npm ci"
-          su builder -c "npm run make -- --platform=linux --targets=@osmn-byhn/electron-make-pacman"
+          su builder -c "npm run make -- --platform=linux --targets=pacman"
 
       - name: Upload Arch Linux artifacts
         uses: actions/upload-artifact@v4

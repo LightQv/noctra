@@ -3,7 +3,7 @@ const os = require("os");
 const path = require("path");
 const { parse, stringify } = require("yaml");
 const { defaultConfig } = require("./defaults");
-const { normalizeConfig } = require("./schema");
+const { normalizeConfig, normalizeConfigWithDiagnostics } = require("./schema");
 const { ACTION_BUILDERS } = require("../../motions/actionBuilders");
 const notificationsService = require("../notifications/service");
 
@@ -13,6 +13,25 @@ const CONFIG_POLICY =
   process.env.NOCTRA_CONFIG_POLICY === "strict" ? "strict" : "customizable";
 
 let cachedConfig = normalizeConfig(defaultConfig);
+
+function emitUnknownKeyWarning(unknownKeys = []) {
+  if (!Array.isArray(unknownKeys) || unknownKeys.length === 0) {
+    return;
+  }
+
+  const dedupedKeys = [...new Set(unknownKeys)];
+  notificationsService.notify({
+    severity: "warning",
+    code: "config_unknown_keys_detected",
+    message: "Unsupported config keys were ignored",
+    source: "core.config",
+    context: {
+      path: CONFIG_FILE_PATH,
+      unknownKeys: dedupedKeys,
+    },
+    persist: false,
+  });
+}
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -57,12 +76,16 @@ function addThemeComments(yamlText) {
   }
 
   for (const line of lines) {
-    if (/^global:\s*$/.test(line) || /^keymap:\s*$/.test(line) || /^browser:\s*$/.test(line)) {
+    if (
+      /^global:\s*$/.test(line) ||
+      /^keymap:\s*$/.test(line) ||
+      /^browser:\s*$/.test(line)
+    ) {
       inThemeSection = false;
       inOpeningBufferSection = false;
     }
 
-    if (/^  [a-zA-Z0-9_]+:\s*$/.test(line)) {
+    if (/^ {2}[a-zA-Z0-9_]+:\s*$/.test(line)) {
       inThemeSection = false;
       inOpeningBufferSection = false;
       inBrowserSection = false;
@@ -71,11 +94,19 @@ function addThemeComments(yamlText) {
     if (!keymapCommentAdded && /^keymap:\s*$/.test(line)) {
       output.push(line);
       output.push("  # Keymap customization scope:");
-      output.push("  # - Classic NORMAL/TREE motions are fixed internally.");
-      output.push("  # - Only leader mappings are configurable here.");
+      output.push(
+        "  # - keymap.normal: NORMAL mode sequence mappings (web + shared tree motions)",
+      );
+      output.push(
+        "  # - keymap.mod: Ctrl+<key> mappings (web + shared tree motions)",
+      );
+      output.push("  # - keymap.leader: leader tree mappings");
+      output.push("  # Tree-only domain actions remain internal for now.");
+      output.push("  # Mapping shape:");
+      output.push('  # normal/mod: <keys>: "<action_id>"');
       output.push("  # Leader node shape:");
-      output.push("  # - <key>: { label: \"...\", action: \"<action_id>\" }");
-      output.push("  # - <key>: { label: \"...\", children: { ... } }");
+      output.push('  # - <key>: { label: "...", action: "<action_id>" }');
+      output.push('  # - <key>: { label: "...", children: { ... } }');
       output.push("  # Valid action ids for leader actions:");
       for (const actionIdLine of actionIdLines) {
         output.push(`  #   ${actionIdLine}`);
@@ -84,33 +115,37 @@ function addThemeComments(yamlText) {
       continue;
     }
 
-    if (/^  theme:\s*$/.test(line)) {
+    if (/^ {2}theme:\s*$/.test(line)) {
       output.push("  # Theme controls for Noctra shell and surfaces");
       inThemeSection = true;
       inOpeningBufferSection = false;
       inBrowserSection = false;
     }
 
-    if (inThemeSection && /^    mode:\s*/.test(line)) {
+    if (inThemeSection && /^ {4}mode:\s*/.test(line)) {
       output.push("    # App theme mode: dark | light | auto | custom");
       output.push("    # custom uses global.theme.overrides");
     }
 
-    if (inThemeSection && /^    content_mode:\s*/.test(line)) {
+    if (inThemeSection && /^ {4}content_mode:\s*/.test(line)) {
       output.push("    # Browser content mode: dark | light | auto | match");
-      output.push("    # match follows app theme, but custom falls back to auto(system)");
+      output.push(
+        "    # match follows app theme, but custom falls back to auto(system)",
+      );
     }
 
-    if (inThemeSection && /^    overrides:\s*$/.test(line)) {
+    if (inThemeSection && /^ {4}overrides:\s*$/.test(line)) {
       output.push("    # Overrides are applied only when mode is custom");
-      output.push("    # Supported override keys are prefilled below with dark defaults");
+      output.push(
+        "    # Supported override keys are prefilled below with dark defaults",
+      );
     }
 
-    if (/^    telescope:\s*$/.test(line)) {
+    if (/^ {4}telescope:\s*$/.test(line)) {
       output.push("    # Telescope overlay UI settings");
     }
 
-    if (/^      prompt_position:\s*/.test(line)) {
+    if (/^ {6}prompt_position:\s*/.test(line)) {
       output.push("      # Prompt position: top | bottom");
     }
 
@@ -121,23 +156,52 @@ function addThemeComments(yamlText) {
       inOpeningBufferSection = false;
     }
 
-    if (inBrowserSection && /^  language:\s*/.test(line)) {
+    if (inBrowserSection && /^ {2}language:\s*/.test(line)) {
       output.push("  # Preferred website language: en | fr");
-      output.push("  # Mapped to Accept-Language and known locale hints for requests");
+      output.push(
+        "  # Mapped to Accept-Language and known locale hints for requests",
+      );
     }
 
-    if (inBrowserSection && /^  copy_selection_to_clipboard:\s*/.test(line)) {
-      output.push("  # Auto-copy selected page text to clipboard on mouse selection");
+    if (inBrowserSection && /^ {2}copy_selection_to_clipboard:\s*/.test(line)) {
+      output.push(
+        "  # Auto-copy selected page text to clipboard on mouse selection",
+      );
     }
 
-    if (/^  opening_buffer:\s*$/.test(line)) {
+    if (inBrowserSection && /^ {2}downloads:\s*$/.test(line)) {
+      output.push("  # Download governance policy: deny | prompt | allow");
+      output.push(
+        "  # prompt requires explicit user confirmation via native save dialog",
+      );
+    }
+
+    if (inBrowserSection && /^ {4}allow_trusted_surfaces:\s*/.test(line)) {
+      output.push(
+        "    # Trusted internal surfaces are blocked from downloads unless explicitly enabled",
+      );
+    }
+
+    if (inBrowserSection && /^ {4}default_directory:\s*/.test(line)) {
+      output.push(
+        "    # Optional default directory for prompt/allow policies (null uses OS downloads)",
+      );
+    }
+
+    if (inBrowserSection && /^ {4}auto_open:\s*/.test(line)) {
+      output.push(
+        "    # Auto-open downloaded files after completion (not recommended)",
+      );
+    }
+
+    if (/^ {2}opening_buffer:\s*$/.test(line)) {
       output.push("  # Startup page mode");
       inOpeningBufferSection = true;
       inThemeSection = false;
       inBrowserSection = false;
     }
 
-    if (inOpeningBufferSection && /^    mode:\s*/.test(line)) {
+    if (inOpeningBufferSection && /^ {4}mode:\s*/.test(line)) {
       output.push("    # Opening mode: blank | url | dashboard");
       output.push("    # url uses global.opening_buffer.url");
     }
@@ -193,7 +257,8 @@ function repairInvalidConfig(error) {
     notificationsService.notify({
       severity: "warning",
       code: "config_invalid_auto_repaired",
-      message: "Invalid config.yml detected. Recreated default file and backed up previous file.",
+      message:
+        "Invalid config.yml detected. Recreated default file and backed up previous file.",
       source: "core.config",
       context: { backupPath, configPath: CONFIG_FILE_PATH },
     });
@@ -204,7 +269,10 @@ function repairInvalidConfig(error) {
       code: "config_auto_repair_failed",
       message: "Failed to auto-repair invalid config.yml",
       source: "core.config",
-      context: { repairError: repairError.message, originalError: error.message },
+      context: {
+        repairError: repairError.message,
+        originalError: error.message,
+      },
     });
     return false;
   }
@@ -261,7 +329,9 @@ function loadConfig() {
     const parsed = raw.trim() ? parse(raw) : {};
     const nextRawConfig = isPlainObject(parsed) ? parsed : {};
     syncConfigFile(nextRawConfig);
-    cachedConfig = normalizeConfig(nextRawConfig);
+    const normalized = normalizeConfigWithDiagnostics(nextRawConfig);
+    cachedConfig = normalized.config;
+    emitUnknownKeyWarning(normalized.diagnostics.unknownKeys);
     notificationsService.notify({
       severity: "info",
       code: "config_loaded",
@@ -280,7 +350,9 @@ function loadConfig() {
         const parsed = raw.trim() ? parse(raw) : {};
         const nextRawConfig = isPlainObject(parsed) ? parsed : {};
         syncConfigFile(nextRawConfig);
-        cachedConfig = normalizeConfig(nextRawConfig);
+        const normalized = normalizeConfigWithDiagnostics(nextRawConfig);
+        cachedConfig = normalized.config;
+        emitUnknownKeyWarning(normalized.diagnostics.unknownKeys);
         notificationsService.notify({
           severity: "warning",
           code: "config_loaded_repaired",
@@ -440,12 +512,22 @@ function updateWindowState(nextWindowState = {}) {
     return cachedConfig;
   }
 
-  const width = Number.isFinite(nextWindowState.width) ? Math.floor(nextWindowState.width) : null;
-  const height = Number.isFinite(nextWindowState.height) ? Math.floor(nextWindowState.height) : null;
+  const width = Number.isFinite(nextWindowState.width)
+    ? Math.floor(nextWindowState.width)
+    : null;
+  const height = Number.isFinite(nextWindowState.height)
+    ? Math.floor(nextWindowState.height)
+    : null;
   const isMaximized =
-    typeof nextWindowState.is_maximized === "boolean" ? nextWindowState.is_maximized : null;
-  const x = Number.isFinite(nextWindowState.x) ? Math.floor(nextWindowState.x) : null;
-  const y = Number.isFinite(nextWindowState.y) ? Math.floor(nextWindowState.y) : null;
+    typeof nextWindowState.is_maximized === "boolean"
+      ? nextWindowState.is_maximized
+      : null;
+  const x = Number.isFinite(nextWindowState.x)
+    ? Math.floor(nextWindowState.x)
+    : null;
+  const y = Number.isFinite(nextWindowState.y)
+    ? Math.floor(nextWindowState.y)
+    : null;
 
   const hasSize = width !== null && height !== null;
   const hasMaximized = isMaximized !== null;

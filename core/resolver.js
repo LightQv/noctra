@@ -1,22 +1,8 @@
-function hasScheme(value) {
-  return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value);
-}
-
-function isIpLike(value) {
-  return /^\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?(?:\/.*)?$/.test(value);
-}
-
-function isLocalHostLike(value) {
-  return /^(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/.*)?$/i.test(value);
-}
-
-function looksLikeDomain(value) {
-  return /^[a-zA-Z\d-]+(?:\.[a-zA-Z\d-]+)+(?::\d+)?(?:\/.*)?$/.test(value);
-}
-
-function looksLikeUrlTarget(value) {
-  return hasScheme(value) || isLocalHostLike(value) || isIpLike(value) || looksLikeDomain(value);
-}
+const {
+  looksLikeUrlTarget,
+  normalizeUrlCandidate,
+  validateNavigableUrl,
+} = require("./security/urlPolicy");
 
 function buildSearchUrl(engine, query) {
   const normalizedQuery = query.trim();
@@ -33,37 +19,34 @@ function buildSearchUrl(engine, query) {
   }
 }
 
-function normalizeUrlCandidate(value) {
-  if (hasScheme(value)) {
-    return value;
-  }
-
-  if (isLocalHostLike(value) || isIpLike(value)) {
-    return `http://${value}`;
-  }
-
-  return `https://${value}`;
-}
-
-function resolveUrlInput(rawInput) {
+function resolveUrlInput(rawInput, policy = {}) {
   const input = (rawInput || "").trim();
   if (!input) return null;
   if (!looksLikeUrlTarget(input)) return null;
-  return normalizeUrlCandidate(input);
+  const candidate = normalizeUrlCandidate(input);
+  const validation = validateNavigableUrl(candidate, policy);
+  if (!validation.ok) return null;
+  return validation.url;
 }
 
 function resolveInputTarget(rawInput, options = {}) {
   const input = (rawInput || "").trim();
   const defaultSearchEngine = options.defaultSearchEngine || "duckduckgo";
+  const policy = options.urlPolicy || {};
 
   if (!input) {
     return { kind: "invalid", reason: "empty_input" };
   }
 
   if (looksLikeUrlTarget(input)) {
+    const candidate = normalizeUrlCandidate(input);
+    const validation = validateNavigableUrl(candidate, policy);
+    if (!validation.ok) {
+      return { kind: "invalid", reason: validation.reason || "invalid_url" };
+    }
     return {
       kind: "url",
-      url: normalizeUrlCandidate(input),
+      url: validation.url,
     };
   }
 

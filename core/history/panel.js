@@ -1,14 +1,29 @@
-const { BrowserView, clipboard } = require("electron");
+const { clipboard } = require("electron");
 const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
+const downloadsService = require("../downloads/service");
 const notificationsService = require("../notifications/service");
+const { createPanelViewHost } = require("../adapters/platform/panelViewHost");
+const {
+  createPanelRenderTransport,
+} = require("../adapters/renderer/panelRenderTransport");
+const { enterNormalMode } = require("../modeTransitionService");
+const { isEditorFocused, setEditorFocused } = require("../editorFocusState");
 const { getNormalKeymap, getModAction } = require("../../motions/keymap");
 const { isModPressed } = require("../../motions/modifiers");
+const {
+  hasSequenceTimedOut,
+  consumePositiveCount,
+  resolveKeySequenceMatch,
+} = require("../../motions/grammarPrimitives");
 const {
   UI_SHELL_TABLINE_HEIGHT,
   UI_SHELL_STATUSLINE_HEIGHT,
   UI_TREE_LAYOUT,
 } = require("../../ui/constants");
+
+const INTERNAL_PANEL_CSP =
+  "default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; media-src 'none'; manifest-src 'none'; frame-ancestors 'none'";
 
 function escapeHtml(value) {
   return String(value)
@@ -17,14 +32,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function pathKey(path = []) {
-  return path.join("/");
-}
-
-function isPlainObject(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 const TREE_LAYOUT = UI_TREE_LAYOUT;
@@ -56,10 +63,17 @@ class HistoryPanel {
     this.maxFavoriteHistory = 50;
     this.filterEditState = null;
 
+    this.downloadCursor = { id: null };
+    this.downloadEntries = { active: [], persisted: [] };
+    this.downloadsSubscription = null;
+
     this.treeKind = "history";
     this.confirmDeleteAll = "";
     this.deleteAllArmed = false;
-    this.previousContext = "SHELL";
+    this.confirmItemDelete = false;
+    this.confirmItemDeleteLabel = "";
+    this.confirmItemDeleteId = null;
+    this.previousEditorFocus = false;
     this.treeCountBuffer = "";
     this.treeKeyBuffer = "";
     this.treeDeletePending = false;
@@ -71,10 +85,9 @@ class HistoryPanel {
     this.treeScrollContextLines = 3;
     this.lastSelectedTreeIndex = -1;
     this.treeFirstVisibleIndex = 0;
-    this.view = null;
+    this.viewHost = null;
     this.onFocusChange = null;
-    this.renderTimer = null;
-    this.lastRenderedHtml = "";
+    this.renderTransport = null;
   }
 
   clearFavoriteEdit() {
@@ -137,7 +150,11 @@ class HistoryPanel {
       Math.min(maxFirstIndex, Number(this.treeFirstVisibleIndex) || 0),
     );
 
-    if (!Number.isFinite(selectedIndex) || selectedIndex < 0 || safeTotalRows === 0) {
+    if (
+      !Number.isFinite(selectedIndex) ||
+      selectedIndex < 0 ||
+      safeTotalRows === 0
+    ) {
       this.treeFirstVisibleIndex = firstVisibleIndex;
       return firstVisibleIndex;
     }
@@ -172,6 +189,9 @@ class HistoryPanel {
     if (this.treeKind === "bookmarks") {
       return nodes.findIndex((node) => node.id === this.bookmarkCursor.nodeId);
     }
+    if (this.treeKind === "downloads") {
+      return nodes.findIndex((node) => node.id === this.downloadCursor.id);
+    }
     return nodes.findIndex(
       (node) =>
         node.type === this.cursor.type &&
@@ -181,9 +201,9 @@ class HistoryPanel {
   }
 
   consumeTreeCount(defaultCount = 1) {
-    const count = Number.parseInt(this.treeCountBuffer || String(defaultCount), 10);
+    const count = consumePositiveCount(this.treeCountBuffer, defaultCount);
     this.treeCountBuffer = "";
-    return Number.isFinite(count) && count > 0 ? count : defaultCount;
+    return count;
   }
 
   executeSharedTreeAction(actionId, count = 1) {
@@ -241,16 +261,21 @@ class HistoryPanel {
 
     this.treeKeyBuffer += key;
     const keymap = getNormalKeymap();
-    const exactBuilder = keymap[this.treeKeyBuffer];
+    const { exact: exactBuilder, hasPrefix } = resolveKeySequenceMatch(
+      keymap,
+      this.treeKeyBuffer,
+    );
     if (exactBuilder) {
       const count = this.consumeTreeCount(1);
       this.treeKeyBuffer = "";
-      const handled = this.executeSharedTreeAction(exactBuilder.actionId, count);
+      const handled = this.executeSharedTreeAction(
+        exactBuilder.actionId,
+        count,
+      );
       if (!handled) return null;
       return { consumed: true, shouldRender: true };
     }
 
-    const hasPrefix = Object.keys(keymap).some((mapped) => mapped.startsWith(this.treeKeyBuffer));
     if (hasPrefix) {
       return { consumed: true, shouldRender: false };
     }
@@ -266,6 +291,9 @@ class HistoryPanel {
         return this.getFilteredFavoriteFlatNodes();
       }
       return this.getFavoriteFlatNodes();
+    }
+    if (this.treeKind === "downloads") {
+      return this.getDownloadFlatNodes();
     }
     if (this.isHistoryFilterActive()) {
       return this.getFilteredHistoryFlatNodes();
@@ -289,16 +317,16 @@ class HistoryPanel {
   isHistoryFilterActive() {
     return Boolean(
       this.filterEditState &&
-        this.treeKind === "history" &&
-        this.isFilterQueryMode(this.filterEditState.mode),
+      this.treeKind === "history" &&
+      this.isFilterQueryMode(this.filterEditState.mode),
     );
   }
 
   isBookmarksFilterActive() {
     return Boolean(
       this.filterEditState &&
-        this.treeKind === "bookmarks" &&
-        this.isFilterQueryMode(this.filterEditState.mode),
+      this.treeKind === "bookmarks" &&
+      this.isFilterQueryMode(this.filterEditState.mode),
     );
   }
 
@@ -362,7 +390,8 @@ class HistoryPanel {
     const prefixBonus = start === 0 ? 300 : 0;
     const proximityPenalty = start * 6;
     const spanPenalty = Math.max(0, haystack.length - needle.length);
-    const score = 1200 + exactBonus + prefixBonus - proximityPenalty - spanPenalty;
+    const score =
+      1200 + exactBonus + prefixBonus - proximityPenalty - spanPenalty;
     return {
       matched: true,
       score,
@@ -378,7 +407,9 @@ class HistoryPanel {
       return escapeHtml(source);
     }
     const before = escapeHtml(source.slice(0, match.start));
-    const hit = escapeHtml(source.slice(match.start, match.start + match.length));
+    const hit = escapeHtml(
+      source.slice(match.start, match.start + match.length),
+    );
     const after = escapeHtml(source.slice(match.start + match.length));
     return `${before}<span class="match-hit">${hit}</span>${after}`;
   }
@@ -437,8 +468,14 @@ class HistoryPanel {
             continue;
           }
 
-          const pushFolderWithDescendants = (folderNode, folderDepth, folderParentId) => {
-            const children = Array.isArray(folderNode.children) ? folderNode.children : [];
+          const pushFolderWithDescendants = (
+            folderNode,
+            folderDepth,
+            folderParentId,
+          ) => {
+            const children = Array.isArray(folderNode.children)
+              ? folderNode.children
+              : [];
             const isOpen = !collapsed.has(folderNode.id);
             out.push({
               type: "folder",
@@ -453,7 +490,11 @@ class HistoryPanel {
               matchStart: match.start,
             });
             if (!isOpen) return;
-            for (let childIndex = 0; childIndex < children.length; childIndex += 1) {
+            for (
+              let childIndex = 0;
+              childIndex < children.length;
+              childIndex += 1
+            ) {
               const child = children[childIndex];
               if (!child) continue;
               if (child.type === "entry") {
@@ -466,7 +507,11 @@ class HistoryPanel {
                   index: childIndex,
                 });
               } else if (child.type === "folder") {
-                pushFolderWithDescendants(child, folderDepth + 1, folderNode.id);
+                pushFolderWithDescendants(
+                  child,
+                  folderDepth + 1,
+                  folderNode.id,
+                );
               }
             }
           };
@@ -499,8 +544,10 @@ class HistoryPanel {
       }
     }
     out.sort((a, b) => {
-      if ((b.matchScore || 0) !== (a.matchScore || 0)) return (b.matchScore || 0) - (a.matchScore || 0);
-      if ((a.matchStart || 0) !== (b.matchStart || 0)) return (a.matchStart || 0) - (b.matchStart || 0);
+      if ((b.matchScore || 0) !== (a.matchScore || 0))
+        return (b.matchScore || 0) - (a.matchScore || 0);
+      if ((a.matchStart || 0) !== (b.matchStart || 0))
+        return (a.matchStart || 0) - (b.matchStart || 0);
       return String(a.id || "").localeCompare(String(b.id || ""));
     });
     return out;
@@ -525,7 +572,9 @@ class HistoryPanel {
     const nodes = this.getTreeFlatNodes();
     if (!nodes.length) return;
     if (this.treeKind === "bookmarks") {
-      const hasFavorite = nodes.some((node) => node.id === this.bookmarkCursor.nodeId);
+      const hasFavorite = nodes.some(
+        (node) => node.id === this.bookmarkCursor.nodeId,
+      );
       if (!hasFavorite) {
         this.bookmarkCursor = { nodeId: nodes[0].id };
       }
@@ -550,7 +599,10 @@ class HistoryPanel {
   jumpToLine(lineNumber) {
     const nodes = this.getTreeFlatNodes();
     if (!nodes.length) return;
-    const targetIndex = Math.max(0, Math.min(nodes.length - 1, Number(lineNumber) - 1));
+    const targetIndex = Math.max(
+      0,
+      Math.min(nodes.length - 1, Number(lineNumber) - 1),
+    );
     const node = nodes[targetIndex];
     if (!node) return;
     if (this.treeKind === "bookmarks") {
@@ -566,7 +618,9 @@ class HistoryPanel {
 
   createFavoriteSnapshot() {
     return {
-      root: this.deepClone(Array.isArray(this.bookmarkRoot) ? this.bookmarkRoot : []),
+      root: this.deepClone(
+        Array.isArray(this.bookmarkRoot) ? this.bookmarkRoot : [],
+      ),
       expanded: Array.from(this.bookmarkExpanded || []),
       cursor: this.deepClone(this.bookmarkCursor || { nodeId: null }),
       clipboard: this.deepClone(this.bookmarkClipboard),
@@ -578,8 +632,12 @@ class HistoryPanel {
       return false;
     }
 
-    this.bookmarkRoot = this.deepClone(Array.isArray(snapshot.root) ? snapshot.root : []);
-    this.bookmarkExpanded = new Set(Array.isArray(snapshot.expanded) ? snapshot.expanded : []);
+    this.bookmarkRoot = this.deepClone(
+      Array.isArray(snapshot.root) ? snapshot.root : [],
+    );
+    this.bookmarkExpanded = new Set(
+      Array.isArray(snapshot.expanded) ? snapshot.expanded : [],
+    );
     this.bookmarkCursor = this.deepClone(snapshot.cursor || { nodeId: null });
     this.bookmarkClipboard = this.deepClone(snapshot.clipboard || null);
     this.bookmarkEditState = null;
@@ -595,7 +653,10 @@ class HistoryPanel {
   recordFavoriteMutationSnapshot() {
     this.bookmarkUndoStack.push(this.createFavoriteSnapshot());
     if (this.bookmarkUndoStack.length > this.maxFavoriteHistory) {
-      this.bookmarkUndoStack.splice(0, this.bookmarkUndoStack.length - this.maxFavoriteHistory);
+      this.bookmarkUndoStack.splice(
+        0,
+        this.bookmarkUndoStack.length - this.maxFavoriteHistory,
+      );
     }
     this.bookmarkRedoStack = [];
   }
@@ -607,7 +668,10 @@ class HistoryPanel {
     const previous = this.bookmarkUndoStack.pop();
     this.bookmarkRedoStack.push(this.createFavoriteSnapshot());
     if (this.bookmarkRedoStack.length > this.maxFavoriteHistory) {
-      this.bookmarkRedoStack.splice(0, this.bookmarkRedoStack.length - this.maxFavoriteHistory);
+      this.bookmarkRedoStack.splice(
+        0,
+        this.bookmarkRedoStack.length - this.maxFavoriteHistory,
+      );
     }
     return this.applyFavoriteSnapshot(previous);
   }
@@ -619,7 +683,10 @@ class HistoryPanel {
     const next = this.bookmarkRedoStack.pop();
     this.bookmarkUndoStack.push(this.createFavoriteSnapshot());
     if (this.bookmarkUndoStack.length > this.maxFavoriteHistory) {
-      this.bookmarkUndoStack.splice(0, this.bookmarkUndoStack.length - this.maxFavoriteHistory);
+      this.bookmarkUndoStack.splice(
+        0,
+        this.bookmarkUndoStack.length - this.maxFavoriteHistory,
+      );
     }
     return this.applyFavoriteSnapshot(next);
   }
@@ -628,7 +695,12 @@ class HistoryPanel {
     if (!input || input.type !== "keyDown") {
       return false;
     }
-    return Boolean(input.ctrl && !input.meta && !input.alt && String(input.key).toLowerCase() === "r");
+    return Boolean(
+      input.ctrl &&
+      !input.meta &&
+      !input.alt &&
+      String(input.key).toLowerCase() === "r",
+    );
   }
 
   startFavoriteRename() {
@@ -882,13 +954,19 @@ class HistoryPanel {
       return true;
     }
 
-    if (key === "ArrowLeft" || (input.ctrl && String(key).toLowerCase() === "h")) {
+    if (
+      key === "ArrowLeft" ||
+      (input.ctrl && String(key).toLowerCase() === "h")
+    ) {
       this.clampFavoriteEditCursor(edit);
       edit.cursor = Math.max(0, edit.cursor - 1);
       return true;
     }
 
-    if (key === "ArrowRight" || (input.ctrl && String(key).toLowerCase() === "l")) {
+    if (
+      key === "ArrowRight" ||
+      (input.ctrl && String(key).toLowerCase() === "l")
+    ) {
       this.clampFavoriteEditCursor(edit);
       edit.cursor = Math.min(String(edit.value || "").length, edit.cursor + 1);
       return true;
@@ -1013,14 +1091,20 @@ class HistoryPanel {
       return true;
     }
 
-    if (key === "ArrowLeft" || (input.ctrl && String(key).toLowerCase() === "h")) {
+    if (
+      key === "ArrowLeft" ||
+      (input.ctrl && String(key).toLowerCase() === "h")
+    ) {
       this.clampFilterEditCursor(edit);
       edit.cursor = Math.max(0, edit.cursor - 1);
       edit.navActive = false;
       return true;
     }
 
-    if (key === "ArrowRight" || (input.ctrl && String(key).toLowerCase() === "l")) {
+    if (
+      key === "ArrowRight" ||
+      (input.ctrl && String(key).toLowerCase() === "l")
+    ) {
       this.clampFilterEditCursor(edit);
       edit.cursor = Math.min(String(edit.value || "").length, edit.cursor + 1);
       edit.navActive = false;
@@ -1061,8 +1145,10 @@ class HistoryPanel {
   renderFooter() {
     const defaultText =
       this.treeKind === "bookmarks"
-        ? "a: add, y/m: yank/move, p: paste, r: rename, dd: delete, d{motion}: range, u: undo, n: count, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
-        : "dd: delete, d{motion}: range, D: delete-all, t: timestamp, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u";
+          ? "a: add, y/m: yank/move, p: paste, r: rename, dd: delete, d{motion}: range, u: undo, n: count, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
+          : this.treeKind === "downloads"
+            ? "d: pause/resume, x: cancel/remove, D: clear finished, r: retry, o: open file, gd: show folder, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u"
+            : "dd: delete, d{motion}: range, D: delete-all, t: timestamp, gg/G, <n>j/<n>k, <n>gg, Ctrl+d/u";
 
     if (this.treeDeletePending) {
       return {
@@ -1070,6 +1156,15 @@ class HistoryPanel {
         text: "",
         hint: "d pending: d, G, gg, <n>j/<n>k, Esc: Cancel",
         value: this.treeDeleteCountBuffer,
+      };
+    }
+
+    if (this.confirmItemDelete) {
+      return {
+        tone: "danger",
+        text: "",
+        hint: "y/n + Enter, Esc: Cancel",
+        value: "",
       };
     }
 
@@ -1147,11 +1242,17 @@ class HistoryPanel {
     let rawValue = "";
     let cursor = 0;
 
-    if (this.deleteAllArmed) {
+    if (this.confirmItemDelete) {
+      label = String(this.confirmItemDeleteLabel || "Confirm");
+      rawValue = String(this.confirmDeleteAll || "");
+      cursor = rawValue.length;
+    } else if (this.deleteAllArmed) {
       label =
         this.treeKind === "bookmarks"
           ? "Delete all bookmarks"
-          : "Delete all history";
+          : this.treeKind === "downloads"
+            ? "Clear finished downloads"
+            : "Delete all history";
       rawValue = String(this.confirmDeleteAll || "");
       cursor = rawValue.length;
     } else if (this.filterEditState) {
@@ -1218,19 +1319,18 @@ class HistoryPanel {
     this.window = window;
     this.buffers = buffers;
     this.state = state;
-    this.view = new BrowserView({
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
+    this.viewHost = createPanelViewHost({
+      windowRef: this.window,
+      onMouseDown: () => {
+        this.focus();
+      },
+      onFocus: () => {
+        this.focus();
       },
     });
-    this.window.addBrowserView(this.view);
-    this.view.webContents.on("before-mouse-event", (_event, input) => {
-      if (!input || input.type !== "mouseDown") return;
-      this.focus();
-    });
-    this.view.webContents.on("focus", () => {
-      this.focus();
+    this.renderTransport = createPanelRenderTransport({
+      resolveWebContents: () => this.getWebContents(),
+      delayMs: 16,
     });
     this.applyHiddenBounds();
     this.render();
@@ -1251,13 +1351,8 @@ class HistoryPanel {
   }
 
   getWebContents() {
-    if (
-      !this.view ||
-      !this.view.webContents ||
-      this.view.webContents.isDestroyed()
-    )
-      return null;
-    return this.view.webContents;
+    if (!this.viewHost) return null;
+    return this.viewHost.getWebContents();
   }
 
   setWidthRatio(ratio) {
@@ -1278,7 +1373,8 @@ class HistoryPanel {
   }
 
   setTreeKind(kind) {
-    if (kind !== "history" && kind !== "bookmarks") return;
+    if (kind !== "history" && kind !== "bookmarks" && kind !== "downloads")
+      return;
     if (this.treeKind === kind) return;
     this.treeKind = kind;
     this.clearFavoriteEdit();
@@ -1294,7 +1390,7 @@ class HistoryPanel {
 
   switchTreeByOffset(offset) {
     if (!Number.isFinite(offset) || offset === 0) return;
-    const order = ["history", "bookmarks"];
+    const order = ["history", "bookmarks", "downloads"];
     const idx = Math.max(0, order.indexOf(this.treeKind));
     const next =
       order[
@@ -1314,6 +1410,21 @@ class HistoryPanel {
 
     this.bookmarkRoot = bookmarksService.readBookmarksTree().root;
     this.reconcileFavoriteState();
+
+    if (this.treeKind === "downloads") {
+      this.downloadEntries = downloadsService.getEntries();
+      if (!this.downloadsSubscription) {
+        this.downloadsSubscription = downloadsService.subscribe(() => {
+          if (this.treeKind === "downloads") {
+            this.downloadEntries = downloadsService.getEntries();
+            this.render();
+          }
+        });
+      }
+    } else if (this.downloadsSubscription) {
+      this.downloadsSubscription();
+      this.downloadsSubscription = null;
+    }
   }
 
   show() {
@@ -1335,8 +1446,13 @@ class HistoryPanel {
     this.clearTreeNormalState();
     this.clearTreeDeletePendingTimer();
     this.resetTreeScrollState();
-    if (this.state)
-      this.state.interactionContext = this.previousContext || "SHELL";
+    if (this.downloadsSubscription) {
+      this.downloadsSubscription();
+      this.downloadsSubscription = null;
+    }
+    if (this.state) {
+      setEditorFocused(this.state, this.previousEditorFocus);
+    }
     this.buffers.setLeftInset(0);
     this.applyHiddenBounds();
     this.clearRenderTimer();
@@ -1360,18 +1476,14 @@ class HistoryPanel {
 
   focus() {
     if (!this.visible || this.focused) return;
-    this.previousContext = this.state ? this.state.interactionContext : "SHELL";
+    this.previousEditorFocus = this.state ? isEditorFocused(this.state) : false;
     this.focused = true;
     if (this.state) {
-      this.state.interactionContext = "TREE";
-      this.state.mode = "NORMAL";
+      setEditorFocused(this.state, false);
+      enterNormalMode(this.state, "history-panel-focus");
     }
-    if (
-      this.window &&
-      this.view &&
-      typeof this.window.setTopBrowserView === "function"
-    ) {
-      this.window.setTopBrowserView(this.view);
+    if (this.viewHost) {
+      this.viewHost.focusTop();
     }
     this.render();
     this.emitFocusChange();
@@ -1380,8 +1492,9 @@ class HistoryPanel {
   unfocus() {
     if (!this.focused) return;
     this.focused = false;
-    if (this.state)
-      this.state.interactionContext = this.previousContext || "SHELL";
+    if (this.state) {
+      setEditorFocused(this.state, this.previousEditorFocus);
+    }
     this.render();
     this.emitFocusChange();
   }
@@ -1404,6 +1517,18 @@ class HistoryPanel {
     return this.focused;
   }
 
+  getTreeKind() {
+    if (this.treeKind === "bookmarks") return "bookmarks";
+    if (this.treeKind === "downloads") return "downloads";
+    return "history";
+  }
+
+  isTextInputActive() {
+    return Boolean(
+      this.filterEditState || this.bookmarkEditState || this.deleteAllArmed,
+    );
+  }
+
   getWidthPx() {
     if (!this.visible || !this.window) return 0;
     return Math.max(
@@ -1413,7 +1538,7 @@ class HistoryPanel {
   }
 
   layout() {
-    if (!this.window || !this.view) return;
+    if (!this.window || !this.viewHost) return;
     if (!this.visible) return this.applyHiddenBounds();
 
     const bounds = this.window.getContentBounds();
@@ -1425,17 +1550,15 @@ class HistoryPanel {
     );
 
     this.buffers.setLeftInset(width);
-    this.view.setBounds({ x: 0, y, width, height });
-    this.view.setAutoResize({ width: false, height: true });
-    if (this.focused && typeof this.window.setTopBrowserView === "function") {
-      this.window.setTopBrowserView(this.view);
+    this.viewHost.show({ x: 0, y, width, height });
+    if (this.focused) {
+      this.viewHost.focusTop();
     }
   }
 
   applyHiddenBounds() {
-    if (!this.view) return;
-    this.view.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
-    this.view.setAutoResize({ width: false, height: false });
+    if (!this.viewHost) return;
+    this.viewHost.hide();
   }
 
   getFlatNodes() {
@@ -1458,6 +1581,10 @@ class HistoryPanel {
   moveCursor(delta) {
     if (this.treeKind === "bookmarks") {
       this.moveFavoriteCursor(delta);
+      return;
+    }
+    if (this.treeKind === "downloads") {
+      this.moveDownloadCursor(delta);
       return;
     }
     const nodes = this.getTreeFlatNodes();
@@ -1526,7 +1653,10 @@ class HistoryPanel {
     if (!current) return startIndex;
     const parentId = current.parentId || null;
     let idx = startIndex;
-    while (idx + 1 < flatNodes.length && (flatNodes[idx + 1].parentId || null) === parentId) {
+    while (
+      idx + 1 < flatNodes.length &&
+      (flatNodes[idx + 1].parentId || null) === parentId
+    ) {
       idx += 1;
     }
     return idx;
@@ -1579,7 +1709,8 @@ class HistoryPanel {
     const entries = [];
     for (const node of slice) {
       if (node.type === "day") days.add(node.dateKey);
-      else if (node.type === "entry") entries.push({ dateKey: node.dateKey, entryId: node.entry.id });
+      else if (node.type === "entry")
+        entries.push({ dateKey: node.dateKey, entryId: node.entry.id });
     }
     for (const { dateKey, entryId } of entries) {
       if (!days.has(dateKey)) historyService.deleteEntry(dateKey, entryId);
@@ -1592,7 +1723,11 @@ class HistoryPanel {
     const idx = Math.max(0, Math.min(next.length - 1, from));
     const node = next[idx];
     this.cursor = node
-      ? { type: node.type, dateKey: node.dateKey, entryId: node.entry ? node.entry.id : null }
+      ? {
+          type: node.type,
+          dateKey: node.dateKey,
+          entryId: node.entry ? node.entry.id : null,
+        }
       : { type: "day", dateKey: null, entryId: null };
   }
 
@@ -1608,11 +1743,14 @@ class HistoryPanel {
   }
 
   render() {
-    if (!this.view || this.view.webContents.isDestroyed()) return;
+    if (!this.getWebContents()) return;
     const isBookmarks = this.treeKind === "bookmarks";
+    const isDownloads = this.treeKind === "downloads";
     const rows = isBookmarks
       ? this.renderFavoriteRows()
-      : this.renderHistoryRows();
+      : isDownloads
+        ? this.renderDownloadRows()
+        : this.renderHistoryRows();
     const footer = this.renderFooter();
     const footerTone = footer.tone || "muted";
     const footerText = escapeHtml(footer.text || "");
@@ -1622,6 +1760,10 @@ class HistoryPanel {
       this.treeKind === "history" ? "tree-head-item active" : "tree-head-item";
     const bookmarkHeadClass =
       this.treeKind === "bookmarks"
+        ? "tree-head-item active"
+        : "tree-head-item";
+    const downloadsHeadClass =
+      this.treeKind === "downloads"
         ? "tree-head-item active"
         : "tree-head-item";
 
@@ -1635,13 +1777,19 @@ class HistoryPanel {
 
     const footerSegments = [];
     if (footerText) {
-      footerSegments.push(`<span class="foot-text" title="${footerText}">${footerText}</span>`);
+      footerSegments.push(
+        `<span class="foot-text" title="${footerText}">${footerText}</span>`,
+      );
     }
     if (footerHint) {
-      footerSegments.push(`<span class="foot-hint" title="${footerHint}">${footerHint}</span>`);
+      footerSegments.push(
+        `<span class="foot-hint" title="${footerHint}">${footerHint}</span>`,
+      );
     }
     if (footerValue) {
-      footerSegments.push(`<span class="foot-input" title="${footerValue}">${footerValue}</span>`);
+      footerSegments.push(
+        `<span class="foot-input" title="${footerValue}">${footerValue}</span>`,
+      );
     }
 
     const selectedTreeIndex = this.getSelectedTreeIndex();
@@ -1655,13 +1803,25 @@ class HistoryPanel {
         : "none";
     this.lastSelectedTreeIndex = selectedTreeIndex;
 
-    const panelHeight = this.visible && this.window
-      ? Math.max(1, this.window.getContentBounds().height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT)
-      : 1;
+    const panelHeight =
+      this.visible && this.window
+        ? Math.max(
+            1,
+            this.window.getContentBounds().height -
+              UI_SHELL_TABLINE_HEIGHT -
+              UI_SHELL_STATUSLINE_HEIGHT,
+          )
+        : 1;
     const estimatedHeaderHeight = 34;
     const estimatedFooterHeight = 30;
-    const estimatedListHeight = Math.max(1, panelHeight - estimatedHeaderHeight - estimatedFooterHeight);
-    const viewportRows = Math.max(1, Math.floor(estimatedListHeight / TREE_LAYOUT.rowMinHeight));
+    const estimatedListHeight = Math.max(
+      1,
+      panelHeight - estimatedHeaderHeight - estimatedFooterHeight,
+    );
+    const viewportRows = Math.max(
+      1,
+      Math.floor(estimatedListHeight / TREE_LAYOUT.rowMinHeight),
+    );
     const nextFirstVisibleIndex = this.computeNextFirstVisibleIndex({
       selectedIndex: selectedTreeIndex,
       direction: scrollDirection,
@@ -1675,13 +1835,14 @@ class HistoryPanel {
         : "filter-prompt-active"
       : "";
 
-    const html = `<!doctype html><html><body><style>
+    const html = `<!doctype html><html><head><meta charset="UTF-8" /><meta http-equiv="Content-Security-Policy" content="${INTERNAL_PANEL_CSP}" /></head><body><style>
       html,body{height:100%}
       body{margin:0;background:var(--ui-bg-panel,#161b24);color:var(--ui-text,#c9d1df);font:12px "JetBrainsMono Nerd Font Mono", monospace;border-right:1px solid var(--ui-border-strong,#2a3140);box-sizing:border-box}
       .wrap{display:flex;flex-direction:column;height:100%;position:relative}
-      .head{padding:8px 10px;border-bottom:1px solid var(--ui-border,#2f3440);display:flex;gap:8px;align-items:center}
+      .head{padding:8px 10px;border-bottom:1px solid var(--ui-border,#2f3440);display:flex;gap:8px;align-items:center;height:34px;box-sizing:border-box}
       .tree-head-item{color:var(--ui-text-muted,#7f8aa3)}
       .tree-head-item.active{color:var(--ui-accent,#89dceb);font-weight:600}
+      .tree-head-item{cursor:pointer;user-select:none}
       .list{padding:6px 0;overflow-x:hidden;overflow-y:auto;flex:1}
       .row{display:flex;align-items:stretch;gap:0;min-height:${TREE_LAYOUT.rowMinHeight}px}
       .row.row-no-meta .time{width:0;flex:0 0 0;padding:0;overflow:hidden}
@@ -1728,7 +1889,7 @@ class HistoryPanel {
       .filter-nav-active .floating-input-cursor{background:var(--ui-text-muted,#7f8aa3);opacity:.55}
       .filter-nav-active .floating-input-caret{background:var(--ui-text-muted,#7f8aa3);opacity:.65}
       .filter-prompt-active .floating-input{border-color:color-mix(in srgb, var(--ui-accent,#89dceb) 40%, var(--ui-border,#2f3440))}
-    </style><div class="wrap ${this.focused ? "focused" : "unfocused"} ${filterModeClass}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${bookmarkHeadClass}">Bookmarks</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
+    </style><div class="wrap ${this.focused ? "focused" : "unfocused"} ${filterModeClass}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${bookmarkHeadClass}">Bookmarks</span><span class="${downloadsHeadClass}">Downloads</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
 
     this.scheduleRender(html);
   }
@@ -1747,7 +1908,10 @@ class HistoryPanel {
           this.cursor.type === "entry" &&
           this.cursor.dateKey === node.dateKey &&
           this.cursor.entryId === node.entry.id;
-        const text = this.renderTextWithMatch(node.entry.title || node.entry.url, query);
+        const text = this.renderTextWithMatch(
+          node.entry.title || node.entry.url,
+          query,
+        );
         const time = escapeHtml(this.formatDateTime(node.entry));
         return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${text}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`;
       });
@@ -1855,7 +2019,10 @@ class HistoryPanel {
   }
 
   getFavoriteNodeClipboardMarker(nodeId) {
-    if (!this.bookmarkClipboard || this.bookmarkClipboard.sourceNodeId !== nodeId) {
+    if (
+      !this.bookmarkClipboard ||
+      this.bookmarkClipboard.sourceNodeId !== nodeId
+    ) {
       return "";
     }
 
@@ -1887,7 +2054,9 @@ class HistoryPanel {
     const nodes = this.isBookmarksFilterActive()
       ? this.getFilteredFavoriteFlatNodes()
       : this.getFavoriteFlatNodes();
-    const query = this.isBookmarksFilterActive() ? this.getActiveFilterQuery() : "";
+    const query = this.isBookmarksFilterActive()
+      ? this.getActiveFilterQuery()
+      : "";
     if (!nodes.length) {
       rows.push(
         `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No item yet.</span></span><span class="time time-hidden"></span></div>`,
@@ -1899,7 +2068,9 @@ class HistoryPanel {
       if (node.type === "folder") {
         const open = node.forceOpen ? true : this.bookmarkExpanded.has(node.id);
         const selected = this.isFavoriteNodeSelected(node);
-        const siblingNodes = nodes.filter((item) => item.parentId === node.parentId);
+        const siblingNodes = nodes.filter(
+          (item) => item.parentId === node.parentId,
+        );
         const branch = node.index === siblingNodes.length - 1 ? "└" : "│";
         const indentPx =
           node.depth > 0
@@ -1914,7 +2085,10 @@ class HistoryPanel {
             ? `<span class="tree-cols"><span class="icon guide">${branch}</span></span>`
             : "";
         const folderText = this.isBookmarksFilterActive()
-          ? this.renderTextWithMatch(this.getFavoriteFolderDisplayName(node), query)
+          ? this.renderTextWithMatch(
+              this.getFavoriteFolderDisplayName(node),
+              query,
+            )
           : escapeHtml(this.getFavoriteFolderDisplayName(node));
         rows.push(
           `<div class="row row-meta day ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span>${guideHtml}<span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
@@ -1922,7 +2096,9 @@ class HistoryPanel {
       } else {
         const selected = this.isFavoriteNodeSelected(node);
         const entryTextSource =
-          this.isBookmarksFilterActive() && this.filterEditState?.filterScope === "entry" && this.filterEditState?.filterField === "url"
+          this.isBookmarksFilterActive() &&
+          this.filterEditState?.filterScope === "entry" &&
+          this.filterEditState?.filterField === "url"
             ? String(node.entry?.url || "")
             : this.getFavoriteEntryDisplayName(node);
         const entryText = this.isBookmarksFilterActive()
@@ -1949,6 +2125,72 @@ class HistoryPanel {
       }
     }
     return rows;
+  }
+
+  getDownloadFlatNodes() {
+    const { active, persisted } = this.downloadEntries;
+    const out = [];
+    for (const entry of active) {
+      out.push({ kind: "active", id: String(entry.id), entry });
+    }
+    for (const entry of persisted) {
+      out.push({ kind: "persisted", id: String(entry.id), entry });
+    }
+    return out;
+  }
+
+  moveDownloadCursor(delta) {
+    const nodes = this.getDownloadFlatNodes();
+    if (!nodes.length) return;
+    let idx = nodes.findIndex((node) => node.id === this.downloadCursor.id);
+    if (idx === -1) idx = 0;
+    idx = Math.max(0, Math.min(nodes.length - 1, idx + delta));
+    this.downloadCursor = { id: nodes[idx].id };
+  }
+
+  getCurrentDownloadEntry() {
+    const nodes = this.getDownloadFlatNodes();
+    return nodes.find((node) => node.id === this.downloadCursor.id) || null;
+  }
+
+  renderDownloadRows() {
+    const nodes = this.getDownloadFlatNodes();
+    if (!nodes.length) {
+      return [
+        `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No downloads yet.</span></span><span class="time time-hidden"></span></div>`,
+      ];
+    }
+    return nodes.map((node) => {
+      const selected = node.id === this.downloadCursor.id;
+      const entry = node.entry;
+      const state = entry.state || "unknown";
+      const glyph =
+        state === "progressing"
+          ? "▶"
+          : state === "paused"
+            ? "⏸"
+            : state === "completed"
+              ? "✓"
+              : state === "cancelled"
+                ? "✗"
+                : state === "interrupted"
+                  ? "⚠"
+                  : "?";
+      const name = escapeHtml(entry.filename || "Unknown");
+      let progressText = "";
+      if (state === "progressing") {
+        progressText = `${Math.round((entry.progress || 0) * 100)}% · ${entry.formattedReceived || "0 B"}${entry.formattedTotal ? ` / ${entry.formattedTotal}` : ""}`;
+      } else if (state === "paused") {
+        progressText = `${entry.formattedReceived || "0 B"}${entry.formattedTotal ? ` / ${entry.formattedTotal}` : ""}`;
+      } else if (state === "completed") {
+        progressText = entry.formattedTotal || "";
+      } else if (state === "cancelled" || state === "interrupted") {
+        progressText = `${entry.formattedReceived || "0 B"}${entry.formattedTotal ? ` / ${entry.formattedTotal}` : ""}`;
+      } else {
+        progressText = state;
+      }
+      return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon file-glyph">${glyph}</span></span><span class="text">${name}</span></span><span class="time">${escapeHtml(progressText)}</span></div>`;
+    });
   }
 
   saveBookmarks() {
@@ -2137,23 +2379,13 @@ class HistoryPanel {
   }
 
   clearRenderTimer() {
-    if (!this.renderTimer) return;
-    clearTimeout(this.renderTimer);
-    this.renderTimer = null;
+    if (!this.renderTransport) return;
+    this.renderTransport.cancelPending();
   }
 
   scheduleRender(html) {
-    if (!this.view || this.view.webContents.isDestroyed()) return;
-    if (html === this.lastRenderedHtml) return;
-    this.lastRenderedHtml = html;
-    this.clearRenderTimer();
-    this.renderTimer = setTimeout(() => {
-      this.renderTimer = null;
-      if (!this.view || this.view.webContents.isDestroyed()) return;
-      this.view.webContents.loadURL(
-        `data:text/html;charset=utf-8,${encodeURIComponent(this.lastRenderedHtml)}`,
-      );
-    }, 16);
+    if (!this.renderTransport) return;
+    this.renderTransport.scheduleHtmlRender(html);
   }
 
   handleFocusedInput(input) {
@@ -2162,6 +2394,7 @@ class HistoryPanel {
     if (this.state && this.state.mode === "COMMAND") return false;
     const key = input.key;
     const isBookmarks = this.treeKind === "bookmarks";
+    const isDownloads = this.treeKind === "downloads";
     const bookmarkNodes = isBookmarks ? this.getFavoriteFlatNodes() : [];
     const currentFavoriteNode = isBookmarks
       ? bookmarkNodes.find((node) => node.id === this.bookmarkCursor.nodeId) ||
@@ -2169,8 +2402,13 @@ class HistoryPanel {
       : null;
 
     const now = Date.now();
-    const timeout = this.state?.sequenceTimeout;
-    if (Number.isFinite(timeout) && this.treeLastKeyTime && now - this.treeLastKeyTime > timeout) {
+    if (
+      hasSequenceTimedOut(
+        now,
+        this.treeLastKeyTime,
+        this.state?.sequenceTimeout,
+      )
+    ) {
       this.treeCountBuffer = "";
       this.treeKeyBuffer = "";
     }
@@ -2209,6 +2447,55 @@ class HistoryPanel {
       }
     }
 
+    if (this.confirmItemDelete) {
+      this.clearTreeNormalState();
+      if (key === "Enter") {
+        const answer = this.confirmDeleteAll.trim().toLowerCase();
+        if (answer === "y") {
+          if (this.treeKind === "downloads") {
+            const current = this.getCurrentDownloadEntry();
+            if (current) {
+              if (current.kind === "active") {
+                downloadsService.cancel(current.id);
+              } else {
+                downloadsService.removePersistedByIds([current.id]);
+              }
+            }
+          }
+        }
+        this.confirmDeleteAll = "";
+        this.confirmItemDelete = false;
+        this.confirmItemDeleteId = null;
+        this.reloadData();
+        this.render();
+        return true;
+      }
+      if (key === "Escape") {
+        this.confirmDeleteAll = "";
+        this.confirmItemDelete = false;
+        this.confirmItemDeleteId = null;
+        this.render();
+        return true;
+      }
+      if (key === "Backspace") {
+        this.confirmDeleteAll = this.confirmDeleteAll.slice(0, -1);
+        this.render();
+        return true;
+      }
+      if (
+        !input.ctrl &&
+        !input.meta &&
+        !input.alt &&
+        typeof key === "string" &&
+        key.length === 1
+      ) {
+        this.confirmDeleteAll += key;
+        this.render();
+        return true;
+      }
+      return true;
+    }
+
     if (this.deleteAllArmed) {
       this.clearTreeNormalState();
       if (key === "Enter") {
@@ -2217,7 +2504,11 @@ class HistoryPanel {
           if (isBookmarks) {
             this.recordFavoriteMutationSnapshot();
             bookmarksService.deleteAll();
-          } else historyService.deleteAll();
+          } else if (this.treeKind === "downloads") {
+            downloadsService.clearCompleted();
+          } else {
+            historyService.deleteAll();
+          }
         }
         this.confirmDeleteAll = "";
         this.deleteAllArmed = false;
@@ -2251,7 +2542,12 @@ class HistoryPanel {
     }
 
     if (this.treeDeletePending) {
-      if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta") {
+      if (
+        key === "Shift" ||
+        key === "Control" ||
+        key === "Alt" ||
+        key === "Meta"
+      ) {
         return true;
       }
       if (key === "Escape") {
@@ -2259,7 +2555,12 @@ class HistoryPanel {
         this.render();
         return true;
       }
-      if (!input.ctrl && !input.meta && !input.alt && /^[0-9]$/.test(String(key))) {
+      if (
+        !input.ctrl &&
+        !input.meta &&
+        !input.alt &&
+        /^[0-9]$/.test(String(key))
+      ) {
         if (this.treeDeletePendingG) {
           this.clearTreeDeletePending();
           this.render();
@@ -2294,16 +2595,27 @@ class HistoryPanel {
         return true;
       }
 
-      const count = Math.max(1, Number.parseInt(this.treeDeleteCountBuffer || "1", 10));
+      const count = Math.max(
+        1,
+        Number.parseInt(this.treeDeleteCountBuffer || "1", 10),
+      );
       const hasExplicitCount = this.treeDeleteCountBuffer.length > 0;
-      if ((key === "j" || key === "ArrowDown") && currentIndex >= 0 && hasExplicitCount) {
+      if (
+        (key === "j" || key === "ArrowDown") &&
+        currentIndex >= 0 &&
+        hasExplicitCount
+      ) {
         const target = Math.min(flat.length - 1, currentIndex + count);
         this.deleteRangeInTree(currentIndex, target);
         this.clearTreeDeletePending();
         this.render();
         return true;
       }
-      if ((key === "k" || key === "ArrowUp") && currentIndex >= 0 && hasExplicitCount) {
+      if (
+        (key === "k" || key === "ArrowUp") &&
+        currentIndex >= 0 &&
+        hasExplicitCount
+      ) {
         const target = Math.max(0, currentIndex - count);
         this.deleteRangeInTree(currentIndex, target);
         this.clearTreeDeletePending();
@@ -2336,6 +2648,19 @@ class HistoryPanel {
       return true;
     }
 
+    if (this.treeKeyBuffer === "g" && key === "d") {
+      this.treeKeyBuffer = "";
+      this.treeCountBuffer = "";
+      if (this.treeKind === "downloads") {
+        const current = this.getCurrentDownloadEntry();
+        if (current) {
+          downloadsService.showInFolder(current.id);
+        }
+      }
+      this.render();
+      return true;
+    }
+
     const shared = this.resolveSharedTreeNormalAction(input);
     if (shared?.consumed) {
       if (shared.shouldRender) this.render();
@@ -2346,12 +2671,11 @@ class HistoryPanel {
       this.clearFavoriteEdit();
       this.startFilterPrompt();
       this.reconcileFilterCursor();
-    }
-    else if (key === "H") this.switchTreeByOffset(-1);
+    } else if (key === "H") this.switchTreeByOffset(-1);
     else if (key === "L") this.switchTreeByOffset(1);
     else if (key === "ArrowDown") this.moveCursor(1);
     else if (key === "ArrowUp") this.moveCursor(-1);
-    else if (key === "l" || key === "ArrowRight") {
+    else if (!isDownloads && (key === "l" || key === "ArrowRight")) {
       if (isBookmarks) {
         if (
           this.isBookmarksFilterActive() &&
@@ -2362,14 +2686,16 @@ class HistoryPanel {
           if (!(this.filterEditState.collapsedFolderIds instanceof Set)) {
             this.filterEditState.collapsedFolderIds = new Set();
           }
-          this.filterEditState.collapsedFolderIds.delete(currentFavoriteNode.id);
+          this.filterEditState.collapsedFolderIds.delete(
+            currentFavoriteNode.id,
+          );
         }
         if (currentFavoriteNode && currentFavoriteNode.type === "folder") {
           this.bookmarkExpanded.add(currentFavoriteNode.id);
         }
       } else if (this.cursor.type === "day")
         this.expanded.add(this.cursor.dateKey);
-    } else if (key === "h" || key === "ArrowLeft") {
+    } else if (!isDownloads && (key === "h" || key === "ArrowLeft")) {
       if (isBookmarks) {
         const liveNodes = this.getFavoriteFlatNodes();
         const liveNode =
@@ -2407,9 +2733,9 @@ class HistoryPanel {
           entryId: null,
         };
       }
-    } else if (key === "Enter") this.openCurrent(Boolean(input.shift));
-    else if (key === "o" || key === "O") this.openCurrent(key === "O");
-    else if (key === "y") {
+    } else if (!isDownloads && key === "Enter") this.openCurrent(Boolean(input.shift));
+    else if (!isDownloads && (key === "o" || key === "O")) this.openCurrent(key === "O");
+    else if (!isDownloads && key === "y") {
       if (isBookmarks) {
         this.copyOrMoveCurrentFavorite(false);
       } else {
@@ -2444,15 +2770,60 @@ class HistoryPanel {
           persist: false,
         });
       }
-    }
-    else if (key === "d") {
+    } else if (this.treeKind === "downloads") {
+      const current = this.getCurrentDownloadEntry();
+      if (key === "d") {
+        if (current && current.kind === "active") {
+          const entry = current.entry;
+          if (entry.isPaused) {
+            downloadsService.resume(current.id);
+          } else {
+            downloadsService.pause(current.id);
+          }
+        }
+      } else if (key === "x") {
+        if (current) {
+          this.confirmItemDelete = true;
+          this.confirmItemDeleteId = current.id;
+          this.confirmItemDeleteLabel =
+            current.kind === "active"
+              ? "Cancel download"
+              : "Remove download";
+          this.confirmDeleteAll = "";
+        }
+      } else if (key === "D") {
+        this.confirmDeleteAll = "";
+        this.deleteAllArmed = true;
+      } else if (key === "r") {
+        if (current) {
+          const info = downloadsService.getRetryInfo(current.id);
+          if (info && info.url && this.buffers) {
+            const active = this.buffers.getActive();
+            if (active && active.webContents && !active.isEditable) {
+              active.webContents.downloadURL(info.url);
+            }
+          }
+        }
+      } else if (key === "o") {
+        if (current) {
+          downloadsService.openFile(current.id);
+        }
+      } else if (key === "Enter") {
+        if (current) {
+          downloadsService.openFile(current.id);
+        }
+      } else if (key === "Escape") {
+        this.unfocus();
+      } else {
+        return false;
+      }
+    } else if (key === "d") {
       this.treeCountBuffer = "";
       this.treeKeyBuffer = "";
       this.treeDeletePending = true;
       this.treeDeleteCountBuffer = "";
       this.armTreeDeletePendingTimeout();
-    }
-    else if (key === "D") {
+    } else if (key === "D") {
       this.confirmDeleteAll = "";
       this.deleteAllArmed = true;
     } else if (!isBookmarks && key === "t")

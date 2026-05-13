@@ -6,7 +6,10 @@ const { resolveUserPath } = require("../storage/path");
 
 function getSessionsFilePath() {
   return resolveUserPath(
-    getConfigValue("global.storage.sessions_file", "~/.config/noctra/sessions.yml"),
+    getConfigValue(
+      "global.storage.sessions_file",
+      "~/.config/noctra/sessions.yml",
+    ),
     "~/.config/noctra/sessions.yml",
   );
 }

@@ -38,6 +38,9 @@ const defaultConfig = {
     theme: {
       mode: "dark",
       content_mode: "dark",
+      // Base palette when mode is custom: dark | light | auto
+      // Determines native chrome (devTools) and web content match behavior
+      custom_base: "dark",
       overrides: {
         appBackground: "#0f131a",
         surfaceBackground: "#171b22",
@@ -116,6 +119,7 @@ const defaultConfig = {
       bookmarks_file: "~/.config/noctra/bookmarks.yml",
       sessions_file: "~/.config/noctra/sessions.yml",
       notifications_file: "~/.config/noctra/notifications.yml",
+      downloads_file: "~/.config/noctra/downloads.yml",
     },
     notifications: {
       enabled: true,
@@ -157,6 +161,35 @@ const defaultConfig = {
     },
   },
   keymap: {
+    normal: {
+      j: "scroll_down",
+      k: "scroll_up",
+      gg: "scroll_top",
+      G: "scroll_bottom",
+      h: "scroll_left",
+      l: "scroll_right",
+      gh: "nav_back",
+      gl: "nav_forward",
+      r: "reload_page",
+      ".": "repeat_last_action",
+      H: "buffer_prev",
+      L: "buffer_next",
+      i: "enter_insert",
+      o: "open_url_prompt",
+      b: "new_buffer",
+      "|": "split_vertical",
+    },
+    mod: {
+      d: "scroll_half_down",
+      u: "scroll_half_up",
+      f: "page_down",
+      b: "page_up",
+      h: "focus_split_left",
+      l: "focus_split_right",
+      q: "close_focused",
+      t: "new_buffer",
+      T: "reopen_buffer",
+    },
     leader: {
       ",": {
         label: "Open settings",
@@ -284,16 +317,23 @@ const defaultConfig = {
         label: "Open notifications",
         action: "open_notifications",
       },
+      D: {
+        label: "Live downloads",
+        action: "downloads_live_modal",
+      },
     },
   },
   browser: {
     language: "en",
     copy_selection_to_clipboard: false,
-    chromium: {
-      web_preferences: {
-        context_isolation: true,
-        node_integration: false,
-      },
+    allow_http_loopback: true,
+    allow_http_private_lan: true,
+    trusted_http_hosts: [],
+    downloads: {
+      policy: "prompt",
+      allow_trusted_surfaces: false,
+      default_directory: null,
+      auto_open: false,
     },
   },
 };

@@ -1,66 +1,106 @@
 # Noctra
 
-Noctra is a keyboard-first browser shell for people who want Neovim-style flow inside a modern web engine.
+Noctra is a keyboard-first browser shell with a Neovim-style workflow.
 
-Built on Electron today (Chromium backend), Noctra treats tabs like buffers, keeps modal navigation at the center (`NORMAL`, `INSERT`, `COMMAND`), and is designed with clear adapter boundaries for future multi-engine support.
+It runs on Electron (Chromium engine), treats tabs as buffers, and keeps modal interaction at the center: `NORMAL`, `INSERT`, and `COMMAND`.
 
 ## Status
 
-Noctra is an early-stage project (`v0.1.0`) and actively evolving.
+Noctra is early-stage (`v0.1.0`) and actively evolving.
 
-- Core modal interaction is implemented and usable.
-- Keymaps are data-driven with user override support.
-- Browser UX is intentionally nvim-like rather than conventional browser-like.
-- APIs, commands, and default mappings may still change between minor versions.
-
-## Why Noctra
-
-- Vim mental model for browsing: motions, counts, command line, leader maps.
-- Buffer-first navigation and split workflows.
-- Runtime-configurable behavior from `~/.config/noctra/config.yml`.
-- Clear module boundaries (`core/`, `motions/`, `browser/`, `ui/`) for maintainability.
-
-## Features
-
-- Modal input engine with intent dispatching.
-- Browser buffer management (new, switch, close, reopen).
-- Command mode (`:`) with URL open, search, session, and UI commands.
-- Side panel integrations for history/bookmarks.
-- Session save/restore.
-- Theme controls and custom override support.
-- In-app settings buffer and notifications buffer.
+- Core browsing and modal workflows are usable.
+- Defaults are Vim-like, with configurable leader mappings.
+- Security and regression checks are part of the standard CI test gate.
+- Commands, mappings, and APIs can still change between minor versions.
 
 ## Quick Start
 
-### Requirements
+Requirements:
 
-- Node.js 20+ recommended
+- Node.js 20+
 - npm 10+
-- macOS, Linux, or Windows with Electron support
 
-### Install and run
+Run:
 
 ```bash
 npm install
 npm run start
 ```
 
-### Optional environment config
-
-Copy `.env.example` to `.env` and adjust as needed:
-
-```bash
-cp .env.example .env
-```
-
-Available variable:
+Optional environment policy:
 
 - `NOCTRA_CONFIG_POLICY=customizable` (default)
-- `NOCTRA_CONFIG_POLICY=strict` (forces default config on load)
+- `NOCTRA_CONFIG_POLICY=strict`
+
+## Download
+
+Prebuilt releases are available on the [Releases](https://github.com/LightQv/noctra/releases) page.
+
+| Platform | Format | Notes                                                                                                                                |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| macOS    | `.dmg` | Drag to Applications. Unsigned builds show a Gatekeeper warning on first launch — right-click the app and select **Open** to bypass. |
+| macOS    | `.zip` | Portable archive.                                                                                                                    |
+| Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`.                                                                                            |
+| Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`.                                                                                             |
+
+## Packaging (for developers)
+
+Noctra uses [Electron Forge](https://www.electronforge.io/) for packaging.
+
+```bash
+# Build distributables for the current platform
+npm run make
+
+# Package only (no installer)
+npm run package
+
+# Build for a specific platform
+npm run make -- --platform=darwin
+npm run make -- --platform=linux
+```
+
+Output artifacts are written to `out/make/`.
+
+### Creating a release
+
+Releases are created via GitHub Actions. Only maintainers with write access can do this:
+
+1. Go to **Actions → "Create Release" → "Run workflow"**.
+2. Enter the version (e.g., `0.1.1`) and release notes.
+3. Click **Run workflow**.
+4. The workflow will bump `package.json`, create a tag, build artifacts for macOS and Linux, and publish the release automatically.
+
+### macOS code signing
+
+To produce a signed, notarized macOS build:
+
+1. Join the [Apple Developer Program](https://developer.apple.com/programs/) ($99/year).
+2. Export your signing identity and create an app-specific password.
+3. Add these repository secrets in GitHub:
+   - `APPLE_ID`
+   - `APPLE_PASSWORD`
+   - `APPLE_TEAM_ID`
+   - `APPLE_IDENTITY` (optional)
+
+The release workflow will automatically sign and notarize when these secrets are present.
+
+### App icons
+
+Icons are generated from `assets/icons/icon.svg` via `scripts/generate-icons.js`. To regenerate:
+
+```bash
+node scripts/generate-icons.js
+```
+
+This produces:
+
+- `assets/icons/icon.png` — 1024x1024 master
+- `assets/icons/icon_512.png` — Linux app icon
+- `assets/icons/icon.icns` — macOS app icon bundle
 
 ## Documentation
 
-Use this sequence if you are new:
+Start here:
 
 1. [Getting Started](docs/getting-started.md)
 2. [Tutorial: First 30 Minutes](docs/tutorials/first-30-minutes.md)
@@ -68,122 +108,55 @@ Use this sequence if you are new:
 4. [Commands](docs/commands.md)
 5. [Configuration](docs/configuration.md)
 
-Reference docs:
+Reference:
 
 - [Architecture](docs/architecture.md)
+- [Architecture Map](docs/architecture-map.md)
+- [Testing Guide](docs/testing.md)
+- [Intent Contract](INTENTS.md)
+- [Intent Lifecycle Workflow](docs/intent-lifecycle.md)
+- [IPC Security Checklist](docs/ipc-security-checklist.md)
 - [FAQ](docs/faq.md)
+- [Security Policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+- [Release Checklist](docs/release-checklist.md)
+- [Release Hygiene Status](docs/release-hygiene-status.md)
 
 Tutorials:
 
 - [Customize Leader Keymap](docs/tutorials/customize-keymap.md)
 - [Sessions, History, and Bookmarks](docs/tutorials/sessions-history-bookmarks.md)
 
-## Keyboard and command preview
+## Preview
 
-### Normal mode defaults (excerpt)
+Normal mode examples:
 
-- `j` / `k`: scroll down/up
-- `h` / `l`: scroll left/right
-- `gg` / `G`: top/bottom of page
-- `H` / `L`: previous/next buffer
-- `i`: enter insert mode
-- `o`: open URL prompt
-- `b`: new buffer
-- `|`: open vertical split
+- `j` / `k` scroll down/up
+- `h` / `l` scroll left/right
+- `gg` / `G` top/bottom
+- `H` / `L` previous/next buffer
+- `|` open split
 
-### Modifier defaults (excerpt)
-
-- `Ctrl+d` / `Ctrl+u`: half page down/up
-- `Ctrl+f` / `Ctrl+b`: page down/up
-- `Ctrl+h` / `Ctrl+l`: focus split left/right
-- `Ctrl+q`: close focused context
-- `Ctrl+t`: new buffer
-- `Ctrl+Shift+t`: reopen buffer
-
-### Command mode examples
-
-Use `:` to open command mode, then run commands such as:
+Command mode examples:
 
 - `:open github.com`
-- `:tabnew https://example.com`
-- `:buffer 3`
+- `:tabnew`
+- `:buffer 2`
 - `:bdelete`
-- `:history toggle`
-- `:bookmarks toggle`
 - `:session save`
-- `:settings`
-- `:theme dark`
-- `:quit`
+- `:session restore`
 
-Full command and mapping references are in [Commands](docs/commands.md) and [Keybindings](docs/keybindings.md).
+## Architecture at a glance
 
-## How Noctra works
+Input flow:
 
-Input follows a strict intent pipeline:
+`motions/* -> core/input.js -> core/dispatcher.js -> browser/* + ui/*`
 
-1. `motions/*` parses key sequences and mode-specific behavior.
-2. `core/input.js` normalizes input and resolves intent payloads.
-3. `core/dispatcher.js` executes intents against browser/UI services.
-4. `browser/*` and `ui/*` apply results to web contents and shell UI.
+Key design points:
 
-This separation keeps input logic deterministic and prevents tight coupling between motion parsing and Electron internals.
-
-## Configuration
-
-Noctra loads config from:
-
-- `~/.config/noctra/config.yml`
-
-Config includes:
-
-- Input behavior (leader key, sequence timeout)
-- Leader map overrides
-- UI toggles (tabline, urlline, statusline, sidepanel)
-- Theme mode and color overrides
-- Split behavior and focus keys
-- Storage paths (history/bookmarks/sessions/notifications)
-- Browser settings (language, selection-copy behavior)
-
-See [Configuration](docs/configuration.md) for schema and examples.
-
-## Project structure
-
-```text
-noctra/
-  browser/     # webContents-backed buffer and browser actions
-  core/        # state, dispatcher, parser, config, services
-  motions/     # modal key handling and action builders
-  ui/          # shell UI, command palette, tabline, theme
-  docs/        # tutorials and reference documentation
-```
-
-## Contributing
-
-Contributions are welcome.
-
-Start here:
-
-- [Contributing Guide](CONTRIBUTING.md) for workflow, standards, and PR expectations.
-
-If you are looking for a first contribution, prioritize small improvements in docs, keymap ergonomics, and command discoverability.
-
-## Roadmap themes
-
-### Fixes
-
-- [ ] Vertical spacing above whichkey hints.
-- [ ] Subfolder alignment in bookmarks lists.
-- [ ] Add `border-bottom` on tabline to match statusline styling.
-
-### Next features
-
-- [ ] Build a unified telescope for history, bookmarks, and open web buffers/tabs.
-- [ ] Add in-page `/` search with a Neovim-like experience.
-- [ ] Add extensions support (for example ad blockers).
-- [ ] Improve web-native behavior (download management, native app events like quit handling, and related integrations).
-- [ ] Stabilize keymap override and runtime reload behavior.
-- [ ] Handle in-page navigation/insertion through Vim-motion flow.
-- [ ] Harden adapter boundaries for future multi-engine support.
+- Motion and command layers emit intents.
+- Dispatcher executes intent contracts.
+- Adapter boundaries isolate Electron primitives.
 
 ## License
 

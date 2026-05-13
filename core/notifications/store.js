@@ -9,14 +9,14 @@ function getNotificationsFilePath() {
   let configuredPath = DEFAULT_NOTIFICATIONS_FILE;
   try {
     const { getConfigValue } = require("../config/service");
-    configuredPath = getConfigValue("global.storage.notifications_file", DEFAULT_NOTIFICATIONS_FILE);
+    configuredPath = getConfigValue(
+      "global.storage.notifications_file",
+      DEFAULT_NOTIFICATIONS_FILE,
+    );
   } catch {
     configuredPath = DEFAULT_NOTIFICATIONS_FILE;
   }
-  return resolveUserPath(
-    configuredPath,
-    DEFAULT_NOTIFICATIONS_FILE,
-  );
+  return resolveUserPath(configuredPath, DEFAULT_NOTIFICATIONS_FILE);
 }
 
 function ensureNotificationsFile() {

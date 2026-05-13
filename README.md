@@ -36,12 +36,12 @@ Optional environment policy:
 
 Prebuilt releases are available on the [Releases](https://github.com/LightQv/noctra/releases) page.
 
-| Platform | Format | Notes |
-|----------|--------|-------|
-| macOS | `.dmg` | Drag to Applications. Unsigned builds show a Gatekeeper warning on first launch — right-click the app and select **Open** to bypass. |
-| macOS | `.zip` | Portable archive. |
-| Linux | `.deb` | Install with `sudo dpkg -i noctra_*.deb`. |
-| Linux | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`. |
+| Platform | Format | Notes                                                                                                                                |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| macOS    | `.dmg` | Drag to Applications. Unsigned builds show a Gatekeeper warning on first launch — right-click the app and select **Open** to bypass. |
+| macOS    | `.zip` | Portable archive.                                                                                                                    |
+| Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`.                                                                                            |
+| Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`.                                                                                             |
 
 ## Packaging (for developers)
 
@@ -93,6 +93,7 @@ node scripts/generate-icons.js
 ```
 
 This produces:
+
 - `assets/icons/icon.png` — 1024x1024 master
 - `assets/icons/icon_512.png` — Linux app icon
 - `assets/icons/icon.icns` — macOS app icon bundle

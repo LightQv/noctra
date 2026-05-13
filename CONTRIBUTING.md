@@ -128,7 +128,3 @@ When opening an issue, include:
 - Logs or screenshots if relevant
 
 For suspected security issues, do not open a public issue. Use the private reporting path documented in `SECURITY.md`.
-
-## Code of conduct
-
-Please follow `CODE_OF_CONDUCT.md` in all project spaces.

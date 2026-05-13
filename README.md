@@ -118,7 +118,6 @@ Reference:
 - [IPC Security Checklist](docs/ipc-security-checklist.md)
 - [FAQ](docs/faq.md)
 - [Security Policy](SECURITY.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Contributing](CONTRIBUTING.md)
 - [Release Checklist](docs/release-checklist.md)
 - [Release Hygiene Status](docs/release-hygiene-status.md)

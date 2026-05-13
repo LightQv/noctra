@@ -1,3 +1,4 @@
 node_modules
 AGENTS.md
 .env
+docs/multi-window-migration-plan.md

@@ -1,8 +1,22 @@
+<div align="center">
+
 # Contributing to Noctra
 
-Thanks for your interest in contributing to Noctra.
+Keyboard-first, modal, and architecture-conscious.
 
-This project is keyboard-first, modal, and architecture-conscious. Contributions that preserve those principles are the most valuable.
+[Development Setup](#development-setup) · [Principles](#contribution-principles) · [Change Flow](#typical-change-flow) · [Testing](#testing) · [Documentation](#documentation-expectations) · [Issues](#reporting-issues)
+
+</div>
+
+---
+
+## Development Setup
+
+See [Getting Started](docs/getting-started.md#build-from-source) for Node.js requirements and build instructions.
+
+Config is loaded from `~/.config/noctra/config.yml` (auto-generated if missing).
+
+---
 
 ## Before you start
 
@@ -12,14 +26,7 @@ This project is keyboard-first, modal, and architecture-conscious. Contributions
 - Read `docs/testing.md` for test scopes and command matrix.
 - For user-facing behavior changes, verify modal consistency (`NORMAL`, `INSERT`, `COMMAND`).
 
-## Development setup
-
-```bash
-npm install
-npm run start
-```
-
-Config is loaded from `~/.config/noctra/config.yml` (auto-generated if missing).
+---
 
 ## Contribution principles
 
@@ -30,6 +37,8 @@ Config is loaded from `~/.config/noctra/config.yml` (auto-generated if missing).
 - Avoid leaking Electron-specific details across module boundaries.
 - Prefer small modules and explicit domain naming.
 - Keep changes focused and reviewable.
+
+---
 
 ## Typical change flow
 
@@ -46,6 +55,8 @@ Suggested branch prefixes:
 - `docs/<topic>` for documentation
 - `refactor/<topic>` for structural cleanup
 
+---
+
 ## Commit style
 
 Use short, imperative commit messages that explain intent.
@@ -56,6 +67,8 @@ Examples:
 - `fix buffer reopen after focused close`
 - `document session commands and defaults`
 
+---
+
 ## Pull request checklist
 
 - Change is scoped and does not include unrelated edits.
@@ -64,51 +77,61 @@ Examples:
 - New commands/mappings are discoverable in docs.
 - No secrets or local machine artifacts are included.
 
-## Testing guidance
+---
 
-Noctra has automated tests and a canonical CI gate:
+## Testing
 
-- Run `npm run lint` for static checks.
-- Run `npm run format:check` for formatting checks.
-- Run `npm run check:intents` for intent contract/doc parity.
-- Run `npm run check:security-baseline` for security default policy drift.
-- Run `npm run check:deps-locked` for exact dependency version policy.
-- Run `npm test` for unit/contract coverage.
-- Run `npm run ci:test` for the canonical local parity/security smoke gate.
+### Before opening a PR
 
-Test scope rules and scoped commands are documented in `docs/testing.md`.
+Run these locally before submitting:
 
-For IPC-facing changes, complete `docs/ipc-security-checklist.md` before opening a PR.
+| Command | What it checks |
+| ------- | -------------- |
+| `npm run lint` | Static analysis and code style |
+| `npm run format:check` | Prettier formatting compliance |
+| `npm run ci:test` | Canonical local gate — same structure as CI |
 
-Also include a short manual test plan for behavior-sensitive changes.
+For the full command matrix, policy checks, and test scopes, see [docs/testing.md](docs/testing.md).
 
-At minimum, list:
+For IPC-facing changes, complete [docs/ipc-security-checklist.md](docs/ipc-security-checklist.md) before opening a PR.
 
-- Mode(s) tested
-- Key sequence(s) tested
-- Command(s) tested
-- Expected and observed outcomes
+### Manual test plan
 
-Example PR test note:
+For behavior-sensitive changes, include a short verification note in your PR.
+
+Template:
+
+```text
+Manual verification:
+- Mode(s): NORMAL, INSERT, COMMAND
+- Tested: key sequences and commands
+- Result: expected vs observed
+```
+
+Example:
 
 ```text
 Manual verification:
 - NORMAL: j/k/h/l, gg/G, H/L
 - COMMAND: :tabnew, :buffer 2, :bdelete, :session save, :session restore
 - Leader: <leader> S s and <leader> S r
-Result: All actions dispatch correctly, session restored without crash.
+- Result: All actions dispatch correctly, session restored without crash.
 ```
+
+---
 
 ## Documentation expectations
 
 If your change affects user workflows, update at least one of:
 
-- `docs/keybindings.md`
-- `docs/commands.md`
-- `docs/configuration.md`
-- `docs/tutorials/*`
+- [docs/keybindings.md](docs/keybindings.md)
+- [docs/commands.md](docs/commands.md)
+- [docs/configuration.md](docs/configuration.md)
+- [docs/tutorials/*](docs/tutorials/)
 
 Keep documentation concrete and example-driven.
+
+---
 
 ## Good first contributions
 
@@ -116,6 +139,8 @@ Keep documentation concrete and example-driven.
 - Add missing docs for existing behavior.
 - Polish keymap defaults and leader grouping labels.
 - Improve consistency between intent names, commands, and docs.
+
+---
 
 ## Reporting issues
 
@@ -127,4 +152,4 @@ When opening an issue, include:
 - Actual behavior
 - Logs or screenshots if relevant
 
-For suspected security issues, do not open a public issue. Use the private reporting path documented in `SECURITY.md`.
+For suspected security issues, do not open a public issue. Use the private reporting path documented in [SECURITY.md](SECURITY.md).

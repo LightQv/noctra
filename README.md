@@ -119,29 +119,20 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution princ
 
 ## Roadmap
 
-1. [ ] **Stabilize UI**
-   Harden layout, panels, and visual consistency across modes.
+1. [ ] **Stabilize UI** — Harden layout, panels, and visual consistency across modes.
 
-2. [ ] **Stabilize active focus**
-   Ensure reliable focus tracking between splits, buffers, and input fields.
+2. [ ] **Stabilize active focus** — Ensure reliable focus tracking between splits, buffers, and input fields.
 
-3. [ ] **Ensure keybindings are working properly**
-   Cover app-menu, leader sequences, vim-motions, and command dispatch.
+3. [ ] **Ensure keybindings are working properly** — Cover app-menu, leader sequences, vim-motions, and command dispatch.
 
-4. [ ] **Full mouse support**
-   Click-to-focus, scroll, and context interactions outside modal keys.
+4. [ ] **Full mouse support** — Click-to-focus, scroll, and context interactions outside modal keys.
 
-5. [ ] **Multi-window support**
-   Allow multiple native windows with shared session state.
+5. [ ] **Multi-window support** — Allow multiple native windows with shared session state.
 
-6. [ ] **CLI support**
-   Basic actions: open, quit, focus, change workspace, and more.
+6. [ ] **CLI support** — Basic actions: open, quit, focus, change workspace, and more.
 
-7. [ ] **Multi-language at app-level**
-   Localize UI strings and user-facing messages.
+7. [ ] **Multi-language at app-level** — Localize UI strings and user-facing messages.
 
-8. [ ] **Bookmark imports from other browsers**
-   Import bookmarks from Chrome, Firefox, Safari, and standard formats.
+8. [ ] **Bookmark imports from other browsers** — Import bookmarks from Chrome, Firefox, Safari, and standard formats.
 
-9. [ ] **Enhance modern browser behavior**
-   Right-click context menu, extension support, plugins, and web compatibility layers.
+9. [ ] **Enhance modern browser behavior** — Right-click context menu, extension support, plugins, and web compatibility layers.

@@ -5,6 +5,9 @@ const { FuseV1Options, FuseVersion } = require("@electron/fuses");
 module.exports = {
   packagerConfig: {
     asar: true,
+    // Explicit executable name to ensure consistency across platforms
+    // Fixes Linux .deb/.rpm makers failing to locate the binary
+    executableName: "noctra",
     // Cross-platform icon path (Forge appends the correct extension per platform)
     icon: path.resolve(__dirname, "assets/icons/icon"),
     // macOS code signing configuration

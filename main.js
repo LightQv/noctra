@@ -36,6 +36,7 @@ const historyService = require("./core/history/service");
 const bookmarksService = require("./core/bookmarks/service");
 const historyPanel = require("./core/history/panel");
 const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
+const downloadsModal = require("./core/downloads/modal");
 const telescopeService = require("./core/telescope/service");
 const { resolveFocusSnapshot } = require("./core/focusResolver");
 const { resolveInputPriority } = require("./core/inputPriorityResolver");
@@ -175,6 +176,7 @@ function handleRawInput(event, input) {
     buffers,
     historyPanel,
     bookmarkInsertScopeModal,
+    downloadsModal,
     telescopeService,
   });
   const priority = resolveInputPriority(
@@ -199,6 +201,21 @@ function handleRawInput(event, input) {
         !bookmarkInsertScopeModal.isActive() &&
         focusSnapshot.historyPanelVisible
       ) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      updateTablineOptions();
+      if (appMenu) appMenu.sync();
+      return;
+    }
+  }
+
+  if (focusSnapshot.downloadsModalActive) {
+    const consumed = downloadsModal.handleInput(normalized);
+    if (consumed) {
+      event.preventDefault();
+      if (!downloadsModal.isActive() && focusSnapshot.historyPanelVisible) {
         historyPanel.reloadData();
         historyPanel.render();
       }
@@ -505,7 +522,7 @@ function updateTablineActions() {
   const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
   const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
   const newBufferShortcut = findShortcutLabelForAction("new_buffer");
-  const historyToggleShortcut = findShortcutLabelForAction("history_toggle");
+  const downloadsLiveShortcut = findShortcutLabelForAction("downloads_live_modal");
   const newTabShortcut = [newBufferShortcut, ":tab", ":tabnew", ":tabe"]
     .filter((value, index, list) => value && list.indexOf(value) === index)
     .join(" | ");
@@ -521,10 +538,10 @@ function updateTablineActions() {
       icon: "󰒓",
       shortcutLabel: `${systemShortcut} | ${vimShortcut}`,
     },
-    history: {
-      label: "History",
-      icon: "󰋚",
-      shortcutLabel: historyToggleShortcut || "<leader> e | :history show",
+    downloads: {
+      label: "Downloads",
+      icon: "󰇚",
+      shortcutLabel: downloadsLiveShortcut || "<leader> D | :downloads live",
     },
   });
 }

@@ -32,29 +32,33 @@ function initializeOverlayView({
 }
 
 function relayout() {
-  applyOverlayLayout({
-    windowRef: this.window,
-    overlays: {
-      commandOverlayView: this.commandOverlayView,
-      whichKeyOverlayView: this.whichKeyOverlayView,
-      selectionModalView: this.selectionModalView,
-      telescopeView: this.telescopeView,
-      statuslineView: this.statuslineView,
-      toastOverlayView: this.toastOverlayView,
-    },
-    visibility: {
-      commandVisible: this.commandVisible,
-      whichKeyVisible: this.whichKeyVisible,
-      selectionModalVisible: this.selectionModalVisible,
-      telescopeVisible: this.telescopeVisible,
-    },
-    chrome: {
-      UI_SHELL_TABLINE_HEIGHT,
-      UI_SHELL_STATUSLINE_HEIGHT,
-    },
-    computeSelectionModalHeight: () =>
-      this.computeSelectionModalHeight(this.selectionModalModel),
-  });
+    applyOverlayLayout({
+      windowRef: this.window,
+      overlays: {
+        commandOverlayView: this.commandOverlayView,
+        whichKeyOverlayView: this.whichKeyOverlayView,
+        selectionModalView: this.selectionModalView,
+        telescopeView: this.telescopeView,
+        statuslineView: this.statuslineView,
+        toastOverlayView: this.toastOverlayView,
+        downloadsModalView: this.downloadsModalView,
+      },
+      visibility: {
+        commandVisible: this.commandVisible,
+        whichKeyVisible: this.whichKeyVisible,
+        selectionModalVisible: this.selectionModalVisible,
+        telescopeVisible: this.telescopeVisible,
+        downloadsModalVisible: this.downloadsModalVisible,
+      },
+      chrome: {
+        UI_SHELL_TABLINE_HEIGHT,
+        UI_SHELL_STATUSLINE_HEIGHT,
+      },
+      computeSelectionModalHeight: () =>
+        this.computeSelectionModalHeight(this.selectionModalModel),
+      computeDownloadsModalHeight: () =>
+        this.computeDownloadsModalHeight(this.downloadsModalModel),
+    });
 }
 
 function hasCommandOverlayAttached() {
@@ -78,6 +82,8 @@ function syncOverlayStack() {
     commandVisible: this.commandVisible,
     commandOverlayView: this.commandOverlayView,
     toastOverlayView: this.toastOverlayView,
+    downloadsModalVisible: this.downloadsModalVisible,
+    downloadsModalView: this.downloadsModalView,
   });
 
   this.relayout();

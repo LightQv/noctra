@@ -211,6 +211,19 @@ function parseCommand(raw) {
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 
+    case "downloads": {
+      const option = arg.toLowerCase();
+      if (!option || option === "show") return { type: INTENTS.DOWNLOADS_SHOW };
+      if (option === "hide") return { type: INTENTS.DOWNLOADS_HIDE };
+      if (option === "toggle") return { type: INTENTS.DOWNLOADS_TOGGLE };
+      if (option === "focus") return { type: INTENTS.DOWNLOADS_TOGGLE_FOCUS };
+      if (option === "clear-all")
+        return { type: INTENTS.DOWNLOADS_CLEAR_ALL };
+      if (option === "live")
+        return { type: INTENTS.DOWNLOADS_LIVE_MODAL };
+      return { type: INTENTS.UNKNOWN_COMMAND, raw };
+    }
+
     case "session": {
       const option = arg.toLowerCase();
       if (option === "save") return { type: INTENTS.SESSION_SAVE };

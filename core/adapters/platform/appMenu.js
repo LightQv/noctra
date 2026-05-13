@@ -139,6 +139,7 @@ function createAppMenu({
       canGoBack,
       canGoForward,
       canReload,
+      canSplitDevtools,
       isBookmarkable: isBookmarkableBuffer(active),
       splitEnabled: buffers.isSplitEnabled(),
       splitMode: buffers.getSplitStatus().mode,
@@ -516,6 +517,11 @@ function createAppMenu({
     const toolsMenu = {
       label: "Tools",
       submenu: [
+        {
+          label: "Downloads",
+          click: () =>
+            dispatchAndSync(win, { type: INTENTS.DOWNLOADS_LIVE_MODAL }, state),
+        },
         {
           label: "Notifications",
           click: () =>

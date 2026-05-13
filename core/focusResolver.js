@@ -5,6 +5,10 @@ function resolveFocusOwner(snapshot = {}) {
     return "BOOKMARK_MODAL";
   }
 
+  if (snapshot.downloadsModalActive) {
+    return "DOWNLOADS_MODAL";
+  }
+
   if (snapshot.telescopeActive) {
     return "TELESCOPE";
   }
@@ -34,6 +38,7 @@ function resolveFocusSnapshot({
   historyPanel,
   bookmarkInsertScopeModal,
   telescopeService,
+  downloadsModal,
 }) {
   const activeBuffer =
     buffers && typeof buffers.getActive === "function"
@@ -44,6 +49,7 @@ function resolveFocusSnapshot({
     bookmarkModalActive: Boolean(
       bookmarkInsertScopeModal && bookmarkInsertScopeModal.isActive(),
     ),
+    downloadsModalActive: Boolean(downloadsModal && downloadsModal.isActive()),
     telescopeActive: Boolean(telescopeService && telescopeService.isActive()),
     historyPanelVisible: Boolean(historyPanel && historyPanel.isVisible()),
     historyPanelFocused: Boolean(historyPanel && historyPanel.isFocused()),

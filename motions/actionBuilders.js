@@ -132,6 +132,15 @@ const ACTION_BUILDERS = {
     })),
     (context = {}) => isBookmarkableBuffer(context.activeBuffer),
   ),
+  downloads_toggle: createActionBuilder("downloads_toggle", () => ({
+    type: INTENTS.DOWNLOADS_TOGGLE,
+  })),
+  downloads_toggle_focus: createActionBuilder("downloads_toggle_focus", () => ({
+    type: INTENTS.DOWNLOADS_TOGGLE_FOCUS,
+  })),
+  downloads_live_modal: createActionBuilder("downloads_live_modal", () => ({
+    type: INTENTS.DOWNLOADS_LIVE_MODAL,
+  })),
   telescope_open_history: createActionBuilder("telescope_open_history", () => ({
     type: INTENTS.TELESCOPE_OPEN_HISTORY,
   })),

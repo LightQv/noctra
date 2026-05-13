@@ -107,21 +107,21 @@ function renderTabline(
     actions.settings.shortcutLabel.trim().length > 0
       ? actions.settings.shortcutLabel
       : "Cmd+, | Ctrl+,";
-  const historyLabel =
-    typeof actions?.history?.label === "string" &&
-    actions.history.label.trim().length > 0
-      ? actions.history.label
-      : "History";
-  const historyIcon =
-    typeof actions?.history?.icon === "string" &&
-    actions.history.icon.trim().length > 0
-      ? actions.history.icon
-      : "󰋚";
-  const historyShortcut =
-    typeof actions?.history?.shortcutLabel === "string" &&
-    actions.history.shortcutLabel.trim().length > 0
-      ? actions.history.shortcutLabel
-      : "<leader> e | :history show";
+  const downloadsLabel =
+    typeof actions?.downloads?.label === "string" &&
+    actions.downloads.label.trim().length > 0
+      ? actions.downloads.label
+      : "Downloads";
+  const downloadsIcon =
+    typeof actions?.downloads?.icon === "string" &&
+    actions.downloads.icon.trim().length > 0
+      ? actions.downloads.icon
+      : "󰇚";
+  const downloadsShortcut =
+    typeof actions?.downloads?.shortcutLabel === "string" &&
+    actions.downloads.shortcutLabel.trim().length > 0
+      ? actions.downloads.shortcutLabel
+      : "<leader> D | :downloads live";
   const newTabLabel =
     typeof actions?.newTab?.label === "string" &&
     actions.newTab.label.trim().length > 0
@@ -146,10 +146,10 @@ function renderTabline(
     `${newTabLabel} (${newTabShortcut})`,
   )}" aria-label="${escapeHtml(newTabLabel)}"><span class="tab-new-icon">${escapeHtml(newTabIcon)}</span></button>`;
 
-  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-history" title="${escapeHtml(
-    `${historyLabel} (${historyShortcut})`,
-  )}" aria-label="Open history"><span class="tabline-action-icon">${escapeHtml(
-    historyIcon,
+  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-downloads" title="${escapeHtml(
+    `${downloadsLabel} (${downloadsShortcut})`,
+  )}" aria-label="Open downloads"><span class="tabline-action-icon">${escapeHtml(
+    downloadsIcon,
   )}</span></button><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
     `${configLabel} (${configShortcut})`,
   )}" aria-label="Open config"><span class="tabline-action-icon">${escapeHtml(
@@ -191,8 +191,8 @@ function renderTabline(
             if (tablineAction === 'open-settings' && window.uiShell && typeof window.uiShell.openSettings === 'function') {
               window.uiShell.openSettings();
             }
-            if (tablineAction === 'open-history' && window.uiShell && typeof window.uiShell.openHistory === 'function') {
-              window.uiShell.openHistory();
+            if (tablineAction === 'open-downloads' && window.uiShell && typeof window.uiShell.openDownloads === 'function') {
+              window.uiShell.openDownloads();
             }
             return;
           }
@@ -331,8 +331,8 @@ function renderTabline(
         });
       });
 
-      root.querySelectorAll('[data-tabline-action="open-history"] .tabline-action-icon').forEach((icon) => {
-        icon.style.fontSize = '${UI_CHROME_ICON_GLYPH_SIZE + 2}px';
+      root.querySelectorAll('[data-tabline-action="open-downloads"] .tabline-action-icon').forEach((icon) => {
+        icon.style.fontSize = '12px';
       });
 
       root.querySelectorAll('.window-btn').forEach((button) => {

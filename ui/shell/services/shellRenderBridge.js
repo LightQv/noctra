@@ -52,6 +52,9 @@ function setThemeBridge(nextTheme = {}) {
   this.applyThemeToWebContents(
     this.toastOverlayView && this.toastOverlayView.webContents,
   );
+  this.applyThemeToWebContents(
+    this.downloadsModalView && this.downloadsModalView.webContents,
+  );
   this.renderTabline(this.pendingTablineSnapshot);
   this.renderUrlline(this.urllineModel);
   this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);

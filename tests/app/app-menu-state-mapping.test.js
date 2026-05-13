@@ -423,7 +423,7 @@ test("bookmarks menu contains add actions and tree", () => {
   assert.ok(entryItem, "Bookmark entry 'GitHub' should exist");
 });
 
-test("tools menu contains notifications", () => {
+test("tools menu contains downloads and notifications", () => {
   const active = createMockBuffer(1, "Test", false);
 
   const deps = createDeps({
@@ -436,6 +436,11 @@ test("tools menu contains notifications", () => {
 
   const toolsMenu = lastMenuTemplate.find((m) => m.label === "Tools");
   assert.ok(toolsMenu, "Tools menu should exist");
+
+  const downloads = toolsMenu.submenu.find(
+    (item) => item.label === "Downloads",
+  );
+  assert.ok(downloads, "Downloads should exist in Tools menu");
 
   const notifications = toolsMenu.submenu.find(
     (item) => item.label === "Notifications",

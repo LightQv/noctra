@@ -13,6 +13,9 @@ const uiShellApi = {
   openHistory() {
     ipcRenderer.send("ui-shell:open-history");
   },
+  openDownloads() {
+    ipcRenderer.send("ui-shell:open-downloads");
+  },
   activateTab(id) {
     ipcRenderer.send("ui-shell:tab-activate", { id });
   },

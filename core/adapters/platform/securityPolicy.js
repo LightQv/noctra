@@ -8,6 +8,7 @@ const {
   buildSafeDownloadPath,
   resolveDownloadDecision,
 } = require("../../security/downloadPolicy");
+const downloadsService = require("../../downloads/service");
 
 function registerSessionSecurityPolicy({
   session,
@@ -84,6 +85,8 @@ function registerSessionSecurityPolicy({
         item.setSavePath(safePath);
       }
     }
+
+    downloadsService.registerDownload(item, webContents, safePath);
 
     if (decision.action === "prompt") {
       notify({

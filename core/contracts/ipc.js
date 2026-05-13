@@ -36,6 +36,7 @@ const IPC_CONTRACTS = {
   "ui-shell:open-settings": { kind: "event", validator: optionalEmptyObject },
   "ui-shell:new-tab": { kind: "event", validator: optionalEmptyObject },
   "ui-shell:open-history": { kind: "event", validator: optionalEmptyObject },
+  "ui-shell:open-downloads": { kind: "event", validator: optionalEmptyObject },
   "ui-shell:tab-activate": {
     kind: "event",
     validator: createStrictObjectValidator({ id: validateInteger }),

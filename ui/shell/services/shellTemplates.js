@@ -765,6 +765,143 @@ const STATUSLINE_OVERLAY_HTML = `
 </html>
 `;
 
+const DOWNLOADS_MODAL_OVERLAY_HTML = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      ${UI_FONT_FACE_CSS}
+
+      :root {
+        --ui-font-family: ${UI_FONT_FAMILY};
+      }
+
+      #downloads-modal {
+        margin: 0;
+        min-width: 0;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        border-radius: 6px;
+        border: 1px solid var(--ui-accent, #89dceb);
+        background: var(--ui-bg-panel, #161b24);
+        color: var(--ui-text-bright, #f4f7ff);
+        display: flex;
+        flex-direction: column;
+        padding: 6px 8px 8px;
+        gap: 6px;
+        font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+      }
+
+      #downloads-modal-title {
+        align-self: center;
+        margin: 0 auto;
+        padding: 0 8px;
+        color: var(--ui-text-muted, #7d8aa3);
+        background: var(--ui-bg-panel, #161b24);
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      #downloads-modal-list {
+        min-height: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      .downloads-modal-empty {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 12px;
+      }
+
+      .downloads-modal-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 22px;
+        line-height: 18px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: var(--ui-text-soft, #b6c7e8);
+        font-size: 12px;
+      }
+
+      .downloads-modal-row.selected {
+        background: color-mix(in srgb, var(--ui-bg-subtle, #1f2735) 58%, transparent);
+        color: var(--ui-text-bright, #f4f7ff);
+      }
+
+      .downloads-modal-glyph {
+        flex: 0 0 auto;
+        width: 1.2em;
+        text-align: center;
+      }
+
+      .downloads-modal-filename {
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .downloads-modal-bar {
+        flex: 0 0 auto;
+        color: var(--ui-accent, #89dceb);
+        font-size: 11px;
+        line-height: 1;
+        white-space: pre;
+      }
+
+      .downloads-modal-right {
+        flex: 0 0 auto;
+        color: var(--ui-text-muted, #7d8aa3);
+        white-space: nowrap;
+        text-align: right;
+        font-size: 11px;
+      }
+
+      .downloads-modal-row.selected .downloads-modal-right {
+        color: var(--ui-text-soft, #b6c7e8);
+      }
+
+      #downloads-modal-footer {
+        display: flex;
+        justify-content: space-between;
+        color: var(--ui-text-muted, #7d8aa3);
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <fieldset id="downloads-modal">
+      <legend id="downloads-modal-title">Downloads</legend>
+      <div id="downloads-modal-list"></div>
+      <div id="downloads-modal-footer"></div>
+    </fieldset>
+  </body>
+</html>
+`;
+
 const TOAST_OVERLAY_HTML = `
 <!doctype html>
 <html>
@@ -840,4 +977,5 @@ module.exports = {
   TELESCOPE_OVERLAY_HTML,
   STATUSLINE_OVERLAY_HTML,
   TOAST_OVERLAY_HTML,
+  DOWNLOADS_MODAL_OVERLAY_HTML,
 };

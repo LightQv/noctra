@@ -74,7 +74,7 @@ jobs:
             console.log('Version bump valid: $CURRENT → $NEW');
           "
 
-      - name: Bump version in package.json
+      - name: Bump version in package.json and README.md
         id: bump
         run: |
           VERSION="${{ github.event.inputs.version }}"
@@ -84,6 +84,7 @@ jobs:
             pkg.version = '$VERSION';
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
+          sed -i "s/Current version: .*/Current version: $VERSION/" README.md
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Commit, tag, and push
@@ -91,7 +92,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
+          git add package.json package-lock.json README.md
           git commit -m "chore(release): bump version to ${{ github.event.inputs.version }}"
           COMMIT_SHA=$(git rev-parse HEAD)
           echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"

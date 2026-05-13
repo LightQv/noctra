@@ -1,7 +1,7 @@
 {
   "name": "noctra",
   "productName": "Noctra",
-  "version": "0.0.1-beta",
+  "version": "0.0.0",
   "description": "A keyboard-first browser shell with a Neovim-style workflow.",
   "author": "LightQv",
   "license": "MIT",
@@ -43,7 +43,6 @@
     "@electron-forge/maker-deb": "7.11.1",
     "@electron-forge/maker-dmg": "7.11.1",
     "@electron-forge/maker-rpm": "7.11.1",
-    "@electron-forge/maker-squirrel": "7.11.1",
     "@electron-forge/maker-zip": "7.11.1",
     "@electron-forge/plugin-auto-unpack-natives": "7.11.1",
     "@electron-forge/plugin-fuses": "7.11.1",
@@ -57,7 +56,6 @@
   "dependencies": {
     "codemirror": "5.65.16",
     "dotenv": "17.4.2",
-    "electron-squirrel-startup": "1.0.1",
     "yaml": "2.8.3"
   },
   "overrides": {

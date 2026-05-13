@@ -187,12 +187,18 @@ jobs:
           if-no-files-found: error
 
   attach-and-publish:
-    needs: [build-macos, build-linux]
+    needs: [bump-and-tag, build-macos, build-linux]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.bump-and-tag.outputs.tag }}
+
       - name: Download macOS artifacts
         uses: actions/download-artifact@v4
         with:
@@ -205,10 +211,17 @@ jobs:
           name: linux-artifacts
           path: artifacts/linux
 
+      - name: Verify release exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
+        run: |
+          echo "Release tag: $RELEASE_TAG"
+          gh release view "$RELEASE_TAG" || echo "Warning: release view failed, but attempting upload anyway"
+
       - name: Attach artifacts to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
         run: |
           find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" \) | while read -r file; do
@@ -219,7 +232,6 @@ jobs:
       - name: Publish release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
         run: |
           gh release edit "$RELEASE_TAG" --draft=false

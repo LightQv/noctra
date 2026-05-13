@@ -2,10 +2,17 @@
   "name": "noctra",
   "productName": "Noctra",
   "version": "0.1.0",
+  "description": "A keyboard-first browser shell with a Neovim-style workflow.",
   "author": "LightQv",
+  "license": "MIT",
+  "homepage": "https://github.com/LightQv/noctra",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LightQv/noctra.git"
+  },
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "electron-forge start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier \"**/*.{md,json,yml,yaml}\" --write",
@@ -27,9 +34,20 @@
     "test:smoke:devtools-lifecycle": "node tests/smoke/electron-devtools-lifecycle.smoke.js",
     "test:smoke:session-lifecycle": "node tests/smoke/electron-session-lifecycle.smoke.js",
     "test:smoke:focus-lifecycle": "node tests/smoke/electron-focus-lifecycle.smoke.js",
-    "ci:test": "npm run lint && npm run format:check && npm run check:intents && npm run check:state-ownership && npm run check:security-baseline && npm run check:deps-locked && npm test && npm run test:smoke && npm run test:smoke:overlay && npm run test:smoke:ui-cadence && npm run test:smoke:security && npm run test:smoke:settings-lifecycle && npm run test:smoke:devtools-lifecycle && npm run test:smoke:session-lifecycle && npm run test:smoke:focus-lifecycle"
+    "ci:test": "npm run lint && npm run format:check && npm run check:intents && npm run check:state-ownership && npm run check:security-baseline && npm run check:deps-locked && npm test && npm run test:smoke && npm run test:smoke:overlay && npm run test:smoke:ui-cadence && npm run test:smoke:security && npm run test:smoke:settings-lifecycle && npm run test:smoke:devtools-lifecycle && npm run test:smoke:session-lifecycle && npm run test:smoke:focus-lifecycle",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
   },
   "devDependencies": {
+    "@electron-forge/cli": "7.11.1",
+    "@electron-forge/maker-deb": "7.11.1",
+    "@electron-forge/maker-dmg": "7.11.1",
+    "@electron-forge/maker-rpm": "7.11.1",
+    "@electron-forge/maker-squirrel": "7.11.1",
+    "@electron-forge/maker-zip": "7.11.1",
+    "@electron-forge/plugin-auto-unpack-natives": "7.11.1",
+    "@electron-forge/plugin-fuses": "7.11.1",
+    "@electron/fuses": "1.8.0",
     "@eslint/js": "9.39.4",
     "electron": "41.2.2",
     "eslint": "9.39.4",
@@ -39,6 +57,7 @@
   "dependencies": {
     "codemirror": "5.65.16",
     "dotenv": "17.4.2",
+    "electron-squirrel-startup": "1.0.1",
     "yaml": "2.8.3"
   }
 }

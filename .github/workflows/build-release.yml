@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release (e.g., 0.1.1)"
+        description: "Version to release (e.g., 0.1.1, 0.2.0-alpha, 0.2.0-beta.1, 0.2.0-rc.1)"
         required: true
       notes:
         description: "Release notes (markdown supported)"
@@ -28,8 +28,8 @@ jobs:
       - name: Validate version format
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "Error: Version must be in semver format X.Y.Z (e.g., 0.1.1)"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$'; then
+            echo "Error: Version must be valid semver: X.Y.Z, X.Y.Z-prerelease, or X.Y.Z-prerelease+build"
             exit 1
           fi
           echo "Version format valid: $VERSION"
@@ -38,11 +38,41 @@ jobs:
         run: |
           CURRENT=$(node -p "require('./package.json').version")
           NEW="${{ github.event.inputs.version }}"
-          if [ "$(printf '%s\n%s' "$CURRENT" "$NEW" | sort -V | head -n1)" != "$CURRENT" ]; then
-            echo "Error: New version ($NEW) must be greater than current version ($CURRENT)"
-            exit 1
-          fi
-          echo "Version bump valid: $CURRENT → $NEW"
+          node -e "
+            function parse(v) {
+              const [corePart] = v.split('+');
+              const [core, pre] = corePart.split('-');
+              return {
+                parts: core.split('.').map(Number),
+                pre: pre || null
+              };
+            }
+            function compare(a, b) {
+              for (let i = 0; i < 3; i++) {
+                if (a.parts[i] !== b.parts[i]) return a.parts[i] - b.parts[i];
+              }
+              if (a.pre === b.pre) return 0;
+              if (a.pre === null) return 1;
+              if (b.pre === null) return -1;
+              const ap = a.pre.split('.'), bp = b.pre.split('.');
+              for (let i = 0; i < Math.max(ap.length, bp.length); i++) {
+                const an = parseInt(ap[i], 10), bn = parseInt(bp[i], 10);
+                if (!isNaN(an) && !isNaN(bn)) {
+                  if (an !== bn) return an - bn;
+                } else {
+                  const cmp = (ap[i] || '').localeCompare(bp[i] || '');
+                  if (cmp !== 0) return cmp;
+                }
+              }
+              return 0;
+            }
+            const result = compare(parse('$NEW'), parse('$CURRENT'));
+            if (result <= 0) {
+              console.error('Error: New version ($NEW) must be greater than current version ($CURRENT)');
+              process.exit(1);
+            }
+            console.log('Version bump valid: $CURRENT → $NEW');
+          "
 
       - name: Bump version in package.json
         id: bump
@@ -73,9 +103,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ steps.bump.outputs.tag }}" \
-            --title "Noctra ${{ github.event.inputs.version }}" \
+          TAG="${{ steps.bump.outputs.tag }}"
+          VERSION="${{ github.event.inputs.version }}"
+          if echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-'; then
+            PRERELEASE="--prerelease"
+            echo "Detected pre-release version: $VERSION"
+          else
+            PRERELEASE=""
+            echo "Detected stable version: $VERSION"
+          fi
+          gh release create "$TAG" \
+            --title "Noctra $VERSION" \
             --notes "${{ github.event.inputs.notes }}" \
+            $PRERELEASE \
             --draft
 
   build-macos:

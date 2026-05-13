@@ -4,7 +4,10 @@ Use this checklist before publishing a new Noctra release.
 
 ## Version and notes
 
-- [ ] Decide the new version number (semver: `X.Y.Z`).
+- [ ] Decide the new version number.
+  - Stable: `X.Y.Z` (e.g., `0.1.0`)
+  - Pre-release: `X.Y.Z-alpha`, `X.Y.Z-beta.1`, `X.Y.Z-rc.1` (e.g., `0.1.0-alpha`)
+  - The workflow auto-detects pre-releases and marks them on GitHub.
 - [ ] Draft release notes with user-visible changes and migration notes.
 - [ ] Document any keybinding or command contract changes.
 
@@ -39,7 +42,7 @@ Use this checklist before publishing a new Noctra release.
 ## Create release
 
 1. Go to **Actions → "Create Release" → "Run workflow"**.
-2. Enter the new version (e.g., `0.1.1`) and your release notes.
+2. Enter the new version (e.g., `0.1.1` or `0.1.1-alpha`) and your release notes.
 3. Click **Run workflow**.
 4. Wait for the workflow to complete (~5–10 minutes).
 5. The release will be published automatically with all artifacts attached.

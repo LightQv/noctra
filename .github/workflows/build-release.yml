@@ -168,6 +168,7 @@ jobs:
       - name: Attach artifacts to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
         run: |
           find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" \) | while read -r file; do
@@ -178,6 +179,7 @@ jobs:
       - name: Publish release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
         run: |
           gh release edit "$RELEASE_TAG" --draft=false
@@ -191,17 +193,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          ref: main
 
       - name: Revert version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git revert --no-edit "${{ needs.bump-and-tag.outputs.commit_sha }}"
+          git fetch origin main
+          git reset --hard origin/main
+          git revert --no-edit "${{ needs.bump-and-tag.outputs.commit_sha }}" || echo "Revert skipped — commit already not on main"
           git push origin main
 
       - name: Delete tag
@@ -211,6 +216,7 @@ jobs:
       - name: Delete draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release delete "${{ needs.bump-and-tag.outputs.tag }}" --yes || true
           echo "Rollback complete for ${{ needs.bump-and-tag.outputs.tag }}"

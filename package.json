@@ -1,7 +1,7 @@
 {
   "name": "noctra",
   "productName": "Noctra",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A keyboard-first browser shell with a Neovim-style workflow.",
   "author": "LightQv",
   "license": "MIT",

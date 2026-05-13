@@ -193,6 +193,8 @@ jobs:
     container:
       image: archlinux:latest
     timeout-minutes: 30
+    env:
+      FORGE_ARCH_BUILD: true
     steps:
       - name: Install system dependencies
         run: |
@@ -210,7 +212,7 @@ jobs:
           useradd -m builder
           chown -R builder:builder .
           su builder -c "npm ci"
-          su builder -c "npm run make -- --config forge.config.arch.js --platform=linux"
+          su builder -c "npm run make -- --platform=linux"
 
       - name: List build output
         run: ls -R out/

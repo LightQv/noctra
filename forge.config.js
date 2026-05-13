@@ -57,22 +57,6 @@ const standardMakers = [
   },
 ];
 
-const archMakers = [
-  (() => {
-    const { default: MakerPacman } = require("@osmn-byhn/electron-make-pacman");
-    return new MakerPacman(
-      {
-        options: {
-          depends: ["gtk3", "nss", "libxss", "libxtst", "alsa-lib"],
-          icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
-          desktopCategories: ["Network", "WebBrowser"],
-        },
-      },
-      ["linux"]
-    );
-  })(),
-];
-
 module.exports = {
   packagerConfig: {
     asar: true,
@@ -103,7 +87,7 @@ module.exports = {
       : undefined,
   },
   rebuildConfig: {},
-  makers: process.env.FORGE_ARCH_BUILD === "true" ? archMakers : standardMakers,
+  makers: standardMakers,
   plugins: [
     {
       name: "@electron-forge/plugin-auto-unpack-natives",

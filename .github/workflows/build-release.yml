@@ -193,8 +193,6 @@ jobs:
     container:
       image: archlinux:latest
     timeout-minutes: 30
-    env:
-      FORGE_ARCH_BUILD: true
     steps:
       - name: Install system dependencies
         run: |
@@ -211,8 +209,15 @@ jobs:
         run: |
           useradd -m builder
           chown -R builder:builder .
-          su builder -c "npm ci"
-          su builder -c "npm run make -- --platform=linux"
+          su builder -c '
+            set -e
+            npm ci
+            npm run package -- --platform=linux
+            APP_DIR=$(ls -d out/*-linux-* | head -n 1)
+            mkdir -p "$APP_DIR/resources/app"
+            cp package.json "$APP_DIR/resources/app/package.json"
+            ./node_modules/.bin/electron-make-pacman "$APP_DIR" --config pacman-config.json
+          '
 
       - name: List build output
         run: ls -R out/

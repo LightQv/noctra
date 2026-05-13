@@ -193,8 +193,6 @@ jobs:
     container:
       image: archlinux:latest
     timeout-minutes: 30
-    env:
-      BUILD_PACMAN: true
     steps:
       - name: Install system dependencies
         run: |
@@ -212,7 +210,10 @@ jobs:
           useradd -m builder
           chown -R builder:builder .
           su builder -c "npm ci"
-          su builder -c "npm run make -- --platform=linux --targets=pacman"
+          su builder -c "npm run make -- --config forge.config.arch.js --platform=linux"
+
+      - name: List build output
+        run: ls -R out/
 
       - name: Upload Arch Linux artifacts
         uses: actions/upload-artifact@v4

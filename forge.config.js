@@ -85,23 +85,6 @@ module.exports = {
       name: "@electron-forge/maker-zip",
       platforms: ["linux"],
     },
-    ...(process.env.BUILD_PACMAN === "true"
-      ? [
-          (() => {
-            const { default: MakerPacman } = require("@osmn-byhn/electron-make-pacman");
-            return new MakerPacman(
-              {
-                options: {
-                  depends: ["gtk3", "nss", "libxss", "libxtst", "alsa-lib"],
-                  icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
-                  desktopCategories: ["Network", "WebBrowser"],
-                },
-              },
-              ["linux"]
-            );
-          })(),
-        ]
-      : []),
   ],
   plugins: [
     {

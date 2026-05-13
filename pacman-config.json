@@ -1,0 +1,7 @@
+{
+  "options": {
+    "depends": ["gtk3", "nss", "libxss", "libxtst", "alsa-lib"],
+    "icon": "assets/icons/icon_512.png",
+    "desktopCategories": ["Network", "WebBrowser"]
+  }
+}

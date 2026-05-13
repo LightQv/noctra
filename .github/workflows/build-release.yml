@@ -18,6 +18,7 @@ jobs:
       contents: write
     outputs:
       tag: ${{ steps.bump.outputs.tag }}
+      commit_sha: ${{ steps.push.outputs.commit_sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,11 +57,14 @@ jobs:
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Commit, tag, and push
+        id: push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json
           git commit -m "chore(release): bump version to ${{ github.event.inputs.version }}"
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
           git tag "${{ steps.bump.outputs.tag }}"
           git push origin main
           git push origin "${{ steps.bump.outputs.tag }}"
@@ -178,3 +182,35 @@ jobs:
         run: |
           gh release edit "$RELEASE_TAG" --draft=false
           echo "Release $RELEASE_TAG published successfully"
+
+  rollback:
+    needs: [bump-and-tag, build-macos, build-linux, attach-and-publish]
+    if: failure() && needs.bump-and-tag.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Revert version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git revert --no-edit "${{ needs.bump-and-tag.outputs.commit_sha }}"
+          git push origin main
+
+      - name: Delete tag
+        run: |
+          git push --delete origin "${{ needs.bump-and-tag.outputs.tag }}" || true
+
+      - name: Delete draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "${{ needs.bump-and-tag.outputs.tag }}" --yes || true
+          echo "Rollback complete for ${{ needs.bump-and-tag.outputs.tag }}"

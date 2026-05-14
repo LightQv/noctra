@@ -30,20 +30,22 @@ Noctra is early-stage and actively evolving. Core browsing and modal workflows a
 
 Prebuilt releases are available on the [Releases](https://github.com/LightQv/noctra/releases) page.
 
-| Platform | Format | Notes                                                                                                                                |
-| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| macOS    | `.dmg` | Drag to Applications. See the macOS tip below for first-launch instructions.                                                         |
-| macOS    | `.zip` | Portable archive.                                                                                                                    |
-| Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`.                                                                                            |
-| Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`.                                                                                             |
+| Platform | Format | Notes                                                                        |
+| -------- | ------ | ---------------------------------------------------------------------------- |
+| macOS    | `.dmg` | Drag to Applications. See the macOS tip below for first-launch instructions. |
+| macOS    | `.zip` | Portable archive.                                                            |
+| Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`.                                    |
+| Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`.                                     |
 
 > **Tip: macOS first launch**
 >
-> If you see *"Noctra.app is damaged and can't be opened"* after installing from the `.dmg`, run this in Terminal:
+> If you see _"Noctra.app is damaged and can't be opened"_ after installing from the `.dmg`, run this in Terminal:
+>
 > ```bash
 > xattr -d com.apple.quarantine /Applications/Noctra.app
 > ```
-> *This happens because Noctra is not notarized. Notarization requires a paid Apple Developer account ($99/year), which is not currently set up. The command above removes the quarantine flag so the app can open normally.*
+>
+> _This happens because Noctra is not notarized. Notarization requires a paid Apple Developer account ($99/year), which is not currently set up. The command above removes the quarantine flag so the app can open normally._
 
 ### Installation Directory
 

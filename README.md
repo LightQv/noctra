@@ -37,7 +37,8 @@ Prebuilt releases are available on the [Releases](https://github.com/LightQv/noc
 | Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`.                                    |
 | Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`.                                     |
 
-> **Tip: macOS first launch**
+> [!TIP]
+> **macOS first launch**
 >
 > If you see _"Noctra.app is damaged and can't be opened"_ after installing from the `.dmg`, run this in Terminal:
 >

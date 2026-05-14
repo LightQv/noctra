@@ -11,8 +11,6 @@ const MASTER_SIZE = 1024;
 const COLORS = {
   background: "#0f131a",
   primary: "#89dceb",
-  shadow: "#5a9fa8",
-  highlight: "#b0e8f0",
 };
 
 async function ensureDir(dir) {
@@ -24,83 +22,59 @@ async function ensureDir(dir) {
 function buildSvg() {
   const size = MASTER_SIZE;
   const cornerRadius = size * 0.22;
-  const padding = size * 0.15;
-  const innerSize = size - padding * 2;
 
-  // Blocky "N" inspired by the dashboard ASCII art
-  // The ASCII uses block characters creating a bold, geometric look
-  const strokeWidth = innerSize * 0.18;
-  const gap = strokeWidth * 0.25;
+  // Grid-based blocky N, inspired by dashboard ASCII art (░▒▓ style)
+  // We draw on a virtual grid and scale to the canvas
+  const gridW = 11;
+  const gridH = 13;
+  const cell = size / (Math.max(gridW, gridH) + 2); // padding around the grid
+  const offsetX = (size - gridW * cell) / 2;
+  const offsetY = (size - gridH * cell) / 2;
 
-  // Center coordinates
-  const cx = size / 2;
-  const cy = size / 2;
+  // Define the N as a set of filled cells [row, col]
+  // 0,0 is top-left. Rows go down, cols go right.
+  const nCells = [];
 
-  // The N is composed of 3 vertical/angled bars
-  const halfW = innerSize * 0.38;
-  const halfH = innerSize * 0.42;
-
-  // Left vertical bar
-  const leftX = cx - halfW;
-  const leftBar = `<rect x="${leftX - strokeWidth / 2}" y="${cy - halfH}" width="${strokeWidth}" height="${halfH * 2}" rx="${strokeWidth * 0.15}" fill="${COLORS.primary}" />`;
-
-  // Right vertical bar
-  const rightX = cx + halfW;
-  const rightBar = `<rect x="${rightX - strokeWidth / 2}" y="${cy - halfH}" width="${strokeWidth}" height="${halfH * 2}" rx="${strokeWidth * 0.15}" fill="${COLORS.primary}" />`;
-
-  // Diagonal bar (composed of segments for blocky look)
-  const diagSegments = [];
-  const segCount = 7;
-  const startX = leftX + strokeWidth / 2 + gap;
-  const startY = cy + halfH - strokeWidth / 2;
-  const endX = rightX - strokeWidth / 2 - gap;
-  const endY = cy - halfH + strokeWidth / 2;
-
-  for (let i = 0; i < segCount; i++) {
-    const t1 = i / segCount;
-    const t2 = (i + 1) / segCount;
-    const x1 = startX + (endX - startX) * t1;
-    const y1 = startY + (endY - startY) * t1;
-    const x2 = startX + (endX - startX) * t2;
-    const y2 = startY + (endY - startY) * t2;
-    const segCx = (x1 + x2) / 2;
-    const segCy = (y1 + y2) / 2;
-    const segW = Math.abs(x2 - x1) + strokeWidth;
-    const segH = Math.abs(y2 - y1) + strokeWidth;
-    const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
-
-    diagSegments.push(
-      `<rect x="${segCx - segW / 2}" y="${segCy - segH / 2}" width="${segW}" height="${segH}" rx="${strokeWidth * 0.1}" fill="${COLORS.primary}" transform="rotate(${angle} ${segCx} ${segCy})" />`
-    );
+  // Left vertical bar (2 cells wide)
+  for (let r = 0; r < gridH; r++) {
+    nCells.push([r, 0]);
+    nCells.push([r, 1]);
   }
 
-  // Subtle inner glow/shadow overlay
-  const innerGlow = `<rect x="0" y="0" width="${size}" height="${size}" rx="${cornerRadius}" fill="url(#glow)" style="mix-blend-mode: overlay;" />`;
+  // Right vertical bar (2 cells wide)
+  for (let r = 0; r < gridH; r++) {
+    nCells.push([r, gridW - 2]);
+    nCells.push([r, gridW - 1]);
+  }
+
+  // Diagonal / stepped bar (blocky, 2 cells wide)
+  const diagSteps = [
+    [2, 2], [2, 3],
+    [3, 3], [3, 4],
+    [4, 4], [4, 5],
+    [5, 5], [5, 6],
+    [6, 6], [6, 7],
+    [7, 7], [7, 8],
+    [8, 8], [8, 9],
+    [9, 9], [9, 10],
+  ];
+  nCells.push(...diagSteps);
+
+  // Build SVG rects from cells
+  const rects = nCells.map(([r, c]) => {
+    const x = offsetX + c * cell;
+    const y = offsetY + r * cell;
+    // Small gap between blocks for the "block character" look
+    const gap = cell * 0.08;
+    return `<rect x="${x + gap}" y="${y + gap}" width="${cell - gap * 2}" height="${cell - gap * 2}" rx="${cell * 0.1}" fill="${COLORS.primary}" />`;
+  });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${COLORS.background}" />
-      <stop offset="100%" stop-color="#161b24" />
-    </linearGradient>
-    <linearGradient id="glow" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="white" stop-opacity="0.08" />
-      <stop offset="100%" stop-color="black" stop-opacity="0.15" />
-    </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="${size * 0.02}" stdDeviation="${size * 0.03}" flood-color="${COLORS.shadow}" flood-opacity="0.4" />
-    </filter>
-  </defs>
-  <!-- Background -->
-  <rect x="0" y="0" width="${size}" height="${size}" rx="${cornerRadius}" fill="url(#bg)" />
-  <!-- N letter with shadow -->
-  <g filter="url(#shadow)">
-    ${leftBar}
-    ${rightBar}
-    ${diagSegments.join("\n    ")}
-  </g>
-  ${innerGlow}
+  <!-- Solid dark background -->
+  <rect x="0" y="0" width="${size}" height="${size}" rx="${cornerRadius}" fill="${COLORS.background}" />
+  <!-- Blocky N -->
+  ${rects.join("\n  ")}
 </svg>`;
 }
 

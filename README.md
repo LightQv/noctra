@@ -32,12 +32,18 @@ Prebuilt releases are available on the [Releases](https://github.com/LightQv/noc
 
 | Platform | Format | Notes                                                                                                                                |
 | -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| macOS    | `.dmg` | Drag to Applications. Unsigned builds show a Gatekeeper warning on first launch — right-click the app and select **Open** to bypass. |
+| macOS    | `.dmg` | Drag to Applications. See the macOS tip below for first-launch instructions.                                                         |
 | macOS    | `.zip` | Portable archive.                                                                                                                    |
 | Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`.                                                                                            |
 | Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`.                                                                                             |
 
-> **Note:** Homebrew and Linux package manager installations are planned but not yet available.
+> **Tip: macOS first launch**
+>
+> If you see *"Noctra.app is damaged and can't be opened"* after installing from the `.dmg`, run this in Terminal:
+> ```bash
+> xattr -d com.apple.quarantine /Applications/Noctra.app
+> ```
+> *This happens because Noctra is not notarized. Notarization requires a paid Apple Developer account ($99/year), which is not currently set up. The command above removes the quarantine flag so the app can open normally.*
 
 ### Installation Directory
 

@@ -5,6 +5,8 @@ const { FuseV1Options, FuseVersion } = require("@electron/fuses");
 module.exports = {
   packagerConfig: {
     asar: true,
+    // App bundle name — appears in Finder, Dock tooltip, etc.
+    name: "Noctra",
     // Explicit executable name to ensure consistency across platforms
     // Fixes Linux .deb/.rpm makers failing to locate the binary
     executableName: "noctra",

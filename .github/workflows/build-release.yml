@@ -180,19 +180,6 @@ jobs:
       - name: Build Linux distributables
         run: npm run make -- --platform=linux
 
-      - name: Find packaged app directory
-        id: find_pkg
-        run: |
-          PKG_DIR=$(ls -d out/*-linux-*/)
-          echo "packaged_dir=$PKG_DIR" >> "$GITHUB_OUTPUT"
-
-      - name: Upload packaged app for Arch build
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-packaged-app
-          path: ${{ steps.find_pkg.outputs.packaged_dir }}
-          if-no-files-found: error
-
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -200,64 +187,8 @@ jobs:
           path: out/make/
           if-no-files-found: error
 
-  build-linux-arch:
-    needs: [bump-and-tag, build-linux]
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    timeout-minutes: 30
-    steps:
-      - name: Install system dependencies
-        run: |
-          pacman-key --init
-          pacman-key --populate archlinux
-          pacman -Syu --noconfirm git nodejs npm base-devel
-
-      - name: Checkout tagged commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.bump-and-tag.outputs.tag }}
-
-      - name: Download packaged app
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-packaged-app
-          path: packaged-app
-
-      - name: Install dependencies and build pacman package
-        run: |
-          useradd -m builder
-          chown -R builder:builder .
-          su builder -c '
-            set -e
-            npm ci
-            APP_DIR="packaged-app"
-            echo "Using app directory: $APP_DIR"
-            mkdir -p "$APP_DIR/resources/app"
-            cp package.json "$APP_DIR/resources/app/package.json"
-            cat > /tmp/fix-productname.js << 'SCRIPT'
-            const fs = require('fs');
-            const f = process.argv[2];
-            const pkg = JSON.parse(fs.readFileSync(f, 'utf8'));
-            pkg.productName = 'noctra';
-            fs.writeFileSync(f, JSON.stringify(pkg, null, 2) + '\n');
-            SCRIPT
-            node /tmp/fix-productname.js "$APP_DIR/resources/app/package.json"
-            ./node_modules/.bin/electron-make-pacman "$APP_DIR" --config pacman-config.json
-          '
-
-      - name: List build output
-        run: ls -R out/
-
-      - name: Upload Arch Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-arch-artifacts
-          path: out/make/
-          if-no-files-found: error
-
   attach-and-publish:
-    needs: [bump-and-tag, build-macos, build-linux, build-linux-arch]
+    needs: [bump-and-tag, build-macos, build-linux]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -281,12 +212,6 @@ jobs:
           name: linux-artifacts
           path: artifacts/linux
 
-      - name: Download Arch Linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-arch-artifacts
-          path: artifacts/linux-arch
-
       - name: Verify release exists
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -300,7 +225,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
         run: |
-          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg.tar.zst" \) | while read -r file; do
+          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" \) | while read -r file; do
             echo "Uploading: $file"
             gh release upload "$RELEASE_TAG" "$file" --clobber
           done
@@ -314,7 +239,7 @@ jobs:
           echo "Release $RELEASE_TAG published successfully"
 
   rollback:
-    needs: [bump-and-tag, build-macos, build-linux, build-linux-arch, attach-and-publish]
+    needs: [bump-and-tag, build-macos, build-linux, attach-and-publish]
     if: failure() && needs.bump-and-tag.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5

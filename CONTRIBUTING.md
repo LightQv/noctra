@@ -85,11 +85,11 @@ Examples:
 
 Run these locally before submitting:
 
-| Command | What it checks |
-| ------- | -------------- |
-| `npm run lint` | Static analysis and code style |
-| `npm run format:check` | Prettier formatting compliance |
-| `npm run ci:test` | Canonical local gate — same structure as CI |
+| Command                | What it checks                              |
+| ---------------------- | ------------------------------------------- |
+| `npm run lint`         | Static analysis and code style              |
+| `npm run format:check` | Prettier formatting compliance              |
+| `npm run ci:test`      | Canonical local gate — same structure as CI |
 
 For the full command matrix, policy checks, and test scopes, see [docs/testing.md](docs/testing.md).
 
@@ -127,7 +127,7 @@ If your change affects user workflows, update at least one of:
 - [docs/keybindings.md](docs/keybindings.md)
 - [docs/commands.md](docs/commands.md)
 - [docs/configuration.md](docs/configuration.md)
-- [docs/tutorials/*](docs/tutorials/)
+- [docs/tutorials/\*](docs/tutorials/)
 
 Keep documentation concrete and example-driven.
 

@@ -18,8 +18,8 @@ Noctra is a keyboard-first browser shell that brings a Neovim-style workflow to 
 
 It runs on Electron with the Chromium engine, treats tabs as buffers, and keeps modal interaction at the center of everything. Three modes drive the experience:
 
-- `NORMAL`  — navigate, scroll, and execute commands
-- `INSERT`  — interact with web content as usual
+- `NORMAL` — navigate, scroll, and execute commands
+- `INSERT` — interact with web content as usual
 - `COMMAND` — run explicit commands (`:open`, `:tabnew`, `:buffer`, `:session save`, ...)
 
 Noctra is early-stage and actively evolving. Core browsing and modal workflows are usable, defaults are Vim-like with configurable leader mappings, and security checks are part of the standard CI gate. Commands, mappings, and APIs can still change between versions.
@@ -30,12 +30,12 @@ Noctra is early-stage and actively evolving. Core browsing and modal workflows a
 
 Prebuilt releases are available on the [Releases](https://github.com/LightQv/noctra/releases) page.
 
-| Platform | Format | Notes |
-| -------- | ------ | ----- |
+| Platform | Format | Notes                                                                                                                                |
+| -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
 | macOS    | `.dmg` | Drag to Applications. Unsigned builds show a Gatekeeper warning on first launch — right-click the app and select **Open** to bypass. |
-| macOS    | `.zip` | Portable archive. |
-| Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`. |
-| Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`. |
+| macOS    | `.zip` | Portable archive.                                                                                                                    |
+| Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`.                                                                                            |
+| Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`.                                                                                             |
 
 > **Note:** Homebrew and Linux package manager installations are planned but not yet available.
 
@@ -51,18 +51,18 @@ If missing, it is generated automatically with defaults and inline comments.
 
 #### Config sections
 
-| Section | Purpose |
-| ------- | ------- |
-| `global.input` | Leader key and sequence timeout |
-| `global.ui` | Shell UI toggles and panel behavior |
-| `global.theme` | App and content appearance |
-| `global.keymap` | User leader-key mappings |
-| `global.editor` | Editable buffer behavior |
-| `global.split` | Split ratios and focus keys |
-| `global.window` | Initial window bounds and maximized state |
-| `global.storage` | File locations for persisted data |
-| `global.notifications` | Toast and persistence behavior |
-| `global.opening_buffer` | Startup mode and dashboard settings |
+| Section                 | Purpose                                   |
+| ----------------------- | ----------------------------------------- |
+| `global.input`          | Leader key and sequence timeout           |
+| `global.ui`             | Shell UI toggles and panel behavior       |
+| `global.theme`          | App and content appearance                |
+| `global.keymap`         | User leader-key mappings                  |
+| `global.editor`         | Editable buffer behavior                  |
+| `global.split`          | Split ratios and focus keys               |
+| `global.window`         | Initial window bounds and maximized state |
+| `global.storage`        | File locations for persisted data         |
+| `global.notifications`  | Toast and persistence behavior            |
+| `global.opening_buffer` | Startup mode and dashboard settings       |
 
 #### Persisted data
 

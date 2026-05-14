@@ -285,7 +285,8 @@ jobs:
           echo "Release $RELEASE_TAG published successfully"
 
   rollback:
-    needs: [bump-and-tag, build-macos, build-linux, build-arch, attach-and-publish]
+    needs:
+      [bump-and-tag, build-macos, build-linux, build-arch, attach-and-publish]
     if: failure() && needs.bump-and-tag.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5

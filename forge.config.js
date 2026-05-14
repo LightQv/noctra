@@ -1,7 +1,6 @@
 const path = require("path");
 const { FusesPlugin } = require("@electron-forge/plugin-fuses");
 const { FuseV1Options, FuseVersion } = require("@electron/fuses");
-const MakerPacman = require("@osmn-byhn/electron-make-pacman").default;
 
 const allMakers = [
   {

@@ -235,12 +235,14 @@ jobs:
             echo "Using app directory: $APP_DIR"
             mkdir -p "$APP_DIR/resources/app"
             cp package.json "$APP_DIR/resources/app/package.json"
-            node -e "
-              const fs = require('fs');
-              const pkg = JSON.parse(fs.readFileSync('$APP_DIR/resources/app/package.json', 'utf8'));
-              pkg.productName = 'noctra';
-              fs.writeFileSync('$APP_DIR/resources/app/package.json', JSON.stringify(pkg, null, 2) + '\n');
-            "
+            cat > /tmp/fix-productname.js << 'SCRIPT'
+            const fs = require('fs');
+            const f = process.argv[2];
+            const pkg = JSON.parse(fs.readFileSync(f, 'utf8'));
+            pkg.productName = 'noctra';
+            fs.writeFileSync(f, JSON.stringify(pkg, null, 2) + '\n');
+            SCRIPT
+            node /tmp/fix-productname.js "$APP_DIR/resources/app/package.json"
             ./node_modules/.bin/electron-make-pacman "$APP_DIR" --config pacman-config.json
           '
 

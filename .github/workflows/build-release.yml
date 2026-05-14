@@ -231,7 +231,7 @@ jobs:
           su builder -c '
             set -e
             npm ci
-            APP_DIR=$(ls -d packaged-app/*-linux-*/)
+            APP_DIR="packaged-app"
             echo "Using app directory: $APP_DIR"
             mkdir -p "$APP_DIR/resources/app"
             cp package.json "$APP_DIR/resources/app/package.json"

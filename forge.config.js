@@ -81,6 +81,18 @@ module.exports = {
       },
     },
     {
+      // Linux AppImage (universal, Arch-compatible)
+      name: "@reforged/maker-appimage",
+      platforms: ["linux"],
+      config: {
+        options: {
+          bin: "noctra",
+          categories: ["Network", "WebBrowser"],
+          icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
+        },
+      },
+    },
+    {
       // Linux ZIP (portable fallback)
       name: "@electron-forge/maker-zip",
       platforms: ["linux"],

@@ -172,7 +172,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y icnsutils graphicsmagick
+          sudo apt-get install -y icnsutils graphicsmagick squashfs-tools
 
       - name: Install dependencies
         run: npm ci
@@ -225,7 +225,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
         run: |
-          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" \) | while read -r file; do
+          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) | while read -r file; do
             echo "Uploading: $file"
             gh release upload "$RELEASE_TAG" "$file" --clobber
           done

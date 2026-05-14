@@ -178,8 +178,6 @@ jobs:
         run: npm ci
 
       - name: Build Linux distributables
-        env:
-          FORGE_MAKERS: deb,rpm,zip
         run: npm run make -- --platform=linux
 
       - name: Upload Linux artifacts
@@ -189,46 +187,8 @@ jobs:
           path: out/make/
           if-no-files-found: error
 
-  build-arch:
-    needs: bump-and-tag
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    timeout-minutes: 30
-    steps:
-      - name: Install Arch system dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel nodejs npm git
-
-      - name: Create builder user
-        run: |
-          useradd -m builder
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-      - name: Checkout tagged commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.bump-and-tag.outputs.tag }}
-
-      - name: Fix workspace permissions
-        run: chown -R builder:builder .
-
-      - name: Install dependencies
-        run: su builder -c "npm ci"
-
-      - name: Build Arch distributables
-        run: su builder -c "FORGE_MAKERS=pacman npm run make -- --platform=linux"
-
-      - name: Upload Arch artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: arch-artifacts
-          path: out/make/
-          if-no-files-found: error
-
   attach-and-publish:
-    needs: [bump-and-tag, build-macos, build-linux, build-arch]
+    needs: [bump-and-tag, build-macos, build-linux]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -252,12 +212,6 @@ jobs:
           name: linux-artifacts
           path: artifacts/linux
 
-      - name: Download Arch artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: arch-artifacts
-          path: artifacts/arch
-
       - name: Verify release exists
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -271,7 +225,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.bump-and-tag.outputs.tag }}
         run: |
-          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.pkg.tar.zst" \) | while read -r file; do
+          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" \) | while read -r file; do
             echo "Uploading: $file"
             gh release upload "$RELEASE_TAG" "$file" --clobber
           done
@@ -285,8 +239,7 @@ jobs:
           echo "Release $RELEASE_TAG published successfully"
 
   rollback:
-    needs:
-      [bump-and-tag, build-macos, build-linux, build-arch, attach-and-publish]
+    needs: [bump-and-tag, build-macos, build-linux, attach-and-publish]
     if: failure() && needs.bump-and-tag.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5

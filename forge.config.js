@@ -2,86 +2,6 @@ const path = require("path");
 const { FusesPlugin } = require("@electron-forge/plugin-fuses");
 const { FuseV1Options, FuseVersion } = require("@electron/fuses");
 
-const allMakers = [
-  {
-    // macOS DMG installer
-    name: "@electron-forge/maker-dmg",
-    platforms: ["darwin"],
-    config: {
-      name: "Noctra",
-      icon: path.resolve(__dirname, "assets/icons/icon.icns"),
-      overwrite: true,
-      debug: process.env.DEBUG === "true",
-    },
-  },
-  {
-    // macOS ZIP (portable)
-    name: "@electron-forge/maker-zip",
-    platforms: ["darwin"],
-  },
-  {
-    // Linux .deb (Debian/Ubuntu)
-    name: "@electron-forge/maker-deb",
-    platforms: ["linux"],
-    config: {
-      options: {
-        maintainer: "LightQv",
-        homepage: "https://github.com/LightQv/noctra",
-        icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
-        categories: ["Network", "WebBrowser"],
-        description:
-          "A keyboard-first browser shell with a Neovim-style workflow.",
-        productName: "Noctra",
-      },
-    },
-  },
-  {
-    // Linux .rpm (Fedora/RHEL)
-    name: "@electron-forge/maker-rpm",
-    platforms: ["linux"],
-    config: {
-      options: {
-        homepage: "https://github.com/LightQv/noctra",
-        icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
-        categories: ["Network", "WebBrowser"],
-        description:
-          "A keyboard-first browser shell with a Neovim-style workflow.",
-        productName: "Noctra",
-      },
-    },
-  },
-  {
-    // Linux ZIP (portable fallback)
-    name: "@electron-forge/maker-zip",
-    platforms: ["linux"],
-  },
-  {
-    // Linux .pkg.tar.zst (Arch Linux / Pacman)
-    name: "@osmn-byhn/electron-make-pacman",
-    platforms: ["linux"],
-    config: {
-      options: {
-        depends: ["gtk3", "nss", "alsa-lib", "libxss", "libxtst"],
-        icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
-        desktopCategories: ["Network", "WebBrowser"],
-        license: "MIT",
-      },
-    },
-  },
-];
-
-// Allow CI jobs to filter makers by comma-separated names (e.g. FORGE_MAKERS=deb,rpm,zip)
-const enabled = process.env.FORGE_MAKERS
-  ? process.env.FORGE_MAKERS.split(",").map((s) => s.trim().toLowerCase())
-  : null;
-
-const standardMakers = enabled
-  ? allMakers.filter((m) => {
-      const key = (m.name || "").toLowerCase();
-      return enabled.some((e) => key.includes(e));
-    })
-  : allMakers;
-
 module.exports = {
   packagerConfig: {
     asar: true,
@@ -112,7 +32,60 @@ module.exports = {
       : undefined,
   },
   rebuildConfig: {},
-  makers: standardMakers,
+  makers: [
+    {
+      // macOS DMG installer
+      name: "@electron-forge/maker-dmg",
+      platforms: ["darwin"],
+      config: {
+        name: "Noctra",
+        icon: path.resolve(__dirname, "assets/icons/icon.icns"),
+        overwrite: true,
+        debug: process.env.DEBUG === "true",
+      },
+    },
+    {
+      // macOS ZIP (portable)
+      name: "@electron-forge/maker-zip",
+      platforms: ["darwin"],
+    },
+    {
+      // Linux .deb (Debian/Ubuntu)
+      name: "@electron-forge/maker-deb",
+      platforms: ["linux"],
+      config: {
+        options: {
+          maintainer: "LightQv",
+          homepage: "https://github.com/LightQv/noctra",
+          icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
+          categories: ["Network", "WebBrowser"],
+          description:
+            "A keyboard-first browser shell with a Neovim-style workflow.",
+          productName: "Noctra",
+        },
+      },
+    },
+    {
+      // Linux .rpm (Fedora/RHEL)
+      name: "@electron-forge/maker-rpm",
+      platforms: ["linux"],
+      config: {
+        options: {
+          homepage: "https://github.com/LightQv/noctra",
+          icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
+          categories: ["Network", "WebBrowser"],
+          description:
+            "A keyboard-first browser shell with a Neovim-style workflow.",
+          productName: "Noctra",
+        },
+      },
+    },
+    {
+      // Linux ZIP (portable fallback)
+      name: "@electron-forge/maker-zip",
+      platforms: ["linux"],
+    },
+  ],
   plugins: [
     {
       name: "@electron-forge/plugin-auto-unpack-natives",

@@ -48,6 +48,7 @@
     "@electron-forge/plugin-fuses": "7.11.1",
     "@electron/fuses": "1.8.0",
     "@eslint/js": "9.39.4",
+    "@osmn-byhn/electron-make-pacman": "^1.0.0",
     "electron": "41.2.2",
     "eslint": "9.39.4",
     "globals": "17.6.0",

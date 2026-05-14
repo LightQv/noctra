@@ -1,8 +1,9 @@
 const path = require("path");
 const { FusesPlugin } = require("@electron-forge/plugin-fuses");
 const { FuseV1Options, FuseVersion } = require("@electron/fuses");
+const MakerPacman = require("@osmn-byhn/electron-make-pacman").default;
 
-const standardMakers = [
+const allMakers = [
   {
     // macOS DMG installer
     name: "@electron-forge/maker-dmg",
@@ -55,7 +56,32 @@ const standardMakers = [
     name: "@electron-forge/maker-zip",
     platforms: ["linux"],
   },
+  {
+    // Linux .pkg.tar.zst (Arch Linux / Pacman)
+    name: "@osmn-byhn/electron-make-pacman",
+    platforms: ["linux"],
+    config: {
+      options: {
+        depends: ["gtk3", "nss", "alsa-lib", "libxss", "libxtst"],
+        icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
+        desktopCategories: ["Network", "WebBrowser"],
+        license: "MIT",
+      },
+    },
+  },
 ];
+
+// Allow CI jobs to filter makers by comma-separated names (e.g. FORGE_MAKERS=deb,rpm,zip)
+const enabled = process.env.FORGE_MAKERS
+  ? process.env.FORGE_MAKERS.split(",").map((s) => s.trim().toLowerCase())
+  : null;
+
+const standardMakers = enabled
+  ? allMakers.filter((m) => {
+      const key = (m.name || "").toLowerCase();
+      return enabled.some((e) => key.includes(e));
+    })
+  : allMakers;
 
 module.exports = {
   packagerConfig: {

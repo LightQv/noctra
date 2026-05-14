@@ -12,6 +12,15 @@ module.exports = {
     executableName: "noctra",
     // Cross-platform icon path (Forge appends the correct extension per platform)
     icon: path.resolve(__dirname, "assets/icons/icon"),
+    // macOS Info.plist extensions — register as a browser handler
+    extendInfo: {
+      CFBundleURLTypes: [
+        {
+          CFBundleURLName: "Noctra HTTP Handler",
+          CFBundleURLSchemes: ["http", "https"],
+        },
+      ],
+    },
     // macOS code signing configuration
     // Set environment variables to enable signing:
     // APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID

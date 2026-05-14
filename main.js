@@ -118,6 +118,7 @@ let win;
 let smokeScenarios = null;
 let appMenu;
 let entryIcons = null;
+let pendingUrls = [];
 
 const browserLanguagePolicy = createBrowserLanguagePolicy({
   session,
@@ -686,6 +687,14 @@ function normalizeHistoryUrl(rawUrl) {
   }
 }
 
+function handleOpenUrl(url) {
+  if (!win || win.isDestroyed()) {
+    pendingUrls.push(url);
+    return;
+  }
+  dispatch(win, { type: INTENTS.OPEN_URL, url }, state);
+}
+
 function createWindow() {
   const runtime = bootstrapWindowRuntime({
     BrowserWindow,
@@ -810,6 +819,12 @@ app.whenReady().then(async () => {
 
   createWindow();
 
+  // Process any URLs that arrived before the window was ready
+  while (pendingUrls.length > 0) {
+    const url = pendingUrls.shift();
+    handleOpenUrl(url);
+  }
+
   nativeTheme.on("updated", () => {
     if (appMenu) appMenu.rebuild();
   });
@@ -817,6 +832,11 @@ app.whenReady().then(async () => {
   if (smokeScenarios) {
     smokeScenarios.maybeScheduleSmokeExit();
   }
+});
+
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  handleOpenUrl(url);
 });
 
 app.on("window-all-closed", () => {

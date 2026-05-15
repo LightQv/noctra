@@ -12,6 +12,15 @@ module.exports = {
     executableName: "noctra",
     // Cross-platform icon path (Forge appends the correct extension per platform)
     icon: path.resolve(__dirname, "assets/icons/icon"),
+    // macOS Info.plist extensions — register as a browser handler
+    extendInfo: {
+      CFBundleURLTypes: [
+        {
+          CFBundleURLName: "Noctra HTTP Handler",
+          CFBundleURLSchemes: ["http", "https"],
+        },
+      ],
+    },
     // macOS code signing configuration
     // Set environment variables to enable signing:
     // APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
@@ -60,10 +69,18 @@ module.exports = {
           maintainer: "LightQv",
           homepage: "https://github.com/LightQv/noctra",
           icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
+          mimeType: ["text/html", "x-scheme-handler/http", "x-scheme-handler/https"],
           categories: ["Network", "WebBrowser"],
           description:
             "A keyboard-first browser shell with a Neovim-style workflow.",
           productName: "Noctra",
+          scripts: {
+            postinst: path.resolve(
+              __dirname,
+              "scripts/linux/after-install.sh",
+            ),
+            postrm: path.resolve(__dirname, "scripts/linux/after-remove.sh"),
+          },
         },
       },
     },
@@ -75,6 +92,7 @@ module.exports = {
         options: {
           homepage: "https://github.com/LightQv/noctra",
           icon: path.resolve(__dirname, "assets/icons/icon_512.png"),
+          mimeType: ["text/html", "x-scheme-handler/http", "x-scheme-handler/https"],
           categories: ["Network", "WebBrowser"],
           description:
             "A keyboard-first browser shell with a Neovim-style workflow.",

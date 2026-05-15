@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { execFile } = require("child_process");
+const { promisify } = require("util");
 const {
   app,
   BrowserWindow,
@@ -113,11 +114,102 @@ const { createAppMenu } = require("./core/adapters/platform/appMenu");
 const { openDoc } = require("./core/adapters/platform/openExternal");
 const { isBookmarkableBuffer } = require("./core/bookmarks/eligibility");
 app.setName("Noctra");
+const execFileAsync = promisify(execFile);
 
 let win;
 let smokeScenarios = null;
 let appMenu;
 let entryIcons = null;
+let pendingUrls = [];
+
+function extractHttpUrlFromArgv(argv = []) {
+  for (const arg of argv) {
+    if (typeof arg !== "string") continue;
+    const value = arg.trim();
+    if (!value) continue;
+    if (!/^https?:\/\//i.test(value)) continue;
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        return parsed.toString();
+      }
+    } catch {
+      // Ignore invalid URL candidate
+    }
+  }
+  return null;
+}
+
+async function integrateLinuxAppImage() {
+  const homeDir = os.homedir();
+  const applicationsDir = path.join(homeDir, ".local", "share", "applications");
+  const iconsDir = path.join(
+    homeDir,
+    ".local",
+    "share",
+    "icons",
+    "hicolor",
+    "512x512",
+    "apps",
+  );
+
+  fs.mkdirSync(applicationsDir, { recursive: true });
+  fs.mkdirSync(iconsDir, { recursive: true });
+
+  const darkIconSource = path.join(__dirname, "assets", "icons", "icon-dark_512.png");
+  const lightIconSource = path.join(__dirname, "assets", "icons", "icon-light_512.png");
+
+  if (!fs.existsSync(darkIconSource) || !fs.existsSync(lightIconSource)) {
+    throw new Error("Missing generated icons. Run scripts/generate-icons.js first.");
+  }
+
+  fs.copyFileSync(darkIconSource, path.join(iconsDir, "noctra-dark.png"));
+  fs.copyFileSync(lightIconSource, path.join(iconsDir, "noctra-light.png"));
+  fs.copyFileSync(darkIconSource, path.join(iconsDir, "noctra.png"));
+
+  const executablePath =
+    process.env.APPIMAGE && process.env.APPIMAGE.trim().length > 0
+      ? process.env.APPIMAGE
+      : process.execPath;
+  const desktopContent = [
+    "[Desktop Entry]",
+    "Type=Application",
+    "Name=Noctra",
+    "Comment=A keyboard-first browser shell with a Neovim-style workflow.",
+    `Exec=${executablePath} %u`,
+    "Icon=noctra",
+    "Terminal=false",
+    "Categories=Network;WebBrowser;",
+    "MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;",
+  ].join("\n");
+  fs.writeFileSync(
+    path.join(applicationsDir, "noctra.desktop"),
+    `${desktopContent}\n`,
+    "utf-8",
+  );
+
+  try {
+    await execFileAsync("update-desktop-database", [applicationsDir]);
+  } catch {
+    // Non-fatal: some environments don't include update-desktop-database
+  }
+}
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+}
+
+app.on("second-instance", (_event, argv) => {
+  const nextUrl = extractHttpUrlFromArgv(argv);
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+  if (nextUrl) {
+    handleOpenUrl(nextUrl);
+  }
+});
 
 const browserLanguagePolicy = createBrowserLanguagePolicy({
   session,
@@ -686,6 +778,14 @@ function normalizeHistoryUrl(rawUrl) {
   }
 }
 
+function handleOpenUrl(url) {
+  if (!win || win.isDestroyed()) {
+    pendingUrls.push(url);
+    return;
+  }
+  dispatch(win, { type: INTENTS.OPEN_URL, url }, state);
+}
+
 function createWindow() {
   const runtime = bootstrapWindowRuntime({
     BrowserWindow,
@@ -772,6 +872,19 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === "linux" && process.argv.includes("--integrate")) {
+    try {
+      await integrateLinuxAppImage();
+      app.quit();
+      return;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      dialog.showErrorBox("Noctra Integration Failed", reason);
+      app.quit();
+      return;
+    }
+  }
+
   registerSessionSecurityPolicyAdapter({
     session,
     app,
@@ -810,6 +923,12 @@ app.whenReady().then(async () => {
 
   createWindow();
 
+  // Process any URLs that arrived before the window was ready
+  while (pendingUrls.length > 0) {
+    const url = pendingUrls.shift();
+    handleOpenUrl(url);
+  }
+
   nativeTheme.on("updated", () => {
     if (appMenu) appMenu.rebuild();
   });
@@ -818,6 +937,16 @@ app.whenReady().then(async () => {
     smokeScenarios.maybeScheduleSmokeExit();
   }
 });
+
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  handleOpenUrl(url);
+});
+
+const initialArgUrl = extractHttpUrlFromArgv(process.argv);
+if (initialArgUrl) {
+  handleOpenUrl(initialArgUrl);
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

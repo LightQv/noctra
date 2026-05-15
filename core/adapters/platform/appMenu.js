@@ -1,4 +1,8 @@
 const { Menu, dialog } = require("electron");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+
+const execFileAsync = promisify(execFile);
 
 function createAppMenu({
   win,
@@ -18,7 +22,119 @@ function createAppMenu({
 }) {
   let lastSnapshot = null;
   const isMac = process.platform === "darwin";
+  const isLinux = process.platform === "linux";
   let folderIcon = null;
+  let linuxDefaultBrowserStatus = {
+    isDefault: false,
+    canSetDefault: isLinux,
+    integrated: !isLinux,
+    lastCheckedAt: 0,
+    pending: false,
+  };
+
+  async function getLinuxDefaultBrowserStatus() {
+    if (!isLinux) {
+      return {
+        isDefault: false,
+        canSetDefault: false,
+        integrated: true,
+      };
+    }
+
+    try {
+      const { stdout: desktopOut } = await execFileAsync("xdg-settings", [
+        "get",
+        "default-web-browser",
+      ]);
+      const currentDefault = String(desktopOut || "").trim();
+
+      const { stdout: appImageOut } = await execFileAsync("sh", [
+        "-c",
+        "test -f ~/.local/share/applications/noctra.desktop -a -f ~/.local/share/icons/hicolor/512x512/apps/noctra-dark.png -a -f ~/.local/share/icons/hicolor/512x512/apps/noctra-light.png && printf yes || printf no",
+      ]);
+      const integrated = String(appImageOut || "").trim() === "yes";
+
+      return {
+        isDefault: currentDefault === "noctra.desktop",
+        canSetDefault: true,
+        integrated,
+      };
+    } catch {
+      return {
+        isDefault: false,
+        canSetDefault: false,
+        integrated: false,
+      };
+    }
+  }
+
+  function refreshLinuxDefaultBrowserStatus(force = false) {
+    if (!isLinux) return;
+    if (linuxDefaultBrowserStatus.pending) return;
+    const ageMs = Date.now() - linuxDefaultBrowserStatus.lastCheckedAt;
+    if (!force && ageMs < 5000) return;
+
+    linuxDefaultBrowserStatus.pending = true;
+    getLinuxDefaultBrowserStatus()
+      .then((status) => {
+        linuxDefaultBrowserStatus = {
+          ...linuxDefaultBrowserStatus,
+          ...status,
+          lastCheckedAt: Date.now(),
+          pending: false,
+        };
+        rebuild();
+      })
+      .catch(() => {
+        linuxDefaultBrowserStatus.pending = false;
+      });
+  }
+
+  function buildSetDefaultBrowserMenuItem() {
+    if (isMac) {
+      const isDefault = app.isDefaultProtocolClient("http");
+      return {
+        label: "Set as Default Browser",
+        enabled: !isDefault,
+        click: () => {
+          app.setAsDefaultProtocolClient("http");
+          app.setAsDefaultProtocolClient("https");
+          rebuild();
+        },
+      };
+    }
+
+    if (isLinux) {
+      const canSet = linuxDefaultBrowserStatus.canSetDefault;
+      const integrated = linuxDefaultBrowserStatus.integrated;
+      const enabled = canSet && integrated && !linuxDefaultBrowserStatus.isDefault;
+      let label = "Set as Default Browser";
+      if (!integrated) {
+        label = "Set as Default Browser (run --integrate first)";
+      }
+      return {
+        label,
+        enabled,
+        click: async () => {
+          try {
+            await execFileAsync("xdg-settings", [
+              "set",
+              "default-web-browser",
+              "noctra.desktop",
+            ]);
+            refreshLinuxDefaultBrowserStatus(true);
+          } catch {
+            dialog.showErrorBox(
+              "Set as Default Browser",
+              "Unable to set Noctra as the default browser via xdg-settings.",
+            );
+          }
+        },
+      };
+    }
+
+    return null;
+  }
 
   function dispatchAndSync(win, intent, state) {
     dispatch(win, intent, state);
@@ -160,6 +276,9 @@ function createAppMenu({
         nativeTheme && typeof nativeTheme.shouldUseDarkColors === "function"
           ? nativeTheme.shouldUseDarkColors()
           : false,
+      linuxDefaultBrowserIsDefault: linuxDefaultBrowserStatus.isDefault,
+      linuxDefaultBrowserCanSet: linuxDefaultBrowserStatus.canSetDefault,
+      linuxDefaultBrowserIntegrated: linuxDefaultBrowserStatus.integrated,
       buffers: bufferList.slice(0, 30).map((b) => ({
         id: b.id,
         title: b.title || "[No title]",
@@ -193,6 +312,15 @@ function createAppMenu({
     if (a.canEnterInsert !== b.canEnterInsert) return false;
     if (a.copySelectionEnabled !== b.copySelectionEnabled) return false;
     if (a.osDarkMode !== b.osDarkMode) return false;
+    if (a.linuxDefaultBrowserIsDefault !== b.linuxDefaultBrowserIsDefault) {
+      return false;
+    }
+    if (a.linuxDefaultBrowserCanSet !== b.linuxDefaultBrowserCanSet) {
+      return false;
+    }
+    if (a.linuxDefaultBrowserIntegrated !== b.linuxDefaultBrowserIntegrated) {
+      return false;
+    }
 
     if (a.buffers.length !== b.buffers.length) return false;
     for (let i = 0; i < a.buffers.length; i += 1) {
@@ -231,6 +359,7 @@ function createAppMenu({
 
   function buildTemplate(snapshot) {
     const activeEntryIcon = pickEntryIcon();
+    const setDefaultBrowserItem = buildSetDefaultBrowserMenuItem();
 
     const noctraMenu = {
       label: app.getName(),
@@ -248,6 +377,9 @@ function createAppMenu({
           click: () =>
             dispatchAndSync(win, { type: INTENTS.CONFIG_RELOAD }, state),
         },
+        ...(isMac && setDefaultBrowserItem
+          ? [{ type: "separator" }, setDefaultBrowserItem]
+          : []),
         { type: "separator" },
         ...(isMac
           ? [
@@ -312,6 +444,9 @@ function createAppMenu({
           click: () => dispatchAndSync(win, { type: INTENTS.REOPEN_BUFFER }, state),
         },
         { type: "separator" },
+        ...(!isMac && setDefaultBrowserItem
+          ? [setDefaultBrowserItem, { type: "separator" }]
+          : []),
         ...bufferListItems,
       ],
     };
@@ -575,6 +710,7 @@ function createAppMenu({
   }
 
   function sync() {
+    refreshLinuxDefaultBrowserStatus(false);
     const next = captureSnapshot();
     if (snapshotsEqual(lastSnapshot, next)) return;
     lastSnapshot = next;

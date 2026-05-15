@@ -30,12 +30,13 @@ Noctra is early-stage and actively evolving. Core browsing and modal workflows a
 
 Prebuilt releases are available on the [Releases](https://github.com/LightQv/noctra/releases) page.
 
-| Platform | Format | Notes                                                                        |
-| -------- | ------ | ---------------------------------------------------------------------------- |
-| macOS    | `.dmg` | Drag to Applications. See the macOS tip below for first-launch instructions. |
-| macOS    | `.zip` | Portable archive.                                                            |
-| Linux    | `.deb` | Install with `sudo dpkg -i noctra_*.deb`.                                    |
-| Linux    | `.rpm` | Install with `sudo rpm -i noctra_*.rpm`.                                     |
+| Platform | Format   | Notes                                                                        |
+| -------- | -------- | ---------------------------------------------------------------------------- |
+| macOS    | `.dmg`   | Drag to Applications. See the macOS tip below for first-launch instructions. |
+| macOS    | `.zip`   | Portable archive.                                                            |
+| Linux    | `.deb`   | Install with `sudo dpkg -i noctra_*.deb`.                                    |
+| Linux    | `.rpm`   | Install with `sudo rpm -i noctra_*.rpm`.                                     |
+| Linux    | AppImage | Run directly, then integrate once with `./Noctra-*.AppImage --integrate`.    |
 
 > [!TIP]
 > **macOS first launch**
@@ -57,6 +58,23 @@ User configuration is loaded from:
 ```
 
 If missing, it is generated automatically with defaults and inline comments.
+
+### AppImage integration and default browser
+
+For AppImage builds, integrate Noctra into your desktop environment once:
+
+```bash
+./Noctra-*.AppImage --integrate
+```
+
+This writes `noctra.desktop` and icons into your user-local XDG directories and refreshes the desktop database. It does not force Noctra as default.
+
+If needed, manual fallback:
+
+```bash
+xdg-mime default noctra.desktop x-scheme-handler/http
+xdg-mime default noctra.desktop x-scheme-handler/https
+```
 
 #### Config sections
 

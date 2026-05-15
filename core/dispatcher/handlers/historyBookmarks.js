@@ -1,4 +1,6 @@
 const { INTENTS } = require("../../intents");
+const { dialog } = require("electron");
+const bookmarkImportService = require("../../bookmarks/importService");
 
 function createHistoryBookmarksHandlers(deps) {
   const {
@@ -7,6 +9,7 @@ function createHistoryBookmarksHandlers(deps) {
     bookmarksService,
     bookmarkInsertScopeModal,
     getActiveBookmarkCandidate,
+    notificationsService,
   } = deps;
 
   return {
@@ -45,6 +48,68 @@ function createHistoryBookmarksHandlers(deps) {
       bookmarksService.deleteAll();
       historyPanel.reloadData();
       historyPanel.render();
+    },
+    [INTENTS.BOOKMARKS_IMPORT]: async ({ win }) => {
+      const result = await dialog.showOpenDialog(win, {
+        title: "Import Bookmarks",
+        properties: ["openFile"],
+        filters: [{ name: "Bookmark Export", extensions: ["html", "htm"] }],
+      });
+
+      if (result.canceled || !Array.isArray(result.filePaths) || !result.filePaths[0]) {
+        return;
+      }
+
+      const filePath = result.filePaths[0];
+      const importResult = bookmarkImportService.importFromNetscapeFile(filePath);
+
+      if (!importResult.ok) {
+        notificationsService.notify({
+          severity: "error",
+          code: "bookmarks_import_failed",
+          message: "Bookmark import failed",
+          source: "core.dispatcher",
+          context: {
+            filePath,
+            stage: importResult.stage || "unknown",
+            reason: importResult.reason || "unknown",
+            code: importResult.code || "unknown",
+          },
+          persist: true,
+        });
+        return;
+      }
+
+      const summary = importResult.summary || {
+        imported: 0,
+        skippedDuplicate: 0,
+        skippedInvalid: 0,
+        foldersCreated: 0,
+      };
+
+      if (summary.imported > 0) {
+        historyPanel.reloadData();
+        historyPanel.render();
+        notificationsService.notify({
+          severity: "info",
+          code: "bookmarks_import_success",
+          message: `Imported ${summary.imported} bookmark(s), skipped ${summary.skippedDuplicate} duplicate(s), skipped ${summary.skippedInvalid} invalid URL(s), created ${summary.foldersCreated} folder(s)`,
+          source: "core.dispatcher",
+          context: { filePath, ...summary },
+          persist: false,
+        });
+        return;
+      }
+
+      notificationsService.notify({
+        severity: "warning",
+        code: "bookmarks_import_empty",
+        message:
+          "No importable bookmarks found (all entries were invalid or already present)",
+        source: "core.dispatcher",
+        context: { filePath, ...summary },
+        persist: false,
+      });
     },
     [INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE]: () => {
       const candidate = getActiveBookmarkCandidate();

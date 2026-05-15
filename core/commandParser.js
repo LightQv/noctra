@@ -208,6 +208,7 @@ function parseCommand(raw) {
       if (option === "focus") return { type: INTENTS.BOOKMARKS_TOGGLE_FOCUS };
       if (option === "delete-all")
         return { type: INTENTS.BOOKMARKS_DELETE_ALL };
+      if (option === "import") return { type: INTENTS.BOOKMARKS_IMPORT };
       return { type: INTENTS.UNKNOWN_COMMAND, raw };
     }
 

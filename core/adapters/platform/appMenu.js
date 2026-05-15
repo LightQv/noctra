@@ -583,6 +583,11 @@ function createAppMenu({
               state,
             ),
         },
+        {
+          label: "Import Bookmarks...",
+          click: () =>
+            dispatchAndSync(win, { type: INTENTS.BOOKMARKS_IMPORT }, state),
+        },
         ...(bookmarkTreeItems.length > 0 ? [{ type: "separator" }, ...bookmarkTreeItems] : []),
       ],
     };

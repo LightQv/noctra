@@ -1865,6 +1865,10 @@ class HistoryPanel {
       .file-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 ${TREE_LAYOUT.fileIconWidthEm}em;margin-right:${TREE_LAYOUT.treeColGapPx}px;color:var(--ui-text-soft,#b6c7e8)}
       .file-glyph{font-size:14px;color:var(--ui-text-soft,#b6c7e8)}
       .guide{color:var(--ui-text-muted,#7f8aa3);font-size:12px}
+      .tree-guide{position:relative;display:inline-flex;width:1.2em;height:${TREE_LAYOUT.rowMinHeight}px;align-items:stretch;justify-content:center}
+      .tree-guide::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;transform:translateX(-50%);background:currentColor;opacity:.9}
+      .tree-guide-elbow::before{bottom:50%}
+      .tree-guide-elbow::after{content:"";position:absolute;left:50%;top:50%;width:.6em;height:1px;background:currentColor;opacity:.9}
       .text{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
       .match-hit{background:color-mix(in srgb, var(--ui-accent,#89dceb) 25%, transparent);color:var(--ui-text,#c9d1df);border-radius:2px}
       .empty-label{font-style:italic;color:var(--ui-text-muted,#7f8aa3)}
@@ -1899,7 +1903,7 @@ class HistoryPanel {
       const nodes = this.getFilteredHistoryFlatNodes();
       if (!nodes.length) {
         return [
-          `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No item yet.</span></span><span class="time time-hidden"></span></div>`,
+          `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="guide tree-guide tree-guide-elbow" aria-hidden="true"></span></span><span class="text empty-label">No item yet.</span></span><span class="time time-hidden"></span></div>`,
         ];
       }
       const query = this.getActiveFilterQuery();
@@ -1928,7 +1932,7 @@ class HistoryPanel {
       if (!isOpen) continue;
       if (!day.entries.length) {
         rows.push(
-          `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No item yet.</span></span><span class="time time-hidden"></span></div>`,
+          `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="guide tree-guide tree-guide-elbow" aria-hidden="true"></span></span><span class="text empty-label">No item yet.</span></span><span class="time time-hidden"></span></div>`,
         );
         continue;
       }
@@ -1937,9 +1941,12 @@ class HistoryPanel {
         const selected =
           this.cursor.type === "entry" && this.cursor.entryId === entry.id;
         const time = escapeHtml(this.formatTime(entry));
-        const branch = index === day.entries.length - 1 ? "└" : "│";
+        const isLast = index === day.entries.length - 1;
+        const guideClass = isLast
+          ? "guide tree-guide tree-guide-elbow"
+          : "guide tree-guide";
         rows.push(
-          `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="text">${escapeHtml(entry.title || entry.url)}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`,
+          `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="${guideClass}" aria-hidden="true"></span></span><span class="file-icon"></span><span class="text">${escapeHtml(entry.title || entry.url)}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`,
         );
       }
     }
@@ -2059,7 +2066,7 @@ class HistoryPanel {
       : "";
     if (!nodes.length) {
       rows.push(
-        `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No item yet.</span></span><span class="time time-hidden"></span></div>`,
+        `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="guide tree-guide tree-guide-elbow" aria-hidden="true"></span></span><span class="text empty-label">No item yet.</span></span><span class="time time-hidden"></span></div>`,
       );
       return rows;
     }
@@ -2082,7 +2089,7 @@ class HistoryPanel {
             : node.depth * TREE_LAYOUT.nestIndentPx;
         const guideHtml =
           node.depth > 0
-            ? `<span class="tree-cols"><span class="icon guide">${branch}</span></span>`
+            ? `<span class="tree-cols"><span class="${branch === "└" ? "guide tree-guide tree-guide-elbow" : "guide tree-guide"}" aria-hidden="true"></span></span>`
             : "";
         const folderText = this.isBookmarksFilterActive()
           ? this.renderTextWithMatch(
@@ -2112,15 +2119,18 @@ class HistoryPanel {
           const siblingNodes = nodes.filter(
             (item) => item.parentId === node.parentId,
           );
-          const branch = node.index === siblingNodes.length - 1 ? "└" : "│";
-          const indentPx = Math.max(
-            0,
-            (node.depth - 1) * TREE_LAYOUT.nestIndentPx +
-              TREE_LAYOUT.guideOpticalOffsetPx,
-          );
-          rows.push(
-            `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="icon guide">${branch}</span></span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
-          );
+            const isLast = node.index === siblingNodes.length - 1;
+            const guideClass = isLast
+              ? "guide tree-guide tree-guide-elbow"
+              : "guide tree-guide";
+            const indentPx = Math.max(
+              0,
+              (node.depth - 1) * TREE_LAYOUT.nestIndentPx +
+                TREE_LAYOUT.guideOpticalOffsetPx,
+            );
+            rows.push(
+              `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="${guideClass}" aria-hidden="true"></span></span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
+            );
         }
       }
     }

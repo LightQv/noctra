@@ -466,16 +466,13 @@ function handleMouseInput(_event, input) {
   }
 
   if (
-    uiShell.whichKeyVisible &&
-    !isPointInView(uiShell.whichKeyOverlayView, input.x, input.y)
+    dismissIfOutside(
+      uiShell.whichKeyVisible,
+      uiShell.whichKeyOverlayView,
+      uiShell.mouseActions?.dismissWhichKey,
+    )
   ) {
-    if (typeof uiShell.mouseActions?.dismissWhichKey === "function") {
-      uiShell.mouseActions.dismissWhichKey();
-    } else {
-      resetLeaderSession(state);
-      uiShell.hideWhichKey();
-      buffers.focusActive();
-    }
+    return;
   }
 }
 

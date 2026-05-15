@@ -2716,12 +2716,17 @@ class HistoryPanel {
           if (this.bookmarkExpanded.has(liveNode.id)) {
             this.bookmarkExpanded.delete(liveNode.id);
           } else if (liveNode.parentId) {
+            this.bookmarkExpanded.delete(liveNode.parentId);
             this.bookmarkCursor = { nodeId: liveNode.parentId };
           }
         } else {
-          this.bookmarkCursor = {
-            nodeId: liveNode?.parentId || this.bookmarkCursor.nodeId,
-          };
+          const parentId = liveNode?.parentId || null;
+          if (parentId) {
+            this.bookmarkExpanded.delete(parentId);
+            this.bookmarkCursor = { nodeId: parentId };
+          } else {
+            this.bookmarkCursor = { nodeId: this.bookmarkCursor.nodeId };
+          }
         }
       } else if (this.cursor.type === "day") {
         this.expanded.delete(this.cursor.dateKey);

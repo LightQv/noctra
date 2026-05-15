@@ -455,15 +455,21 @@ class HistoryPanel {
         edit && edit.collapsedFolderIds instanceof Set
           ? edit.collapsedFolderIds
           : new Set();
-      const walkVisible = (children, depth, parentId) => {
+      const walkVisible = (children, depth, parentId, ancestorHasNext = []) => {
         for (let index = 0; index < children.length; index += 1) {
           const node = children[index];
+          const hasNextSibling = index < children.length - 1;
           if (!node || node.type !== "folder") continue;
           const folderName = String(node.name || "");
           const match = this.getMatchInfo(folderName, query);
           if (!match.matched) {
             if (Array.isArray(node.children)) {
-              walkVisible(node.children, depth + 1, node.id);
+              walkVisible(
+                node.children,
+                depth + 1,
+                node.id,
+                [...ancestorHasNext, hasNextSibling],
+              );
             }
             continue;
           }
@@ -483,7 +489,9 @@ class HistoryPanel {
               name: folderNode.name,
               depth: folderDepth,
               parentId: folderParentId,
-              index: 0,
+              index,
+              siblingCount: children.length,
+              guideTrail: ancestorHasNext.slice(),
               count: children.length,
               forceOpen: isOpen,
               matchScore: match.score,
@@ -505,6 +513,8 @@ class HistoryPanel {
                   depth: folderDepth + 1,
                   parentId: folderNode.id,
                   index: childIndex,
+                  siblingCount: children.length,
+                  guideTrail: [...ancestorHasNext, hasNextSibling],
                 });
               } else if (child.type === "folder") {
                 pushFolderWithDescendants(
@@ -519,7 +529,7 @@ class HistoryPanel {
           pushFolderWithDescendants(node, depth, parentId);
         }
       };
-      walkVisible(root, 0, null);
+      walkVisible(root, 0, null, []);
       return out;
     }
     const out = [];
@@ -1861,14 +1871,18 @@ class HistoryPanel {
       .filter-prompt-active.focused .selected .cursor{background:var(--ui-text-muted,#7f8aa3);opacity:.45}
       .tree-indent{display:inline-flex;flex:0 0 var(--indent)}
       .tree-cols{display:inline-flex;align-items:center;justify-content:center;flex:0 0 ${TREE_LAYOUT.treeColWidthEm}em;margin-right:${TREE_LAYOUT.treeColGapPx}px}
+      .tree-cols-guide{margin-right:-2px}
       .icon{display:inline-flex;align-items:center;justify-content:center;width:1.2em;font-size:18px;line-height:1}
       .file-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 ${TREE_LAYOUT.fileIconWidthEm}em;margin-right:${TREE_LAYOUT.treeColGapPx}px;color:var(--ui-text-soft,#b6c7e8)}
       .file-glyph{font-size:14px;color:var(--ui-text-soft,#b6c7e8)}
-      .guide{color:var(--ui-text-muted,#7f8aa3);font-size:12px}
+      .guide{color:var(--ui-border,#2f3440);font-size:12px}
+      .tree-guides{display:inline-flex;align-items:stretch;height:${TREE_LAYOUT.rowMinHeight}px}
       .tree-guide{position:relative;display:inline-flex;width:1.2em;height:${TREE_LAYOUT.rowMinHeight}px;align-items:stretch;justify-content:center}
       .tree-guide::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;transform:translateX(-50%);background:currentColor;opacity:.9}
       .tree-guide-elbow::before{bottom:50%}
       .tree-guide-elbow::after{content:"";position:absolute;left:50%;top:50%;width:.6em;height:1px;background:currentColor;opacity:.9}
+      .tree-guide-empty::before{display:none}
+      .row.bookmark-folder .time{width:40px;flex:0 0 40px}
       .text{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
       .match-hit{background:color-mix(in srgb, var(--ui-accent,#89dceb) 25%, transparent);color:var(--ui-text,#c9d1df);border-radius:2px}
       .empty-label{font-style:italic;color:var(--ui-text-muted,#7f8aa3)}
@@ -1969,9 +1983,10 @@ class HistoryPanel {
 
   getFavoriteFlatNodes() {
     const nodes = [];
-    const walk = (children, depth, parentId) => {
+    const walk = (children, depth, parentId, ancestorHasNext = []) => {
       for (let index = 0; index < children.length; index += 1) {
         const node = children[index];
+        const hasNextSibling = index < children.length - 1;
         if (node.type === "folder") {
           nodes.push({
             type: "folder",
@@ -1980,6 +1995,8 @@ class HistoryPanel {
             depth,
             parentId,
             index,
+            siblingCount: children.length,
+            guideTrail: ancestorHasNext.slice(),
             count: Array.isArray(node.children) ? node.children.length : 0,
           });
           if (this.bookmarkExpanded.has(node.id)) {
@@ -1987,6 +2004,7 @@ class HistoryPanel {
               Array.isArray(node.children) ? node.children : [],
               depth + 1,
               node.id,
+              [...ancestorHasNext, hasNextSibling],
             );
           }
         } else if (node.type === "entry") {
@@ -1997,11 +2015,13 @@ class HistoryPanel {
             depth,
             parentId,
             index,
+            siblingCount: children.length,
+            guideTrail: ancestorHasNext.slice(),
           });
         }
       }
     };
-    walk(Array.isArray(this.bookmarkRoot) ? this.bookmarkRoot : [], 0, null);
+    walk(Array.isArray(this.bookmarkRoot) ? this.bookmarkRoot : [], 0, null, []);
     return nodes;
   }
 
@@ -2071,25 +2091,35 @@ class HistoryPanel {
       return rows;
     }
 
+    const renderGuide = (trail, isLast) => {
+      const parts = [];
+      const effectiveTrail = Array.isArray(trail) ? trail.slice(1) : [];
+      if (effectiveTrail.length) {
+        for (const hasNext of effectiveTrail) {
+          parts.push(
+            `<span class="guide tree-guide ${hasNext ? "" : "tree-guide-empty"}" aria-hidden="true"></span>`,
+          );
+        }
+      }
+      parts.push(
+        `<span class="guide tree-guide ${isLast ? "tree-guide-elbow" : ""}" aria-hidden="true"></span>`,
+      );
+      return `<span class="tree-guides">${parts.join("")}</span>`;
+    };
+
     for (const node of nodes) {
       if (node.type === "folder") {
         const open = node.forceOpen ? true : this.bookmarkExpanded.has(node.id);
         const selected = this.isFavoriteNodeSelected(node);
-        const siblingNodes = nodes.filter(
-          (item) => item.parentId === node.parentId,
-        );
-        const branch = node.index === siblingNodes.length - 1 ? "└" : "│";
+        const isLast =
+          Number.isFinite(node.siblingCount) && node.siblingCount > 0
+            ? node.index === node.siblingCount - 1
+            : false;
         const indentPx =
-          node.depth > 0
-            ? Math.max(
-                0,
-                (node.depth - 1) * TREE_LAYOUT.nestIndentPx +
-                  TREE_LAYOUT.guideOpticalOffsetPx,
-              )
-            : node.depth * TREE_LAYOUT.nestIndentPx;
+          node.depth > 0 ? TREE_LAYOUT.guideOpticalOffsetPx : 0;
         const guideHtml =
           node.depth > 0
-            ? `<span class="tree-cols"><span class="${branch === "└" ? "guide tree-guide tree-guide-elbow" : "guide tree-guide"}" aria-hidden="true"></span></span>`
+            ? `<span class="tree-cols tree-cols-guide">${renderGuide(node.guideTrail, isLast)}</span>`
             : "";
         const folderText = this.isBookmarksFilterActive()
           ? this.renderTextWithMatch(
@@ -2098,7 +2128,7 @@ class HistoryPanel {
             )
           : escapeHtml(this.getFavoriteFolderDisplayName(node));
         rows.push(
-          `<div class="row row-meta day ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span>${guideHtml}<span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
+          `<div class="row row-meta day bookmark-folder ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span>${guideHtml}<span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
         );
       } else {
         const selected = this.isFavoriteNodeSelected(node);
@@ -2116,21 +2146,14 @@ class HistoryPanel {
             `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
           );
         } else {
-          const siblingNodes = nodes.filter(
-            (item) => item.parentId === node.parentId,
+          const isLast =
+            Number.isFinite(node.siblingCount) && node.siblingCount > 0
+              ? node.index === node.siblingCount - 1
+              : false;
+          const indentPx = TREE_LAYOUT.guideOpticalOffsetPx;
+          rows.push(
+            `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols tree-cols-guide">${renderGuide(node.guideTrail, isLast)}</span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
           );
-            const isLast = node.index === siblingNodes.length - 1;
-            const guideClass = isLast
-              ? "guide tree-guide tree-guide-elbow"
-              : "guide tree-guide";
-            const indentPx = Math.max(
-              0,
-              (node.depth - 1) * TREE_LAYOUT.nestIndentPx +
-                TREE_LAYOUT.guideOpticalOffsetPx,
-            );
-            rows.push(
-              `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols"><span class="${guideClass}" aria-hidden="true"></span></span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
-            );
         }
       }
     }

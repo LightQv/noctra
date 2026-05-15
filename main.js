@@ -456,10 +456,26 @@ function handleMouseInput(_event, input) {
   }
 
   if (
+    dismissIfOutside(
+      uiShell.isDownloadsModalVisible(),
+      uiShell.downloadsModalView,
+      uiShell.mouseActions?.dismissDownloadsModal,
+    )
+  ) {
+    return;
+  }
+
+  if (
     uiShell.whichKeyVisible &&
     !isPointInView(uiShell.whichKeyOverlayView, input.x, input.y)
   ) {
-    uiShell.hideWhichKey();
+    if (typeof uiShell.mouseActions?.dismissWhichKey === "function") {
+      uiShell.mouseActions.dismissWhichKey();
+    } else {
+      resetLeaderSession(state);
+      uiShell.hideWhichKey();
+      buffers.focusActive();
+    }
   }
 }
 
@@ -946,6 +962,24 @@ function createWindow() {
       }
       if (appMenu) appMenu.sync();
     },
+    dismissDownloadsModal: () => {
+      if (!downloadsModal.isActive()) return;
+      downloadsModal.close();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      if (historyPanel.isVisible()) {
+        historyPanel.render();
+      }
+      buffers.focusActive();
+      if (appMenu) appMenu.sync();
+    },
+    dismissWhichKey: () => {
+      if (!uiShell.whichKeyVisible) return;
+      resetLeaderSession(state);
+      uiShell.hideWhichKey();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      buffers.focusActive();
+      if (appMenu) appMenu.sync();
+    },
     dismissTelescope: () => {
       if (!telescopeService.isActive()) return;
       telescopeService.close();
@@ -981,6 +1015,9 @@ function createWindow() {
       if (!consumed) return;
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       if (appMenu) appMenu.sync();
+    },
+    handleBackdropMouseEvent: (input) => {
+      handleMouseInput(null, input);
     },
   });
   const overlayInputViews = [

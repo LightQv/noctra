@@ -910,6 +910,35 @@ const DOWNLOADS_MODAL_OVERLAY_HTML = `
 </html>
 `;
 
+const BACKDROP_OVERLAY_HTML = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+      }
+
+      #overlay-backdrop {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="overlay-backdrop"></div>
+  </body>
+</html>
+`;
+
 const TOAST_OVERLAY_HTML = `
 <!doctype html>
 <html>
@@ -986,4 +1015,5 @@ module.exports = {
   STATUSLINE_OVERLAY_HTML,
   TOAST_OVERLAY_HTML,
   DOWNLOADS_MODAL_OVERLAY_HTML,
+  BACKDROP_OVERLAY_HTML,
 };

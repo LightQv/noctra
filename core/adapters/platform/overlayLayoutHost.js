@@ -18,6 +18,7 @@ function applyOverlayLayout({
     statuslineView,
     toastOverlayView,
     downloadsModalView,
+    backdropOverlayView,
   } = overlays || {};
 
   if (
@@ -27,7 +28,8 @@ function applyOverlayLayout({
     !telescopeView ||
     !statuslineView ||
     !toastOverlayView ||
-    !downloadsModalView
+    !downloadsModalView ||
+    !backdropOverlayView
   ) {
     return;
   }
@@ -43,6 +45,18 @@ function applyOverlayLayout({
   const telescopeVisible = Boolean(visibility && visibility.telescopeVisible);
   const downloadsModalVisible = Boolean(
     visibility && visibility.downloadsModalVisible,
+  );
+  const backdropVisible = Boolean(visibility && visibility.backdropVisible);
+
+  backdropOverlayView.setBounds(
+    backdropVisible
+      ? {
+          x: 0,
+          y: 0,
+          width: Math.max(bounds.width, 1),
+          height: Math.max(bounds.height, 1),
+        }
+      : { x: -10000, y: -10000, width: 1, height: 1 },
   );
 
   const width = commandVisible
@@ -178,6 +192,14 @@ function applyOverlayStack(windowRef, stack = {}) {
     windowRef.setTopBrowserView(stack.statuslineView);
   }
 
+  if (stack.toastOverlayView) {
+    windowRef.setTopBrowserView(stack.toastOverlayView);
+  }
+
+  if (stack.backdropVisible && stack.backdropOverlayView) {
+    windowRef.setTopBrowserView(stack.backdropOverlayView);
+  }
+
   if (stack.whichKeyVisible && stack.whichKeyOverlayView) {
     windowRef.setTopBrowserView(stack.whichKeyOverlayView);
   }
@@ -196,10 +218,6 @@ function applyOverlayStack(windowRef, stack = {}) {
 
   if (stack.downloadsModalVisible && stack.downloadsModalView) {
     windowRef.setTopBrowserView(stack.downloadsModalView);
-  }
-
-  if (stack.toastOverlayView) {
-    windowRef.setTopBrowserView(stack.toastOverlayView);
   }
 }
 

@@ -15,6 +15,7 @@ const {
   STATUSLINE_OVERLAY_HTML,
   TOAST_OVERLAY_HTML,
   DOWNLOADS_MODAL_OVERLAY_HTML,
+  BACKDROP_OVERLAY_HTML,
 } = require("./services/shellTemplates");
 
 class UiShellManager {
@@ -50,6 +51,8 @@ class UiShellManager {
     this.downloadsModalReady = false;
     this.downloadsModalVisible = false;
     this.downloadsModalModel = null;
+    this.backdropOverlayView = null;
+    this.backdropOverlayReady = false;
     this.statuslineMode = "NORMAL";
     this.statuslineScroll = 0;
     this.statuslineSplitIndicator = {
@@ -109,6 +112,7 @@ class UiShellManager {
     this.initializeStatuslineView();
     this.initializeToastOverlayView();
     this.initializeDownloadsModalView();
+    this.initializeBackdropOverlayView();
 
     this.window.on("resize", () => this.relayout());
     this.window.on("maximize", () => this.relayout());
@@ -219,6 +223,19 @@ class UiShellManager {
       },
       onMouseEvent: (input) => {
         this.handleDownloadsModalMouseEvent(input);
+      },
+    });
+  }
+
+  initializeBackdropOverlayView() {
+    return overlayLifecycle.initializeOverlayView.call(this, {
+      viewKey: "backdropOverlayView",
+      readyKey: "backdropOverlayReady",
+      html: BACKDROP_OVERLAY_HTML,
+      autoResize: { width: true, height: true },
+      onReady() {},
+      onMouseEvent: (input) => {
+        this.handleBackdropMouseEvent(input);
       },
     });
   }
@@ -452,6 +469,12 @@ class UiShellManager {
 
   handleDownloadsModalMouseEvent(input) {
     return auxOverlayController.handleDownloadsModalMouseEvent.call(this, input);
+  }
+
+  handleBackdropMouseEvent(input) {
+    if (typeof this.mouseActions?.handleBackdropMouseEvent === "function") {
+      this.mouseActions.handleBackdropMouseEvent(input);
+    }
   }
 
   handleWhichKeyMouseEvent(input) {

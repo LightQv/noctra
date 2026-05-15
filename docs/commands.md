@@ -62,7 +62,7 @@ Use `:` in `COMMAND` mode to run the following commands.
 - `:focus-context`
 - `:context`
 - `:history show|hide|toggle|focus|delete-all|delete-today`
-- `:bookmarks show|hide|toggle|focus|delete-all`
+- `:bookmarks show|hide|toggle|focus|delete-all|import`
 
 ## Sessions
 

@@ -410,8 +410,12 @@ test("bookmarks menu contains add actions and tree", () => {
   const addScoped = bookmarksMenu.submenu.find(
     (item) => item.label === "Add Bookmark (Scoped)",
   );
+  const importBookmarks = bookmarksMenu.submenu.find(
+    (item) => item.label === "Import Bookmarks...",
+  );
   assert.ok(addRoot, "Add Bookmark (Root) should exist");
   assert.ok(addScoped, "Add Bookmark (Scoped) should exist");
+  assert.ok(importBookmarks, "Import Bookmarks... should exist");
 
   const folderItem = bookmarksMenu.submenu.find(
     (item) => item.label === "Dev",

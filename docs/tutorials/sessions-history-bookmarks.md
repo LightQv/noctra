@@ -41,11 +41,16 @@ Use bookmark commands:
 - `:bookmarks toggle`
 - `:bookmarks focus`
 - `:bookmarks delete-all`
+- `:bookmarks import`
 
 Default shortcuts:
 
 - `<leader> d r`: add active page at root level
 - `<leader> d d`: choose bookmark path/scope for active page
+
+Import supports Netscape bookmark HTML export files (`.html`/`.htm`). Imported
+items are appended at the bottom of the root level while preserving source
+folder names and nested structure.
 
 ## Data files
 

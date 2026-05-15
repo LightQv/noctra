@@ -17,9 +17,10 @@ function initializeOverlayView({
   html,
   autoResize,
   onReady,
+  onMouseEvent,
 }) {
   if (!this.window) return;
-  this[viewKey] = createOverlayBrowserView(html);
+  this[viewKey] = createOverlayBrowserView(html, { onMouseEvent });
   this[viewKey].setAutoResize(autoResize);
   this[viewKey].webContents.on("did-finish-load", () => {
     this[readyKey] = true;

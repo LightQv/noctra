@@ -1334,6 +1334,9 @@ class HistoryPanel {
       onMouseDown: () => {
         this.focus();
       },
+      onMouseEvent: (input) => {
+        this.handleMouseEvent(input);
+      },
       onFocus: () => {
         this.focus();
       },
@@ -1658,6 +1661,111 @@ class HistoryPanel {
     }
   }
 
+  getCurrentTreeNode() {
+    const nodes = this.getTreeFlatNodes();
+    const idx = this.getSelectedTreeIndex();
+    if (idx < 0 || idx >= nodes.length) return null;
+    return nodes[idx];
+  }
+
+  toggleCurrentFolderOpen() {
+    if (this.treeKind === "bookmarks") {
+      const nodes = this.getTreeFlatNodes();
+      const node = nodes.find((item) => item.id === this.bookmarkCursor.nodeId);
+      if (!node || node.type !== "folder") return false;
+      if (this.bookmarkExpanded.has(node.id)) this.bookmarkExpanded.delete(node.id);
+      else this.bookmarkExpanded.add(node.id);
+      return true;
+    }
+    if (this.treeKind !== "downloads" && this.cursor.type === "day") {
+      if (this.expanded.has(this.cursor.dateKey)) this.expanded.delete(this.cursor.dateKey);
+      else this.expanded.add(this.cursor.dateKey);
+      return true;
+    }
+    return false;
+  }
+
+  async resolveMouseTarget(x, y) {
+    const webContents = this.getWebContents();
+    if (!webContents) return null;
+    try {
+      return await webContents.executeJavaScript(
+        `(() => {
+          const x = ${JSON.stringify(x)};
+          const y = ${JSON.stringify(y)};
+          const node = document.elementFromPoint(x, y);
+          if (!node) return null;
+          const clickable = node.closest('[data-click-role]');
+          if (!clickable) return null;
+          return {
+            role: String(clickable.getAttribute('data-click-role') || ''),
+            kind: String(clickable.getAttribute('data-kind') || ''),
+            rowType: String(clickable.getAttribute('data-row-type') || ''),
+            rowIndex: Number.parseInt(String(clickable.getAttribute('data-row-index') || '-1'), 10),
+          };
+        })();`,
+      );
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  async handleMouseEvent(input) {
+    if (!this.visible || !input || input.type !== "mouseUp") return;
+    if (input.button !== "left") return;
+    const clickCount = Number.isFinite(input.clickCount)
+      ? input.clickCount
+      : Number.isFinite(input.clicks)
+        ? input.clicks
+        : 1;
+    const target = await this.resolveMouseTarget(input.x, input.y);
+    if (!target || !target.role) return;
+
+    this.focus();
+    if (target.role === "tree-kind") {
+      this.setTreeKind(target.kind);
+      this.render();
+      return;
+    }
+    if (target.role !== "tree-row") return;
+    const idx = Number.isFinite(target.rowIndex) ? target.rowIndex : -1;
+    const nodes = this.getTreeFlatNodes();
+    if (idx < 0 || idx >= nodes.length) return;
+    const node = nodes[idx];
+    if (!node) return;
+
+    if (this.treeKind === "bookmarks") {
+      this.bookmarkCursor = { nodeId: node.id };
+      if (node.type === "folder") {
+        this.toggleCurrentFolderOpen();
+      } else {
+        this.openCurrent(false);
+      }
+      this.render();
+      return;
+    }
+
+    if (this.treeKind === "downloads") {
+      this.downloadCursor = { id: node.id };
+      if (clickCount >= 2) downloadsService.openFile(node.id);
+      else downloadsService.showInFolder(node.id);
+      this.render();
+      return;
+    }
+
+    this.cursor = {
+      type: node.type,
+      dateKey: node.dateKey,
+      entryId: node.entry ? node.entry.id : null,
+    };
+    if (node.type === "day") {
+      this.toggleCurrentFolderOpen();
+    } else {
+      this.openCurrent(false);
+    }
+    this.render();
+  }
+
   resolveFavoriteScopeBottomIndex(flatNodes, startIndex) {
     const current = flatNodes[startIndex];
     if (!current) return startIndex;
@@ -1855,6 +1963,7 @@ class HistoryPanel {
       .tree-head-item{cursor:pointer;user-select:none}
       .list{padding:6px 0;overflow-x:hidden;overflow-y:auto;flex:1}
       .row{display:flex;align-items:stretch;gap:0;min-height:${TREE_LAYOUT.rowMinHeight}px}
+      .row[data-click-role="tree-row"]{cursor:pointer}
       .row.row-no-meta .time{width:0;flex:0 0 0;padding:0;overflow:hidden}
       .row.row-no-meta .name{padding-right:${TREE_LAYOUT.namePaddingRight}px}
       .row.empty .tree-cols{margin-left:3px}
@@ -1908,7 +2017,7 @@ class HistoryPanel {
       .filter-nav-active .floating-input-cursor{background:var(--ui-text-muted,#7f8aa3);opacity:.55}
       .filter-nav-active .floating-input-caret{background:var(--ui-text-muted,#7f8aa3);opacity:.65}
       .filter-prompt-active .floating-input{border-color:color-mix(in srgb, var(--ui-accent,#89dceb) 40%, var(--ui-border,#2f3440))}
-    </style><div class="wrap ${this.focused ? "focused" : "unfocused"} ${filterModeClass}"><div class="head"><span class="${historyHeadClass}">History</span><span class="${bookmarkHeadClass}">Bookmarks</span><span class="${downloadsHeadClass}">Downloads</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
+    </style><div class="wrap ${this.focused ? "focused" : "unfocused"} ${filterModeClass}"><div class="head"><span class="${historyHeadClass}" data-click-role="tree-kind" data-kind="history">History</span><span class="${bookmarkHeadClass}" data-click-role="tree-kind" data-kind="bookmarks">Bookmarks</span><span class="${downloadsHeadClass}" data-click-role="tree-kind" data-kind="downloads">Downloads</span></div><div class="list">${rows.join("")}</div>${inputOverlayHtml}<div class="foot"><span class="foot-badge ${footerTone}">${footerBadgeLabel}</span><div class="foot-main">${footerSegments.join("")}</div></div></div><script>(function(){const list=document.querySelector('.list');if(!list)return;const row=${TREE_LAYOUT.rowMinHeight};const nextFirst=${nextFirstVisibleIndex};list.scrollTop=Math.max(0,nextFirst*row);})();</script></body></html>`;
 
     this.scheduleRender(html);
   }
@@ -1922,7 +2031,7 @@ class HistoryPanel {
         ];
       }
       const query = this.getActiveFilterQuery();
-      return nodes.map((node) => {
+      return nodes.map((node, rowIndex) => {
         const selected =
           this.cursor.type === "entry" &&
           this.cursor.dateKey === node.dateKey &&
@@ -1932,18 +2041,20 @@ class HistoryPanel {
           query,
         );
         const time = escapeHtml(this.formatDateTime(node.entry));
-        return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="file-icon"></span><span class="text">${text}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`;
+        return `<div class="row entry ${selected ? "selected" : ""}" data-click-role="tree-row" data-row-type="entry" data-row-index="${rowIndex}"><span class="cursor"></span><span class="name"><span class="file-icon"></span><span class="text">${text}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`;
       });
     }
 
     const rows = [];
+    let rowIndex = 0;
     for (const day of this.days) {
       const isDaySelected =
         this.cursor.type === "day" && this.cursor.dateKey === day.key;
       const isOpen = this.expanded.has(day.key);
       rows.push(
-        `<div class="row day ${isDaySelected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon">${isOpen ? "" : ""}</span></span><span class="text">${escapeHtml(day.key)}</span></span><span class="time time-hidden"></span></div>`,
+        `<div class="row day ${isDaySelected ? "selected" : ""}" data-click-role="tree-row" data-row-type="day" data-row-index="${rowIndex}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon">${isOpen ? "" : ""}</span></span><span class="text">${escapeHtml(day.key)}</span></span><span class="time time-hidden"></span></div>`,
       );
+      rowIndex += 1;
       if (!isOpen) continue;
       if (!day.entries.length) {
         rows.push(
@@ -1961,8 +2072,9 @@ class HistoryPanel {
           ? "guide tree-guide tree-guide-elbow"
           : "guide tree-guide";
         rows.push(
-          `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="${guideClass}" aria-hidden="true"></span></span><span class="file-icon"></span><span class="text">${escapeHtml(entry.title || entry.url)}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`,
+          `<div class="row entry ${selected ? "selected" : ""}" data-click-role="tree-row" data-row-type="entry" data-row-index="${rowIndex}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="${guideClass}" aria-hidden="true"></span></span><span class="file-icon"></span><span class="text">${escapeHtml(entry.title || entry.url)}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`,
         );
+        rowIndex += 1;
       }
     }
     return rows;
@@ -2108,7 +2220,8 @@ class HistoryPanel {
       return `<span class="tree-guides">${parts.join("")}</span>`;
     };
 
-    for (const node of nodes) {
+    for (let rowIndex = 0; rowIndex < nodes.length; rowIndex += 1) {
+      const node = nodes[rowIndex];
       if (node.type === "folder") {
         const open = node.forceOpen ? true : this.bookmarkExpanded.has(node.id);
         const selected = this.isFavoriteNodeSelected(node);
@@ -2129,7 +2242,7 @@ class HistoryPanel {
             )
           : escapeHtml(this.getFavoriteFolderDisplayName(node));
         rows.push(
-          `<div class="row row-meta day bookmark-folder ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span>${guideHtml}<span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
+          `<div class="row row-meta day bookmark-folder ${selected ? "selected" : ""}" data-click-role="tree-row" data-row-type="folder" data-row-index="${rowIndex}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span>${guideHtml}<span class="tree-cols"><span class="icon">${open ? "" : ""}</span></span><span class="text">${folderText}</span></span><span class="time ${this.showFavoriteCount ? "" : "time-hidden"}">${node.count}</span></div>`,
         );
       } else {
         const selected = this.isFavoriteNodeSelected(node);
@@ -2144,7 +2257,7 @@ class HistoryPanel {
           : escapeHtml(this.getFavoriteEntryDisplayName(node));
         if (node.depth === 0) {
           rows.push(
-            `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
+            `<div class="row row-no-meta entry ${selected ? "selected" : ""}" data-click-role="tree-row" data-row-type="entry" data-row-index="${rowIndex}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
           );
         } else {
           const isLast =
@@ -2153,7 +2266,7 @@ class HistoryPanel {
               : false;
           const indentPx = TREE_LAYOUT.guideOpticalOffsetPx;
           rows.push(
-            `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols tree-cols-guide">${renderGuide(node.guideTrail, isLast)}</span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
+            `<div class="row row-no-meta entry ${selected ? "selected" : ""}" data-click-role="tree-row" data-row-type="entry" data-row-index="${rowIndex}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${indentPx}px"></span><span class="tree-cols tree-cols-guide">${renderGuide(node.guideTrail, isLast)}</span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
           );
         }
       }
@@ -2194,7 +2307,7 @@ class HistoryPanel {
         `<div class="row entry empty"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon guide">└</span></span><span class="text empty-label">No downloads yet.</span></span><span class="time time-hidden"></span></div>`,
       ];
     }
-    return nodes.map((node) => {
+    return nodes.map((node, rowIndex) => {
       const selected = node.id === this.downloadCursor.id;
       const entry = node.entry;
       const state = entry.state || "unknown";
@@ -2223,7 +2336,7 @@ class HistoryPanel {
       } else {
         progressText = state;
       }
-      return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon file-glyph">${glyph}</span></span><span class="text">${name}</span></span><span class="time">${escapeHtml(progressText)}</span></div>`;
+      return `<div class="row entry ${selected ? "selected" : ""}" data-click-role="tree-row" data-row-type="download" data-row-index="${rowIndex}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon file-glyph">${glyph}</span></span><span class="text">${name}</span></span><span class="time">${escapeHtml(progressText)}</span></div>`;
     });
   }
 

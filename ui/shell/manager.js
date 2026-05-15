@@ -79,6 +79,13 @@ class UiShellManager {
       ...DEFAULT_THEME,
     };
     this.pendingToasts = [];
+    this.mouseActions = {};
+  }
+
+  setMouseActions(actions = {}) {
+    this.mouseActions = {
+      ...actions,
+    };
   }
 
   showNotificationToast(toast = {}) {
@@ -133,6 +140,9 @@ class UiShellManager {
       onReady() {
         this.updateWhichKey(this.whichKeyModel, null, 0, false, true);
       },
+      onMouseEvent: (input) => {
+        this.handleWhichKeyMouseEvent(input);
+      },
     });
   }
 
@@ -147,6 +157,9 @@ class UiShellManager {
           this.updateSelectionModal(this.selectionModalModel);
         }
       },
+      onMouseEvent: (input) => {
+        this.handleSelectionModalMouseEvent(input);
+      },
     });
   }
 
@@ -160,6 +173,9 @@ class UiShellManager {
         if (this.telescopeModel) {
           this.updateTelescope(this.telescopeModel);
         }
+      },
+      onMouseEvent: (input) => {
+        this.handleTelescopeMouseEvent(input);
       },
     });
   }
@@ -200,6 +216,9 @@ class UiShellManager {
         if (this.downloadsModalModel) {
           this.updateDownloadsModal(this.downloadsModalModel);
         }
+      },
+      onMouseEvent: (input) => {
+        this.handleDownloadsModalMouseEvent(input);
       },
     });
   }
@@ -421,6 +440,22 @@ class UiShellManager {
       cursorIndex,
       context,
     );
+  }
+
+  handleSelectionModalMouseEvent(input) {
+    return auxOverlayController.handleSelectionModalMouseEvent.call(this, input);
+  }
+
+  handleTelescopeMouseEvent(input) {
+    return auxOverlayController.handleTelescopeMouseEvent.call(this, input);
+  }
+
+  handleDownloadsModalMouseEvent(input) {
+    return auxOverlayController.handleDownloadsModalMouseEvent.call(this, input);
+  }
+
+  handleWhichKeyMouseEvent(input) {
+    return whichKeyOverlayController.handleWhichKeyMouseEvent.call(this, input);
   }
 }
 

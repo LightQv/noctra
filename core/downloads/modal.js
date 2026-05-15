@@ -162,6 +162,48 @@ class DownloadsModal {
     return this.items[idx] || null;
   }
 
+  selectIndex(index) {
+    if (!this.active || this.items.length === 0) return false;
+    const idx = Number.isFinite(index) ? Math.floor(index) : -1;
+    if (idx < 0 || idx >= this.items.length) return false;
+    this.selectedIndex = idx;
+    this.rerender();
+    return true;
+  }
+
+  clickIndex(index, clickCount = 1) {
+    if (!this.active || this.items.length === 0) return false;
+    const idx = Number.isFinite(index) ? Math.floor(index) : -1;
+    if (idx < 0 || idx >= this.items.length) return false;
+    this.selectedIndex = idx;
+    const entry = this.items[idx];
+    if (!entry) {
+      this.rerender();
+      return false;
+    }
+
+    const isUnfinished = entry.state === "progressing" || entry.state === "paused";
+    if (isUnfinished) {
+      if (clickCount >= 2) {
+        if (entry.isPaused || entry.state === "paused") {
+          downloadsService.resume(entry.id);
+        } else {
+          downloadsService.pause(entry.id);
+        }
+      } else {
+        this.rerender();
+      }
+      return true;
+    }
+
+    if (clickCount >= 2) {
+      downloadsService.openFile(entry.id);
+      return true;
+    }
+    downloadsService.showInFolder(entry.id);
+    return true;
+  }
+
   handleInput(input) {
     if (!this.active || !input || input.type !== "keyDown") {
       return false;

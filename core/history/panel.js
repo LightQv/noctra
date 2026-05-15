@@ -1873,7 +1873,8 @@ class HistoryPanel {
       .tree-cols{display:inline-flex;align-items:center;justify-content:center;flex:0 0 ${TREE_LAYOUT.treeColWidthEm}em;margin-right:${TREE_LAYOUT.treeColGapPx}px}
       .tree-cols-guide{margin-right:-2px}
       .icon{display:inline-flex;align-items:center;justify-content:center;width:1.2em;font-size:18px;line-height:1}
-      .file-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 ${TREE_LAYOUT.fileIconWidthEm}em;margin-right:${TREE_LAYOUT.treeColGapPx}px;color:var(--ui-text-soft,#b6c7e8)}
+      .file-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 ${TREE_LAYOUT.fileIconWidthEm}em;font-size:14px;margin-left:2px;margin-right:${TREE_LAYOUT.treeColGapPx + 4}px;color:var(--ui-text-soft,#b6c7e8)}
+      .tree-cols-guide + .file-icon{margin-left:4px}
       .file-glyph{font-size:14px;color:var(--ui-text-soft,#b6c7e8)}
       .guide{color:var(--ui-border,#2f3440);font-size:12px}
       .tree-guides{display:inline-flex;align-items:stretch;height:${TREE_LAYOUT.rowMinHeight}px}
@@ -1931,7 +1932,7 @@ class HistoryPanel {
           query,
         );
         const time = escapeHtml(this.formatDateTime(node.entry));
-        return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${text}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`;
+        return `<div class="row entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="file-icon"></span><span class="text">${text}</span></span><span class="time ${this.showTimestamp ? "" : "time-hidden"}">${time}</span></div>`;
       });
     }
 
@@ -2143,7 +2144,7 @@ class HistoryPanel {
           : escapeHtml(this.getFavoriteEntryDisplayName(node));
         if (node.depth === 0) {
           rows.push(
-            `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="tree-cols"><span class="icon file-glyph"></span></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
+            `<div class="row row-no-meta entry ${selected ? "selected" : ""}"><span class="cursor"></span><span class="name"><span class="tree-indent" style="--indent:${TREE_LAYOUT.guideOpticalOffsetPx}px"></span><span class="file-icon"></span><span class="text">${entryText}</span></span><span class="time time-hidden"></span></div>`,
           );
         } else {
           const isLast =

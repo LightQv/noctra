@@ -7,7 +7,8 @@ const OVERLAY_WEB_PREFERENCES = {
   webviewTag: false,
 };
 
-function createOverlayBrowserView(html) {
+function createOverlayBrowserView(html, options = {}) {
+  const { onMouseEvent } = options;
   const view = new BrowserView({
     webPreferences: {
       ...OVERLAY_WEB_PREFERENCES,
@@ -17,6 +18,11 @@ function createOverlayBrowserView(html) {
   view.webContents.loadURL(
     `data:text/html;charset=utf-8,${encodeURIComponent(String(html || ""))}`,
   );
+  if (typeof onMouseEvent === "function") {
+    view.webContents.on("before-mouse-event", (_event, input) => {
+      onMouseEvent(input);
+    });
+  }
   return view;
 }
 

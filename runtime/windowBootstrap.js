@@ -22,6 +22,7 @@ function bootstrapWindowRuntime({
   createSmokeScenarios,
   inputCoordinator,
   handleRawInput,
+  handleMouseInput,
   isEditorFocused,
   wireWindowLifecycle,
   getSurfaceRole,
@@ -132,6 +133,11 @@ function bootstrapWindowRuntime({
   win.webContents.on("before-input-event", (event, input) => {
     handleRawInput(event, input);
   });
+  win.webContents.on("before-mouse-event", (event, input) => {
+    if (typeof handleMouseInput === "function") {
+      handleMouseInput(event, input);
+    }
+  });
 
   win.webContents.on("did-finish-load", () => {
     buffers.focusActive();
@@ -193,6 +199,11 @@ function bootstrapWindowRuntime({
   if (historyPanelWebContents) {
     historyPanelWebContents.on("before-input-event", (event, input) => {
       handleRawInput(event, input);
+    });
+    historyPanelWebContents.on("before-mouse-event", (event, input) => {
+      if (typeof handleMouseInput === "function") {
+        handleMouseInput(event, input);
+      }
     });
   }
   uiShell.init(win);

@@ -17,9 +17,10 @@ function initializeOverlayView({
   html,
   autoResize,
   onReady,
+  onMouseEvent,
 }) {
   if (!this.window) return;
-  this[viewKey] = createOverlayBrowserView(html);
+  this[viewKey] = createOverlayBrowserView(html, { onMouseEvent });
   this[viewKey].setAutoResize(autoResize);
   this[viewKey].webContents.on("did-finish-load", () => {
     this[readyKey] = true;
@@ -42,6 +43,7 @@ function relayout() {
         statuslineView: this.statuslineView,
         toastOverlayView: this.toastOverlayView,
         downloadsModalView: this.downloadsModalView,
+        backdropOverlayView: this.backdropOverlayView,
       },
       visibility: {
         commandVisible: this.commandVisible,
@@ -49,6 +51,11 @@ function relayout() {
         selectionModalVisible: this.selectionModalVisible,
         telescopeVisible: this.telescopeVisible,
         downloadsModalVisible: this.downloadsModalVisible,
+        backdropVisible:
+          this.whichKeyVisible ||
+          this.selectionModalVisible ||
+          this.telescopeVisible ||
+          this.downloadsModalVisible,
       },
       chrome: {
         UI_SHELL_TABLINE_HEIGHT,
@@ -84,6 +91,12 @@ function syncOverlayStack() {
     toastOverlayView: this.toastOverlayView,
     downloadsModalVisible: this.downloadsModalVisible,
     downloadsModalView: this.downloadsModalView,
+    backdropVisible:
+      this.whichKeyVisible ||
+      this.selectionModalVisible ||
+      this.telescopeVisible ||
+      this.downloadsModalVisible,
+    backdropOverlayView: this.backdropOverlayView,
   });
 
   this.relayout();

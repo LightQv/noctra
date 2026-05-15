@@ -4,7 +4,7 @@ const {
   SURFACE_ROLES,
 } = require("../../security/surfaceTrust");
 
-function createPanelViewHost({ windowRef, onMouseDown, onFocus }) {
+function createPanelViewHost({ windowRef, onMouseDown, onFocus, onMouseEvent }) {
   if (!windowRef || windowRef.isDestroyed()) {
     return null;
   }
@@ -22,6 +22,9 @@ function createPanelViewHost({ windowRef, onMouseDown, onFocus }) {
   markSurfaceRole(view.webContents, SURFACE_ROLES.TRUSTED_PANEL);
 
   view.webContents.on("before-mouse-event", (_event, input) => {
+    if (typeof onMouseEvent === "function") {
+      onMouseEvent(input);
+    }
     if (!input || input.type !== "mouseDown") return;
     if (typeof onMouseDown === "function") {
       onMouseDown();

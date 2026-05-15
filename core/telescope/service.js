@@ -228,6 +228,16 @@ class TelescopeService {
     this.selectedIndex = (this.selectedIndex + delta + length) % length;
   }
 
+  setMode(mode) {
+    this.mode = mode === "NORMAL" ? "NORMAL" : "INSERT";
+  }
+
+  setSelectedIndex(index) {
+    const next = Number.isFinite(index) ? Math.floor(index) : 0;
+    const max = this.filteredItems.length > 0 ? this.filteredItems.length - 1 : 0;
+    this.selectedIndex = Math.max(0, Math.min(next, max));
+  }
+
   submit(openInNewBuffer = false) {
     if (!this.filteredItems.length) return null;
     const selected = this.filteredItems[this.selectedIndex];

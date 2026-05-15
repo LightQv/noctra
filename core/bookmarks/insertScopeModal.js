@@ -233,6 +233,43 @@ class BookmarkInsertScopeModal {
     this.rerender();
     return true;
   }
+
+  selectIndex(index) {
+    if (!this.active) return false;
+    const idx = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : -1;
+    if (idx < 0) return false;
+
+    if (this.isConfirmStep()) {
+      if (idx === 0) {
+        if (this.hasDuplicateInCurrentScope()) {
+          this.confirmIndex = 1;
+          this.rerender();
+          return true;
+        }
+        this.confirmInsert();
+        return true;
+      }
+      this.close();
+      return true;
+    }
+
+    if (idx === 0) {
+      this.confirmIndex = 0;
+      this.rerender();
+      return true;
+    }
+
+    const folders = this.getCurrentFolders();
+    const totalPages = Math.max(1, Math.ceil(folders.length / PAGE_SIZE));
+    const page = Math.min(this.getCurrentPage(), totalPages - 1);
+    const start = page * PAGE_SIZE;
+    const node = folders[start + idx - 1];
+    if (!node) return true;
+    this.stack.push({ id: node.id, name: node.name });
+    this.confirmIndex = 0;
+    this.rerender();
+    return true;
+  }
 }
 
 module.exports = new BookmarkInsertScopeModal();

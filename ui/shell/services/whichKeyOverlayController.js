@@ -109,6 +109,23 @@ function hideWhichKey() {
   this.relayout();
 }
 
+function handleWhichKeyMouseEvent(input) {
+  if (!this.whichKeyVisible || !input || input.type !== "mouseDown") return;
+  if (input.button !== "left") return;
+  const view = this.whichKeyOverlayView;
+  if (!view || !view.webContents || view.webContents.isDestroyed()) return;
+  view.webContents
+    .executeJavaScript(
+      `(() => Boolean(document.elementFromPoint(${JSON.stringify(input.x)}, ${JSON.stringify(input.y)})?.closest('#whichkey-overlay')))();`,
+    )
+    .then((inside) => {
+      if (!inside) {
+        this.hideWhichKey();
+      }
+    })
+    .catch(() => {});
+}
+
 function resetWhichKeyShowTimer(delayMs) {
   this.clearWhichKeyShowTimer();
 
@@ -166,4 +183,5 @@ module.exports = {
   clearWhichKeyShowTimer,
   resetWhichKeyHideTimer,
   clearWhichKeyHideTimer,
+  handleWhichKeyMouseEvent,
 };

@@ -139,7 +139,7 @@ function updateSelectionModal(model) {
             const item = escapeHtml(items[i] || '');
             const hint = escapeHtml(indexHints[i] || '');
             const selectedClass = i === selectedIndex ? ' selected' : '';
-            columns.push('<span class="selection-modal-col"><span class="selection-modal-item' + selectedClass + '">' + item + '</span><span class="selection-modal-index">' + hint + '</span></span>');
+            columns.push('<span class="selection-modal-col"><span class="selection-modal-item' + selectedClass + '" data-click-role="selection-option" data-index="' + i + '">' + item + '</span><span class="selection-modal-index">' + hint + '</span></span>');
           }
           contentNode.innerHTML = '<div class="selection-modal-grid">' + columns.join('') + '</div>';
         }
@@ -213,9 +213,9 @@ function updateTelescope(model) {
           listNode.innerHTML = '<div class="telescope-empty">No match</div>';
           return;
         }
-        listNode.innerHTML = model.items.map((item) => {
+        listNode.innerHTML = model.items.map((item, index) => {
           const selected = item.selected ? ' selected' : '';
-          return '<div class="telescope-row' + selected + '">' +
+          return '<div class="telescope-row' + selected + '" data-click-role="telescope-row" data-index="' + index + '">' +
             '<span class="telescope-cursor"></span>' +
             '<span class="telescope-primary">' + escapeHtml(item.primary) + '</span>' +
             '<span class="telescope-right">' + escapeHtml(item.rightText) + '</span>' +
@@ -230,6 +230,81 @@ function updateTelescope(model) {
   );
 
   this.relayout();
+}
+
+async function resolveOverlayClickTarget(view, x, y, selector) {
+  if (!view || !view.webContents || view.webContents.isDestroyed()) return null;
+  try {
+    return await view.webContents.executeJavaScript(
+      `(() => {
+        const node = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)});
+        if (!node) return null;
+        const target = node.closest(${JSON.stringify(selector)});
+        if (!target) return null;
+        return {
+          role: String(target.getAttribute('data-click-role') || ''),
+          index: Number.parseInt(String(target.getAttribute('data-index') || '-1'), 10),
+          id: target.id ? String(target.id) : '',
+        };
+      })();`,
+    );
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function handleSelectionModalMouseEvent(input) {
+  if (!this.selectionModalVisible || !input || input.type !== "mouseDown") return;
+  if (input.button !== "left") return;
+  const target = await resolveOverlayClickTarget(
+    this.selectionModalView,
+    input.x,
+    input.y,
+    '[data-click-role="selection-option"], #selection-modal',
+  );
+  if (!target) {
+    if (typeof this.mouseActions?.dismissSelectionModal === "function") {
+      this.mouseActions.dismissSelectionModal();
+    } else {
+      this.hideSelectionModal();
+    }
+    return;
+  }
+  if (!target || target.role !== "selection-option") return;
+  if (typeof this.mouseActions?.selectBookmarkModalIndex === "function") {
+    this.mouseActions.selectBookmarkModalIndex(target.index);
+  }
+}
+
+async function handleTelescopeMouseEvent(input) {
+  if (!this.telescopeVisible || !input) return;
+  if (input.type === "mouseDown" && input.button === "left") {
+    const target = await resolveOverlayClickTarget(
+      this.telescopeView,
+      input.x,
+      input.y,
+      '[data-click-role="telescope-row"], #telescope-prompt, #telescope-shell',
+    );
+    if (!target) {
+      if (typeof this.mouseActions?.dismissTelescope === "function") {
+        this.mouseActions.dismissTelescope();
+      } else {
+        this.hideTelescope();
+      }
+      return;
+    }
+    if (target.role === "telescope-row") {
+      if (typeof this.mouseActions?.openTelescopeIndex === "function") {
+        this.mouseActions.openTelescopeIndex(target.index);
+      }
+      return;
+    }
+    if (target.id === "telescope-prompt") {
+      if (typeof this.mouseActions?.focusTelescopePrompt === "function") {
+        this.mouseActions.focusTelescopePrompt();
+      }
+    }
+  }
 }
 
 function computeSelectionModalHeight(model = null) {
@@ -346,9 +421,9 @@ function updateDownloadsModal(model) {
         if (!model.items.length) {
           listNode.innerHTML = '<div class="downloads-modal-empty">no downloads</div>';
         } else {
-          listNode.innerHTML = model.items.map((item) => {
+          listNode.innerHTML = model.items.map((item, index) => {
             const selected = item.selected ? ' selected' : '';
-            return '<div class="downloads-modal-row' + selected + '">' +
+            return '<div class="downloads-modal-row' + selected + '" data-click-role="downloads-row" data-index="' + index + '">' +
               '<span class="downloads-modal-glyph">' + escapeHtml(item.glyph) + '</span>' +
               '<span class="downloads-modal-filename">' + escapeHtml(item.filename) + '</span>' +
               '<span class="downloads-modal-bar">' + escapeHtml(item.bar) + '</span>' +
@@ -373,6 +448,26 @@ function computeDownloadsModalHeight(model = null) {
   const footer = 14;
   const total = base + content + footer;
   return Math.max(108, Math.min(520, total));
+}
+
+async function handleDownloadsModalMouseEvent(input) {
+  if (!this.downloadsModalVisible || !input || input.type !== "mouseDown") return;
+  if (input.button !== "left") return;
+  const target = await resolveOverlayClickTarget(
+    this.downloadsModalView,
+    input.x,
+    input.y,
+    '[data-click-role="downloads-row"]',
+  );
+  if (!target || target.role !== "downloads-row") return;
+  const clickCount = Number.isFinite(input.clickCount)
+    ? input.clickCount
+    : Number.isFinite(input.clicks)
+      ? input.clicks
+      : 1;
+  if (typeof this.mouseActions?.clickDownloadsModalIndex === "function") {
+    this.mouseActions.clickDownloadsModalIndex(target.index, clickCount);
+  }
 }
 
 function updateStatuslineSplitIndicator(splitStatus = {}) {
@@ -415,16 +510,19 @@ module.exports = {
   showSelectionModal,
   hideSelectionModal,
   updateSelectionModal,
+  handleSelectionModalMouseEvent,
   isTelescopeVisible,
   showTelescope,
   hideTelescope,
   updateTelescope,
+  handleTelescopeMouseEvent,
   computeSelectionModalHeight,
   isDownloadsModalVisible,
   showDownloadsModal,
   hideDownloadsModal,
   updateDownloadsModal,
   computeDownloadsModalHeight,
+  handleDownloadsModalMouseEvent,
   updateStatuslineMode,
   updateStatuslineScroll,
   updateStatuslineSplitIndicator,

@@ -15,6 +15,7 @@ const {
   STATUSLINE_OVERLAY_HTML,
   TOAST_OVERLAY_HTML,
   DOWNLOADS_MODAL_OVERLAY_HTML,
+  BACKDROP_OVERLAY_HTML,
 } = require("./services/shellTemplates");
 
 class UiShellManager {
@@ -50,6 +51,8 @@ class UiShellManager {
     this.downloadsModalReady = false;
     this.downloadsModalVisible = false;
     this.downloadsModalModel = null;
+    this.backdropOverlayView = null;
+    this.backdropOverlayReady = false;
     this.statuslineMode = "NORMAL";
     this.statuslineScroll = 0;
     this.statuslineSplitIndicator = {
@@ -79,6 +82,13 @@ class UiShellManager {
       ...DEFAULT_THEME,
     };
     this.pendingToasts = [];
+    this.mouseActions = {};
+  }
+
+  setMouseActions(actions = {}) {
+    this.mouseActions = {
+      ...actions,
+    };
   }
 
   showNotificationToast(toast = {}) {
@@ -102,6 +112,7 @@ class UiShellManager {
     this.initializeStatuslineView();
     this.initializeToastOverlayView();
     this.initializeDownloadsModalView();
+    this.initializeBackdropOverlayView();
 
     this.window.on("resize", () => this.relayout());
     this.window.on("maximize", () => this.relayout());
@@ -133,6 +144,9 @@ class UiShellManager {
       onReady() {
         this.updateWhichKey(this.whichKeyModel, null, 0, false, true);
       },
+      onMouseEvent: (input) => {
+        this.handleWhichKeyMouseEvent(input);
+      },
     });
   }
 
@@ -147,6 +161,9 @@ class UiShellManager {
           this.updateSelectionModal(this.selectionModalModel);
         }
       },
+      onMouseEvent: (input) => {
+        this.handleSelectionModalMouseEvent(input);
+      },
     });
   }
 
@@ -160,6 +177,9 @@ class UiShellManager {
         if (this.telescopeModel) {
           this.updateTelescope(this.telescopeModel);
         }
+      },
+      onMouseEvent: (input) => {
+        this.handleTelescopeMouseEvent(input);
       },
     });
   }
@@ -200,6 +220,22 @@ class UiShellManager {
         if (this.downloadsModalModel) {
           this.updateDownloadsModal(this.downloadsModalModel);
         }
+      },
+      onMouseEvent: (input) => {
+        this.handleDownloadsModalMouseEvent(input);
+      },
+    });
+  }
+
+  initializeBackdropOverlayView() {
+    return overlayLifecycle.initializeOverlayView.call(this, {
+      viewKey: "backdropOverlayView",
+      readyKey: "backdropOverlayReady",
+      html: BACKDROP_OVERLAY_HTML,
+      autoResize: { width: true, height: true },
+      onReady() {},
+      onMouseEvent: (input) => {
+        this.handleBackdropMouseEvent(input);
       },
     });
   }
@@ -421,6 +457,28 @@ class UiShellManager {
       cursorIndex,
       context,
     );
+  }
+
+  handleSelectionModalMouseEvent(input) {
+    return auxOverlayController.handleSelectionModalMouseEvent.call(this, input);
+  }
+
+  handleTelescopeMouseEvent(input) {
+    return auxOverlayController.handleTelescopeMouseEvent.call(this, input);
+  }
+
+  handleDownloadsModalMouseEvent(input) {
+    return auxOverlayController.handleDownloadsModalMouseEvent.call(this, input);
+  }
+
+  handleBackdropMouseEvent(input) {
+    if (typeof this.mouseActions?.handleBackdropMouseEvent === "function") {
+      this.mouseActions.handleBackdropMouseEvent(input);
+    }
+  }
+
+  handleWhichKeyMouseEvent(input) {
+    return whichKeyOverlayController.handleWhichKeyMouseEvent.call(this, input);
   }
 }
 

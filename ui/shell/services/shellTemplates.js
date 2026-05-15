@@ -211,6 +211,7 @@ const WHICHKEY_OVERLAY_HTML = `
         color: var(--ui-text-bright, #f2f6ff);
         box-sizing: border-box;
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+        pointer-events: auto;
       }
 
       #whichkey-title {
@@ -351,6 +352,7 @@ const SELECTION_MODAL_OVERLAY_HTML = `
         padding: 6px 8px 8px;
         gap: 6px;
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+        pointer-events: auto;
       }
 
       #selection-modal-title {
@@ -420,6 +422,7 @@ const SELECTION_MODAL_OVERLAY_HTML = `
         text-align: center;
         border-radius: 4px;
         padding: 2px 6px;
+        cursor: pointer;
       }
 
       .selection-modal-item.selected {
@@ -495,6 +498,7 @@ const TELESCOPE_OVERLAY_HTML = `
         gap: 4px;
         box-sizing: border-box;
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+        pointer-events: auto;
       }
 
       #telescope-prompt {
@@ -509,6 +513,7 @@ const TELESCOPE_OVERLAY_HTML = `
         display: flex;
         align-items: center;
         box-sizing: border-box;
+        cursor: text;
       }
 
       #telescope-results {
@@ -569,6 +574,7 @@ const TELESCOPE_OVERLAY_HTML = `
         border-radius: 0;
         color: var(--ui-text-soft, #b6c7e8);
         font-size: 12px;
+        cursor: pointer;
       }
 
       .telescope-row.selected {
@@ -803,6 +809,7 @@ const DOWNLOADS_MODAL_OVERLAY_HTML = `
         padding: 6px 8px 8px;
         gap: 6px;
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
+        pointer-events: auto;
       }
 
       #downloads-modal-title {
@@ -843,6 +850,7 @@ const DOWNLOADS_MODAL_OVERLAY_HTML = `
         border-radius: 4px;
         color: var(--ui-text-soft, #b6c7e8);
         font-size: 12px;
+        cursor: pointer;
       }
 
       .downloads-modal-row.selected {
@@ -898,6 +906,35 @@ const DOWNLOADS_MODAL_OVERLAY_HTML = `
       <div id="downloads-modal-list"></div>
       <div id="downloads-modal-footer"></div>
     </fieldset>
+  </body>
+</html>
+`;
+
+const BACKDROP_OVERLAY_HTML = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="${INTERNAL_UI_CSP}" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+      }
+
+      #overlay-backdrop {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="overlay-backdrop"></div>
   </body>
 </html>
 `;
@@ -978,4 +1015,5 @@ module.exports = {
   STATUSLINE_OVERLAY_HTML,
   TOAST_OVERLAY_HTML,
   DOWNLOADS_MODAL_OVERLAY_HTML,
+  BACKDROP_OVERLAY_HTML,
 };

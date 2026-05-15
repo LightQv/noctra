@@ -261,6 +261,20 @@ function normalizeInput(input) {
   };
 }
 
+function isPointInView(view, x, y) {
+  if (!view || typeof view.getBounds !== "function") return false;
+  const bounds = view.getBounds();
+  const px = Number(x);
+  const py = Number(y);
+  if (!Number.isFinite(px) || !Number.isFinite(py)) return false;
+  return (
+    px >= bounds.x &&
+    px < bounds.x + bounds.width &&
+    py >= bounds.y &&
+    py < bounds.y + bounds.height
+  );
+}
+
 function handleRawInput(event, input) {
   const normalized = normalizeInput(input);
   const focusSnapshot = resolveFocusSnapshot({
@@ -409,6 +423,59 @@ function handleRawInput(event, input) {
   if (appMenu) appMenu.sync();
 }
 
+function handleMouseInput(_event, input) {
+  if (!input || input.type !== "mouseDown" || input.button !== "left") {
+    return;
+  }
+
+  const dismissIfOutside = (visible, view, dismiss) => {
+    if (!visible || typeof dismiss !== "function") return false;
+    if (isPointInView(view, input.x, input.y)) return false;
+    dismiss();
+    return true;
+  };
+
+  if (
+    dismissIfOutside(
+      uiShell.isTelescopeVisible(),
+      uiShell.telescopeView,
+      uiShell.mouseActions?.dismissTelescope,
+    )
+  ) {
+    return;
+  }
+
+  if (
+    dismissIfOutside(
+      uiShell.isSelectionModalVisible(),
+      uiShell.selectionModalView,
+      uiShell.mouseActions?.dismissSelectionModal,
+    )
+  ) {
+    return;
+  }
+
+  if (
+    dismissIfOutside(
+      uiShell.isDownloadsModalVisible(),
+      uiShell.downloadsModalView,
+      uiShell.mouseActions?.dismissDownloadsModal,
+    )
+  ) {
+    return;
+  }
+
+  if (
+    dismissIfOutside(
+      uiShell.whichKeyVisible,
+      uiShell.whichKeyOverlayView,
+      uiShell.mouseActions?.dismissWhichKey,
+    )
+  ) {
+    return;
+  }
+}
+
 function syncWebBufferModeWithFocusedElement(webContents) {
   if (!webContents || webContents.isDestroyed()) {
     return Promise.resolve();
@@ -492,6 +559,7 @@ const inputCoordinator = createInputCoordinator({
   buffers,
   webModeSyncService,
   handleRawInput,
+  handleMouseInput,
 });
 
 function persistSessionSnapshot() {
@@ -815,6 +883,7 @@ function createWindow() {
     createSmokeScenarios,
     inputCoordinator,
     handleRawInput,
+    handleMouseInput,
     isEditorFocused,
     wireWindowLifecycle,
     getSurfaceRole,
@@ -861,6 +930,105 @@ function createWindow() {
     entryIcons,
     nativeTheme,
   });
+  uiShell.setMouseActions({
+    isPointInView,
+    dismissSelectionModal: () => {
+      const wasActive = bookmarkInsertScopeModal.isActive();
+      bookmarkInsertScopeModal.close();
+      if (wasActive && historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      updateTablineOptions();
+      buffers.focusActive();
+      if (appMenu) appMenu.sync();
+    },
+    selectBookmarkModalIndex: (index) => {
+      const wasActive = bookmarkInsertScopeModal.isActive();
+      const consumed = bookmarkInsertScopeModal.selectIndex(index);
+      if (!consumed) return;
+      if (wasActive && !bookmarkInsertScopeModal.isActive() && historyPanel.isVisible()) {
+        historyPanel.reloadData();
+        historyPanel.render();
+      }
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      updateTablineOptions();
+      if (!bookmarkInsertScopeModal.isActive()) {
+        buffers.focusActive();
+      }
+      if (appMenu) appMenu.sync();
+    },
+    dismissDownloadsModal: () => {
+      if (!downloadsModal.isActive()) return;
+      downloadsModal.close();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      if (historyPanel.isVisible()) {
+        historyPanel.render();
+      }
+      buffers.focusActive();
+      if (appMenu) appMenu.sync();
+    },
+    dismissWhichKey: () => {
+      if (!uiShell.whichKeyVisible) return;
+      resetLeaderSession(state);
+      uiShell.hideWhichKey();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      buffers.focusActive();
+      if (appMenu) appMenu.sync();
+    },
+    dismissTelescope: () => {
+      if (!telescopeService.isActive()) return;
+      telescopeService.close();
+      uiShell.hideTelescope();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      buffers.focusActive();
+      if (appMenu) appMenu.sync();
+    },
+    focusTelescopePrompt: () => {
+      if (!telescopeService.isActive()) return;
+      telescopeService.setMode("INSERT");
+      uiShell.updateStatuslineMode(telescopeService.getMode());
+      if (uiShell.telescopeView && uiShell.telescopeView.webContents) {
+        uiShell.telescopeView.webContents.focus();
+      }
+      if (appMenu) appMenu.sync();
+    },
+    openTelescopeIndex: (index) => {
+      if (!telescopeService.isActive()) return;
+      telescopeService.setSelectedIndex(index);
+      const intent = telescopeService.submit(false);
+      telescopeService.close();
+      uiShell.hideTelescope();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      buffers.focusActive();
+      if (intent) {
+        dispatch(win, intent, state);
+      }
+      if (appMenu) appMenu.sync();
+    },
+    clickDownloadsModalIndex: (index, clickCount = 1) => {
+      const consumed = downloadsModal.clickIndex(index, clickCount);
+      if (!consumed) return;
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      if (appMenu) appMenu.sync();
+    },
+    handleBackdropMouseEvent: (input) => {
+      handleMouseInput(null, input);
+    },
+  });
+  const overlayInputViews = [
+    uiShell.telescopeView,
+    uiShell.selectionModalView,
+    uiShell.whichKeyOverlayView,
+    uiShell.downloadsModalView,
+  ];
+  for (const view of overlayInputViews) {
+    if (!view || !view.webContents || view.webContents.isDestroyed()) continue;
+    view.webContents.on("before-input-event", (event, input) => {
+      handleRawInput(event, input);
+    });
+  }
   appMenu.sync();
   buffers.subscribe(() => appMenu.rebuild());
 

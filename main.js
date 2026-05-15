@@ -397,6 +397,10 @@ function handleRawInput(event, input) {
     return;
   }
 
+  if (priority.shouldBypassToNativeMenu) {
+    return;
+  }
+
   if (shouldPreventDefault(normalized)) {
     event.preventDefault();
   }

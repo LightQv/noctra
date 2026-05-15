@@ -149,7 +149,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution princ
 
 2. [ ] **Stabilize active focus** — Ensure reliable focus tracking between splits, buffers, and input fields.
 
-3. [ ] **Ensure keybindings are working properly** — Cover app-menu, leader sequences, vim-motions, and command dispatch.
+3. [ ] **Harden advanced keybinding flows** — Cover leader-sequence edge cases, command-mode conflicts, and cross-platform command dispatch consistency.
 
 4. [ ] **Full mouse support** — Click-to-focus, scroll, and context interactions outside modal keys.
 

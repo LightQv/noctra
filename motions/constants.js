@@ -22,6 +22,8 @@ const MOD_KEY_ACTIONS = Object.freeze({
   u: "scroll_half_up",
   f: "page_down",
   b: "page_up",
+  "[": "nav_back",
+  "]": "nav_forward",
   h: "focus_split_left",
   l: "focus_split_right",
   q: "close_focused",

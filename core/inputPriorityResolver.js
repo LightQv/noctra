@@ -53,6 +53,14 @@ function resolveInputPriority(normalized, focusSnapshot, state, platform) {
     (normalized.key === "t" || normalized.key === "T"),
   );
 
+  const shouldBypassToNativeMenu = Boolean(
+    normalized &&
+      normalized.type === "keyDown" &&
+      platform === "darwin" &&
+      normalized.meta &&
+      !normalized.ctrl,
+  );
+
   return {
     shouldPrioritizeLeader,
     shouldRouteFocusedTreeInput:
@@ -69,6 +77,7 @@ function resolveInputPriority(normalized, focusSnapshot, state, platform) {
       isModPasteShortcut(normalized, platform),
     isOpenSettingsShortcut,
     isBufferShortcut,
+    shouldBypassToNativeMenu,
   };
 }
 

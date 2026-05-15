@@ -542,7 +542,7 @@ function createAppMenu({
         },
         {
           label: "Restore Session Snapshot",
-          accelerator: "CmdOrCtrl+Shift+R",
+          accelerator: "CmdOrCtrl+Shift+Y",
           click: () =>
             dispatchAndSync(win, { type: INTENTS.SESSION_RESTORE }, state),
         },

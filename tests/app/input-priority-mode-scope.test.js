@@ -44,3 +44,14 @@ test("command paste shortcut is recognized by platform", () => {
   );
   assert.equal(priorityLinux.isCommandPasteShortcut, true);
 });
+
+test("darwin cmd shortcuts bypass to native app menu", () => {
+  const priority = resolveInputPriority(
+    { type: "keyDown", key: "q", ctrl: false, meta: true, alt: false },
+    {},
+    {},
+    "darwin",
+  );
+
+  assert.equal(priority.shouldBypassToNativeMenu, true);
+});

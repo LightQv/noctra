@@ -9,6 +9,8 @@ test("keymap defaults stay present when keymap section missing", () => {
   assert.equal(config.keymap.normal.j, "scroll_down");
   assert.equal(config.keymap.normal.gg, "scroll_top");
   assert.equal(config.keymap.mod.d, "scroll_half_down");
+  assert.equal(config.keymap.mod["["], "nav_back");
+  assert.equal(config.keymap.mod["]"], "nav_forward");
   assert.equal(config.keymap.mod.T, "reopen_buffer");
 });
 

@@ -33,11 +33,21 @@ Notes:
 - `Ctrl+u`: half-page up
 - `Ctrl+f`: page down
 - `Ctrl+b`: page up
+- `Ctrl+[` : history back
+- `Ctrl+]`: history forward
 - `Ctrl+h`: focus split left
 - `Ctrl+l`: focus split right
 - `Ctrl+q`: close focused context
 - `Ctrl+t`: new buffer
 - `Ctrl+Shift+t`: reopen last closed buffer
+
+## App menu accelerators
+
+- `CmdOrCtrl+[` : previous page
+- `CmdOrCtrl+]`: next page
+- `CmdOrCtrl+Shift+S`: save session snapshot
+- `CmdOrCtrl+Shift+Y`: restore session snapshot
+- `CmdOrCtrl+Shift+R`: hard reload current page
 
 ## Leader mappings (default)
 

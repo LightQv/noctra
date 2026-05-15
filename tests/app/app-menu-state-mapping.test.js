@@ -24,6 +24,8 @@ const mockDialog = {
 const mockApp = {
   getName: () => "Noctra",
   getVersion: () => "0.1.0",
+  isDefaultProtocolClient: () => false,
+  setAsDefaultProtocolClient: () => {},
 };
 
 const INTENTS = {
@@ -366,7 +368,7 @@ test("history menu contains session and clear actions", () => {
   assert.ok(saveSession, "Save Session Snapshot should exist");
   assert.equal(saveSession.accelerator, "CmdOrCtrl+Shift+S");
   assert.ok(restoreSession, "Restore Session Snapshot should exist");
-  assert.equal(restoreSession.accelerator, "CmdOrCtrl+Shift+R");
+  assert.equal(restoreSession.accelerator, "CmdOrCtrl+Shift+Y");
 });
 
 test("bookmarks menu contains add actions and tree", () => {

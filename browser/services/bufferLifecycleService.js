@@ -74,14 +74,27 @@ function rememberClosedBuffer(manager, buffer, index) {
     kind: typeof buffer.kind === "string" ? buffer.kind : "web",
     title: typeof buffer.title === "string" ? buffer.title : "[No title]",
     virtualUrl: typeof buffer.virtualUrl === "string" ? buffer.virtualUrl : "",
+    virtualDocument:
+      buffer.virtualDocument && typeof buffer.virtualDocument === "object"
+        ? {
+            url:
+              typeof buffer.virtualDocument.url === "string"
+                ? buffer.virtualDocument.url
+                : "",
+            title:
+              typeof buffer.virtualDocument.title === "string"
+                ? buffer.virtualDocument.title
+                : "",
+            html:
+              typeof buffer.virtualDocument.html === "string"
+                ? buffer.virtualDocument.html
+                : "",
+          }
+        : null,
     index: Number.isInteger(index)
       ? index
       : manager.buffers.findIndex((item) => item === buffer),
   };
-
-  if (snapshot.kind !== "web") {
-    return;
-  }
 
   manager.closedBuffers.push(snapshot);
   if (manager.closedBuffers.length > manager.maxClosedBuffers) {
@@ -157,7 +170,17 @@ function reopenLastClosed(manager) {
   }
 
   const snapshot = manager.closedBuffers.pop();
-  if (!snapshot || typeof snapshot.url !== "string" || !snapshot.url.trim()) {
+  if (!snapshot) {
+    return null;
+  }
+
+  const snapshotUrl = typeof snapshot.url === "string" ? snapshot.url.trim() : "";
+  const hasVirtualDocument = Boolean(
+    snapshot.virtualDocument &&
+      typeof snapshot.virtualDocument.html === "string" &&
+      snapshot.virtualDocument.html.trim(),
+  );
+  if (!snapshotUrl && !hasVirtualDocument) {
     return null;
   }
 
@@ -179,7 +202,11 @@ function reopenLastClosed(manager) {
   manager.reconcileSplitSources();
   manager.syncDevtoolsTargetToLeftBuffer();
   manager.layoutViews();
-  buffer.load(snapshot.url);
+  if (hasVirtualDocument) {
+    buffer.loadVirtualDocument(snapshot.virtualDocument);
+  } else {
+    buffer.load(snapshotUrl);
+  }
   manager.focusActive();
   manager.notify({ kind: "structure", activeChanged: true });
   return buffer;

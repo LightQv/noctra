@@ -58,6 +58,7 @@ class Buffer extends EventEmitter {
     );
     this.url = "about:blank";
     this.virtualUrl = "";
+    this.virtualDocument = null;
     this.title = "[No title]";
     this.faviconUrl = "";
     this.kind = options.kind || "web";
@@ -130,6 +131,7 @@ class Buffer extends EventEmitter {
   load(url) {
     this.url = url;
     this.virtualUrl = "";
+    this.virtualDocument = null;
     this.title = getUrlDisplayTitle(url);
     this.faviconUrl = "";
     this.webContents.loadURL(url);
@@ -143,6 +145,11 @@ class Buffer extends EventEmitter {
 
     this.url = virtualUrl;
     this.virtualUrl = virtualUrl;
+    this.virtualDocument = {
+      url: virtualUrl,
+      title,
+      html,
+    };
     this.title = title;
     this.faviconUrl = "";
 

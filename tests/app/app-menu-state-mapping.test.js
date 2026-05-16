@@ -6,6 +6,36 @@ const originalLoad = Module._load;
 
 let lastMenuTemplate = null;
 let applicationMenuSet = false;
+let externalUrls = [];
+
+class MockBrowserWindow {
+  constructor() {
+    this.destroyed = false;
+    this.handlers = new Map();
+    this.webContents = {
+      setWindowOpenHandler: () => {},
+      on: () => {},
+    };
+  }
+
+  isDestroyed() {
+    return this.destroyed;
+  }
+
+  focus() {}
+
+  loadURL() {}
+
+  show() {}
+
+  once(event, handler) {
+    this.handlers.set(event, handler);
+  }
+
+  on(event, handler) {
+    this.handlers.set(event, handler);
+  }
+}
 
 const mockMenu = {
   buildFromTemplate: (template) => {
@@ -19,6 +49,13 @@ const mockMenu = {
 
 const mockDialog = {
   showMessageBoxSync: () => {},
+  showErrorBox: () => {},
+};
+
+const mockShell = {
+  openExternal: (url) => {
+    externalUrls.push(url);
+  },
 };
 
 const mockApp = {
@@ -140,8 +177,17 @@ function createDeps(overrides = {}) {
 
 function loadAppMenuUnderMock() {
   Module._load = function (request, parent) {
-    if (request === "electron" && parent.filename.includes("appMenu.js")) {
-      return { Menu: mockMenu, dialog: mockDialog };
+    if (
+      request === "electron" &&
+      (parent.filename.includes("appMenu.js") ||
+        parent.filename.includes("openExternal.js"))
+    ) {
+      return {
+        Menu: mockMenu,
+        BrowserWindow: MockBrowserWindow,
+        dialog: mockDialog,
+        shell: mockShell,
+      };
     }
     return originalLoad.apply(this, arguments);
   };

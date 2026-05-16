@@ -358,17 +358,14 @@ function createAppMenu({
     const docsBasePath = getDocsBasePath().replace(/\/$/, "");
     const docsUrl = `${docsBasePath}/docs/getting-started.md`;
     const githubUrl = "https://github.com/LightQv/noctra";
-    const iconPath = path.join(__dirname, "../../../assets/icons/icon-dark_512.png");
-    const appIconPath = path.join(__dirname, "../../../assets/icons/icon.png");
-    const iconImage = nativeImage.createFromPath(appIconPath);
-    const fallbackIconImage = nativeImage.createFromPath(iconPath);
-    const iconUrl = !iconImage.isEmpty() ? iconImage.toDataURL() : "";
-    const resolvedIconUrl =
-      iconUrl.length > 0
-        ? iconUrl
-        : !fallbackIconImage.isEmpty()
-          ? fallbackIconImage.toDataURL()
-          : "";
+    const darkIconPath = path.join(
+      __dirname,
+      "../../../assets/icons/icon-dark_512.png",
+    );
+    const lightIconPath = path.join(
+      __dirname,
+      "../../../assets/icons/icon-light_512.png",
+    );
     const isDarkMode =
       resolveThemeMode(
         configService && typeof configService.getConfigValue === "function"
@@ -392,6 +389,16 @@ function createAppMenu({
             : true,
       },
     );
+    const preferredIconPath = isDarkMode ? darkIconPath : lightIconPath;
+    const iconImage = nativeImage.createFromPath(preferredIconPath);
+    const fallbackIconImage = nativeImage.createFromPath(darkIconPath);
+    const iconUrl = !iconImage.isEmpty() ? iconImage.toDataURL() : "";
+    const resolvedIconUrl =
+      iconUrl.length > 0
+        ? iconUrl
+        : !fallbackIconImage.isEmpty()
+          ? fallbackIconImage.toDataURL()
+          : "";
 
     const allowOpenAboutUrl = (rawUrl) => {
       try {

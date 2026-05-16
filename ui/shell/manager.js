@@ -17,6 +17,9 @@ const {
   DOWNLOADS_MODAL_OVERLAY_HTML,
   BACKDROP_OVERLAY_HTML,
 } = require("./services/shellTemplates");
+const {
+  createPanelViewHost,
+} = require("../../core/adapters/platform/panelViewHost");
 
 class UiShellManager {
   constructor() {
@@ -53,6 +56,7 @@ class UiShellManager {
     this.downloadsModalModel = null;
     this.backdropOverlayView = null;
     this.backdropOverlayReady = false;
+    this.sidepanelViewHost = null;
     this.statuslineMode = "NORMAL";
     this.statuslineScroll = 0;
     this.statuslineSplitIndicator = {
@@ -121,6 +125,29 @@ class UiShellManager {
 
   initializeShellHost() {
     return shellTemplateHost.initializeShellHost.call(this, SHELL_HTML);
+  }
+
+  initializeSidepanelSurface({ onMouseDown, onMouseEvent, onFocus } = {}) {
+    if (!this.window || this.window.isDestroyed()) {
+      return null;
+    }
+    if (this.sidepanelViewHost && this.sidepanelViewHost.destroy) {
+      this.sidepanelViewHost.destroy();
+    }
+    this.sidepanelViewHost = createPanelViewHost({
+      windowRef: this.window,
+      onMouseDown,
+      onMouseEvent,
+      onFocus,
+    });
+    return this.sidepanelViewHost;
+  }
+
+  getSidepanelWebContents() {
+    if (!this.sidepanelViewHost || !this.sidepanelViewHost.getWebContents) {
+      return null;
+    }
+    return this.sidepanelViewHost.getWebContents();
   }
 
   initializeCommandOverlayView() {

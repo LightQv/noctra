@@ -24,7 +24,7 @@ function shouldPrioritizeLeaderKey(normalized, focusSnapshot, state) {
     normalized &&
     normalized.type === "keyDown" &&
     focusSnapshot &&
-    !focusSnapshot.historyPanelTextInputActive &&
+    !focusSnapshot.sidepanelTextInputActive &&
     ((state && state.leaderActive) || isLeader),
   );
 }
@@ -64,7 +64,7 @@ function resolveInputPriority(normalized, focusSnapshot, state, platform) {
   return {
     shouldPrioritizeLeader,
     shouldRouteFocusedTreeInput:
-      Boolean(focusSnapshot && focusSnapshot.historyPanelFocused) &&
+      Boolean(focusSnapshot && focusSnapshot.sidepanelFocused) &&
       !shouldPrioritizeLeader,
     isUrllinePasteShortcut:
       Boolean(focusSnapshot && focusSnapshot.urllineEditing) &&

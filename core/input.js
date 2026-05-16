@@ -4,11 +4,11 @@ const { handleNormal } = require("../motions/normal");
 const { handleInsert } = require("../motions/insert");
 const { handleCommand } = require("../motions/command");
 const { dispatch } = require("./dispatcher");
-const historyPanel = require("./history/panel");
+const sidepanelController = require("./sidepanel/controller");
 const { resolveSemanticContext } = require("./semanticContextResolver");
 
 function getSemanticContext() {
-  return resolveSemanticContext({ state, buffers, historyPanel });
+  return resolveSemanticContext({ state, buffers, sidepanelController });
 }
 
 function shouldPreventDefault(input) {

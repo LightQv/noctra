@@ -1,5 +1,5 @@
 const buffers = require("../browser/manager");
-const historyPanel = require("./history/panel");
+const sidepanelController = require("./sidepanel/controller");
 const telescopeService = require("./telescope/service");
 const { resolveSemanticContext } = require("./semanticContextResolver");
 
@@ -12,7 +12,7 @@ function computeStatuslineModeLabel(state) {
     return "COMMAND";
   }
 
-  if (historyPanel.isVisible() && historyPanel.isFocused()) {
+  if (sidepanelController.isVisible() && sidepanelController.isFocused()) {
     return "TREE:NORMAL";
   }
 
@@ -21,7 +21,7 @@ function computeStatuslineModeLabel(state) {
     return state.mode;
   }
 
-  if (resolveSemanticContext({ state, buffers, historyPanel }) === "editor") {
+  if (resolveSemanticContext({ state, buffers, sidepanelController }) === "editor") {
     return `EDITOR:${state.editorMode || "NORMAL"}`;
   }
 

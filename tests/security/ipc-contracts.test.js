@@ -42,7 +42,7 @@ function createRuntimeHarness() {
     dispatch: () => {},
     INTENTS: { CLOSE_BUFFER: "CLOSE_BUFFER" },
     uiShell: { updateStatuslineMode: () => {} },
-    historyPanel: { unfocus: () => {} },
+    sidepanelController: { unfocus: () => {} },
     webContentsActions: {
       goBack: () => {},
       goForward: () => {},

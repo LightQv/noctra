@@ -2,7 +2,7 @@ function wireWindowLifecycle({
   win,
   uiShell,
   buffers,
-  historyPanel,
+  sidepanelController,
   updateUrllineRender,
   configService,
   persistSessionSnapshot,
@@ -67,7 +67,7 @@ function wireWindowLifecycle({
   });
 
   win.on("resize", () => {
-    historyPanel.layout();
+    sidepanelController.layout();
     uiShell.updateSplitDivider(buffers.getSplitStatus());
     updateUrllineRender();
     persistWindowBoundsDebounced();

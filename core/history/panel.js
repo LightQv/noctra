@@ -3,7 +3,6 @@ const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
 const downloadsService = require("../downloads/service");
 const notificationsService = require("../notifications/service");
-const { createPanelViewHost } = require("../adapters/platform/panelViewHost");
 const {
   createPanelRenderTransport,
 } = require("../adapters/renderer/panelRenderTransport");
@@ -88,6 +87,32 @@ class HistoryPanel {
     this.viewHost = null;
     this.onFocusChange = null;
     this.renderTransport = null;
+    this.themeVars = {};
+  }
+
+  setThemeVars(themeVars = {}) {
+    if (!themeVars || typeof themeVars !== "object") {
+      this.themeVars = {};
+    } else {
+      this.themeVars = { ...themeVars };
+    }
+    if (this.visible) {
+      this.render();
+    }
+  }
+
+  renderThemeVarsCss() {
+    const entries = Object.entries(this.themeVars || {}).filter(
+      ([name, value]) =>
+        typeof name === "string" &&
+        name.startsWith("--ui-") &&
+        typeof value === "string",
+    );
+    if (!entries.length) {
+      return "";
+    }
+    const body = entries.map(([name, value]) => `${name}:${value};`).join("");
+    return `:root{${body}}`;
   }
 
   clearFavoriteEdit() {
@@ -1325,22 +1350,11 @@ class HistoryPanel {
     };
   }
 
-  init({ window, buffers, state }) {
+  init({ window, buffers, state, viewHost }) {
     this.window = window;
     this.buffers = buffers;
     this.state = state;
-    this.viewHost = createPanelViewHost({
-      windowRef: this.window,
-      onMouseDown: () => {
-        this.focus();
-      },
-      onMouseEvent: (input) => {
-        this.handleMouseEvent(input);
-      },
-      onFocus: () => {
-        this.focus();
-      },
-    });
+    this.viewHost = viewHost || null;
     this.renderTransport = createPanelRenderTransport({
       resolveWebContents: () => this.getWebContents(),
       delayMs: 16,
@@ -1953,7 +1967,9 @@ class HistoryPanel {
         : "filter-prompt-active"
       : "";
 
+    const themeVarsCss = this.renderThemeVarsCss();
     const html = `<!doctype html><html><head><meta charset="UTF-8" /><meta http-equiv="Content-Security-Policy" content="${INTERNAL_PANEL_CSP}" /></head><body><style>
+      ${themeVarsCss}
       html,body{height:100%}
       body{margin:0;background:var(--ui-bg-panel,#161b24);color:var(--ui-text,#c9d1df);font:12px "JetBrainsMono Nerd Font Mono", monospace;border-right:1px solid var(--ui-border-strong,#2a3140);box-sizing:border-box}
       .wrap{display:flex;flex-direction:column;height:100%;position:relative}

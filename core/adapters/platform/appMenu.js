@@ -8,7 +8,7 @@ function createAppMenu({
   win,
   state,
   buffers,
-  historyPanel,
+  sidepanelController,
   dispatch,
   INTENTS,
   app,
@@ -20,6 +20,7 @@ function createAppMenu({
   entryIcons,
   nativeTheme,
 }) {
+  const sidepanel = sidepanelController;
   let lastSnapshot = null;
   const isMac = process.platform === "darwin";
   const isLinux = process.platform === "linux";
@@ -261,10 +262,9 @@ function createAppMenu({
       splitMode: buffers.getSplitStatus().mode,
       focusedPane: buffers.getSplitStatus().focusedPane,
       urllineVisible: buffers.isUrllineVisible(),
-      historyVisible:
-        historyPanel.isVisible() && historyPanel.treeKind === "history",
+      historyVisible: sidepanel.isVisible() && sidepanel.treeKind === "history",
       bookmarksVisible:
-        historyPanel.isVisible() && historyPanel.treeKind === "bookmarks",
+        sidepanel.isVisible() && sidepanel.treeKind === "bookmarks",
       closedBufferCount,
       canCloseLeft: activeIndex > 0,
       canCloseRight: activeIndex >= 0 && activeIndex < bufferList.length - 1,

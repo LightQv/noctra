@@ -7,7 +7,7 @@ const configService = require("./config/service");
 const { INTENTS, isKnownIntentType } = require("./intents");
 const { buildSearchUrl } = require("./resolver");
 const historyService = require("./history/service");
-const historyPanel = require("./history/panel");
+const sidepanelController = require("./sidepanel/controller");
 const bookmarksService = require("./bookmarks/service");
 const bookmarkInsertScopeModal = require("./bookmarks/insertScopeModal");
 const telescopeService = require("./telescope/service");
@@ -206,6 +206,7 @@ function applyThemeEverywhere(win) {
   const themeContext = resolveCurrentThemeContext();
   const payload = buildThemePayload(themeContext);
   uiShell.setTheme(payload.theme);
+  sidepanelController.setThemeVars(payload.themeVars);
   buffers.setContentUiOptions({
     thumbColor: payload.theme.scrollbarThumbColor,
     thumbActiveColor: payload.theme.scrollbarThumbActiveColor,
@@ -255,7 +256,7 @@ function createIntentHandlers(dispatch) {
     configService,
     buildSearchUrl,
     historyService,
-    historyPanel,
+    sidepanelController,
     bookmarksService,
     bookmarkInsertScopeModal,
     telescopeService,
@@ -357,7 +358,7 @@ function dispatch(win, intent, state) {
 
   uiShell.updateStatuslineMode(computeStatuslineModeLabel(state));
   uiShell.setTablineOptions({
-    dimActiveBuffer: historyPanel.isFocused(),
+    dimActiveBuffer: sidepanelController.isFocused(),
   });
 
   if (intent.next) {

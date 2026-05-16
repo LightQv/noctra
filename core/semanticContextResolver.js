@@ -9,25 +9,24 @@ function normalizeTreeKind(treeKind) {
 function resolveSemanticContext({
   state,
   buffers,
-  historyPanel,
+  sidepanelController,
   focusSnapshot,
 } = {}) {
+  const sidepanel = sidepanelController;
   const activeBuffer =
     buffers && typeof buffers.getActive === "function"
       ? buffers.getActive()
       : null;
   const snapshot = focusSnapshot || {};
   const historyFocused =
-    typeof snapshot.historyPanelFocused === "boolean"
-      ? snapshot.historyPanelFocused
-      : Boolean(
-          historyPanel && historyPanel.isFocused && historyPanel.isFocused(),
-        );
+    typeof snapshot.sidepanelFocused === "boolean"
+      ? snapshot.sidepanelFocused
+      : Boolean(sidepanel && sidepanel.isFocused && sidepanel.isFocused());
 
   if (historyFocused) {
     const treeKind =
-      historyPanel && typeof historyPanel.getTreeKind === "function"
-        ? historyPanel.getTreeKind()
+      sidepanel && typeof sidepanel.getTreeKind === "function"
+        ? sidepanel.getTreeKind()
         : "history";
     return normalizeTreeKind(treeKind);
   }

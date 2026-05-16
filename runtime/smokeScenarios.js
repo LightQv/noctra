@@ -9,7 +9,7 @@ function createSmokeScenarios({
   dispatch,
   INTENTS,
   configService,
-  historyPanel,
+  sidepanelController,
   uiShell,
   webContentsActions,
   isEditorFocused,
@@ -322,8 +322,8 @@ function createSmokeScenarios({
         buffers.openVerticalSplit(0.5);
         buffers.focusSplitLeft();
         buffers.focusSplitRight();
-        historyPanel.focus();
-        historyPanel.unfocus();
+        sidepanelController.focus();
+        sidepanelController.unfocus();
         buffers.closeRightSplit();
       },
       "ui-cadence": async () => {
@@ -332,7 +332,7 @@ function createSmokeScenarios({
         updateUrllineRender();
         uiShell.updateStatuslineMode(getStatuslineModeLabel());
         dispatch(win, { type: INTENTS.HISTORY_SHOW }, state);
-        historyPanel.unfocus();
+        sidepanelController.unfocus();
         if (smokeUiCadenceProbe) smokeUiCadenceProbe.validate();
       },
       "security-boundary": runSecurityBoundarySmokeScenario,

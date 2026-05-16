@@ -10,6 +10,7 @@ function createThemeRuntime({
   toCssVars,
   buffers,
   uiShell,
+  sidepanelController,
   broadcastThemeUpdate,
 }) {
   function resolveCurrentTheme() {
@@ -81,6 +82,12 @@ function createThemeRuntime({
       ? "system"
       : themeContext.resolvedMode;
     uiShell.setTheme(payload.theme);
+    if (
+      sidepanelController &&
+      typeof sidepanelController.setThemeVars === "function"
+    ) {
+      sidepanelController.setThemeVars(payload.themeVars);
+    }
     syncContentUiTheme({
       ...payload.theme,
       contentColorScheme:

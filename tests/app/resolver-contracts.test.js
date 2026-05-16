@@ -12,11 +12,11 @@ test("focus owner priority prefers modal and panel surfaces", () => {
     "BOOKMARK_MODAL",
   );
   assert.equal(
-    resolveFocusOwner({ telescopeActive: true, historyPanelFocused: true }),
+    resolveFocusOwner({ telescopeActive: true, sidepanelFocused: true }),
     "TELESCOPE",
   );
   assert.equal(
-    resolveFocusOwner({ historyPanelFocused: true, urllineEditing: true }),
+    resolveFocusOwner({ sidepanelFocused: true, urllineEditing: true }),
     "TREE",
   );
   assert.equal(
@@ -27,12 +27,15 @@ test("focus owner priority prefers modal and panel surfaces", () => {
 
 test("semantic context resolves tree kind and editor/web fallback", () => {
   const treeContext = resolveSemanticContext({
-    historyPanel: { isFocused: () => true, getTreeKind: () => "bookmarks" },
+    sidepanelController: {
+      isFocused: () => true,
+      getTreeKind: () => "bookmarks",
+    },
   });
   assert.equal(treeContext, "bookmarks");
 
   const unknownTreeContext = resolveSemanticContext({
-    historyPanel: { isFocused: () => true, getTreeKind: () => "custom" },
+    sidepanelController: { isFocused: () => true, getTreeKind: () => "custom" },
   });
   assert.equal(unknownTreeContext, "history");
 

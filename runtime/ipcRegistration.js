@@ -14,7 +14,7 @@ function registerRuntimeIpc({
   dispatch,
   INTENTS,
   uiShell,
-  historyPanel,
+  sidepanelController,
   webContentsActions,
   getSurfaceRole,
   isAllowedTrustedSurfaceUrl,
@@ -185,7 +185,7 @@ function registerRuntimeIpc({
   const onTabActivate = (event, payload) => {
     const bufferId = payload.id;
     buffers.switchTo(bufferId);
-    historyPanel.unfocus();
+    sidepanelController.unfocus();
     buffers.focusActive();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };

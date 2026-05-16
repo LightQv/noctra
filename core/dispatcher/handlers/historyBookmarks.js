@@ -4,7 +4,7 @@ const bookmarkImportService = require("../../bookmarks/importService");
 
 function createHistoryBookmarksHandlers(deps) {
   const {
-    historyPanel,
+    sidepanelController,
     historyService,
     bookmarksService,
     bookmarkInsertScopeModal,
@@ -14,40 +14,43 @@ function createHistoryBookmarksHandlers(deps) {
 
   return {
     [INTENTS.HISTORY_SHOW]: () => {
-      historyPanel.setTreeKind("history");
-      historyPanel.show();
-      historyPanel.focus();
+      sidepanelController.setTreeKind("history");
+      sidepanelController.show();
+      sidepanelController.focus();
     },
-    [INTENTS.HISTORY_HIDE]: () => historyPanel.hide(),
-    [INTENTS.HISTORY_TOGGLE]: () => historyPanel.toggle(),
-    [INTENTS.HISTORY_TOGGLE_FOCUS]: () => historyPanel.toggleFocus(),
+    [INTENTS.HISTORY_HIDE]: () => sidepanelController.hide(),
+    [INTENTS.HISTORY_TOGGLE]: () => sidepanelController.toggle(),
+    [INTENTS.HISTORY_TOGGLE_FOCUS]: () => sidepanelController.toggleFocus(),
     [INTENTS.HISTORY_DELETE_ALL]: () => {
       historyService.deleteAll();
-      historyPanel.reloadData();
-      historyPanel.render();
+      sidepanelController.reloadData();
+      sidepanelController.render();
     },
     [INTENTS.HISTORY_DELETE_TODAY]: () => {
       historyService.deleteToday();
-      historyPanel.reloadData();
-      historyPanel.render();
+      sidepanelController.reloadData();
+      sidepanelController.render();
     },
-    [INTENTS.BOOKMARKS_SHOW]: () => historyPanel.showTree("bookmarks"),
-    [INTENTS.BOOKMARKS_HIDE]: () => historyPanel.hide(),
+    [INTENTS.BOOKMARKS_SHOW]: () => sidepanelController.showTree("bookmarks"),
+    [INTENTS.BOOKMARKS_HIDE]: () => sidepanelController.hide(),
     [INTENTS.BOOKMARKS_TOGGLE]: () => {
-      if (historyPanel.isVisible() && historyPanel.treeKind === "bookmarks") {
-        historyPanel.hide();
+      if (
+        sidepanelController.isVisible() &&
+        sidepanelController.treeKind === "bookmarks"
+      ) {
+        sidepanelController.hide();
       } else {
-        historyPanel.showTree("bookmarks");
+        sidepanelController.showTree("bookmarks");
       }
     },
     [INTENTS.BOOKMARKS_TOGGLE_FOCUS]: () => {
-      historyPanel.setTreeKind("bookmarks");
-      historyPanel.toggleFocus();
+      sidepanelController.setTreeKind("bookmarks");
+      sidepanelController.toggleFocus();
     },
     [INTENTS.BOOKMARKS_DELETE_ALL]: () => {
       bookmarksService.deleteAll();
-      historyPanel.reloadData();
-      historyPanel.render();
+      sidepanelController.reloadData();
+      sidepanelController.render();
     },
     [INTENTS.BOOKMARKS_IMPORT]: async ({ win }) => {
       const result = await dialog.showOpenDialog(win, {
@@ -88,8 +91,8 @@ function createHistoryBookmarksHandlers(deps) {
       };
 
       if (summary.imported > 0) {
-        historyPanel.reloadData();
-        historyPanel.render();
+        sidepanelController.reloadData();
+        sidepanelController.render();
         notificationsService.notify({
           severity: "info",
           code: "bookmarks_import_success",
@@ -121,9 +124,9 @@ function createHistoryBookmarksHandlers(deps) {
         title: candidate.title,
         url: candidate.url,
       });
-      if (result?.status === "inserted" && historyPanel.isVisible()) {
-        historyPanel.reloadData();
-        historyPanel.render();
+      if (result?.status === "inserted" && sidepanelController.isVisible()) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
       }
     },
     [INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT]: () => {
@@ -133,25 +136,28 @@ function createHistoryBookmarksHandlers(deps) {
       }
       bookmarkInsertScopeModal.open(candidate);
     },
-    [INTENTS.DOWNLOADS_SHOW]: () => historyPanel.showTree("downloads"),
-    [INTENTS.DOWNLOADS_HIDE]: () => historyPanel.hide(),
+    [INTENTS.DOWNLOADS_SHOW]: () => sidepanelController.showTree("downloads"),
+    [INTENTS.DOWNLOADS_HIDE]: () => sidepanelController.hide(),
     [INTENTS.DOWNLOADS_TOGGLE]: () => {
-      if (historyPanel.isVisible() && historyPanel.treeKind === "downloads") {
-        historyPanel.hide();
+      if (
+        sidepanelController.isVisible() &&
+        sidepanelController.treeKind === "downloads"
+      ) {
+        sidepanelController.hide();
       } else {
-        historyPanel.showTree("downloads");
+        sidepanelController.showTree("downloads");
       }
     },
     [INTENTS.DOWNLOADS_TOGGLE_FOCUS]: () => {
-      historyPanel.setTreeKind("downloads");
-      historyPanel.toggleFocus();
+      sidepanelController.setTreeKind("downloads");
+      sidepanelController.toggleFocus();
     },
     [INTENTS.DOWNLOADS_CLEAR_ALL]: () => {
       const { downloadsService } = require("../../downloads/service");
       downloadsService.clearCompleted();
-      if (historyPanel.isVisible()) {
-        historyPanel.reloadData();
-        historyPanel.render();
+      if (sidepanelController.isVisible()) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
       }
     },
     [INTENTS.DOWNLOADS_LIVE_MODAL]: () => {

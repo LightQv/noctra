@@ -5,7 +5,7 @@ function createConfigRuntime({
   applyBrowserLanguagePreference,
   buffers,
   configService,
-  historyPanel,
+  sidepanelController,
   resolveCurrentTheme,
   applyTheme,
   uiShell,
@@ -23,16 +23,16 @@ function createConfigRuntime({
     buffers.setUrllineVisible(
       configService.getConfigValue("global.ui.urlline.enabled", false),
     );
-    historyPanel.setWidthRatio(
+    sidepanelController.setWidthRatio(
       configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2),
     );
-    historyPanel.setTreeScrollContextLines(
+    sidepanelController.setTreeScrollContextLines(
       configService.getConfigValue(
         "global.ui.sidepanel.tree_scroll_context_lines",
         3,
       ),
     );
-    historyPanel.setTreeDeleteOperatorTimeoutMs(
+    sidepanelController.setTreeDeleteOperatorTimeoutMs(
       configService.getConfigValue(
         "global.ui.sidepanel.delete_operator_timeout_ms",
         900,
@@ -40,7 +40,7 @@ function createConfigRuntime({
     );
 
     if (refreshLayout) {
-      historyPanel.layout();
+      sidepanelController.layout();
       buffers.layoutViews();
     }
 

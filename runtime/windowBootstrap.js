@@ -10,7 +10,7 @@ function bootstrapWindowRuntime({
   state,
   buffers,
   uiShell,
-  historyPanel,
+  sidepanelController,
   historyService,
   notificationsService,
   configService,
@@ -152,7 +152,7 @@ function bootstrapWindowRuntime({
     dispatch,
     INTENTS,
     uiShell,
-    historyPanel,
+    sidepanelController,
     webContentsActions,
     getSurfaceRole,
     isAllowedTrustedSurfaceUrl,
@@ -175,38 +175,54 @@ function bootstrapWindowRuntime({
   buffers.setUrllineVisible(
     configService.getConfigValue("global.ui.urlline.enabled", false),
   );
-  historyPanel.init({ window: win, buffers, state });
-  historyPanel.setOnFocusChange(() => {
+  uiShell.init(win);
+  const sidepanelViewHost = uiShell.initializeSidepanelSurface({
+    onMouseDown: () => {
+      sidepanelController.focus();
+    },
+    onMouseEvent: (input) => {
+      sidepanelController.handleMouseEvent(input);
+    },
+    onFocus: () => {
+      sidepanelController.focus();
+    },
+  });
+  sidepanelController.init({
+    window: win,
+    buffers,
+    state,
+    viewHost: sidepanelViewHost,
+  });
+  sidepanelController.setOnFocusChange(() => {
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     updateTablineOptions();
   });
-  historyPanel.setWidthRatio(
+  sidepanelController.setWidthRatio(
     configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2),
   );
-  historyPanel.setTreeScrollContextLines(
+  sidepanelController.setTreeScrollContextLines(
     configService.getConfigValue(
       "global.ui.sidepanel.tree_scroll_context_lines",
       3,
     ),
   );
-  historyPanel.setTreeDeleteOperatorTimeoutMs(
+  sidepanelController.setTreeDeleteOperatorTimeoutMs(
     configService.getConfigValue(
       "global.ui.sidepanel.delete_operator_timeout_ms",
       900,
     ),
   );
-  const historyPanelWebContents = historyPanel.getWebContents();
-  if (historyPanelWebContents) {
-    historyPanelWebContents.on("before-input-event", (event, input) => {
+  const sidepanelWebContents = uiShell.getSidepanelWebContents();
+  if (sidepanelWebContents) {
+    sidepanelWebContents.on("before-input-event", (event, input) => {
       handleRawInput(event, input);
     });
-    historyPanelWebContents.on("before-mouse-event", (event, input) => {
+    sidepanelWebContents.on("before-mouse-event", (event, input) => {
       if (typeof handleMouseInput === "function") {
         handleMouseInput(event, input);
       }
     });
   }
-  uiShell.init(win);
   const smokeScenarios = createSmokeScenarios({
     app,
     win,
@@ -216,7 +232,7 @@ function bootstrapWindowRuntime({
     dispatch,
     INTENTS,
     configService,
-    historyPanel,
+    sidepanelController,
     uiShell,
     webContentsActions,
     isEditorFocused,
@@ -248,7 +264,7 @@ function bootstrapWindowRuntime({
     win,
     uiShell,
     buffers,
-    historyPanel,
+    sidepanelController,
     updateUrllineRender,
     configService,
     persistSessionSnapshot,
@@ -299,8 +315,8 @@ function bootstrapWindowRuntime({
       uiShell.keepCommandOverlayAboveContentViews();
     }
 
-    if (change.kind === "pane-interaction" && historyPanel.isFocused()) {
-      historyPanel.unfocus();
+    if (change.kind === "pane-interaction" && sidepanelController.isFocused()) {
+      sidepanelController.unfocus();
       updateTablineOptions();
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
     }
@@ -331,9 +347,9 @@ function bootstrapWindowRuntime({
         title: change.title,
         timestampMs: nowMs,
       });
-      if (historyPanel.isVisible()) {
-        historyPanel.reloadData();
-        historyPanel.render();
+      if (sidepanelController.isVisible()) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
       }
     }
 
@@ -343,9 +359,9 @@ function bootstrapWindowRuntime({
         return;
       }
       historyService.updateLatestTitleForUrl(normalizedUrl, change.title);
-      if (historyPanel.isVisible()) {
-        historyPanel.reloadData();
-        historyPanel.render();
+      if (sidepanelController.isVisible()) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
       }
     }
   });

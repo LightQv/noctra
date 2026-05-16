@@ -95,7 +95,7 @@ function createMockBuffers(overrides = {}) {
   };
 }
 
-function createMockHistoryPanel(overrides = {}) {
+function createMockSidepanelController(overrides = {}) {
   return {
     isVisible: () => overrides.visible || false,
     treeKind: overrides.treeKind || "history",
@@ -111,7 +111,7 @@ function createDeps(overrides = {}) {
     win: { isDestroyed: () => false },
     state: createMockState(overrides.mode),
     buffers: createMockBuffers(overrides),
-    historyPanel: createMockHistoryPanel(overrides),
+    sidepanelController: createMockSidepanelController(overrides),
     dispatch: () => {},
     INTENTS,
     app: mockApp,

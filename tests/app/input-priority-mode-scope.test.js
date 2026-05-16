@@ -6,7 +6,7 @@ const { resolveInputPriority } = require("../../core/inputPriorityResolver");
 test("leader key is prioritized over focused tree routing", () => {
   const priority = resolveInputPriority(
     { type: "keyDown", key: "Space", ctrl: false, meta: false, alt: false },
-    { historyPanelFocused: true, historyPanelTextInputActive: false },
+    { sidepanelFocused: true, sidepanelTextInputActive: false },
     { leaderKey: "Space", leaderActive: false },
     "darwin",
   );
@@ -18,7 +18,7 @@ test("leader key is prioritized over focused tree routing", () => {
 test("focused tree routes input when leader is not active", () => {
   const priority = resolveInputPriority(
     { type: "keyDown", key: "j", ctrl: false, meta: false, alt: false },
-    { historyPanelFocused: true, historyPanelTextInputActive: false },
+    { sidepanelFocused: true, sidepanelTextInputActive: false },
     { leaderKey: "Space", leaderActive: false },
     "linux",
   );

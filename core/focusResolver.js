@@ -13,7 +13,7 @@ function resolveFocusOwner(snapshot = {}) {
     return "TELESCOPE";
   }
 
-  if (snapshot.historyPanelFocused) {
+  if (snapshot.sidepanelFocused) {
     return "TREE";
   }
 
@@ -35,11 +35,12 @@ function resolveFocusOwner(snapshot = {}) {
 function resolveFocusSnapshot({
   state,
   buffers,
-  historyPanel,
+  sidepanelController,
   bookmarkInsertScopeModal,
   telescopeService,
   downloadsModal,
 }) {
+  const sidepanel = sidepanelController;
   const activeBuffer =
     buffers && typeof buffers.getActive === "function"
       ? buffers.getActive()
@@ -51,10 +52,10 @@ function resolveFocusSnapshot({
     ),
     downloadsModalActive: Boolean(downloadsModal && downloadsModal.isActive()),
     telescopeActive: Boolean(telescopeService && telescopeService.isActive()),
-    historyPanelVisible: Boolean(historyPanel && historyPanel.isVisible()),
-    historyPanelFocused: Boolean(historyPanel && historyPanel.isFocused()),
-    historyPanelTextInputActive: Boolean(
-      historyPanel && historyPanel.isTextInputActive(),
+    sidepanelVisible: Boolean(sidepanel && sidepanel.isVisible()),
+    sidepanelFocused: Boolean(sidepanel && sidepanel.isFocused()),
+    sidepanelTextInputActive: Boolean(
+      sidepanel && sidepanel.isTextInputActive(),
     ),
     urllineEditing: Boolean(state && state.urllineEditing),
     commandMode: Boolean(state && state.mode === "COMMAND"),

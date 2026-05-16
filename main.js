@@ -35,7 +35,7 @@ const {
 const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
 const bookmarksService = require("./core/bookmarks/service");
-const historyPanel = require("./core/history/panel");
+const sidepanelController = require("./core/sidepanel/controller");
 const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
 const downloadsModal = require("./core/downloads/modal");
 const telescopeService = require("./core/telescope/service");
@@ -228,6 +228,7 @@ const themeRuntime = createThemeRuntime({
   toCssVars,
   buffers,
   uiShell,
+  sidepanelController,
   broadcastThemeUpdate: (payload) => {
     broadcastUiShellPush({ win, buffers, type: "theme:update", payload });
   },
@@ -280,7 +281,7 @@ function handleRawInput(event, input) {
   const focusSnapshot = resolveFocusSnapshot({
     state,
     buffers,
-    historyPanel,
+    sidepanelController,
     bookmarkInsertScopeModal,
     downloadsModal,
     telescopeService,
@@ -305,10 +306,10 @@ function handleRawInput(event, input) {
       if (
         wasActive &&
         !bookmarkInsertScopeModal.isActive() &&
-        focusSnapshot.historyPanelVisible
+        focusSnapshot.sidepanelVisible
       ) {
-        historyPanel.reloadData();
-        historyPanel.render();
+        sidepanelController.reloadData();
+        sidepanelController.render();
       }
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       updateTablineOptions();
@@ -321,9 +322,9 @@ function handleRawInput(event, input) {
     const consumed = downloadsModal.handleInput(normalized);
     if (consumed) {
       event.preventDefault();
-      if (!downloadsModal.isActive() && focusSnapshot.historyPanelVisible) {
-        historyPanel.reloadData();
-        historyPanel.render();
+      if (!downloadsModal.isActive() && focusSnapshot.sidepanelVisible) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
       }
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       updateTablineOptions();
@@ -357,7 +358,7 @@ function handleRawInput(event, input) {
 
   if (
     priority.shouldRouteFocusedTreeInput &&
-    historyPanel.handleFocusedInput(normalized)
+    sidepanelController.handleFocusedInput(normalized)
   ) {
     event.preventDefault();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
@@ -499,7 +500,7 @@ function syncWebBufferModeWithFocusedElement(webContents) {
   if (
     state.mode === "COMMAND" ||
     state.urllineEditing ||
-    historyPanel.isFocused() ||
+    sidepanelController.isFocused() ||
     editorFocused ||
     (state.mode !== "NORMAL" && state.mode !== "INSERT")
   ) {
@@ -524,7 +525,7 @@ function syncWebBufferModeWithFocusedElement(webContents) {
       if (
         state.mode === "COMMAND" ||
         state.urllineEditing ||
-        historyPanel.isFocused() ||
+        sidepanelController.isFocused() ||
         (isEditorFocused(state) &&
           Boolean(latestActive && latestActive.isEditable)) ||
         (state.mode !== "NORMAL" && state.mode !== "INSERT")
@@ -716,7 +717,7 @@ function updateTablineOptions() {
       "global.ui.tabline.show_favicon",
       false,
     ),
-    dimActiveBuffer: historyPanel.isFocused(),
+    dimActiveBuffer: sidepanelController.isFocused(),
   });
 }
 
@@ -774,7 +775,7 @@ const { applyReloadedConfig } = createConfigRuntime({
   applyBrowserLanguagePreference,
   buffers,
   configService,
-  historyPanel,
+  sidepanelController,
   resolveCurrentTheme,
   applyTheme,
   uiShell,
@@ -871,7 +872,7 @@ function createWindow() {
     state,
     buffers,
     uiShell,
-    historyPanel,
+    sidepanelController,
     historyService,
     notificationsService,
     configService,
@@ -917,7 +918,7 @@ function createWindow() {
     win,
     state,
     buffers,
-    historyPanel,
+    sidepanelController,
     dispatch,
     INTENTS,
     app,
@@ -935,9 +936,9 @@ function createWindow() {
     dismissSelectionModal: () => {
       const wasActive = bookmarkInsertScopeModal.isActive();
       bookmarkInsertScopeModal.close();
-      if (wasActive && historyPanel.isVisible()) {
-        historyPanel.reloadData();
-        historyPanel.render();
+      if (wasActive && sidepanelController.isVisible()) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
       }
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       updateTablineOptions();
@@ -948,9 +949,13 @@ function createWindow() {
       const wasActive = bookmarkInsertScopeModal.isActive();
       const consumed = bookmarkInsertScopeModal.selectIndex(index);
       if (!consumed) return;
-      if (wasActive && !bookmarkInsertScopeModal.isActive() && historyPanel.isVisible()) {
-        historyPanel.reloadData();
-        historyPanel.render();
+      if (
+        wasActive &&
+        !bookmarkInsertScopeModal.isActive() &&
+        sidepanelController.isVisible()
+      ) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
       }
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       updateTablineOptions();
@@ -963,8 +968,8 @@ function createWindow() {
       if (!downloadsModal.isActive()) return;
       downloadsModal.close();
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
-      if (historyPanel.isVisible()) {
-        historyPanel.render();
+      if (sidepanelController.isVisible()) {
+        sidepanelController.render();
       }
       buffers.focusActive();
       if (appMenu) appMenu.sync();

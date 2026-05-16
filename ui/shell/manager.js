@@ -108,6 +108,7 @@ class UiShellManager {
   init(windowRef) {
     this.window = windowRef;
     this.shellHostReady = false;
+    this.toastOverlayHeight = 1;
     this.pendingTablineSnapshot = [];
 
     this.initializeShellHost();

@@ -98,3 +98,71 @@ test("toast script enforces max 3 displayed", async () => {
   assert.equal(renderCalls.length, 4);
   assert.ok(String(renderCalls[0].script).includes("for (let i = 3; i < overflow.length; i += 1)"));
 });
+
+test("toast click miss does not prevent default or dismiss", async () => {
+  pushCalls = [];
+  let prevented = false;
+  const ctx = createContext({
+    toastOverlayReady: true,
+    toastOverlayView: {
+      webContents: {
+        isDestroyed() {
+          return false;
+        },
+        executeJavaScript() {
+          return Promise.resolve(null);
+        },
+      },
+    },
+  });
+
+  await auxOverlayController.handleToastOverlayMouseEvent.call(
+    ctx,
+    { type: "mouseDown", button: "left", x: 12, y: 14 },
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+  );
+
+  assert.equal(prevented, false);
+  const dismissCalls = pushCalls.filter((entry) =>
+    String(entry.script).includes("dismissToastNode"),
+  );
+  assert.equal(dismissCalls.length, 0);
+});
+
+test("toast click hit prevents default and dismisses", async () => {
+  pushCalls = [];
+  let prevented = false;
+  const ctx = createContext({
+    toastOverlayReady: true,
+    toastOverlayView: {
+      webContents: {
+        isDestroyed() {
+          return false;
+        },
+        executeJavaScript() {
+          return Promise.resolve({ id: "toast-7" });
+        },
+      },
+    },
+  });
+
+  await auxOverlayController.handleToastOverlayMouseEvent.call(
+    ctx,
+    { type: "mouseDown", button: "left", x: 25, y: 20 },
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+  );
+
+  assert.equal(prevented, true);
+  const dismissCalls = pushCalls.filter((entry) =>
+    String(entry.script).includes("dismissToastNode"),
+  );
+  assert.equal(dismissCalls.length, 1);
+});

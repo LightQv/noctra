@@ -191,7 +191,7 @@ test("overlay layout hides toast offscreen when not visible", () => {
   assert.deepEqual(toastCall[2], { x: -10000, y: -10000, width: 1, height: 1 });
 });
 
-test("overlay layout sizes toast to dynamic measured height", () => {
+test("overlay layout sizes toast to fixed width and dynamic measured height", () => {
   const calls = [];
   const windowRef = {
     getContentBounds() {

@@ -47,8 +47,8 @@ function measureToastOverlayHeight() {
     `,
   ).then((nextHeight) => {
     if (!Number.isFinite(nextHeight)) return;
-    const prevVisible = this.toastOverlayHeight > 1;
     const safeHeight = Math.max(1, Math.floor(nextHeight));
+    const prevVisible = this.toastOverlayHeight > 1;
     if (safeHeight !== this.toastOverlayHeight) {
       this.toastOverlayHeight = safeHeight;
       const nextVisible = this.toastOverlayHeight > 1;
@@ -166,9 +166,6 @@ function flushPendingToasts() {
 
 async function handleToastOverlayMouseEvent(input, event = null) {
   if (!input || input.type !== "mouseDown" || input.button !== "left") return;
-  if (event && typeof event.preventDefault === "function") {
-    event.preventDefault();
-  }
   const target = await resolveOverlayClickTarget(
     this.toastOverlayView,
     input.x,
@@ -176,6 +173,9 @@ async function handleToastOverlayMouseEvent(input, event = null) {
     '[data-toast-id]',
   );
   if (!target || !target.id) return;
+  if (event && typeof event.preventDefault === "function") {
+    event.preventDefault();
+  }
   dismissToastNode.call(this, target.id);
 }
 

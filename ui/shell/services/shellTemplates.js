@@ -992,6 +992,8 @@ const TOAST_OVERLAY_HTML = `
         opacity: 0;
         transform: translateY(-6px);
         transition: opacity 120ms ease, transform 120ms ease;
+        pointer-events: auto;
+        cursor: pointer;
       }
 
       .toast-item.show {

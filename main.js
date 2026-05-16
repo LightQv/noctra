@@ -1025,6 +1025,7 @@ function createWindow() {
     },
   });
   const overlayInputViews = [
+    uiShell.toastOverlayView,
     uiShell.telescopeView,
     uiShell.selectionModalView,
     uiShell.whichKeyOverlayView,

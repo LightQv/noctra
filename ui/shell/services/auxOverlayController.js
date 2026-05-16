@@ -2,15 +2,8 @@ const {
   pushShellPatch,
 } = require("../../../core/adapters/renderer/shellPatchTransport");
 
-function setToastOverlayVisibility(isVisible) {
-  const nextCount = isVisible ? Math.max(1, this.activeToastCount || 0) : 0;
-  const prevVisible = (this.activeToastCount || 0) > 0;
-  const nextVisible = nextCount > 0;
-  this.activeToastCount = nextCount;
-  if (prevVisible !== nextVisible) {
-    this.syncOverlayStack();
-  }
-}
+const PENDING_TOAST_LIMIT = 200;
+const TOAST_DISPLAY_LIMIT = 3;
 
 function normalizeToast(toast = {}) {
   const severity =
@@ -54,28 +47,46 @@ function measureToastOverlayHeight() {
     `,
   ).then((nextHeight) => {
     if (!Number.isFinite(nextHeight)) return;
+    const prevVisible = this.toastOverlayHeight > 1;
     const safeHeight = Math.max(1, Math.floor(nextHeight));
     if (safeHeight !== this.toastOverlayHeight) {
       this.toastOverlayHeight = safeHeight;
-      this.relayout();
+      const nextVisible = this.toastOverlayHeight > 1;
+      if (prevVisible !== nextVisible) {
+        this.syncOverlayStack();
+      } else {
+        this.relayout();
+      }
     }
   });
 }
 
-function renderToastNode(id, accentColor, message) {
+function renderToastNode(id, accentColor, message, timeoutMs) {
   return pushShellPatch(
     this.toastOverlayView.webContents,
     `
       (function renderToastNode() {
         const root = document.getElementById('toast-root');
-        if (!root) return;
+        if (!root) return false;
         const node = document.createElement('div');
         node.className = 'toast-item';
         node.dataset.toastId = ${JSON.stringify(String(id))};
         node.style.borderLeftColor = ${JSON.stringify(accentColor)};
         node.textContent = ${JSON.stringify(message)};
-        root.appendChild(node);
-        requestAnimationFrame(() => node.classList.add('show'));
+        root.prepend(node);
+        node.classList.add('show');
+        const overflow = root.querySelectorAll('.toast-item');
+        for (let i = ${JSON.stringify(TOAST_DISPLAY_LIMIT)}; i < overflow.length; i += 1) {
+          const stale = overflow[i];
+          if (stale && stale.parentElement) stale.parentElement.removeChild(stale);
+        }
+        setTimeout(() => {
+          node.classList.remove('show');
+          setTimeout(() => {
+            if (node.parentElement) node.parentElement.removeChild(node);
+          }, 140);
+        }, ${JSON.stringify(timeoutMs)});
+        return true;
       })();
     `,
     {
@@ -89,80 +100,83 @@ function renderToastNode(id, accentColor, message) {
   );
 }
 
-function dismissToast(id) {
+function dismissToastNode(id) {
   const toastId = String(id || "");
-  if (!toastId) return;
-  const timer = this.toastDismissTimers.get(toastId);
-  if (timer) {
-    clearTimeout(timer);
-    this.toastDismissTimers.delete(toastId);
-  }
-  const index = this.activeToastIds.indexOf(toastId);
-  if (index === -1) return;
-  this.activeToastIds.splice(index, 1);
-  this.activeToastCount = this.activeToastIds.length;
-  setToastOverlayVisibility.call(this, this.activeToastCount > 0);
+  if (!toastId || !this.toastOverlayView || !this.toastOverlayReady) return;
   pushShellPatch(
     this.toastOverlayView.webContents,
     `
       (function dismissToastNode() {
         const node = document.querySelector('.toast-item[data-toast-id=${JSON.stringify(toastId)}]');
-        if (!node) return;
+        if (!node) return false;
         node.classList.remove('show');
         setTimeout(() => {
           if (node.parentElement) node.parentElement.removeChild(node);
         }, 140);
+        return true;
       })();
     `,
-  );
-  setTimeout(() => {
-    measureToastOverlayHeight.call(this);
-    pumpToastQueue.call(this);
-  }, 160);
-}
-
-function pumpToastQueue() {
-  if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) return;
-  while (this.activeToastIds.length < 3 && this.toastQueue.length > 0) {
-    const nextToast = this.toastQueue.shift();
-    const id = String(nextToast.id);
-    this.activeToastIds.push(id);
-    this.activeToastCount = this.activeToastIds.length;
-    setToastOverlayVisibility.call(this, true);
-    renderToastNode.call(this, id, nextToast.accentColor, nextToast.message).then(
-      () => measureToastOverlayHeight.call(this),
-    );
-    const dismissTimer = setTimeout(
-      () => dismissToast.call(this, id),
-      nextToast.timeoutMs,
-    );
-    this.toastDismissTimers.set(id, dismissTimer);
-  }
+  ).then((dismissed) => {
+    if (dismissed) {
+      setTimeout(() => measureToastOverlayHeight.call(this), 160);
+    }
+  });
 }
 
 function showNotificationToast(toast = {}) {
   if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) {
     this.pendingToasts.push(toast);
-    if (this.pendingToasts.length > 50) this.pendingToasts.shift();
+    if (this.pendingToasts.length > PENDING_TOAST_LIMIT) {
+      this.pendingToasts.splice(0, this.pendingToasts.length - PENDING_TOAST_LIMIT);
+    }
     return;
   }
 
   const normalized = normalizeToast.call(this, toast);
-  this.toastQueue.push({
-    id: this.nextToastId++,
-    ...normalized,
-  });
-  if (this.toastQueue.length > 50) {
-    this.toastQueue.splice(0, this.toastQueue.length - 50);
-  }
-  pumpToastQueue.call(this);
+  renderToastNode
+    .call(
+      this,
+      this.nextToastId++,
+      normalized.accentColor,
+      normalized.message,
+      normalized.timeoutMs,
+    )
+    .then((inserted) => {
+      if (inserted) {
+        measureToastOverlayHeight.call(this);
+        setTimeout(
+          () => measureToastOverlayHeight.call(this),
+          normalized.timeoutMs + 180,
+        );
+      }
+    });
 }
 
 function flushPendingToasts() {
-  if (!this.window || !this.shellHostReady || this.pendingToasts.length === 0)
+  if (
+    !this.window ||
+    !this.toastOverlayView ||
+    !this.toastOverlayReady ||
+    this.pendingToasts.length === 0
+  )
     return;
   const queuedToasts = this.pendingToasts.splice(0, this.pendingToasts.length);
   for (const toast of queuedToasts) this.showNotificationToast(toast);
+}
+
+async function handleToastOverlayMouseEvent(input, event = null) {
+  if (!input || input.type !== "mouseDown" || input.button !== "left") return;
+  if (event && typeof event.preventDefault === "function") {
+    event.preventDefault();
+  }
+  const target = await resolveOverlayClickTarget(
+    this.toastOverlayView,
+    input.x,
+    input.y,
+    '[data-toast-id]',
+  );
+  if (!target || !target.id) return;
+  dismissToastNode.call(this, target.id);
 }
 
 function isSelectionModalVisible() {
@@ -347,7 +361,7 @@ async function resolveOverlayClickTarget(view, x, y, selector) {
         return {
           role: String(target.getAttribute('data-click-role') || ''),
           index: Number.parseInt(String(target.getAttribute('data-index') || '-1'), 10),
-          id: target.id ? String(target.id) : '',
+          id: String(target.getAttribute('data-toast-id') || target.id || ''),
         };
       })();`,
     );
@@ -619,6 +633,7 @@ module.exports = {
   hideTelescope,
   updateTelescope,
   handleTelescopeMouseEvent,
+  handleToastOverlayMouseEvent,
   computeSelectionModalHeight,
   isDownloadsModalVisible,
   showDownloadsModal,

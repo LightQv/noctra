@@ -19,8 +19,8 @@ function createOverlayBrowserView(html, options = {}) {
     `data:text/html;charset=utf-8,${encodeURIComponent(String(html || ""))}`,
   );
   if (typeof onMouseEvent === "function") {
-    view.webContents.on("before-mouse-event", (_event, input) => {
-      onMouseEvent(input);
+    view.webContents.on("before-mouse-event", (event, input) => {
+      onMouseEvent(input, event);
     });
   }
   return view;

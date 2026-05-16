@@ -1719,7 +1719,7 @@ class HistoryPanel {
           };
         })();`,
       );
-    } catch (_error) {
+    } catch {
       return null;
     }
   }

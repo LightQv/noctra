@@ -365,7 +365,7 @@ async function resolveOverlayClickTarget(view, x, y, selector) {
         };
       })();`,
     );
-  } catch (_error) {
+  } catch {
     return null;
   }
 }

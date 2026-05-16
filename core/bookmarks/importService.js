@@ -36,7 +36,7 @@ function parseAttribute(tag, attrName) {
   const source = String(tag || "");
   const escapedName = attrName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = source.match(
-    new RegExp(`${escapedName}\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))`, "i"),
+    new RegExp(`${escapedName}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"),
   );
   if (!match) return "";
   return decodeHtmlEntities(match[1] || match[2] || match[3] || "").trim();

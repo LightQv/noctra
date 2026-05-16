@@ -760,6 +760,8 @@ const urllineCoordinator = createUrllineCoordinator({
   deleteUrllineBackward,
   deleteUrllineForward,
   resolveInputTarget,
+  getDefaultSearchEngine: () =>
+    configService.getConfigValue("browser.default_search_engine", "duckduckgo"),
   getStatuslineModeLabel,
 });
 

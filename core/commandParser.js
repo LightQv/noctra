@@ -19,6 +19,13 @@ function getUrlPolicyConfig() {
   };
 }
 
+function getDefaultSearchEngine() {
+  return configService.getConfigValue(
+    "browser.default_search_engine",
+    "duckduckgo",
+  );
+}
+
 function parseCommand(raw) {
   const normalized = raw.trim();
   if (!normalized) {
@@ -38,7 +45,7 @@ function parseCommand(raw) {
       }
       {
         const target = resolveInputTarget(arg, {
-          defaultSearchEngine: "duckduckgo",
+          defaultSearchEngine: getDefaultSearchEngine(),
           urlPolicy: getUrlPolicyConfig(),
         });
         if (target.kind === "invalid") {
@@ -55,7 +62,7 @@ function parseCommand(raw) {
       }
       {
         const target = resolveInputTarget(arg, {
-          defaultSearchEngine: "duckduckgo",
+          defaultSearchEngine: getDefaultSearchEngine(),
           urlPolicy: getUrlPolicyConfig(),
         });
         if (target.kind === "invalid") {
@@ -243,6 +250,13 @@ function parseCommand(raw) {
       return {
         type: INTENTS.SEARCH_WEB,
         engine: "google",
+        query: arg,
+      };
+
+    case "ecosia":
+      return {
+        type: INTENTS.SEARCH_WEB,
+        engine: "ecosia",
         query: arg,
       };
 

@@ -8,6 +8,7 @@ Use `:` in `COMMAND` mode to run the following commands.
 - `:tab`, `:tabe`, `:tabnew [target]`: open new buffer (optionally with target)
 - `:duck <query>`: search with DuckDuckGo
 - `:google <query>`: search with Google
+- `:ecosia <query>`: search with Ecosia
 
 ## Buffer management
 
@@ -76,5 +77,6 @@ Use `:` in `COMMAND` mode to run the following commands.
 ## Notes
 
 - Unknown or malformed commands resolve to `UNKNOWN_COMMAND` intent.
+- `:open` / `:tabnew` use `browser.default_search_engine` for non-URL inputs.
 - URL-like and query-like inputs are normalized before dispatch.
 - Some commands have aliases (for example `:tab`, `:tabe`, `:tabnew`).

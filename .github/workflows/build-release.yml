@@ -84,7 +84,7 @@ jobs:
             pkg.version = '$VERSION';
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
-          sed -i "s/Current version: .*/Current version: $VERSION/" README.md
+          sed -i 's/^\*Current version:\* .*/\*Current version:\* `"'"$VERSION"'"`/' README.md
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Commit, tag, and push

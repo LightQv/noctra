@@ -1,6 +1,10 @@
-const { Menu, dialog } = require("electron");
+const { BrowserWindow, Menu, dialog, nativeImage, shell } = require("electron");
 const { execFile } = require("child_process");
+const path = require("path");
+const { pathToFileURL } = require("url");
 const { promisify } = require("util");
+const { getDocsBasePath } = require("./openExternal");
+const { resolveTheme, resolveThemeMode } = require("../../../ui/theme");
 
 const execFileAsync = promisify(execFile);
 
@@ -25,6 +29,7 @@ function createAppMenu({
   const isMac = process.platform === "darwin";
   const isLinux = process.platform === "linux";
   let folderIcon = null;
+  let aboutWindow = null;
   let linuxDefaultBrowserStatus = {
     isDefault: false,
     canSetDefault: isLinux,
@@ -340,13 +345,233 @@ function createAppMenu({
 
   function showAbout() {
     if (!win || win.isDestroyed()) return;
-    dialog.showMessageBoxSync(win, {
-      type: "info",
-      title: `About ${app.getName()}`,
-      message: `${app.getName()}`,
-      detail: `Version ${app.getVersion()}`,
-      buttons: ["OK"],
+
+    if (aboutWindow && !aboutWindow.isDestroyed()) {
+      aboutWindow.focus();
+      return;
+    }
+
+    const appName = String(app.getName() || "Noctra");
+    const appVersion = String(app.getVersion() || "0.0.0");
+    const description =
+      "A Vim-inspired browser shell built for keyboard-first browsing.";
+    const docsBasePath = getDocsBasePath().replace(/\/$/, "");
+    const docsUrl = `${docsBasePath}/docs/getting-started.md`;
+    const githubUrl = "https://github.com/LightQv/noctra";
+    const darkIconPath = path.join(
+      __dirname,
+      "../../../assets/icons/icon-dark_512.png",
+    );
+    const lightIconPath = path.join(
+      __dirname,
+      "../../../assets/icons/icon-light_512.png",
+    );
+    const isDarkMode =
+      resolveThemeMode(
+        configService && typeof configService.getConfigValue === "function"
+          ? configService.getConfigValue("global.theme", {})
+          : {},
+        {
+          systemPrefersDark:
+            nativeTheme && typeof nativeTheme.shouldUseDarkColors === "function"
+              ? nativeTheme.shouldUseDarkColors()
+              : true,
+        },
+      ) !== "light";
+    const theme = resolveTheme(
+      configService && typeof configService.getConfigValue === "function"
+        ? configService.getConfigValue("global.theme", {})
+        : {},
+      {
+        systemPrefersDark:
+          nativeTheme && typeof nativeTheme.shouldUseDarkColors === "function"
+            ? nativeTheme.shouldUseDarkColors()
+            : true,
+      },
+    );
+    const preferredIconPath = isDarkMode ? darkIconPath : lightIconPath;
+    const iconImage = nativeImage.createFromPath(preferredIconPath);
+    const fallbackIconImage = nativeImage.createFromPath(darkIconPath);
+    const iconUrl = !iconImage.isEmpty() ? iconImage.toDataURL() : "";
+    const resolvedIconUrl =
+      iconUrl.length > 0
+        ? iconUrl
+        : !fallbackIconImage.isEmpty()
+          ? fallbackIconImage.toDataURL()
+          : "";
+
+    const allowOpenAboutUrl = (rawUrl) => {
+      try {
+        const parsed = new URL(rawUrl);
+        if (parsed.protocol !== "https:") return false;
+        return rawUrl === docsUrl || rawUrl === githubUrl;
+      } catch {
+        return false;
+      }
+    };
+
+    aboutWindow = new BrowserWindow({
+      width: 352,
+      height: 410,
+      title: "",
+      parent: win,
+      modal: false,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      show: false,
+      titleBarStyle: isMac ? "hiddenInset" : "default",
+      backgroundColor: theme.appBackground,
+      autoHideMenuBar: true,
+      webPreferences: {
+        contextIsolation: true,
+        sandbox: true,
+        nodeIntegration: false,
+      },
     });
+
+    if (typeof aboutWindow.setMenuBarVisibility === "function") {
+      aboutWindow.setMenuBarVisibility(false);
+    }
+
+    aboutWindow.webContents.setWindowOpenHandler(({ url }) => {
+      if (allowOpenAboutUrl(url)) {
+        shell.openExternal(url);
+      }
+      return { action: "deny" };
+    });
+
+    aboutWindow.webContents.on("will-navigate", (event, url) => {
+      event.preventDefault();
+      if (allowOpenAboutUrl(url)) {
+        shell.openExternal(url);
+      }
+    });
+
+    aboutWindow.on("closed", () => {
+      aboutWindow = null;
+    });
+
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>About ${escapeHtml(appName)}</title>
+    <style>
+      :root {
+        color-scheme: ${isDarkMode ? "dark" : "light"};
+        --bg: ${theme.appBackground};
+        --text: ${theme.brightTextColor};
+        --muted: ${theme.mutedTextColor};
+        --button: ${theme.elevatedBackground};
+        --button-border: ${theme.borderColor};
+        --button-hover: ${theme.subtleBackground};
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+      }
+      .outer {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 68px 38px;
+      }
+      .content {
+        width: 100%;
+        text-align: center;
+      }
+      .icon {
+        width: 98px;
+        height: 98px;
+        display: block;
+        margin: 0 auto 22px;
+        border-radius: 22px;
+        object-fit: cover;
+      }
+      .appname {
+        margin: 0;
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1.12;
+      }
+      .description {
+        margin: 12px 0 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--muted);
+        max-width: 240px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .version {
+        margin: 20px 0 0;
+        font-size: 13px;
+        line-height: 1.2;
+      }
+      .version-value {
+        color: var(--muted);
+      }
+      .actions {
+        margin-top: 34px;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+      }
+      .action {
+        appearance: none;
+        border: 1px solid var(--button-border);
+        border-radius: 10px;
+        background: var(--button);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 500;
+        text-decoration: none;
+        min-width: 102px;
+        padding: 7px 12px;
+      }
+      .action:hover {
+        background: var(--button-hover);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="outer">
+      <section class="content">
+        <img class="icon" src="${resolvedIconUrl}" alt="${escapeHtml(appName)} icon" />
+        <h1 class="appname">${escapeHtml(appName)}</h1>
+        <p class="description">${escapeHtml(description)}</p>
+        <p class="version">Version <span class="version-value">${escapeHtml(appVersion)}</span></p>
+        <div class="actions">
+          <a class="action" href="${docsUrl}" target="_blank" rel="noreferrer">Docs</a>
+          <a class="action" href="${githubUrl}" target="_blank" rel="noreferrer">GitHub</a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    aboutWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    aboutWindow.once("ready-to-show", () => {
+      if (aboutWindow && !aboutWindow.isDestroyed()) {
+        aboutWindow.show();
+      }
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
   }
 
   function closeAllBuffers() {

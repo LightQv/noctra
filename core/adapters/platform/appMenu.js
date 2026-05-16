@@ -1,7 +1,6 @@
 const { BrowserWindow, Menu, dialog, nativeImage, shell } = require("electron");
 const { execFile } = require("child_process");
 const path = require("path");
-const { pathToFileURL } = require("url");
 const { promisify } = require("util");
 const { getDocsBasePath } = require("./openExternal");
 const { resolveTheme, resolveThemeMode } = require("../../../ui/theme");

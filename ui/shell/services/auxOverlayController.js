@@ -2,13 +2,10 @@ const {
   pushShellPatch,
 } = require("../../../core/adapters/renderer/shellPatchTransport");
 
-function showNotificationToast(toast = {}) {
-  if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) {
-    this.pendingToasts.push(toast);
-    if (this.pendingToasts.length > 50) this.pendingToasts.shift();
-    return;
-  }
+const PENDING_TOAST_LIMIT = 200;
+const TOAST_DISPLAY_LIMIT = 3;
 
+function normalizeToast(toast = {}) {
   const severity =
     toast.severity === "error" || toast.severity === "warning"
       ? toast.severity
@@ -23,25 +20,73 @@ function showNotificationToast(toast = {}) {
       : severity === "warning"
         ? "#f6c177"
         : this.currentTheme.mainColor;
+  return { severity, message, timeoutMs, accentColor };
+}
 
+function measureToastOverlayHeight() {
+  if (!this.toastOverlayView || !this.toastOverlayReady) return;
   pushShellPatch(
     this.toastOverlayView.webContents,
     `
-      (function pushToast() {
+      (function measureToastOverlayHeight() {
         const root = document.getElementById('toast-root');
-        if (!root) return;
+        if (!root) return 1;
+        const style = window.getComputedStyle(root);
+        const padTop = Number.parseFloat(style.paddingTop || '0') || 0;
+        const padBottom = Number.parseFloat(style.paddingBottom || '0') || 0;
+        const items = Array.from(root.querySelectorAll('.toast-item'));
+        if (!items.length) return 1;
+        let contentHeight = 0;
+        for (const item of items) {
+          contentHeight += item.getBoundingClientRect().height;
+        }
+        const gap = Number.parseFloat(style.gap || '0') || 0;
+        contentHeight += Math.max(0, items.length - 1) * gap;
+        return Math.max(1, Math.ceil(contentHeight + padTop + padBottom));
+      })();
+    `,
+  ).then((nextHeight) => {
+    if (!Number.isFinite(nextHeight)) return;
+    const safeHeight = Math.max(1, Math.floor(nextHeight));
+    const prevVisible = this.toastOverlayHeight > 1;
+    if (safeHeight !== this.toastOverlayHeight) {
+      this.toastOverlayHeight = safeHeight;
+      const nextVisible = this.toastOverlayHeight > 1;
+      if (prevVisible !== nextVisible) {
+        this.syncOverlayStack();
+      } else {
+        this.relayout();
+      }
+    }
+  });
+}
+
+function renderToastNode(id, accentColor, message, timeoutMs) {
+  return pushShellPatch(
+    this.toastOverlayView.webContents,
+    `
+      (function renderToastNode() {
+        const root = document.getElementById('toast-root');
+        if (!root) return false;
         const node = document.createElement('div');
         node.className = 'toast-item';
+        node.dataset.toastId = ${JSON.stringify(String(id))};
         node.style.borderLeftColor = ${JSON.stringify(accentColor)};
         node.textContent = ${JSON.stringify(message)};
         root.prepend(node);
-        requestAnimationFrame(() => node.classList.add('show'));
+        node.classList.add('show');
+        const overflow = root.querySelectorAll('.toast-item');
+        for (let i = ${JSON.stringify(TOAST_DISPLAY_LIMIT)}; i < overflow.length; i += 1) {
+          const stale = overflow[i];
+          if (stale && stale.parentElement) stale.parentElement.removeChild(stale);
+        }
         setTimeout(() => {
           node.classList.remove('show');
           setTimeout(() => {
             if (node.parentElement) node.parentElement.removeChild(node);
           }, 140);
         }, ${JSON.stringify(timeoutMs)});
+        return true;
       })();
     `,
     {
@@ -55,11 +100,83 @@ function showNotificationToast(toast = {}) {
   );
 }
 
+function dismissToastNode(id) {
+  const toastId = String(id || "");
+  if (!toastId || !this.toastOverlayView || !this.toastOverlayReady) return;
+  pushShellPatch(
+    this.toastOverlayView.webContents,
+    `
+      (function dismissToastNode() {
+        const node = document.querySelector('.toast-item[data-toast-id=${JSON.stringify(toastId)}]');
+        if (!node) return false;
+        node.classList.remove('show');
+        setTimeout(() => {
+          if (node.parentElement) node.parentElement.removeChild(node);
+        }, 140);
+        return true;
+      })();
+    `,
+  ).then((dismissed) => {
+    if (dismissed) {
+      setTimeout(() => measureToastOverlayHeight.call(this), 160);
+    }
+  });
+}
+
+function showNotificationToast(toast = {}) {
+  if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) {
+    this.pendingToasts.push(toast);
+    if (this.pendingToasts.length > PENDING_TOAST_LIMIT) {
+      this.pendingToasts.splice(0, this.pendingToasts.length - PENDING_TOAST_LIMIT);
+    }
+    return;
+  }
+
+  const normalized = normalizeToast.call(this, toast);
+  renderToastNode
+    .call(
+      this,
+      this.nextToastId++,
+      normalized.accentColor,
+      normalized.message,
+      normalized.timeoutMs,
+    )
+    .then((inserted) => {
+      if (inserted) {
+        measureToastOverlayHeight.call(this);
+        setTimeout(
+          () => measureToastOverlayHeight.call(this),
+          normalized.timeoutMs + 180,
+        );
+      }
+    });
+}
+
 function flushPendingToasts() {
-  if (!this.window || !this.shellHostReady || this.pendingToasts.length === 0)
+  if (
+    !this.window ||
+    !this.toastOverlayView ||
+    !this.toastOverlayReady ||
+    this.pendingToasts.length === 0
+  )
     return;
   const queuedToasts = this.pendingToasts.splice(0, this.pendingToasts.length);
   for (const toast of queuedToasts) this.showNotificationToast(toast);
+}
+
+async function handleToastOverlayMouseEvent(input, event = null) {
+  if (!input || input.type !== "mouseDown" || input.button !== "left") return;
+  const target = await resolveOverlayClickTarget(
+    this.toastOverlayView,
+    input.x,
+    input.y,
+    '[data-toast-id]',
+  );
+  if (!target || !target.id) return;
+  if (event && typeof event.preventDefault === "function") {
+    event.preventDefault();
+  }
+  dismissToastNode.call(this, target.id);
 }
 
 function isSelectionModalVisible() {
@@ -244,11 +361,11 @@ async function resolveOverlayClickTarget(view, x, y, selector) {
         return {
           role: String(target.getAttribute('data-click-role') || ''),
           index: Number.parseInt(String(target.getAttribute('data-index') || '-1'), 10),
-          id: target.id ? String(target.id) : '',
+          id: String(target.getAttribute('data-toast-id') || target.id || ''),
         };
       })();`,
     );
-  } catch (_error) {
+  } catch {
     return null;
   }
 }
@@ -516,6 +633,7 @@ module.exports = {
   hideTelescope,
   updateTelescope,
   handleTelescopeMouseEvent,
+  handleToastOverlayMouseEvent,
   computeSelectionModalHeight,
   isDownloadsModalVisible,
   showDownloadsModal,

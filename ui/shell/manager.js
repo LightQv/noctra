@@ -50,6 +50,8 @@ class UiShellManager {
     this.statuslineReady = false;
     this.toastOverlayView = null;
     this.toastOverlayReady = false;
+    this.toastOverlayHeight = 1;
+    this.nextToastId = 1;
     this.downloadsModalView = null;
     this.downloadsModalReady = false;
     this.downloadsModalVisible = false;
@@ -106,6 +108,7 @@ class UiShellManager {
   init(windowRef) {
     this.window = windowRef;
     this.shellHostReady = false;
+    this.toastOverlayHeight = 1;
     this.pendingTablineSnapshot = [];
 
     this.initializeShellHost();
@@ -233,6 +236,9 @@ class UiShellManager {
       autoResize: { width: false, height: false },
       onReady() {
         this.flushPendingToasts();
+      },
+      onMouseEvent: (input, event) => {
+        this.handleToastOverlayMouseEvent(input, event);
       },
     });
   }
@@ -492,6 +498,14 @@ class UiShellManager {
 
   handleTelescopeMouseEvent(input) {
     return auxOverlayController.handleTelescopeMouseEvent.call(this, input);
+  }
+
+  handleToastOverlayMouseEvent(input, event) {
+    return auxOverlayController.handleToastOverlayMouseEvent.call(
+      this,
+      input,
+      event,
+    );
   }
 
   handleDownloadsModalMouseEvent(input) {

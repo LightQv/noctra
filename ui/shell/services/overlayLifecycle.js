@@ -33,39 +33,44 @@ function initializeOverlayView({
 }
 
 function relayout() {
-    applyOverlayLayout({
-      windowRef: this.window,
-      overlays: {
-        commandOverlayView: this.commandOverlayView,
-        whichKeyOverlayView: this.whichKeyOverlayView,
-        selectionModalView: this.selectionModalView,
-        telescopeView: this.telescopeView,
-        statuslineView: this.statuslineView,
-        toastOverlayView: this.toastOverlayView,
-        downloadsModalView: this.downloadsModalView,
-        backdropOverlayView: this.backdropOverlayView,
-      },
-      visibility: {
-        commandVisible: this.commandVisible,
-        whichKeyVisible: this.whichKeyVisible,
-        selectionModalVisible: this.selectionModalVisible,
-        telescopeVisible: this.telescopeVisible,
-        downloadsModalVisible: this.downloadsModalVisible,
-        backdropVisible:
-          this.whichKeyVisible ||
-          this.selectionModalVisible ||
-          this.telescopeVisible ||
-          this.downloadsModalVisible,
-      },
-      chrome: {
-        UI_SHELL_TABLINE_HEIGHT,
-        UI_SHELL_STATUSLINE_HEIGHT,
-      },
-      computeSelectionModalHeight: () =>
-        this.computeSelectionModalHeight(this.selectionModalModel),
-      computeDownloadsModalHeight: () =>
-        this.computeDownloadsModalHeight(this.downloadsModalModel),
-    });
+  applyOverlayLayout({
+    windowRef: this.window,
+    overlays: {
+      commandOverlayView: this.commandOverlayView,
+      whichKeyOverlayView: this.whichKeyOverlayView,
+      selectionModalView: this.selectionModalView,
+      telescopeView: this.telescopeView,
+      statuslineView: this.statuslineView,
+      toastOverlayView: this.toastOverlayView,
+      downloadsModalView: this.downloadsModalView,
+      backdropOverlayView: this.backdropOverlayView,
+    },
+    visibility: {
+      commandVisible: this.commandVisible,
+      whichKeyVisible: this.whichKeyVisible,
+      selectionModalVisible: this.selectionModalVisible,
+      telescopeVisible: this.telescopeVisible,
+      toastVisible: this.toastOverlayHeight > 1,
+      downloadsModalVisible: this.downloadsModalVisible,
+      backdropVisible:
+        this.whichKeyVisible ||
+        this.selectionModalVisible ||
+        this.telescopeVisible ||
+        this.downloadsModalVisible,
+    },
+    chrome: {
+      UI_SHELL_TABLINE_HEIGHT,
+      UI_SHELL_STATUSLINE_HEIGHT,
+    },
+    computeSelectionModalHeight: () =>
+      this.computeSelectionModalHeight(this.selectionModalModel),
+    computeDownloadsModalHeight: () =>
+      this.computeDownloadsModalHeight(this.downloadsModalModel),
+    computeToastOverlayHeight: () =>
+      Number.isFinite(this.toastOverlayHeight)
+        ? Math.max(1, Math.floor(this.toastOverlayHeight))
+        : 1,
+  });
 }
 
 function hasCommandOverlayAttached() {
@@ -88,6 +93,7 @@ function syncOverlayStack() {
     telescopeView: this.telescopeView,
     commandVisible: this.commandVisible,
     commandOverlayView: this.commandOverlayView,
+    toastVisible: this.toastOverlayHeight > 1,
     toastOverlayView: this.toastOverlayView,
     downloadsModalVisible: this.downloadsModalVisible,
     downloadsModalView: this.downloadsModalView,

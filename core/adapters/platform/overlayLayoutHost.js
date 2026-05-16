@@ -5,6 +5,7 @@ function applyOverlayLayout({
   chrome,
   computeSelectionModalHeight,
   computeDownloadsModalHeight,
+  computeToastOverlayHeight,
 }) {
   if (!windowRef) {
     return;
@@ -43,6 +44,7 @@ function applyOverlayLayout({
     visibility && visibility.selectionModalVisible,
   );
   const telescopeVisible = Boolean(visibility && visibility.telescopeVisible);
+  const toastVisible = Boolean(visibility && visibility.toastVisible);
   const downloadsModalVisible = Boolean(
     visibility && visibility.downloadsModalVisible,
   );
@@ -172,14 +174,20 @@ function applyOverlayLayout({
     height: UI_SHELL_STATUSLINE_HEIGHT,
   });
 
+  const toastWidth = toastVisible ? Math.min(452, Math.max(bounds.width, 1)) : 1;
+  const toastHeight = toastVisible
+    ? Math.min(
+        Math.max((computeToastOverlayHeight || (() => 1))(), 1),
+        Math.max(bounds.height - UI_SHELL_TABLINE_HEIGHT - 10, 1),
+      )
+    : 1;
+  const toastX = toastVisible ? Math.max(bounds.width - toastWidth, 0) : -10000;
+  const toastY = toastVisible ? Math.max(UI_SHELL_TABLINE_HEIGHT + 10, 0) : -10000;
   toastOverlayView.setBounds({
-    x: Math.max(bounds.width - 452, 0),
-    y: UI_SHELL_TABLINE_HEIGHT + 10,
-    width: Math.min(452, bounds.width),
-    height: Math.max(
-      bounds.height - UI_SHELL_TABLINE_HEIGHT - UI_SHELL_STATUSLINE_HEIGHT - 20,
-      1,
-    ),
+    x: toastX,
+    y: toastY,
+    width: toastWidth,
+    height: toastHeight,
   });
 }
 
@@ -192,7 +200,7 @@ function applyOverlayStack(windowRef, stack = {}) {
     windowRef.setTopBrowserView(stack.statuslineView);
   }
 
-  if (stack.toastOverlayView) {
+  if (stack.toastVisible && stack.toastOverlayView) {
     windowRef.setTopBrowserView(stack.toastOverlayView);
   }
 

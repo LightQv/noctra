@@ -51,6 +51,7 @@ test("overlay layout sizes backdrop to full window bounds", () => {
     },
     computeSelectionModalHeight: () => 120,
     computeDownloadsModalHeight: () => 160,
+    computeToastOverlayHeight: () => 90,
   });
 
   const backdropCall = calls.find(
@@ -95,6 +96,7 @@ test("overlay layout hides backdrop offscreen when not visible", () => {
     },
     computeSelectionModalHeight: () => 120,
     computeDownloadsModalHeight: () => 160,
+    computeToastOverlayHeight: () => 90,
   });
 
   const backdropCall = calls.find(
@@ -118,6 +120,7 @@ test("overlay stack keeps backdrop below floating overlays", () => {
 
   applyOverlayStack(windowRef, {
     statuslineView: { id: "statusline" },
+    toastVisible: true,
     toastOverlayView: { id: "toast" },
     backdropVisible: true,
     backdropOverlayView: { id: "backdrop" },
@@ -140,4 +143,125 @@ test("overlay stack keeps backdrop below floating overlays", () => {
     "whichkey",
     "telescope",
   ]);
+});
+
+test("overlay layout hides toast offscreen when not visible", () => {
+  const calls = [];
+  const windowRef = {
+    getContentBounds() {
+      return { x: 0, y: 0, width: 1000, height: 640 };
+    },
+  };
+
+  const overlays = {
+    commandOverlayView: createView("command", calls),
+    whichKeyOverlayView: createView("whichkey", calls),
+    selectionModalView: createView("selection", calls),
+    telescopeView: createView("telescope", calls),
+    statuslineView: createView("statusline", calls),
+    toastOverlayView: createView("toast", calls),
+    downloadsModalView: createView("downloads", calls),
+    backdropOverlayView: createView("backdrop", calls),
+  };
+
+  applyOverlayLayout({
+    windowRef,
+    overlays,
+    visibility: {
+      backdropVisible: false,
+      commandVisible: false,
+      whichKeyVisible: false,
+      selectionModalVisible: false,
+      telescopeVisible: false,
+      toastVisible: false,
+      downloadsModalVisible: false,
+    },
+    chrome: {
+      UI_SHELL_TABLINE_HEIGHT: 34,
+      UI_SHELL_STATUSLINE_HEIGHT: 24,
+    },
+    computeSelectionModalHeight: () => 120,
+    computeDownloadsModalHeight: () => 160,
+    computeToastOverlayHeight: () => 90,
+  });
+
+  const toastCall = calls.find(
+    (entry) => entry[0] === "bounds" && entry[1] === "toast",
+  );
+  assert.deepEqual(toastCall[2], { x: -10000, y: -10000, width: 1, height: 1 });
+});
+
+test("overlay layout sizes toast to fixed width and dynamic measured height", () => {
+  const calls = [];
+  const windowRef = {
+    getContentBounds() {
+      return { x: 0, y: 0, width: 1000, height: 640 };
+    },
+  };
+
+  const overlays = {
+    commandOverlayView: createView("command", calls),
+    whichKeyOverlayView: createView("whichkey", calls),
+    selectionModalView: createView("selection", calls),
+    telescopeView: createView("telescope", calls),
+    statuslineView: createView("statusline", calls),
+    toastOverlayView: createView("toast", calls),
+    downloadsModalView: createView("downloads", calls),
+    backdropOverlayView: createView("backdrop", calls),
+  };
+
+  applyOverlayLayout({
+    windowRef,
+    overlays,
+    visibility: {
+      backdropVisible: false,
+      commandVisible: false,
+      whichKeyVisible: false,
+      selectionModalVisible: false,
+      telescopeVisible: false,
+      toastVisible: true,
+      downloadsModalVisible: false,
+    },
+    chrome: {
+      UI_SHELL_TABLINE_HEIGHT: 34,
+      UI_SHELL_STATUSLINE_HEIGHT: 24,
+    },
+    computeSelectionModalHeight: () => 120,
+    computeDownloadsModalHeight: () => 160,
+    computeToastOverlayHeight: () => 137,
+  });
+
+  const toastCall = calls.find(
+    (entry) => entry[0] === "bounds" && entry[1] === "toast",
+  );
+  assert.deepEqual(toastCall[2], { x: 548, y: 44, width: 452, height: 137 });
+});
+
+test("overlay stack skips toast when not visible", () => {
+  const order = [];
+  const windowRef = {
+    setTopBrowserView(view) {
+      order.push(view.id);
+    },
+  };
+
+  applyOverlayStack(windowRef, {
+    statuslineView: { id: "statusline" },
+    toastVisible: false,
+    toastOverlayView: { id: "toast" },
+    backdropVisible: false,
+    backdropOverlayView: { id: "backdrop" },
+    whichKeyVisible: false,
+    whichKeyOverlayView: { id: "whichkey" },
+    selectionModalVisible: false,
+    selectionModalView: { id: "selection" },
+    telescopeVisible: false,
+    telescopeView: { id: "telescope" },
+    commandVisible: false,
+    commandOverlayView: { id: "command" },
+    downloadsModalVisible: false,
+    downloadsModalView: { id: "downloads" },
+  });
+
+  assert.deepEqual(order, ["statusline"]);
 });

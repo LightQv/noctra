@@ -1,9 +1,18 @@
 const notificationsStore = require("./store");
 
 let toastHandler = null;
+const pendingToasts = [];
+const PENDING_TOAST_LIMIT = 200;
 
 function setToastHandler(handler) {
   toastHandler = typeof handler === "function" ? handler : null;
+  if (!toastHandler || pendingToasts.length === 0) {
+    return;
+  }
+  const queued = pendingToasts.splice(0, pendingToasts.length);
+  for (const toast of queued) {
+    toastHandler(toast);
+  }
 }
 
 function getNotificationConfig() {
@@ -118,6 +127,17 @@ function notify(input = {}) {
       source,
       timeoutMs: getToastTimeoutMs(severity),
     });
+  } else if (shouldShowToast(severity) && input.toast !== false) {
+    pendingToasts.push({
+      severity,
+      code,
+      message,
+      source,
+      timeoutMs: getToastTimeoutMs(severity),
+    });
+    if (pendingToasts.length > PENDING_TOAST_LIMIT) {
+      pendingToasts.splice(0, pendingToasts.length - PENDING_TOAST_LIMIT);
+    }
   }
 
   return event;

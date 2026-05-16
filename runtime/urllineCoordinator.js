@@ -12,8 +12,14 @@ function createUrllineCoordinator({
   deleteUrllineBackward,
   deleteUrllineForward,
   resolveInputTarget,
+  getDefaultSearchEngine,
   getStatuslineModeLabel,
 }) {
+  const resolveDefaultSearchEngine =
+    typeof getDefaultSearchEngine === "function"
+      ? getDefaultSearchEngine
+      : () => "duckduckgo";
+
   function buildUrllineModel() {
     const model = buffers.getUrllineRenderModel();
     if (!state.urllineEditing) {
@@ -63,7 +69,7 @@ function createUrllineCoordinator({
     }
 
     const target = resolveInputTarget(rawInput, {
-      defaultSearchEngine: "duckduckgo",
+      defaultSearchEngine: resolveDefaultSearchEngine(),
     });
 
     if (target.kind === "invalid") {

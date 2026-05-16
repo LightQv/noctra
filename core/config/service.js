@@ -163,6 +163,13 @@ function addThemeComments(yamlText) {
       );
     }
 
+    if (inBrowserSection && /^ {2}default_search_engine:\s*/.test(line)) {
+      output.push(
+        "  # Fallback engine for open/tab/url-line when input is not a URL",
+      );
+      output.push("  # Allowed values: duckduckgo | google | ecosia");
+    }
+
     if (inBrowserSection && /^ {2}copy_selection_to_clipboard:\s*/.test(line)) {
       output.push(
         "  # Auto-copy selected page text to clipboard on mouse selection",

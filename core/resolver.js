@@ -14,6 +14,9 @@ function buildSearchUrl(engine, query) {
     case "google":
       if (!normalizedQuery) return "https://www.google.com/";
       return `https://www.google.com/search?q=${encodeURIComponent(normalizedQuery)}`;
+    case "ecosia":
+      if (!normalizedQuery) return "https://www.ecosia.org/";
+      return `https://www.ecosia.org/search?q=${encodeURIComponent(normalizedQuery)}`;
     default:
       return null;
   }

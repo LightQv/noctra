@@ -28,7 +28,7 @@ Apply config changes at runtime with `:config-reload`.
 - `global.window`: initial window bounds and maximized state
 - `global.opening_buffer`: startup mode and dashboard settings
 - `keymap.leader`: user leader-key mappings
-- `browser`: language and clipboard-selection behavior
+- `browser`: language, search engine, and clipboard-selection behavior
 
 ## Minimal example
 
@@ -58,6 +58,7 @@ keymap:
 
 browser:
   language: "en"
+  default_search_engine: "duckduckgo"
   copy_selection_to_clipboard: false
   allow_http_loopback: true
   allow_http_private_lan: true
@@ -68,6 +69,12 @@ browser:
     default_directory: null
     auto_open: false
 ```
+
+## Search engine fallback
+
+- `browser.default_search_engine` controls how non-URL text is resolved by `:open`, `:tab`, and URL line submit.
+- Allowed values: `duckduckgo`, `google`, `ecosia`.
+- Default: `duckduckgo`.
 
 ## URL security policy
 

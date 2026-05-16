@@ -150,6 +150,23 @@ function normalizeBrowserLanguage(value, fallback = "en") {
   return fallback;
 }
 
+function normalizeSearchEngine(value, fallback = "duckduckgo") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === "duckduckgo" ||
+    normalized === "google" ||
+    normalized === "ecosia"
+  ) {
+    return normalized;
+  }
+
+  return fallback;
+}
+
 function normalizeDownloadPolicy(value, fallback = "prompt") {
   if (typeof value !== "string") {
     return fallback;
@@ -595,6 +612,11 @@ function normalizeConfig(rawConfig) {
     normalized.browser.language = normalizeBrowserLanguage(
       input.browser.language,
       defaults.browser.language,
+    );
+
+    normalized.browser.default_search_engine = normalizeSearchEngine(
+      input.browser.default_search_engine,
+      defaults.browser.default_search_engine,
     );
 
     if (typeof input.browser.copy_selection_to_clipboard === "boolean") {

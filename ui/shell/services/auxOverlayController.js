@@ -2,13 +2,17 @@ const {
   pushShellPatch,
 } = require("../../../core/adapters/renderer/shellPatchTransport");
 
-function showNotificationToast(toast = {}) {
-  if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) {
-    this.pendingToasts.push(toast);
-    if (this.pendingToasts.length > 50) this.pendingToasts.shift();
-    return;
+function setToastOverlayVisibility(isVisible) {
+  const nextCount = isVisible ? Math.max(1, this.activeToastCount || 0) : 0;
+  const prevVisible = (this.activeToastCount || 0) > 0;
+  const nextVisible = nextCount > 0;
+  this.activeToastCount = nextCount;
+  if (prevVisible !== nextVisible) {
+    this.syncOverlayStack();
   }
+}
 
+function normalizeToast(toast = {}) {
   const severity =
     toast.severity === "error" || toast.severity === "warning"
       ? toast.severity
@@ -23,25 +27,55 @@ function showNotificationToast(toast = {}) {
       : severity === "warning"
         ? "#f6c177"
         : this.currentTheme.mainColor;
+  return { severity, message, timeoutMs, accentColor };
+}
 
+function measureToastOverlayHeight() {
+  if (!this.toastOverlayView || !this.toastOverlayReady) return;
   pushShellPatch(
     this.toastOverlayView.webContents,
     `
-      (function pushToast() {
+      (function measureToastOverlayHeight() {
+        const root = document.getElementById('toast-root');
+        if (!root) return 1;
+        const style = window.getComputedStyle(root);
+        const padTop = Number.parseFloat(style.paddingTop || '0') || 0;
+        const padBottom = Number.parseFloat(style.paddingBottom || '0') || 0;
+        const items = Array.from(root.querySelectorAll('.toast-item'));
+        if (!items.length) return 1;
+        let contentHeight = 0;
+        for (const item of items) {
+          contentHeight += item.getBoundingClientRect().height;
+        }
+        const gap = Number.parseFloat(style.gap || '0') || 0;
+        contentHeight += Math.max(0, items.length - 1) * gap;
+        return Math.max(1, Math.ceil(contentHeight + padTop + padBottom));
+      })();
+    `,
+  ).then((nextHeight) => {
+    if (!Number.isFinite(nextHeight)) return;
+    const safeHeight = Math.max(1, Math.floor(nextHeight));
+    if (safeHeight !== this.toastOverlayHeight) {
+      this.toastOverlayHeight = safeHeight;
+      this.relayout();
+    }
+  });
+}
+
+function renderToastNode(id, accentColor, message) {
+  return pushShellPatch(
+    this.toastOverlayView.webContents,
+    `
+      (function renderToastNode() {
         const root = document.getElementById('toast-root');
         if (!root) return;
         const node = document.createElement('div');
         node.className = 'toast-item';
+        node.dataset.toastId = ${JSON.stringify(String(id))};
         node.style.borderLeftColor = ${JSON.stringify(accentColor)};
         node.textContent = ${JSON.stringify(message)};
-        root.prepend(node);
+        root.appendChild(node);
         requestAnimationFrame(() => node.classList.add('show'));
-        setTimeout(() => {
-          node.classList.remove('show');
-          setTimeout(() => {
-            if (node.parentElement) node.parentElement.removeChild(node);
-          }, 140);
-        }, ${JSON.stringify(timeoutMs)});
       })();
     `,
     {
@@ -53,6 +87,75 @@ function showNotificationToast(toast = {}) {
       },
     },
   );
+}
+
+function dismissToast(id) {
+  const toastId = String(id || "");
+  if (!toastId) return;
+  const timer = this.toastDismissTimers.get(toastId);
+  if (timer) {
+    clearTimeout(timer);
+    this.toastDismissTimers.delete(toastId);
+  }
+  const index = this.activeToastIds.indexOf(toastId);
+  if (index === -1) return;
+  this.activeToastIds.splice(index, 1);
+  this.activeToastCount = this.activeToastIds.length;
+  setToastOverlayVisibility.call(this, this.activeToastCount > 0);
+  pushShellPatch(
+    this.toastOverlayView.webContents,
+    `
+      (function dismissToastNode() {
+        const node = document.querySelector('.toast-item[data-toast-id=${JSON.stringify(toastId)}]');
+        if (!node) return;
+        node.classList.remove('show');
+        setTimeout(() => {
+          if (node.parentElement) node.parentElement.removeChild(node);
+        }, 140);
+      })();
+    `,
+  );
+  setTimeout(() => {
+    measureToastOverlayHeight.call(this);
+    pumpToastQueue.call(this);
+  }, 160);
+}
+
+function pumpToastQueue() {
+  if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) return;
+  while (this.activeToastIds.length < 3 && this.toastQueue.length > 0) {
+    const nextToast = this.toastQueue.shift();
+    const id = String(nextToast.id);
+    this.activeToastIds.push(id);
+    this.activeToastCount = this.activeToastIds.length;
+    setToastOverlayVisibility.call(this, true);
+    renderToastNode.call(this, id, nextToast.accentColor, nextToast.message).then(
+      () => measureToastOverlayHeight.call(this),
+    );
+    const dismissTimer = setTimeout(
+      () => dismissToast.call(this, id),
+      nextToast.timeoutMs,
+    );
+    this.toastDismissTimers.set(id, dismissTimer);
+  }
+}
+
+function showNotificationToast(toast = {}) {
+  if (!this.window || !this.toastOverlayView || !this.toastOverlayReady) {
+    this.pendingToasts.push(toast);
+    if (this.pendingToasts.length > 50) this.pendingToasts.shift();
+    return;
+  }
+
+  const normalized = normalizeToast.call(this, toast);
+  this.toastQueue.push({
+    id: this.nextToastId++,
+    ...normalized,
+  });
+  if (this.toastQueue.length > 50) {
+    this.toastQueue.splice(0, this.toastQueue.length - 50);
+  }
+  pumpToastQueue.call(this);
 }
 
 function flushPendingToasts() {

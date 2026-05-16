@@ -50,6 +50,12 @@ class UiShellManager {
     this.statuslineReady = false;
     this.toastOverlayView = null;
     this.toastOverlayReady = false;
+    this.activeToastCount = 0;
+    this.activeToastIds = [];
+    this.toastQueue = [];
+    this.toastDismissTimers = new Map();
+    this.toastOverlayHeight = 1;
+    this.nextToastId = 1;
     this.downloadsModalView = null;
     this.downloadsModalReady = false;
     this.downloadsModalVisible = false;

@@ -50,6 +50,7 @@ function relayout() {
         whichKeyVisible: this.whichKeyVisible,
         selectionModalVisible: this.selectionModalVisible,
         telescopeVisible: this.telescopeVisible,
+        toastVisible: this.activeToastCount > 0,
         downloadsModalVisible: this.downloadsModalVisible,
         backdropVisible:
           this.whichKeyVisible ||
@@ -65,6 +66,10 @@ function relayout() {
         this.computeSelectionModalHeight(this.selectionModalModel),
       computeDownloadsModalHeight: () =>
         this.computeDownloadsModalHeight(this.downloadsModalModel),
+      computeToastOverlayHeight: () =>
+        Number.isFinite(this.toastOverlayHeight)
+          ? Math.max(1, Math.floor(this.toastOverlayHeight))
+          : 1,
     });
 }
 
@@ -88,6 +93,7 @@ function syncOverlayStack() {
     telescopeView: this.telescopeView,
     commandVisible: this.commandVisible,
     commandOverlayView: this.commandOverlayView,
+    toastVisible: this.activeToastCount > 0,
     toastOverlayView: this.toastOverlayView,
     downloadsModalVisible: this.downloadsModalVisible,
     downloadsModalView: this.downloadsModalView,

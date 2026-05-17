@@ -322,6 +322,26 @@ test("menu items reflect disabled state based on context", () => {
   assert.equal(navForward.enabled, false);
 });
 
+test("edit menu starts with native text editing roles", () => {
+  const active = createMockBuffer(1, "Test", false);
+  const deps = createDeps({
+    buffers: [active],
+    active,
+    mode: "NORMAL",
+  });
+  const appMenu = createAppMenu(deps);
+  appMenu.sync();
+
+  const editMenu = lastMenuTemplate.find((m) => m.label === "Edit");
+  assert.ok(editMenu, "Edit menu should exist");
+  assert.equal(editMenu.submenu[0].role, "undo");
+  assert.equal(editMenu.submenu[1].role, "redo");
+  assert.equal(editMenu.submenu[3].role, "cut");
+  assert.equal(editMenu.submenu[4].role, "copy");
+  assert.equal(editMenu.submenu[5].role, "paste");
+  assert.equal(editMenu.submenu[8].role, "selectAll");
+});
+
 test("checkbox items reflect panel visibility", () => {
   const active = createMockBuffer(1, "Test", false);
 

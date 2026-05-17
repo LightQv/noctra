@@ -133,6 +133,9 @@ browser:
 - `auto`
 - `match` — follows the resolved app theme
 
+`content_mode` is used only when `global.theme.mode` is `custom`.
+When `global.theme.mode` is `dark`, `light`, or `auto`, web content always follows the resolved app theme.
+
 ## Leader mapping rules
 
 - Only `keymap.leader` is user-configurable.

@@ -22,6 +22,8 @@ const {
   resolveTheme,
   resolveThemeMode,
   resolveContentColorScheme,
+  normalizeThemeMode,
+  normalizeCustomBase,
   toCssVars,
 } = require("../ui/theme");
 const { enterCommandMode } = require("./modeTransitionService");
@@ -174,6 +176,10 @@ function normalizeUrl(rawUrl) {
 
 function resolveCurrentThemeContext() {
   const themeConfig = configService.getConfigValue("global.theme", {});
+  const configuredMode = normalizeThemeMode(
+    typeof themeConfig?.mode === "string" ? themeConfig.mode : themeConfig?.name,
+    "dark",
+  );
   const resolvedMode = resolveThemeMode(themeConfig, {
     systemPrefersDark: nativeTheme.shouldUseDarkColors,
   });
@@ -183,11 +189,14 @@ function resolveCurrentThemeContext() {
   const contentColorScheme = resolveContentColorScheme(themeConfig, {
     systemPrefersDark: nativeTheme.shouldUseDarkColors,
   });
+  const customBase = normalizeCustomBase(themeConfig?.custom_base, "dark");
 
   return {
     theme,
+    configuredMode,
     resolvedMode,
     contentColorScheme,
+    customBase,
   };
 }
 
@@ -205,6 +214,11 @@ function buildThemePayload(themeContext = {}) {
 function applyThemeEverywhere(win) {
   const themeContext = resolveCurrentThemeContext();
   const payload = buildThemePayload(themeContext);
+  const uiFollowsSystem =
+    themeContext.configuredMode === "auto" ||
+    (themeContext.configuredMode === "custom" &&
+      themeContext.customBase === "auto");
+  nativeTheme.themeSource = uiFollowsSystem ? "system" : payload.resolvedMode;
   uiShell.setTheme(payload.theme);
   sidepanelController.setThemeVars(payload.themeVars);
   buffers.setContentUiOptions({

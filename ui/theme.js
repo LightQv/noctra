@@ -209,6 +209,12 @@ function normalizeCustomBase(input, fallback = "dark") {
 }
 
 function resolveContentColorScheme(themeConfig = {}, options = {}) {
+  const configuredMode = normalizeThemeMode(readConfiguredThemeMode(themeConfig));
+  if (configuredMode !== "custom") {
+    const appResolvedMode = resolveThemeMode(themeConfig, options);
+    return appResolvedMode === "light" ? "light" : "dark";
+  }
+
   const contentMode = normalizeContentThemeMode(
     themeConfig?.content_mode,
     "dark",

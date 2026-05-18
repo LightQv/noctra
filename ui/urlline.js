@@ -52,6 +52,7 @@ function buildPaneMarkup(paneModel, actions, editingModel) {
   const pane = paneModel?.pane === "right" ? "right" : "left";
   const canGoBack = Boolean(paneModel?.canGoBack);
   const canGoForward = Boolean(paneModel?.canGoForward);
+  const isLoading = Boolean(paneModel?.isLoading);
   const rawUrl =
     typeof paneModel?.url === "string" && paneModel.url.trim()
       ? paneModel.url
@@ -71,12 +72,18 @@ function buildPaneMarkup(paneModel, actions, editingModel) {
     actions?.forward,
     !canGoForward,
   );
-  const reloadBtn = buildActionButtonMarkup(
-    "reload",
-    pane,
-    actions?.reload,
-    false,
-  );
+  const reloadBtn = isLoading
+    ? buildActionButtonMarkup(
+        "stop",
+        pane,
+        {
+          label: "Stop loading",
+          icon: "󰅖",
+          shortcutLabel: "",
+        },
+        false,
+      )
+    : buildActionButtonMarkup("reload", pane, actions?.reload, false);
 
   let urlMarkup = `<button class="urlline-url" type="button" data-urlline-action="start-edit" data-pane="${escapeHtml(
     pane,

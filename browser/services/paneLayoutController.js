@@ -58,6 +58,14 @@ function getUrllineRenderModel(manager) {
   const panes = [];
 
   if (canShowUrllineForBuffer(manager, left)) {
+    const leftWebContents = left.webContents;
+    const leftIsLoading = Boolean(
+      leftWebContents &&
+        !leftWebContents.isDestroyed?.() &&
+        (leftWebContents.isLoading?.() ||
+          leftWebContents.isLoadingMainFrame?.()),
+    );
+
     panes.push({
       pane: "left",
       x: contentX,
@@ -68,10 +76,19 @@ function getUrllineRenderModel(manager) {
       canGoForward: Boolean(
         left.webContents?.navigationHistory?.canGoForward?.(),
       ),
+      isLoading: leftIsLoading,
     });
   }
 
   if (showSplit && canShowUrllineForBuffer(manager, rightPaneBuffer)) {
+    const rightWebContents = rightPaneBuffer.webContents;
+    const rightIsLoading = Boolean(
+      rightWebContents &&
+        !rightWebContents.isDestroyed?.() &&
+        (rightWebContents.isLoading?.() ||
+          rightWebContents.isLoadingMainFrame?.()),
+    );
+
     panes.push({
       pane: "right",
       x: rightX,
@@ -84,6 +101,7 @@ function getUrllineRenderModel(manager) {
       canGoForward: Boolean(
         rightPaneBuffer.webContents?.navigationHistory?.canGoForward?.(),
       ),
+      isLoading: rightIsLoading,
     });
   }
 

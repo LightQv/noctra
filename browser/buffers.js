@@ -118,6 +118,14 @@ class Buffer extends EventEmitter {
       this.emit("updated", { kind: "metadata" });
     });
 
+    this.webContents.on("did-start-loading", () => {
+      this.emit("updated", { kind: "metadata" });
+    });
+
+    this.webContents.on("did-stop-loading", () => {
+      this.emit("updated", { kind: "metadata" });
+    });
+
     this.webContents.on("devtools-opened", () => {
       this.applyContentUi();
     });

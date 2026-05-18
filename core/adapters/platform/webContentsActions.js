@@ -78,6 +78,11 @@ function reload(webContents) {
   webContents.reload();
 }
 
+function stop(webContents) {
+  if (!isUsableWebContents(webContents)) return;
+  webContents.stop();
+}
+
 function detectFocusedEditable(webContents) {
   return executeScript(
     webContents,
@@ -121,6 +126,7 @@ module.exports = {
   goBack,
   goForward,
   reload,
+  stop,
   detectFocusedEditable,
   readScrollPercent,
 };

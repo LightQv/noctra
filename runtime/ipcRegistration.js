@@ -227,6 +227,11 @@ function registerRuntimeIpc({
 
     if (action === "reload") {
       webContentsActions.reload(paneBuffer.webContents);
+      return;
+    }
+
+    if (action === "stop") {
+      webContentsActions.stop(paneBuffer.webContents);
     }
   };
 

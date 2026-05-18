@@ -28,6 +28,9 @@ const defaultConfig = {
       urlline: {
         enabled: false,
       },
+      loadingline: {
+        enabled: true,
+      },
       statusline: {
         enabled: true,
       },

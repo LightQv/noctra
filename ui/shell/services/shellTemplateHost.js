@@ -10,6 +10,7 @@ function initializeShellHost(shellHtml) {
     this.applyThemeToWebContents(this.window.webContents);
     this.renderTabline(this.pendingTablineSnapshot);
     this.renderUrlline(this.urllineModel);
+    this.renderLoadingline(this.loadinglineModel);
     this.updateSplitDivider(this.splitDividerState);
     this.flushPendingToasts();
   });

@@ -41,6 +41,14 @@ function createUrllineCoordinator({
     uiShell.renderUrlline(buildUrllineModel());
   }
 
+  function buildLoadinglineModel() {
+    return buffers.getLoadinglineRenderModel();
+  }
+
+  function updateLoadinglineRender() {
+    uiShell.renderLoadingline(buildLoadinglineModel());
+  }
+
   function startUrllineEdit(pane, initialUrl) {
     startUrllineEditState(state, pane, initialUrl);
     enterInsertMode(state, "urlline-start-edit");
@@ -159,6 +167,8 @@ function createUrllineCoordinator({
   return {
     buildUrllineModel,
     updateUrllineRender,
+    buildLoadinglineModel,
+    updateLoadinglineRender,
     startUrllineEdit,
     stopUrllineEdit,
     handleUrllineInput,

@@ -200,6 +200,14 @@ function applyOverlayStack(windowRef, stack = {}) {
     windowRef.setTopBrowserView(stack.statuslineView);
   }
 
+  if (stack.loadinglineLeftVisible && stack.loadinglineLeftView) {
+    windowRef.setTopBrowserView(stack.loadinglineLeftView);
+  }
+
+  if (stack.loadinglineRightVisible && stack.loadinglineRightView) {
+    windowRef.setTopBrowserView(stack.loadinglineRightView);
+  }
+
   if (stack.toastVisible && stack.toastOverlayView) {
     windowRef.setTopBrowserView(stack.toastOverlayView);
   }

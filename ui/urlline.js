@@ -117,6 +117,35 @@ function buildPaneMarkup(paneModel, actions, editingModel) {
   return `<div class="ui-shell-urlline-pane" data-pane="${escapeHtml(pane)}" style="left:${x}px;top:${top}px;width:${width}px;height:${UI_SHELL_URLLINE_HEIGHT}px;"><div class="urlline-inner">${backBtn}${forwardBtn}${reloadBtn}${urlMarkup}</div></div>`;
 }
 
+function buildLoadinglinePaneMarkup(paneModel) {
+  const pane = paneModel?.pane === "right" ? "right" : "left";
+  const isLoading = Boolean(paneModel?.isLoading);
+  const loadingProgress =
+    typeof paneModel?.loadingProgress === "number"
+      ? Math.max(0, Math.min(1, paneModel.loadingProgress))
+      : null;
+  const loadingIndeterminate = Boolean(paneModel?.loadingIndeterminate);
+  const x = Number.isFinite(paneModel?.x)
+    ? Math.max(0, Math.floor(paneModel.x))
+    : 0;
+  const width = Number.isFinite(paneModel?.width)
+    ? Math.max(1, Math.floor(paneModel.width))
+    : 1;
+  const top = Number.isFinite(paneModel?.top)
+    ? Math.max(0, Math.floor(paneModel.top))
+    : 0;
+
+  return `<div class="ui-shell-loadingline" data-pane="${escapeHtml(
+    pane,
+  )}" data-loading="${isLoading ? "true" : "false"}" data-indeterminate="${
+    isLoading && (loadingIndeterminate || loadingProgress === null)
+      ? "true"
+      : "false"
+  }" data-progress="${
+    loadingProgress === null ? "" : String(Math.round(loadingProgress * 1000) / 1000)
+  }" style="left:${x}px;top:${top}px;width:${width}px;height:2px;"><span class="ui-shell-loadingline-bar"></span></div>`;
+}
+
 function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
   if (!webContents || webContents.isDestroyed()) return;
 
@@ -327,6 +356,108 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
             cursor.style.width = '0.56em';
           }
         });
+
+      })();
+    `,
+    )
+    .catch(() => {});
+}
+
+function renderLoadingline(webContents, model = {}, theme = {}) {
+  if (!webContents || webContents.isDestroyed()) return;
+
+  const palette = {
+    mainColor: theme.mainColor || DEFAULT_THEME.mainColor,
+  };
+  const paneModels = Array.isArray(model?.panes) ? model.panes : [];
+  const panesMarkup = paneModels.map((paneModel) => buildLoadinglinePaneMarkup(paneModel)).join("");
+
+  webContents
+    .executeJavaScript(
+      `
+      (function renderUiShellLoadingline() {
+        let root = document.getElementById('__ui_shell_loadingline__');
+        if (!root) {
+          root = document.createElement('div');
+          root.id = '__ui_shell_loadingline__';
+          document.documentElement.appendChild(root);
+        }
+
+        if (!document.getElementById('__ui_shell_loadingline_keyframes__')) {
+          const keyframes = document.createElement('style');
+          keyframes.id = '__ui_shell_loadingline_keyframes__';
+          keyframes.textContent = '@keyframes ui-shell-loadingline-sweep {\\n  from { transform: translateX(-40%); }\\n  to { transform: translateX(260%); }\\n}';
+          document.head.appendChild(keyframes);
+        }
+
+        root.innerHTML = ${JSON.stringify(panesMarkup)};
+
+        Object.assign(root.style, {
+          position: 'fixed',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          pointerEvents: 'none',
+          zIndex: '999996',
+        });
+
+        root.querySelectorAll('.ui-shell-loadingline').forEach((line) => {
+          const loading = line.getAttribute('data-loading') === 'true';
+          const indeterminate = line.getAttribute('data-indeterminate') === 'true';
+          const rawProgress = Number(line.getAttribute('data-progress'));
+          const progress = Number.isFinite(rawProgress)
+            ? Math.max(0, Math.min(1, rawProgress))
+            : null;
+          const bar = line.querySelector('.ui-shell-loadingline-bar');
+          if (!(bar instanceof HTMLElement)) {
+            return;
+          }
+
+          Object.assign(line.style, {
+            position: 'fixed',
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            opacity: loading || progress === 1 ? '1' : '0',
+            transition: 'opacity 180ms ease',
+          });
+
+          Object.assign(bar.style, {
+            position: 'absolute',
+            top: '0',
+            left: '0',
+            height: '100%',
+            background: ${JSON.stringify(palette.mainColor)},
+            boxShadow: ${JSON.stringify(`0 0 8px ${palette.mainColor}`)},
+            transition: 'width 140ms ease, transform 220ms ease',
+            willChange: 'width, transform',
+          });
+
+          if (!loading && progress !== 1) {
+            bar.style.width = '0%';
+            return;
+          }
+
+          if (indeterminate) {
+            bar.style.width = '32%';
+            bar.style.transform = 'translateX(-40%)';
+            bar.style.animation = 'ui-shell-loadingline-sweep 900ms ease-out infinite';
+            return;
+          }
+
+          const widthPct = progress === null ? 18 : Math.max(2, Math.min(100, Math.round(progress * 100)));
+          bar.style.width = String(widthPct) + '%';
+          bar.style.transform = 'translateX(0%)';
+          bar.style.animation = 'none';
+
+          if (progress === 1) {
+            setTimeout(() => {
+              if (line.isConnected) {
+                line.style.opacity = '0';
+              }
+            }, 120);
+          }
+        });
       })();
     `,
     )
@@ -335,4 +466,5 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
 
 module.exports = {
   renderUrlline,
+  renderLoadingline,
 };

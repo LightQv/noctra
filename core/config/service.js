@@ -129,9 +129,7 @@ function addThemeComments(yamlText) {
 
     if (inThemeSection && /^ {4}content_mode:\s*/.test(line)) {
       output.push("    # Browser content mode: dark | light | auto | match");
-      output.push(
-        "    # match follows app theme, but custom falls back to auto(system)",
-      );
+      output.push("    # Applied only when global.theme.mode is custom");
     }
 
     if (inThemeSection && /^ {4}overrides:\s*$/.test(line)) {

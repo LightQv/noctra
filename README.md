@@ -30,13 +30,20 @@ Noctra is early-stage and actively evolving. Core browsing and modal workflows a
 
 Prebuilt releases are available on the [Releases](https://github.com/LightQv/noctra/releases) page.
 
-| Platform | Format   | Notes                                                                        |
-| -------- | -------- | ---------------------------------------------------------------------------- |
-| macOS    | `.dmg`   | Drag to Applications. See the macOS tip below for first-launch instructions. |
-| macOS    | `.zip`   | Portable archive.                                                            |
-| Linux    | `.deb`   | Install with `sudo dpkg -i noctra_*.deb`.                                    |
-| Linux    | `.rpm`   | Install with `sudo rpm -i noctra_*.rpm`.                                     |
-| Linux    | AppImage | Run directly, then integrate once with `./Noctra-*.AppImage --integrate`.    |
+| Platform | Format   | Notes                                                                                         |
+| -------- | -------- | --------------------------------------------------------------------------------------------- |
+| All      | Script   | `curl -fsSL https://raw.githubusercontent.com/LightQv/noctra/main/scripts/install.sh \| bash` |
+| macOS    | `.dmg`   | Drag to Applications. See the macOS tip below for first-launch instructions.                  |
+| macOS    | `.zip`   | Portable archive.                                                                             |
+| Linux    | `.deb`   | Install with `sudo dpkg -i noctra_*.deb`.                                                     |
+| Linux    | `.rpm`   | Install with `sudo rpm -i noctra_*.rpm`.                                                      |
+| Linux    | AppImage | Run directly, then integrate once with `./Noctra-*.AppImage --integrate`.                     |
+
+Quick path installer (auto-detects macOS/Linux and verifies checksums from release assets):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LightQv/noctra/main/scripts/install.sh | bash
+```
 
 > [!TIP]
 > **macOS first launch**

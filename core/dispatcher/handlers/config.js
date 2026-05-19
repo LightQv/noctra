@@ -9,6 +9,7 @@ function createConfigHandlers(deps) {
     notificationsService,
     reloadReloadableBuffers,
     applyThemeEverywhere,
+    applyThemeAcrossWindows,
   } = deps;
 
   return {
@@ -17,7 +18,11 @@ function createConfigHandlers(deps) {
       if (typeof state.applyConfig === "function") {
         state.applyConfig(config);
       }
-      applyThemeEverywhere(win);
+      if (typeof applyThemeAcrossWindows === "function") {
+        applyThemeAcrossWindows(config);
+      } else {
+        applyThemeEverywhere(win);
+      }
       uiShell.setTablineOptions({
         showFavicon: configService.getConfigValue(
           "global.ui.tabline.show_favicon",
@@ -72,7 +77,11 @@ function createConfigHandlers(deps) {
         state.applyConfig(config);
       }
 
-      applyThemeEverywhere(win);
+      if (typeof applyThemeAcrossWindows === "function") {
+        applyThemeAcrossWindows(config);
+      } else {
+        applyThemeEverywhere(win);
+      }
       notificationsService.notify({
         severity: "info",
         code: "theme_mode_set",

@@ -1,4 +1,4 @@
-const { app, nativeTheme } = require("electron");
+const { app, nativeTheme, BrowserWindow } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const buffers = require("../browser/manager");
@@ -174,20 +174,22 @@ function normalizeUrl(rawUrl) {
   return validation.url;
 }
 
-function resolveCurrentThemeContext() {
-  const themeConfig = configService.getConfigValue("global.theme", {});
+function resolveCurrentThemeContext(runtimeDeps = {}) {
+  const localConfigService = runtimeDeps.configService || configService;
+  const localNativeTheme = runtimeDeps.nativeTheme || nativeTheme;
+  const themeConfig = localConfigService.getConfigValue("global.theme", {});
   const configuredMode = normalizeThemeMode(
     typeof themeConfig?.mode === "string" ? themeConfig.mode : themeConfig?.name,
     "dark",
   );
   const resolvedMode = resolveThemeMode(themeConfig, {
-    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+    systemPrefersDark: localNativeTheme.shouldUseDarkColors,
   });
   const theme = resolveTheme(themeConfig, {
-    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+    systemPrefersDark: localNativeTheme.shouldUseDarkColors,
   });
   const contentColorScheme = resolveContentColorScheme(themeConfig, {
-    systemPrefersDark: nativeTheme.shouldUseDarkColors,
+    systemPrefersDark: localNativeTheme.shouldUseDarkColors,
   });
   const customBase = normalizeCustomBase(themeConfig?.custom_base, "dark");
 
@@ -211,24 +213,35 @@ function buildThemePayload(themeContext = {}) {
   };
 }
 
-function applyThemeEverywhere(win) {
-  const themeContext = resolveCurrentThemeContext();
+function applyThemeEverywhere(win, runtimeDeps = {}) {
+  const localNativeTheme = runtimeDeps.nativeTheme || nativeTheme;
+  const localUiShell = runtimeDeps.uiShell || uiShell;
+  const localSidepanelController =
+    runtimeDeps.sidepanelController || sidepanelController;
+  const localBuffers = runtimeDeps.buffers || buffers;
+
+  const themeContext = resolveCurrentThemeContext(runtimeDeps);
   const payload = buildThemePayload(themeContext);
   const uiFollowsSystem =
     themeContext.configuredMode === "auto" ||
     (themeContext.configuredMode === "custom" &&
       themeContext.customBase === "auto");
-  nativeTheme.themeSource = uiFollowsSystem ? "system" : payload.resolvedMode;
-  uiShell.setTheme(payload.theme);
-  sidepanelController.setThemeVars(payload.themeVars);
-  buffers.setContentUiOptions({
+  localNativeTheme.themeSource = uiFollowsSystem ? "system" : payload.resolvedMode;
+  localUiShell.setTheme(payload.theme);
+  localSidepanelController.setThemeVars(payload.themeVars);
+  localBuffers.setContentUiOptions({
     thumbColor: payload.theme.scrollbarThumbColor,
     thumbActiveColor: payload.theme.scrollbarThumbActiveColor,
     contentColorScheme:
       themeContext.contentColorScheme === "light" ? "light" : "dark",
   });
-  buffers.refreshDashboardBuffers();
-  broadcastUiShellPush({ win, buffers, type: "theme:update", payload });
+  localBuffers.refreshDashboardBuffers();
+  broadcastUiShellPush({
+    win,
+    buffers: localBuffers,
+    type: "theme:update",
+    payload,
+  });
 }
 
 function isReloadableWebBuffer(buffer) {
@@ -245,13 +258,41 @@ function isReloadableWebBuffer(buffer) {
   return url.startsWith("http://") || url.startsWith("https://");
 }
 
-function reloadReloadableBuffers() {
-  for (const buffer of buffers.getBuffers()) {
+function reloadReloadableBuffers(runtimeDeps = {}) {
+  const localBuffers = runtimeDeps.buffers || buffers;
+  for (const buffer of localBuffers.getBuffers()) {
     if (!isReloadableWebBuffer(buffer)) {
       continue;
     }
     buffer.webContents.reload();
   }
+}
+
+function quitCurrentWindowOrApp(win) {
+  const windows =
+    BrowserWindow && typeof BrowserWindow.getAllWindows === "function"
+      ? BrowserWindow.getAllWindows().filter(
+          (windowRef) => windowRef && !windowRef.isDestroyed(),
+        )
+      : [];
+
+  if (windows.length <= 1) {
+    app.quit();
+    return;
+  }
+
+  if (win && !win.isDestroyed()) {
+    win.close();
+    return;
+  }
+
+  const focused = windows.find((windowRef) => windowRef.isFocused());
+  if (focused) {
+    focused.close();
+    return;
+  }
+
+  windows[windows.length - 1].close();
 }
 
 function getActiveBookmarkCandidate() {
@@ -262,20 +303,34 @@ function getActiveBookmarkCandidate() {
   return { title, url };
 }
 
-function createIntentHandlers(dispatch) {
+function createIntentHandlers(dispatch, runtimeDeps = {}) {
+  const {
+    app: localApp = app,
+    buffers: localBuffers = buffers,
+    uiShell: localUiShell = uiShell,
+    configService: localConfigService = configService,
+    historyService: localHistoryService = historyService,
+    sidepanelController: localSidepanelController = sidepanelController,
+    bookmarksService: localBookmarksService = bookmarksService,
+    bookmarkInsertScopeModal: localBookmarkInsertScopeModal = bookmarkInsertScopeModal,
+    telescopeService: localTelescopeService = telescopeService,
+    sessionService: localSessionService = sessionService,
+    notificationsService: localNotificationsService = notificationsService,
+  } = runtimeDeps;
+
   const deps = {
-    app,
-    buffers,
-    uiShell,
-    configService,
+    app: localApp,
+    buffers: localBuffers,
+    uiShell: localUiShell,
+    configService: localConfigService,
     buildSearchUrl,
-    historyService,
-    sidepanelController,
-    bookmarksService,
-    bookmarkInsertScopeModal,
-    telescopeService,
-    sessionService,
-    notificationsService,
+    historyService: localHistoryService,
+    sidepanelController: localSidepanelController,
+    bookmarksService: localBookmarksService,
+    bookmarkInsertScopeModal: localBookmarkInsertScopeModal,
+    telescopeService: localTelescopeService,
+    sessionService: localSessionService,
+    notificationsService: localNotificationsService,
     enterCommandMode,
     dispatch,
     focusEditableBufferSurface: editorSurface.focus,
@@ -285,8 +340,10 @@ function createIntentHandlers(dispatch) {
     openSettingsBuffer,
     openNotificationsBuffer,
     normalizeUrl,
-    applyThemeEverywhere,
-    reloadReloadableBuffers,
+    applyThemeEverywhere: (win) => applyThemeEverywhere(win, runtimeDeps),
+    applyThemeAcrossWindows: runtimeDeps.applyThemeAcrossWindows,
+    reloadReloadableBuffers: () => reloadReloadableBuffers(runtimeDeps),
+    quitCurrentWindowOrApp,
     getActiveBookmarkCandidate,
     webContentsActions,
   };
@@ -304,80 +361,89 @@ function createIntentHandlers(dispatch) {
   };
 }
 
-let intentHandlers = null;
+function createDispatcher(runtimeDeps = {}) {
+  const localBuffers = runtimeDeps.buffers || buffers;
+  const localUiShell = runtimeDeps.uiShell || uiShell;
+  const localSidepanelController =
+    runtimeDeps.sidepanelController || sidepanelController;
+  const localNotificationsService =
+    runtimeDeps.notificationsService || notificationsService;
 
-function warnOnIntentCoverageGaps(handlers) {
-  const missing = Object.values(INTENTS).filter(
-    (type) => typeof handlers[type] !== "function",
-  );
-  enforceInvariant(
-    missing.length === 0,
-    "missing dispatcher handlers for known intent types",
-    { missing },
-  );
+  let intentHandlers = null;
+
+  function dispatch(win, intent, state) {
+    if (!intent) return;
+    assertIntentShape(intent);
+
+    if (!isKnownIntentType(intent.type)) {
+      const error = createUnknownIntentError(intent.type, { intent });
+      localNotificationsService.notify({
+        severity: "warning",
+        code: error.code,
+        message: error.message,
+        source: "core.dispatcher",
+        context: error,
+        persist: false,
+      });
+      return;
+    }
+
+    const validation = validateIntentPayload(intent.type, intent);
+    if (!validation.ok) {
+      const error = createInvalidPayloadError("dispatcher", intent.type, {
+        validationMessage: validation.message,
+        validationDetails: validation.details || {},
+        intent,
+      });
+      localNotificationsService.notify({
+        severity: "warning",
+        code: error.code,
+        message: error.message,
+        source: "core.dispatcher",
+        context: error,
+        persist: false,
+      });
+      return;
+    }
+
+    const buf = localBuffers.getActive();
+    if (!buf) return;
+
+    if (!intentHandlers) {
+      intentHandlers = createIntentHandlers(dispatch, runtimeDeps);
+      const missing = Object.values(INTENTS).filter(
+        (type) => typeof intentHandlers[type] !== "function",
+      );
+      enforceInvariant(
+        missing.length === 0,
+        "missing dispatcher handlers for known intent types",
+        { missing },
+      );
+    }
+
+    const handler = intentHandlers[intent.type];
+    if (typeof handler === "function") {
+      handler({ win, intent, state });
+    }
+
+    const activeAfterDispatch = localBuffers.getActive();
+    if (!activeAfterDispatch?.isEditable && isEditorFocused(state)) {
+      setEditorFocused(state, false);
+    }
+
+    localUiShell.updateStatuslineMode(computeStatuslineModeLabel(state));
+    localUiShell.setTablineOptions({
+      dimActiveBuffer: localSidepanelController.isFocused(),
+    });
+
+    if (intent.next) {
+      dispatch(win, intent.next, state);
+    }
+  }
+
+  return dispatch;
 }
 
-function dispatch(win, intent, state) {
-  if (!intent) return;
-  assertIntentShape(intent);
+const dispatch = createDispatcher();
 
-  if (!isKnownIntentType(intent.type)) {
-    const error = createUnknownIntentError(intent.type, { intent });
-    notificationsService.notify({
-      severity: "warning",
-      code: error.code,
-      message: error.message,
-      source: "core.dispatcher",
-      context: error,
-      persist: false,
-    });
-    return;
-  }
-
-  const validation = validateIntentPayload(intent.type, intent);
-  if (!validation.ok) {
-    const error = createInvalidPayloadError("dispatcher", intent.type, {
-      validationMessage: validation.message,
-      validationDetails: validation.details || {},
-      intent,
-    });
-    notificationsService.notify({
-      severity: "warning",
-      code: error.code,
-      message: error.message,
-      source: "core.dispatcher",
-      context: error,
-      persist: false,
-    });
-    return;
-  }
-
-  const buf = buffers.getActive();
-  if (!buf) return;
-
-  if (!intentHandlers) {
-    intentHandlers = createIntentHandlers(dispatch);
-    warnOnIntentCoverageGaps(intentHandlers);
-  }
-
-  const handler = intentHandlers[intent.type];
-  if (typeof handler === "function") {
-    handler({ win, intent, state });
-  }
-
-  const activeAfterDispatch = buffers.getActive();
-  if (!activeAfterDispatch?.isEditable && isEditorFocused(state)) {
-    setEditorFocused(state, false);
-  }
-
-  uiShell.updateStatuslineMode(computeStatuslineModeLabel(state));
-  uiShell.setTablineOptions({
-    dimActiveBuffer: sidepanelController.isFocused(),
-  });
-
-  if (intent.next) {
-    dispatch(win, intent.next, state);
-  }
-}
-
-module.exports = { dispatch };
+module.exports = { dispatch, createDispatcher };

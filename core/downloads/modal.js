@@ -275,4 +275,12 @@ class DownloadsModal {
   }
 }
 
-module.exports = new DownloadsModal();
+function createDownloadsModal() {
+  return new DownloadsModal();
+}
+
+const defaultDownloadsModal = createDownloadsModal();
+
+module.exports = defaultDownloadsModal;
+module.exports.DownloadsModal = DownloadsModal;
+module.exports.createDownloadsModal = createDownloadsModal;

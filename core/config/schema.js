@@ -575,6 +575,14 @@ function normalizeConfig(rawConfig) {
     if (typeof windowSection.is_maximized === "boolean") {
       normalizedGlobal.window.is_maximized = windowSection.is_maximized;
     }
+
+    normalizedGlobal.window.cascade_offset_px = Math.floor(
+      normalizeNumber(
+        windowSection.cascade_offset_px,
+        defaults.global.window.cascade_offset_px,
+        0,
+      ),
+    );
   }
 
   if (isPlainObject(openingBufferSection)) {

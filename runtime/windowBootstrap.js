@@ -48,8 +48,38 @@ function bootstrapWindowRuntime({
   applyBrowserLanguagePreference,
   persistSessionSnapshot,
 }) {
+  const DEFAULT_CASCADE_OFFSET_PX = 28;
+
   function isFiniteInteger(value) {
     return Number.isFinite(value) && Number.isInteger(value);
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function resolveCascadePosition({ x, y, width, height, workArea, offsetPx }) {
+    if (!workArea) {
+      return { x, y };
+    }
+
+    const maxX = workArea.x + Math.max(0, workArea.width - width);
+    const maxY = workArea.y + Math.max(0, workArea.height - height);
+    const minX = workArea.x;
+    const minY = workArea.y;
+
+    let nextX = x + offsetPx;
+    let nextY = y + offsetPx;
+
+    if (nextX > maxX || nextY > maxY) {
+      nextX = minX + offsetPx;
+      nextY = minY + offsetPx;
+    }
+
+    return {
+      x: clamp(nextX, minX, maxX),
+      y: clamp(nextY, minY, maxY),
+    };
   }
 
   function isBoundsVisibleOnAnyDisplay(bounds) {
@@ -89,6 +119,15 @@ function bootstrapWindowRuntime({
     "global.window.is_maximized",
     false,
   );
+  const cascadeOffsetPx = Math.max(
+    0,
+    Math.floor(
+      configService.getConfigValue(
+        "global.window.cascade_offset_px",
+        DEFAULT_CASCADE_OFFSET_PX,
+      ),
+    ),
+  );
 
   const isMac = process.platform === "darwin";
 
@@ -112,7 +151,37 @@ function bootstrapWindowRuntime({
 
   const hasConfiguredPosition =
     isFiniteInteger(initialX) && isFiniteInteger(initialY);
-  if (hasConfiguredPosition) {
+  const existingWindows =
+    BrowserWindow && typeof BrowserWindow.getAllWindows === "function"
+      ? BrowserWindow.getAllWindows().filter((windowRef) => {
+          return windowRef && !windowRef.isDestroyed();
+        })
+      : [];
+
+  if (existingWindows.length > 0) {
+    const focusedWindow = existingWindows.find((windowRef) => windowRef.isFocused());
+    const sourceWindow = focusedWindow || existingWindows[existingWindows.length - 1];
+
+    let sourceBounds = sourceWindow.getBounds();
+    if (
+      (sourceWindow.isMaximized() || sourceWindow.isFullScreen()) &&
+      typeof sourceWindow.getNormalBounds === "function"
+    ) {
+      sourceBounds = sourceWindow.getNormalBounds();
+    }
+
+    const sourceDisplay = screen.getDisplayMatching(sourceBounds);
+    const cascadePosition = resolveCascadePosition({
+      x: sourceBounds.x,
+      y: sourceBounds.y,
+      width: initialWidth,
+      height: initialHeight,
+      workArea: sourceDisplay ? sourceDisplay.workArea : null,
+      offsetPx: cascadeOffsetPx,
+    });
+    windowOptions.x = cascadePosition.x;
+    windowOptions.y = cascadePosition.y;
+  } else if (hasConfiguredPosition) {
     const candidateBounds = {
       x: initialX,
       y: initialY,

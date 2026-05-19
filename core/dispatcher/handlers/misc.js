@@ -1,11 +1,17 @@
 const { INTENTS } = require("../../intents");
 
 function createMiscHandlers(deps) {
-  const { app, notificationsService } = deps;
+  const { app, notificationsService, quitCurrentWindowOrApp } = deps;
 
   return {
     [INTENTS.NOOP]: () => {},
-    [INTENTS.QUIT]: () => app.quit(),
+    [INTENTS.QUIT]: ({ win }) => {
+      if (typeof quitCurrentWindowOrApp === "function") {
+        quitCurrentWindowOrApp(win);
+        return;
+      }
+      app.quit();
+    },
     [INTENTS.UNKNOWN_COMMAND]: ({ intent }) => {
       notificationsService.notify({
         severity: "warning",

@@ -3006,4 +3006,12 @@ class HistoryPanel {
   }
 }
 
-module.exports = new HistoryPanel();
+function createHistoryPanel() {
+  return new HistoryPanel();
+}
+
+const defaultHistoryPanel = createHistoryPanel();
+
+module.exports = defaultHistoryPanel;
+module.exports.HistoryPanel = HistoryPanel;
+module.exports.createHistoryPanel = createHistoryPanel;

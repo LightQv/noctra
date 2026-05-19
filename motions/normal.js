@@ -20,9 +20,9 @@ const {
   appendKeyBuffer,
   clearKeyBuffer,
 } = require("../core/state/leaderState");
-const buffers = require("../browser/manager");
+const defaultBuffers = require("../browser/manager");
 
-function buildLeaderContext() {
+function buildLeaderContext(buffers) {
   return {
     activeBuffer: buffers.getActive(),
   };
@@ -46,7 +46,7 @@ function hideWhichKeyAndReset(state) {
   return { type: INTENTS.HIDE_WHICHKEY };
 }
 
-function showWhichKey(state) {
+function showWhichKey(state, buffers) {
   if (!state.whichKeyEnabled) {
     return null;
   }
@@ -56,14 +56,14 @@ function showWhichKey(state) {
     model: getWhichKeyModel(
       state.leaderPath,
       state.leaderNumericBuffer,
-      buildLeaderContext(),
+      buildLeaderContext(buffers),
     ),
     delayMs: state.whichKeyDisplayDelay,
     timeoutMs: state.whichKeyTimeout,
   };
 }
 
-function updateWhichKey(state) {
+function updateWhichKey(state, buffers) {
   if (!state.whichKeyEnabled) {
     return null;
   }
@@ -73,18 +73,18 @@ function updateWhichKey(state) {
     model: getWhichKeyModel(
       state.leaderPath,
       state.leaderNumericBuffer,
-      buildLeaderContext(),
+      buildLeaderContext(buffers),
     ),
     delayMs: state.whichKeyDisplayDelay,
     timeoutMs: state.whichKeyTimeout,
   };
 }
 
-function handleLeaderSequence(state, input, now) {
+function handleLeaderSequence(state, input, now, buffers) {
   const { key } = input;
 
   if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta") {
-    return updateWhichKey(state);
+    return updateWhichKey(state, buffers);
   }
 
   if (key === "Escape") {
@@ -96,19 +96,19 @@ function handleLeaderSequence(state, input, now) {
       popLeaderNumeric(state, now);
 
       if (!state.leaderNumericBuffer) {
-        return updateWhichKey(state);
+        return updateWhichKey(state, buffers);
       }
 
       return {
         type: INTENTS.SWITCH_BUFFER,
         id: Number.parseInt(state.leaderNumericBuffer, 10),
-        next: updateWhichKey(state),
+        next: updateWhichKey(state, buffers),
       };
     }
 
     if (state.leaderPath.length > 0) {
       popLeaderPath(state, now);
-      return updateWhichKey(state);
+      return updateWhichKey(state, buffers);
     }
 
     return hideWhichKeyAndReset(state);
@@ -134,11 +134,11 @@ function handleLeaderSequence(state, input, now) {
     return {
       type: INTENTS.SWITCH_BUFFER,
       id: Number.parseInt(state.leaderNumericBuffer, 10),
-      next: updateWhichKey(state),
+      next: updateWhichKey(state, buffers),
     };
   }
 
-  const node = getLeaderNode(state.leaderPath, buildLeaderContext());
+  const node = getLeaderNode(state.leaderPath, buildLeaderContext(buffers));
   const exactChild = node?.children?.[key];
   const loweredChild = node?.children?.[loweredKey];
   const matchedKey = exactChild ? key : loweredChild ? loweredKey : null;
@@ -150,7 +150,7 @@ function handleLeaderSequence(state, input, now) {
 
   const nextNode = getLeaderNode(
     [...state.leaderPath, matchedKey],
-    buildLeaderContext(),
+    buildLeaderContext(buffers),
   );
   if (!nextNode) {
     return hideWhichKeyAndReset(state);
@@ -158,7 +158,7 @@ function handleLeaderSequence(state, input, now) {
 
   if (child.children) {
     pushLeaderPath(state, matchedKey, now);
-    return updateWhichKey(state);
+    return updateWhichKey(state, buffers);
   }
 
   if (child.action) {
@@ -175,7 +175,8 @@ function handleLeaderSequence(state, input, now) {
   return hideWhichKeyAndReset(state);
 }
 
-function handleNormal(state, input) {
+function createHandleNormal({ buffers = defaultBuffers } = {}) {
+  return function handleNormal(state, input) {
   const now = Date.now();
 
   if (
@@ -200,7 +201,7 @@ function handleNormal(state, input) {
   const leaderKey = state.leaderKey || "Space";
 
   if (state.leaderActive) {
-    return handleLeaderSequence(state, input, now);
+    return handleLeaderSequence(state, input, now, buffers);
   }
 
   if (key === ":") {
@@ -216,7 +217,7 @@ function handleNormal(state, input) {
   if (isLeaderKey(key, leaderKey)) {
     startLeaderSession(state, now);
     resetSequenceBuffers(state);
-    return showWhichKey(state);
+    return showWhichKey(state, buffers);
   }
 
   if (!mod && /[0-9]/.test(key)) {
@@ -247,6 +248,9 @@ function handleNormal(state, input) {
   }
 
   return null;
+  };
 }
 
-module.exports = { handleNormal };
+const handleNormal = createHandleNormal();
+
+module.exports = { handleNormal, createHandleNormal };

@@ -14,14 +14,14 @@ const {
   session,
   dialog,
 } = require("electron");
-const buffers = require("./browser/manager");
-const { handleInput, shouldPreventDefault } = require("./core/input");
-const state = require("./core/state");
+const { createBufferManager } = require("./browser/manager");
+const { createInputHandler } = require("./core/input");
+const { createState } = require("./core/state");
 require("dotenv").config();
 
 const configService = require("./core/config/service");
-const uiShell = require("./ui/shell/manager");
-const { dispatch } = require("./core/dispatcher");
+const { createUiShellManager } = require("./ui/shell/manager");
+const { createDispatcher } = require("./core/dispatcher");
 const { INTENTS } = require("./core/intents");
 const {
   normalizeThemeMode,
@@ -35,10 +35,10 @@ const {
 const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
 const bookmarksService = require("./core/bookmarks/service");
-const sidepanelController = require("./core/sidepanel/controller");
-const bookmarkInsertScopeModal = require("./core/bookmarks/insertScopeModal");
-const downloadsModal = require("./core/downloads/modal");
-const telescopeService = require("./core/telescope/service");
+const { createHistoryPanel } = require("./core/history/panel");
+const { createBookmarkInsertScopeModal } = require("./core/bookmarks/insertScopeModal");
+const { createDownloadsModal } = require("./core/downloads/modal");
+const { createTelescopeService } = require("./core/telescope/service");
 const { resolveFocusSnapshot } = require("./core/focusResolver");
 const { resolveInputPriority } = require("./core/inputPriorityResolver");
 const {
@@ -51,7 +51,9 @@ const {
   setEditorFocused,
   isEditorFocused,
 } = require("./core/editorFocusState");
-const { computeStatuslineModeLabel } = require("./core/statuslineModeLabel");
+const {
+  createStatuslineModeLabelResolver,
+} = require("./core/statuslineModeLabel");
 const {
   assertInputPipelinePreconditions,
   assertModeWriteBoundary,
@@ -116,11 +118,14 @@ const { isBookmarkableBuffer } = require("./core/bookmarks/eligibility");
 app.setName("Noctra");
 const execFileAsync = promisify(execFile);
 
-let win;
-let smokeScenarios = null;
-let appMenu;
 let entryIcons = null;
 let pendingUrls = [];
+const windowContexts = new Map();
+
+function getLastWindowContext() {
+  const values = Array.from(windowContexts.values());
+  return values.length > 0 ? values[values.length - 1] : null;
+}
 
 function extractHttpUrlFromArgv(argv = []) {
   for (const arg of argv) {
@@ -202,10 +207,7 @@ if (!hasSingleInstanceLock) {
 
 app.on("second-instance", (_event, argv) => {
   const nextUrl = extractHttpUrlFromArgv(argv);
-  if (win && !win.isDestroyed()) {
-    if (win.isMinimized()) win.restore();
-    win.focus();
-  }
+  createWindow();
   if (nextUrl) {
     handleOpenUrl(nextUrl);
   }
@@ -217,32 +219,14 @@ const browserLanguagePolicy = createBrowserLanguagePolicy({
   app,
 });
 
-const themeRuntime = createThemeRuntime({
-  configService,
-  nativeTheme,
-  resolveTheme,
-  resolveThemeMode,
-  resolveContentColorScheme,
-  normalizeThemeMode,
-  normalizeContentThemeMode,
-  normalizeCustomBase,
-  toCssVars,
-  buffers,
-  uiShell,
-  sidepanelController,
-  broadcastThemeUpdate: (payload) => {
-    broadcastUiShellPush({ win, buffers, type: "theme:update", payload });
-  },
-});
-
 const { applyBrowserLanguagePreference } = browserLanguagePolicy;
-const { resolveCurrentTheme, buildThemePayload, applyTheme } = themeRuntime;
 const { isAllowedNavigationUrl } = createUrlPolicyRuntime({
   configService,
   validateNavigableUrl,
 });
 
-function focusActiveEditorSurface(options = {}) {
+function focusActiveEditorSurface(context, options = {}) {
+  const { buffers } = context;
   const active = buffers.getActive();
   if (!active || !active.isEditable) {
     return;
@@ -277,7 +261,24 @@ function isPointInView(view, x, y) {
   );
 }
 
-function handleRawInput(event, input) {
+function handleRawInput(context, event, input) {
+  const {
+    state,
+    buffers,
+    sidepanelController,
+    bookmarkInsertScopeModal,
+    downloadsModal,
+    telescopeService,
+    uiShell,
+    appMenu,
+    dispatch,
+    win,
+    getStatuslineModeLabel,
+    updateTablineOptions,
+    handleInput,
+    shouldPreventDefault,
+    handleUrllineInput,
+  } = context;
   const normalized = normalizeInput(input);
   const focusSnapshot = resolveFocusSnapshot({
     state,
@@ -425,7 +426,8 @@ function handleRawInput(event, input) {
   if (appMenu) appMenu.sync();
 }
 
-function handleMouseInput(_event, input) {
+function handleMouseInput(context, _event, input) {
+  const { uiShell } = context;
   if (!input || input.type !== "mouseDown" || input.button !== "left") {
     return;
   }
@@ -478,7 +480,9 @@ function handleMouseInput(_event, input) {
   }
 }
 
-function syncWebBufferModeWithFocusedElement(webContents) {
+function syncWebBufferModeWithFocusedElement(context, webContents) {
+  const { state, buffers, sidepanelController, uiShell, appMenu, getStatuslineModeLabel } =
+    context;
   if (!webContents || webContents.isDestroyed()) {
     return Promise.resolve();
   }
@@ -552,19 +556,8 @@ function syncWebBufferModeWithFocusedElement(webContents) {
     .catch(() => {});
 }
 
-const webModeSyncService = createWebModeSyncService({
-  syncWebModeWithFocusedElement: syncWebBufferModeWithFocusedElement,
-  bindWebModeTracking,
-});
-
-const inputCoordinator = createInputCoordinator({
-  buffers,
-  webModeSyncService,
-  handleRawInput,
-  handleMouseInput,
-});
-
-function persistSessionSnapshot() {
+function persistSessionSnapshot(context) {
+  const { buffers } = context;
   try {
     const snapshot = buffers.exportSessionSnapshot();
     sessionService.writeSessionSnapshot(snapshot);
@@ -579,8 +572,8 @@ function persistSessionSnapshot() {
   }
 }
 
-function getStatuslineModeLabel() {
-  return computeStatuslineModeLabel(state);
+function buildStatuslineLabelGetter(context) {
+  return () => context.computeStatuslineModeLabel(context.state);
 }
 
 function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
@@ -679,7 +672,8 @@ function findShortcutLabelForAction(actionId) {
   return labels.length > 0 ? labels.join(" | ") : "";
 }
 
-function updateTablineActions() {
+function updateTablineActions(context) {
+  const { uiShell } = context;
   const leaderTree = configService.getConfigValue("keymap.leader", {});
   const openSettingsSeqs = findLeaderSequencesForAction(
     leaderTree,
@@ -712,7 +706,8 @@ function updateTablineActions() {
   });
 }
 
-function updateTablineOptions() {
+function updateTablineOptions(context) {
+  const { uiShell, sidepanelController } = context;
   uiShell.setTablineOptions({
     showFavicon: configService.getConfigValue(
       "global.ui.tabline.show_favicon",
@@ -722,12 +717,8 @@ function updateTablineOptions() {
   });
 }
 
-let updateUrllineRender = () => {};
-let startUrllineEdit = () => {};
-let stopUrllineEdit = () => {};
-let handleUrllineInput = () => {};
-
-function updateUrllineActions() {
+function updateUrllineActions(context) {
+  const { uiShell } = context;
   uiShell.setUrllineActions({
     back: {
       label: "Previous page",
@@ -746,47 +737,6 @@ function updateUrllineActions() {
     },
   });
 }
-
-const urllineCoordinator = createUrllineCoordinator({
-  state,
-  uiShell,
-  buffers,
-  enterInsertMode,
-  enterNormalMode,
-  startUrllineEditState,
-  stopUrllineEditState,
-  moveUrllineCursor,
-  setUrllineCursor,
-  insertUrllineTextAtCursor,
-  deleteUrllineBackward,
-  deleteUrllineForward,
-  resolveInputTarget,
-  getDefaultSearchEngine: () =>
-    configService.getConfigValue("browser.default_search_engine", "duckduckgo"),
-  getStatuslineModeLabel,
-});
-
-updateUrllineRender = urllineCoordinator.updateUrllineRender;
-startUrllineEdit = urllineCoordinator.startUrllineEdit;
-stopUrllineEdit = urllineCoordinator.stopUrllineEdit;
-handleUrllineInput = urllineCoordinator.handleUrllineInput;
-
-const { applyReloadedConfig } = createConfigRuntime({
-  state,
-  resetLeaderSession,
-  resetSequenceBuffers,
-  applyBrowserLanguagePreference,
-  buffers,
-  configService,
-  sidepanelController,
-  resolveCurrentTheme,
-  applyTheme,
-  uiShell,
-  updateTablineActions,
-  updateTablineOptions,
-  updateUrllineActions,
-  updateUrllineRender,
-});
 
 function generateMenuIcon(glyph, strokeColor, outputPath) {
   return new Promise((resolve, reject) => {
@@ -855,14 +805,177 @@ function normalizeHistoryUrl(rawUrl) {
 }
 
 function handleOpenUrl(url) {
-  if (!win || win.isDestroyed()) {
+  const context = getLastWindowContext();
+  if (!context || !context.win || context.win.isDestroyed()) {
     pendingUrls.push(url);
     return;
   }
-  dispatch(win, { type: INTENTS.OPEN_URL, url }, state);
+  context.dispatch(context.win, { type: INTENTS.OPEN_URL, url }, context.state);
 }
 
 function createWindow() {
+  const state = createState();
+  const buffers = createBufferManager();
+  const uiShell = createUiShellManager();
+  const sidepanelController = createHistoryPanel();
+  const bookmarkInsertScopeModal = createBookmarkInsertScopeModal();
+  const downloadsModal = createDownloadsModal();
+  const telescopeService = createTelescopeService();
+
+  const computeStatuslineModeLabel = createStatuslineModeLabelResolver({
+    buffers,
+    sidepanelController,
+    telescopeService,
+  });
+  const getStatuslineModeLabel = () => computeStatuslineModeLabel(state);
+
+  const context = {
+    state,
+    buffers,
+    uiShell,
+    sidepanelController,
+    bookmarkInsertScopeModal,
+    downloadsModal,
+    telescopeService,
+    dispatch: null,
+    handleInput: () => {},
+    shouldPreventDefault: () => false,
+    getStatuslineModeLabel,
+    computeStatuslineModeLabel,
+    appMenu: null,
+    win: null,
+    handleUrllineInput: () => {},
+    updateTablineOptions: () => {},
+    resolveCurrentTheme: () => ({ theme: {}, resolvedMode: "dark" }),
+    applyTheme: () => {},
+    updateTablineActions: () => {},
+    updateUrllineActions: () => {},
+    updateUrllineRender: () => {},
+  };
+
+  const applyThemeAcrossWindows = (config) => {
+    for (const target of windowContexts.values()) {
+      if (typeof target.state.applyConfig === "function") {
+        target.state.applyConfig(config);
+      }
+      const themeContext = target.resolveCurrentTheme();
+      target.applyTheme(themeContext, { broadcast: true });
+      target.updateTablineActions();
+      target.updateTablineOptions();
+      target.updateUrllineActions();
+      target.updateUrllineRender();
+      if (target.appMenu) {
+        target.appMenu.rebuild();
+      }
+    }
+  };
+
+  const dispatch = createDispatcher({
+    buffers,
+    uiShell,
+    sidepanelController,
+    bookmarkInsertScopeModal,
+    telescopeService,
+    notificationsService,
+    applyThemeAcrossWindows,
+  });
+  context.dispatch = dispatch;
+
+  const { handleInput, shouldPreventDefault } = createInputHandler({
+    state,
+    buffers,
+    sidepanelController,
+    dispatch,
+  });
+  context.handleInput = handleInput;
+  context.shouldPreventDefault = shouldPreventDefault;
+
+  const themeRuntime = createThemeRuntime({
+    configService,
+    nativeTheme,
+    resolveTheme,
+    resolveThemeMode,
+    resolveContentColorScheme,
+    normalizeThemeMode,
+    normalizeContentThemeMode,
+    normalizeCustomBase,
+    toCssVars,
+    buffers,
+    uiShell,
+    sidepanelController,
+    broadcastThemeUpdate: (payload) => {
+      if (!context.win) return;
+      broadcastUiShellPush({ win: context.win, buffers, type: "theme:update", payload });
+    },
+  });
+  const { resolveCurrentTheme, buildThemePayload, applyTheme } = themeRuntime;
+  context.resolveCurrentTheme = resolveCurrentTheme;
+  context.applyTheme = applyTheme;
+
+  const webModeSyncService = createWebModeSyncService({
+    syncWebModeWithFocusedElement: (webContents) =>
+      syncWebBufferModeWithFocusedElement(context, webContents),
+    bindWebModeTracking,
+  });
+
+  const inputCoordinator = createInputCoordinator({
+    buffers,
+    webModeSyncService,
+    handleRawInput: (event, input) => handleRawInput(context, event, input),
+    handleMouseInput: (event, input) => handleMouseInput(context, event, input),
+  });
+
+  let updateUrllineRender = () => {};
+  let startUrllineEdit = () => {};
+  let stopUrllineEdit = () => {};
+
+  const urllineCoordinator = createUrllineCoordinator({
+    state,
+    uiShell,
+    buffers,
+    enterInsertMode,
+    enterNormalMode,
+    startUrllineEditState,
+    stopUrllineEditState,
+    moveUrllineCursor,
+    setUrllineCursor,
+    insertUrllineTextAtCursor,
+    deleteUrllineBackward,
+    deleteUrllineForward,
+    resolveInputTarget,
+    getDefaultSearchEngine: () =>
+      configService.getConfigValue("browser.default_search_engine", "duckduckgo"),
+    getStatuslineModeLabel,
+  });
+  updateUrllineRender = urllineCoordinator.updateUrllineRender;
+  startUrllineEdit = urllineCoordinator.startUrllineEdit;
+  stopUrllineEdit = urllineCoordinator.stopUrllineEdit;
+  context.handleUrllineInput = urllineCoordinator.handleUrllineInput;
+  context.updateUrllineRender = updateUrllineRender;
+
+  const { applyReloadedConfig } = createConfigRuntime({
+    state,
+    resetLeaderSession,
+    resetSequenceBuffers,
+    applyBrowserLanguagePreference,
+    buffers,
+    configService,
+    sidepanelController,
+    resolveCurrentTheme,
+    applyTheme,
+    uiShell,
+    updateTablineActions: () => updateTablineActions(context),
+    updateTablineOptions: () => updateTablineOptions(context),
+    updateUrllineActions: () => updateUrllineActions(context),
+    updateUrllineRender,
+  });
+
+  context.updateTablineActions = () => updateTablineActions(context);
+  context.updateTablineOptions = () => updateTablineOptions(context);
+  context.updateUrllineActions = () => updateUrllineActions(context);
+
+  const persistSnapshot = () => persistSessionSnapshot(context);
+
   const runtime = bootstrapWindowRuntime({
     BrowserWindow,
     path,
@@ -886,8 +999,8 @@ function createWindow() {
     registerIpcContracts,
     createSmokeScenarios,
     inputCoordinator,
-    handleRawInput,
-    handleMouseInput,
+    handleRawInput: (event, input) => handleRawInput(context, event, input),
+    handleMouseInput: (event, input) => handleMouseInput(context, event, input),
     isEditorFocused,
     wireWindowLifecycle,
     getSurfaceRole,
@@ -897,28 +1010,28 @@ function createWindow() {
     performWindowAction,
     setEditorFocused,
     enterCommandMode,
-    focusActiveEditorSurface,
+    focusActiveEditorSurface: (options) => focusActiveEditorSurface(context, options),
     getStatuslineModeLabel,
     startUrllineEdit,
     resolveCurrentTheme,
     buildThemePayload,
     applyReloadedConfig,
     applyTheme,
-    updateTablineActions,
-    updateTablineOptions,
-    updateUrllineActions,
+    updateTablineActions: () => updateTablineActions(context),
+    updateTablineOptions: () => updateTablineOptions(context),
+    updateUrllineActions: () => updateUrllineActions(context),
     updateUrllineRender,
     stopUrllineEdit,
     normalizeHistoryUrl,
     applyBrowserLanguagePreference,
-    persistSessionSnapshot,
+    persistSessionSnapshot: persistSnapshot,
   });
 
-  win = runtime.win;
-  smokeScenarios = runtime.smokeScenarios;
+  context.win = runtime.win;
+  context.smokeScenarios = runtime.smokeScenarios;
 
-  appMenu = createAppMenu({
-    win,
+  const appMenu = createAppMenu({
+    win: context.win,
     state,
     buffers,
     sidepanelController,
@@ -933,7 +1046,10 @@ function createWindow() {
     bookmarksService,
     entryIcons,
     nativeTheme,
+    createWindow,
   });
+  context.appMenu = appMenu;
+  windowContexts.set(context.win.id, context);
   uiShell.setMouseActions({
     isPointInView,
     dismissSelectionModal: () => {
@@ -1011,7 +1127,7 @@ function createWindow() {
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       buffers.focusActive();
       if (intent) {
-        dispatch(win, intent, state);
+        dispatch(context.win, intent, state);
       }
       if (appMenu) appMenu.sync();
     },
@@ -1022,7 +1138,7 @@ function createWindow() {
       if (appMenu) appMenu.sync();
     },
     handleBackdropMouseEvent: (input) => {
-      handleMouseInput(null, input);
+      handleMouseInput(context, null, input);
     },
   });
   const overlayInputViews = [
@@ -1035,7 +1151,7 @@ function createWindow() {
   for (const view of overlayInputViews) {
     if (!view || !view.webContents || view.webContents.isDestroyed()) continue;
     view.webContents.on("before-input-event", (event, input) => {
-      handleRawInput(event, input);
+      handleRawInput(context, event, input);
     });
   }
   appMenu.sync();
@@ -1050,6 +1166,12 @@ function createWindow() {
     .catch(() => {
       // Native folder icon unavailable, ignore
     });
+
+  context.win.on("closed", () => {
+    windowContexts.delete(context.win.id);
+  });
+
+  return context.win;
 }
 
 app.whenReady().then(async () => {
@@ -1111,11 +1233,17 @@ app.whenReady().then(async () => {
   }
 
   nativeTheme.on("updated", () => {
-    if (appMenu) appMenu.rebuild();
+    for (const context of windowContexts.values()) {
+      if (context.appMenu) {
+        context.appMenu.rebuild();
+      }
+    }
   });
 
-  if (smokeScenarios) {
-    smokeScenarios.maybeScheduleSmokeExit();
+  for (const context of windowContexts.values()) {
+    if (context.smokeScenarios) {
+      context.smokeScenarios.maybeScheduleSmokeExit();
+    }
   }
 });
 
@@ -1131,4 +1259,10 @@ if (initialArgUrl) {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
 });

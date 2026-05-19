@@ -3,31 +3,49 @@ const sidepanelController = require("./sidepanel/controller");
 const telescopeService = require("./telescope/service");
 const { resolveSemanticContext } = require("./semanticContextResolver");
 
-function computeStatuslineModeLabel(state) {
-  if (telescopeService.isActive()) {
-    return telescopeService.getMode();
-  }
+function createStatuslineModeLabelResolver(deps = {}) {
+  const localBuffers = deps.buffers || buffers;
+  const localSidepanelController = deps.sidepanelController || sidepanelController;
+  const localTelescopeService = deps.telescopeService || telescopeService;
 
-  if (state.mode === "COMMAND") {
-    return "COMMAND";
-  }
+  return function computeStatuslineModeLabel(state) {
+    if (localTelescopeService.isActive()) {
+      return localTelescopeService.getMode();
+    }
 
-  if (sidepanelController.isVisible() && sidepanelController.isFocused()) {
-    return "TREE:NORMAL";
-  }
+    if (state.mode === "COMMAND") {
+      return "COMMAND";
+    }
 
-  const active = buffers.getActive();
-  if (!active || !active.isEditable) {
-    return state.mode;
-  }
+    if (
+      localSidepanelController.isVisible() &&
+      localSidepanelController.isFocused()
+    ) {
+      return "TREE:NORMAL";
+    }
 
-  if (resolveSemanticContext({ state, buffers, sidepanelController }) === "editor") {
-    return `EDITOR:${state.editorMode || "NORMAL"}`;
-  }
+    const active = localBuffers.getActive();
+    if (!active || !active.isEditable) {
+      return state.mode;
+    }
 
-  return `SHELL:${state.mode}`;
+    if (
+      resolveSemanticContext({
+        state,
+        buffers: localBuffers,
+        sidepanelController: localSidepanelController,
+      }) === "editor"
+    ) {
+      return `EDITOR:${state.editorMode || "NORMAL"}`;
+    }
+
+    return `SHELL:${state.mode}`;
+  };
 }
+
+const computeStatuslineModeLabel = createStatuslineModeLabelResolver();
 
 module.exports = {
   computeStatuslineModeLabel,
+  createStatuslineModeLabelResolver,
 };

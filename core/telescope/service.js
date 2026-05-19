@@ -365,4 +365,12 @@ class TelescopeService {
   }
 }
 
-module.exports = new TelescopeService();
+function createTelescopeService() {
+  return new TelescopeService();
+}
+
+const defaultTelescopeService = createTelescopeService();
+
+module.exports = defaultTelescopeService;
+module.exports.TelescopeService = TelescopeService;
+module.exports.createTelescopeService = createTelescopeService;

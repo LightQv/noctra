@@ -272,4 +272,12 @@ class BookmarkInsertScopeModal {
   }
 }
 
-module.exports = new BookmarkInsertScopeModal();
+function createBookmarkInsertScopeModal() {
+  return new BookmarkInsertScopeModal();
+}
+
+const defaultBookmarkInsertScopeModal = createBookmarkInsertScopeModal();
+
+module.exports = defaultBookmarkInsertScopeModal;
+module.exports.BookmarkInsertScopeModal = BookmarkInsertScopeModal;
+module.exports.createBookmarkInsertScopeModal = createBookmarkInsertScopeModal;

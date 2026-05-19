@@ -25,7 +25,7 @@ Apply config changes at runtime with `:config-reload`.
 - `global.split`: split ratios and focus keys
 - `global.storage`: file locations for persisted data
 - `global.notifications`: toast and persistence behavior
-- `global.window`: initial window bounds and maximized state
+- `global.window`: initial window bounds, maximized state, and cascade offset
 - `global.opening_buffer`: startup mode and dashboard settings
 - `keymap.leader`: user leader-key mappings
 - `browser`: web-content language, search engine, and clipboard-selection behavior

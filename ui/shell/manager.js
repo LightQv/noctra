@@ -523,4 +523,12 @@ class UiShellManager {
   }
 }
 
-module.exports = new UiShellManager();
+function createUiShellManager() {
+  return new UiShellManager();
+}
+
+const defaultUiShellManager = createUiShellManager();
+
+module.exports = defaultUiShellManager;
+module.exports.UiShellManager = UiShellManager;
+module.exports.createUiShellManager = createUiShellManager;

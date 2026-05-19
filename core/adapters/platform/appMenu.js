@@ -22,6 +22,7 @@ function createAppMenu({
   bookmarksService,
   entryIcons,
   nativeTheme,
+  createWindow,
 }) {
   const sidepanel = sidepanelController;
   let lastSnapshot = null;
@@ -632,6 +633,15 @@ function createAppMenu({
     const fileMenu = {
       label: "File",
       submenu: [
+        {
+          label: "New Window",
+          accelerator: "CmdOrCtrl+N",
+          click: () => {
+            if (typeof createWindow === "function") {
+              createWindow();
+            }
+          },
+        },
         {
           label: "New Buffer",
           accelerator: "CmdOrCtrl+T",

@@ -146,6 +146,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution princ
 
 ## Roadmap
 
-1. [ ] **Enhance modern browser behavior** — Right-click context menu, extension support, plugins, and web compatibility layers.
+1. [ ] **Enhance modern browser behavior**
+   - [ ] Right-click context menu (link/image/open-in-new-buffer actions)
+   - [ ] In-page search with `/` in active web buffer
+   - [ ] Password manager support (1Password / Bitwarden extension compatibility)
+   - [ ] Embeded ad-blocker (enable/disable through config.yml)
+   - [ ] Global extension support (install/enable/disable lifecycle)
+   - [ ] Plugin system for Noctra-native features (API + sandbox boundaries)
+   - [ ] Web compatibility layer improvements (site quirks, auth flows, clipboard/permissions parity)
 
-2. [ ] **CLI support** — Basic actions: open, quit, focus, change workspace, and more.
+2. [ ] **CLI support** — Basic actions: open, quit, focus, list-window, list-session, change workspace, search, and more.
+
+3. [ ] **One-line installer** — Install Noctra via `curl` command.

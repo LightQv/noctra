@@ -146,8 +146,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution princ
 
 ## Roadmap
 
-1. [ ] **Multi-window support** — Allow multiple native windows with shared session state.
+1. [ ] **Enhance modern browser behavior** — Right-click context menu, extension support, plugins, and web compatibility layers.
 
 2. [ ] **CLI support** — Basic actions: open, quit, focus, change workspace, and more.
-
-3. [ ] **Enhance modern browser behavior** — Right-click context menu, extension support, plugins, and web compatibility layers.

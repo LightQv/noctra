@@ -160,5 +160,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution princ
    - [ ] Web compatibility layer improvements (site quirks, auth flows, clipboard/permissions parity)
 
 2. [ ] **CLI support** — Basic actions: open, quit, focus, list-window, list-session, change workspace, search, and more.
-
-3. [ ] **One-line installer** — Install Noctra via `curl` command.

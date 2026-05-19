@@ -146,10 +146,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution princ
 
 ## Roadmap
 
-1. [ ] **Multi-language at app-level** — Localize UI strings and user-facing messages.
+1. [ ] **Multi-window support** — Allow multiple native windows with shared session state.
 
-2. [ ] **Multi-window support** — Allow multiple native windows with shared session state.
+2. [ ] **CLI support** — Basic actions: open, quit, focus, change workspace, and more.
 
-3. [ ] **CLI support** — Basic actions: open, quit, focus, change workspace, and more.
-
-4. [ ] **Enhance modern browser behavior** — Right-click context menu, extension support, plugins, and web compatibility layers.
+3. [ ] **Enhance modern browser behavior** — Right-click context menu, extension support, plugins, and web compatibility layers.

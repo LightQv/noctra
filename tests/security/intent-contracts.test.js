@@ -14,6 +14,15 @@ test("intent contracts accept SEARCH_WEB payload", () => {
   assert.equal(result.ok, true);
 });
 
+test("intent contracts accept SET_BROWSER_LANGUAGE system payload", () => {
+  const result = validateIntentPayload(INTENTS.SET_BROWSER_LANGUAGE, {
+    type: INTENTS.SET_BROWSER_LANGUAGE,
+    language: "system",
+    reload: true,
+  });
+  assert.equal(result.ok, true);
+});
+
 test("intent contracts accept valid payload", () => {
   const result = validateIntentPayload(INTENTS.SCROLL, {
     type: INTENTS.SCROLL,

@@ -137,13 +137,13 @@ function normalizeCustomBase(value, fallback = "dark") {
   return fallback;
 }
 
-function normalizeBrowserLanguage(value, fallback = "en") {
+function normalizeBrowserLanguage(value, fallback = "system") {
   if (typeof value !== "string") {
     return fallback;
   }
 
   const normalized = value.trim().toLowerCase();
-  if (normalized === "en" || normalized === "fr") {
+  if (normalized === "system" || normalized === "en" || normalized === "fr") {
     return normalized;
   }
 

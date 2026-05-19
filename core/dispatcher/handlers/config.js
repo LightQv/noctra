@@ -86,7 +86,7 @@ function createConfigHandlers(deps) {
         typeof intent.language === "string"
           ? intent.language.trim().toLowerCase()
           : "";
-      if (!["en", "fr"].includes(language)) {
+      if (!["system", "en", "fr"].includes(language)) {
         notificationsService.notify({
           severity: "warning",
           code: "unknown_browser_language",

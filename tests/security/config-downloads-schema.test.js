@@ -5,11 +5,29 @@ const { normalizeConfig } = require("../../core/config/schema");
 
 test("config schema keeps prompt download policy defaults", () => {
   const config = normalizeConfig({});
+  assert.equal(config.browser.language, "system");
   assert.equal(config.browser.default_search_engine, "duckduckgo");
   assert.equal(config.browser.downloads.policy, "prompt");
   assert.equal(config.browser.downloads.allow_trusted_surfaces, false);
   assert.equal(config.browser.downloads.default_directory, null);
   assert.equal(config.browser.downloads.auto_open, false);
+});
+
+test("config schema normalizes browser.language", () => {
+  const systemConfig = normalizeConfig({
+    browser: { language: " SYSTEM " },
+  });
+  assert.equal(systemConfig.browser.language, "system");
+
+  const frenchConfig = normalizeConfig({
+    browser: { language: "fr" },
+  });
+  assert.equal(frenchConfig.browser.language, "fr");
+
+  const fallbackConfig = normalizeConfig({
+    browser: { language: "de" },
+  });
+  assert.equal(fallbackConfig.browser.language, "system");
 });
 
 test("config schema normalizes browser.default_search_engine", () => {

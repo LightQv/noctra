@@ -51,6 +51,7 @@ Use `:` in `COMMAND` mode to run the following commands.
 For `:theme dark|light|auto`, web content follows the app theme automatically.
 `global.theme.content_mode` is only applied while in `:theme custom`.
 
+- `:lang system`
 - `:lang en`
 - `:lang fr`
 - `:lang fr!` (reload-aware variant)

@@ -54,3 +54,17 @@ test("parseCommand uses configured fallback engine for :tab non-url", () => {
     configService.getConfigValue = originalGetConfigValue;
   }
 });
+
+test("parseCommand supports :lang system and bang variant", () => {
+  assert.deepEqual(parseCommand("lang system"), {
+    type: INTENTS.SET_BROWSER_LANGUAGE,
+    language: "system",
+    reload: false,
+  });
+
+  assert.deepEqual(parseCommand("lang system!"), {
+    type: INTENTS.SET_BROWSER_LANGUAGE,
+    language: "system",
+    reload: true,
+  });
+});

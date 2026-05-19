@@ -214,6 +214,7 @@ app.on("second-instance", (_event, argv) => {
 const browserLanguagePolicy = createBrowserLanguagePolicy({
   session,
   configService,
+  app,
 });
 
 const themeRuntime = createThemeRuntime({

@@ -1,234 +1,496 @@
-# Native Context Menu Implementation Plan (Consolidated)
+# Native Context Menu Implementation Plan
 
 ## Objective
 
-Implement native right-click context menus that feel browser-standard while preserving Noctra architecture and product constraints:
+Implement native right-click context menus for **all** Noctra surfaces:
 
-- intent-driven actions
-- strict process boundaries
-- split/buffer-first model
-- security policy consistency
+1. **Web page content** (inputs, text selections, links, images, page background)
+2. **Noctra UI shell** (tabline, urlline, statusline)
+3. **Sidepanel trees** (history, bookmarks, downloads)
 
-## Global Rules (Locked)
+Menus must be **native Electron** (`Menu.buildFromTemplate` + `popup`) for phase 1.
+Right-click must be strictly separated from left-click: no text selection changes, no tab switches, no pane focus changes, no overlay dismissals.
 
-- Video: no context menu.
-- Noctra UI elements: no context menu for now, except URL-line input.
-- History/Bookmarks entries: link-style context menu only.
-- Open in new window: present but disabled until multi-window support.
-- URL-line input menu: no DevTools item.
+---
 
-## Context Types and Menus
+## Principles
 
-## 1) Input (web page editable fields)
+- **Native first**: use `electron.Menu` for speed, correctness, and disabled-state support.
+- **Intent-driven**: menu actions dispatch existing intents or call existing services where possible.
+- **Centralized**: one builder module per process boundary; no scattered menu logic.
+- **Right-click isolation**: every handler filters `input.button === "right"` and does not fall through to left-click paths.
+- **Security**: all navigable URLs validated through existing `validateNavigableUrl`; privileged actions stay in main.
 
-Applies to page inputs/textareas/contenteditable (not URL-line special case).
+---
 
-Actions:
+## Global Rules
 
+- **Video**: no context menu.
+- **Statusline**: no context menu.
+- **Left-click behavior**: never triggered by right-click.
+- **Disabled items**: computed from runtime snapshot (nav state, split state, download state, selection state).
+
+---
+
+## 1. Web Content Context Menus
+
+### 1.1 Input / Editable
+
+**Trigger**: `webContents.on("context-menu", ...)` with `params.isEditable === true`.
+
+**Items**:
 - Cut
 - Copy
 - Paste
 - Delete
-- Select all
+- Select All
+- ---
 - DevTools (inspect targeted element)
 
-Implementation note:
+**Implementation**:
+- Use native roles (`cut`, `copy`, `paste`, `delete`, `selectAll`) where supported.
+- DevTools: `webContents.inspectElement(params.x, params.y)`.
 
-- Use native roles (`cut`, `copy`, `paste`, `delete`, `selectAll`) where possible.
+### 1.2 Text Selection
 
-## 2) URL-line Input (special input context)
+**Trigger**: `params.selectionText.length > 0` and not editable/link/image.
 
-Applies only to URL-line editing surface.
-
-Actions:
-
-- Cut
+**Items**:
 - Copy
-- Paste
-- Delete
-- Select all
-
-Explicitly excluded:
-
-- DevTools
-
-## 3) Text Selection
-
-Actions:
-
-- Copy
-- Search "<selection>" with configured default engine
+- Search "<selection>" in default search engine
+- ---
 - DevTools (inspect targeted element)
 
-## 4) Link
+**Implementation**:
+- Search: `buildSearchUrl(defaultEngine, selectionText)` → dispatch `OPEN_URL` in new buffer.
+- Default engine from `configService.getConfigValue("browser.default_search_engine", "duckduckgo")`.
 
-Actions:
+### 1.3 Link
 
+**Trigger**: `params.linkURL` present.
+
+**Items**:
 - Open Link in New Tab
 - Open Link in Split
-- Open Link in New Window (disabled)
+- Open Link in New Window
 - Copy Link Address
-- Search "<selection-or-fallback>" with configured default engine
+- Search "<selection-or-link-text>" in default search engine
+- ---
 - DevTools (inspect targeted element)
 
-## 5) Image (direct image interaction)
+**Implementation**:
+- New tab: `buffers.create(validatedUrl)`.
+- Split: `openUrlInRightSplit(validatedUrl)` (see helper in §6).
+- New window: create new BrowserWindow + dispatch OPEN_URL (see §6.2).
+- Copy: `clipboard.writeText(params.linkURL)`.
 
-Image-specific actions (always available for image context):
+### 1.4 Image (direct image)
 
+**Trigger**: `params.hasImageContents === true` and no link parent.
+
+**Items**:
 - Open Image in New Tab
 - Save Image As...
 - Copy Image
 - Copy Image Address
-- Send Image by Email...
+- ---
+- DevTools (inspect targeted element)
 
-Then DevTools targeted inspect.
+**Implementation**:
+- Save image: use `session.downloadURL(srcURL)` or `webContents.downloadURL(srcURL)` with existing download policy.
+- Copy image: `webContents.copyImageAt(params.x, params.y)` if available; otherwise disabled.
+- Copy address: `clipboard.writeText(params.srcURL)`.
 
-## 6) Linked Image (locked ordering)
+### 1.5 Linked Image (image inside a link)
 
-When right-clicking an image inside a link, show combined menu with this exact layout:
+**Trigger**: `params.linkURL` and `params.hasImageContents` both present.
 
+**Items** (exact order):
 1. Open Link in New Tab
 2. Open Link in Split
-3. Open Link in New Window (disabled)
+3. Open Link in New Window
 4. Copy Link Address
-5. Search "<text>" with <engine>
-6. separator
+5. Search "<text>" in default engine
+6. ---
 7. Open Image in New Tab
 8. Save Image As...
 9. Copy Image
 10. Copy Image Address
-11. Send Image by Email...
-12. separator
-13. DevTools / Inspect targeted element
+11. ---
+12. DevTools (inspect targeted element)
 
-Constraint from product decision:
+### 1.6 Everything Else (page background)
 
-- Image block must appear immediately before DevTools line.
+**Trigger**: default fallback.
 
-## 7) Everything Else (page background / generic area)
-
-Actions:
-
-- Previous page
-- Next page
+**Items**:
+- Previous Page *(disabled if `!canGoBack`)*
+- Next Page *(disabled if `!canGoForward`)*
 - Refresh
-- Bookmarks...
-- Save as...
-- DevTools (open normally, non-targeted)
+- ---
+- Bookmark...
+- Save As...
+- ---
+- DevTools
 
-## Detection and Precedence
+**Implementation**:
+- Previous/Next/Refresh: dispatch existing intents (`NAV_BACK`, `NAV_FORWARD`, `RELOAD_PAGE`).
+- Bookmark: dispatch `BOOKMARKS_ADD_ROOT_ACTIVE` (adds current active page).
+- Save As: `dialog.showSaveDialog` + `webContents.savePage(path, "HTMLComplete")`.
+- DevTools: toggle devtools for active buffer.
 
-Use deterministic precedence to avoid ambiguity:
+### 1.7 Detection Precedence
 
-1. blocked-video
-2. blocked-noctra-ui (except URL-line input)
-3. urlline-input
-4. linked-image
-5. image
-6. link
-7. text-selection
-8. editable-input
-9. default-page
+1. Blocked video
+2. Editable input
+3. Linked image
+4. Image
+5. Link
+6. Text selection
+7. Default page
 
-## Architecture and Modules
+---
 
-## Main-process ownership
+## 2. Noctra UI Shell Context Menus
 
-Main process owns:
+All UI shell menus are triggered by renderer `contextmenu` events sent via **trusted IPC** (`ui-shell:context-menu`).
 
-- context-menu event handling
-- menu template composition
-- privileged actions (save dialogs, filesystem-facing actions, devtools open/inspect)
+### 2.1 Urlline
 
-Renderer/shell owns:
+**Right-click on URL input** (`data-urlline-action="start-edit"`):
+- Cut
+- Copy
+- Paste
+- Delete
+- Select All
 
-- only URL-line context trigger payload (typed, trusted IPC), no direct Electron menu APIs.
+*No DevTools item.*
 
-## Proposed modules
+**Right-click on prev/next/refresh icon buttons** (`data-urlline-action` = back/forward/reload/stop):
+- **No menu opened.**
 
-- `core/adapters/platform/contextMenuBuilder.js`
-  - Builds menu templates from normalized context descriptor and runtime capability snapshot.
-- `core/adapters/platform/contextMenuActions.js`
-  - Executes actions by dispatching intents or invoking platform adapters.
-- `runtime/contextMenuRegistration.js` (or platform adapter equivalent)
-  - Registers `webContents.on("context-menu")` and cleans up listeners.
+**Right-click anywhere else on urlline** (empty background):
+- Hide Urlline
 
-## Action Wiring
+**Implementation**:
+- In `ui/urlline.js`, add `contextmenu` listener alongside existing `click` listener.
+- Call `event.preventDefault()`.
+- Send IPC: `window.uiShell.contextMenu({ zone: "urlline", target: actionOrNull, x: event.clientX, y: event.clientY })`.
+- Main handler builds menu from `zone` and `target`.
+- Hide urlline: dispatch `INTENTS.TOGGLE_URLLINE`.
 
-- Navigation (Previous, Next, Refresh) -> existing intents:
-  - `INTENTS.NAV_BACK`
-  - `INTENTS.NAV_FORWARD`
-  - `INTENTS.RELOAD_PAGE`
-- Open link/image in new tab -> `INTENTS.NEW_BUFFER` with validated URL.
-- Open in split -> split controller/buffer manager flow, validated URL.
-- Bookmarks... -> `INTENTS.BOOKMARKS_SHOW` (or agreed panel-open equivalent).
-- Search action -> `buildSearchUrl(defaultEngine, query)` then open URL intent.
-- DevTools targeted -> `inspectElement(x, y)` then open devtools.
-- DevTools generic -> open devtools without element targeting.
-- Save as... (page) -> `showSaveDialog` + `webContents.savePage(..., "HTMLComplete")`.
-- Save Image As... -> download/save flow for `srcURL` with policy checks.
-- Copy Link/Image Address -> clipboard text.
-- Copy Image -> `webContents.copyImageAt(x, y)` fallback strategy if unsupported.
-- Send Image by Email... -> open `mailto:` with image URL in body.
+### 2.2 Tabline
 
-## Security and Policy Requirements
+**Right-click on a tab** (`.tab` with `data-tab-id`):
+- Close Tab
+- Close All Tabs to the Left *(disabled if tab is first)*
+- Close All Tabs to the Right *(disabled if tab is last)*
+- Close All Tabs
+- ---
+- Duplicate Tab
+- Split Tab *(disabled if split already active)*
 
-- Preserve existing `setWindowOpenHandler` deny-by-default behavior.
-- Validate all navigable URLs via existing URL policy before opening.
-- Restrict URL-line context menu IPC to trusted shell role.
-- Reject malformed/oversized context payloads (typed validation).
-- Keep privileged operations in main only (no renderer shortcut).
+**Right-click on new-tab button, action icons, or empty tabline background**:
+- **No menu opened.**
 
-## Implementation Phases
+**Implementation**:
+- In `ui/tabline.js`, add `contextmenu` listener.
+- Call `event.preventDefault()`.
+- Send IPC: `window.uiShell.contextMenu({ zone: "tabline", target: "tab", tabId: Number(tab.dataset.tabId), x, y })`.
+- Actions:
+  - Close: `buffers.close(tabId)`.
+  - Close left: find index, close all before it.
+  - Close right: find index, close all after it.
+  - Close all: close every buffer, then `openConfiguredBuffer()`.
+  - Duplicate: `buffers.create(buffer.url)` (copy URL and kind).
+  - Split: if `!buffers.isSplitEnabled()`, `openVerticalSplit()` then assign URL to right pane; else replace right pane source with this tab's buffer.
 
-1. Core context-menu infrastructure
-   - Add registration and lifecycle cleanup.
-   - Build base descriptor and default/menu branching.
-2. Link/image/default action execution
-   - Implement all actions except URL-line special IPC path.
-3. URL-line context integration
-   - Add trusted shell event bridge and URL-line edit menu behavior.
-4. Policy hardening
-   - Explicit blocks for video and Noctra UI contexts.
-5. Tests + smoke validation
-   - Add app/security/smoke tests for all branches and ordering rules.
+### 2.3 Statusline
 
-## Test Plan
+**Right-click anywhere**:
+- **No menu opened.**
 
-## App tests
+**Implementation**:
+- In `ui/shell/services/shellTemplates.js` STATUSLINE_OVERLAY_HTML, add script that calls `preventDefault()` on `contextmenu`.
+- No IPC needed.
 
-- Template composition per context type:
-  - editable input
-  - url-line input
-  - selection
-  - link
-  - image
-  - linked-image
-  - default page
-- Assert linked-image exact order with image block before DevTools.
-- Assert new-window item present + disabled.
+---
 
-## Security tests
+## 3. Sidepanel Context Menus
 
-- URL validation enforced for open/search actions.
-- Trusted-shell-only access for URL-line context channel.
-- Video context suppression.
-- Noctra UI context suppression (except URL-line input).
+Sidepanel is a `BrowserView` with its own `webContents`. Right-click is intercepted via `before-mouse-event` or renderer `contextmenu` → IPC.
 
-## Smoke tests
+### 3.1 History
 
-- Right-click on page text selection -> Search opens correct engine URL.
-- Right-click link -> new tab and split actions work.
-- Right-click image -> image block actions present and functioning.
-- Right-click linked image -> exact ordered combined menu.
-- Right-click video -> no menu.
-- Right-click URL-line input -> edit actions only, no DevTools.
+**Right-click on a day/folder row** (`data-row-type="day"`):
+- Open Every Link in New Tab *(one tab per entry in that day)*
+- Delete Folder
+- Hide Sidepanel
 
-## Acceptance Criteria
+**Right-click on an entry row** (`data-row-type="entry"`):
+- Open in New Tab
+- Open in Split *(if split active, replace right pane)*
+- Delete Entry
+- Hide Sidepanel
 
-- Native context menu appears with correct items per context.
-- Linked-image menu ordering matches locked rule (image block right before DevTools).
-- Video and non-URL-line Noctra UI contexts do not open menus.
-- URL-line input has edit actions only.
-- All actions align with browser expectations and Noctra security/architecture.
-- Tests cover behavior, ordering, and policy boundaries.
+**Right-click anywhere else** (empty list background):
+- Delete All
+- Hide Sidepanel
+
+### 3.2 Bookmarks
+
+**Right-click on a folder row** (`data-row-type="folder"`):
+- Open Every Link in New Tab *(one tab per entry in folder + descendants)*
+- Delete Folder
+- Hide Sidepanel
+
+**Right-click on an entry row** (`data-row-type="entry"`):
+- Open in New Tab
+- Open in Split *(replace right pane if split active)*
+- Delete Entry
+- Hide Sidepanel
+
+**Right-click anywhere else**:
+- Delete All
+- Hide Sidepanel
+
+### 3.3 Downloads
+
+**Right-click on a download row** (`data-row-type="download"`):
+- Open File Location
+- Open File *(disabled if not completed)*
+- Hide Sidepanel
+
+**Right-click anywhere else**:
+- Delete All Complete
+- Hide Sidepanel
+
+**Implementation**:
+- In `core/history/panel.js`, extend `handleMouseEvent` to branch on `input.button === "right"`.
+- Call `event.preventDefault()` on the sidepanel webContents event.
+- Use `resolveMouseTarget(x, y)` (already exists) to get `rowType` and `rowIndex`.
+- Build menu in main based on `treeKind` and `rowType`.
+- Actions reuse existing helpers:
+  - Open entry: `sidepanelController.openCurrent(newTab = true)` for new tab; `openUrlInRightSplit(entry.url)` for split.
+  - Open folder links: new helper `openFolderLinksInNewTabs(folderNode)` that walks children and creates one buffer per entry.
+  - Delete entry: `historyService.deleteEntry(dateKey, entryId)` or `bookmarksService.deleteAll()` / `panel.deleteCurrentFavorite()`.
+  - Delete all: `historyService.deleteAll()` / `bookmarksService.deleteAll()` / `downloadsService.clearCompleted()`.
+  - Delete all complete downloads: `downloadsService.clearCompleted()`.
+  - Open file location: `downloadsService.showInFolder(id)`.
+  - Open file: `downloadsService.openFile(id)` but **only if state === "completed"**.
+  - Hide sidepanel: `sidepanelController.hide()`.
+
+---
+
+## 4. Right-Click Isolation (No Left-Click Side Effects)
+
+### 4.1 Web Contents
+
+- Current: `selectionClipboardObserver.js` attaches `before-mouse-event` and triggers `manager.handlePaneInteraction()` on both mouseDown and mouseUp, regardless of button.
+- **Fix**: filter `input.button === "left"` before calling `handlePaneInteraction()` and `maybeCopySelectionToClipboard()`.
+- `inputCoordinator.js` already binds `before-mouse-event`; right-click events there should be routed to context menu and **not** to overlay dismissal.
+
+### 4.2 UI Shell (Tabline / Urlline)
+
+- Both `ui/tabline.js` and `ui/urlline.js` inject `click` listeners only.
+- Add separate `contextmenu` listeners that `preventDefault()` and send IPC.
+- Never fall through to the `click` handler.
+
+### 4.3 Sidepanel
+
+- `core/history/panel.js` `handleMouseEvent()` currently returns early for `input.button !== "left"`.
+- Extend to handle `"right"` explicitly: resolve target, build menu, prevent default.
+- Do **not** call `this.focus()` or `this.openCurrent()` on right-click.
+
+### 4.4 Overlay Dismissal
+
+- `main.js` `handleMouseInput()` currently only handles `input.button === "left"`.
+- Ensure it stays that way; right-click must never dismiss telescope/selection modal/downloads modal/whichKey.
+
+---
+
+## 5. New / Modified Modules
+
+### 5.1 Main Process
+
+| File | Purpose |
+|------|---------|
+| `core/adapters/platform/contextMenuBuilder.js` | Builds `MenuItemConstructorOptions[]` from context descriptor and runtime snapshot. |
+| `core/adapters/platform/contextMenuActions.js` | Executes actions: dispatch intents, call buffer/download services, open devtools, clipboard. |
+| `runtime/contextMenuRegistration.js` | Registers `webContents.on("context-menu")` for all buffers; wires UI shell IPC; manages cleanup. |
+
+### 5.2 Renderer / Preload
+
+| File | Change |
+|------|--------|
+| `ui/shell/preload.js` | Add `contextMenu(payload)` → `ipcRenderer.send("ui-shell:context-menu", payload)`. |
+| `ui/tabline.js` | Add `contextmenu` listener; send IPC with zone/tabId. |
+| `ui/urlline.js` | Add `contextmenu` listener; send IPC with zone/action. |
+| `ui/shell/services/shellTemplates.js` | Add `contextmenu` prevention for statusline. |
+
+### 5.3 Sidepanel
+
+| File | Change |
+|------|--------|
+| `core/history/panel.js` | Extend `handleMouseEvent` for right-click branch; add `openFolderLinksInNewTabs`, `openEntryInSplit` helpers. |
+| `core/adapters/platform/panelViewHost.js` | Ensure `before-mouse-event` forwards right-clicks unchanged (already does). |
+
+### 5.4 IPC Contracts
+
+| File | Change |
+|------|--------|
+| `core/contracts/ipc.js` | Add `"ui-shell:context-menu"` validator: `{ zone: validateEnum(["urlline","tabline","sidepanel"]), target?: validateString, tabId?: validateInteger, x: validateFiniteNumber, y: validateFiniteNumber }`. |
+| `runtime/ipcRegistration.js` | Add `onContextMenu` handler; route to `contextMenuBuilder`. |
+
+### 5.5 Buffer Manager Helpers
+
+| File | Change |
+|------|--------|
+| `browser/manager.js` | Add `duplicateTab(id)`, `closeAllTabs()`, `openUrlInRightSplit(url)`. |
+| `browser/services/bufferLifecycleService.js` | Add `duplicateBuffer(manager, id)`, `closeAllBuffers(manager)`. |
+| `browser/services/splitController.js` | Add `openUrlInRightSplit(manager, url)` helper. |
+
+---
+
+## 6. Helpers to Implement
+
+### 6.1 `openUrlInRightSplit(manager, url)`
+
+```
+if (!manager.split.enabled) {
+  manager.openVerticalSplit();
+}
+// Ensure right pane buffer exists
+manager.ensureRightPaneBuffer();
+// Create a new buffer with the URL and assign as right pane source
+const buffer = manager.create(url);
+manager.split.rightPaneSourceBuffer = buffer;
+manager.focusedPane = "right";
+manager.layoutViews();
+manager.focusActive();
+manager.notify({ kind: "structure", activeChanged: true });
+```
+
+*Open question*: should split-open create a new buffer (adds tab) or load into an existing mirrored pane?
+**Decision**: create a new buffer so the URL becomes a first-class tab. This matches "open in split" semantics from modern browsers.
+
+### 6.2 `openLinkInNewWindow(url)`
+
+Since `setWindowOpenHandler` denies all `window.open`, context menu "Open in New Window" must use app-controlled window creation.
+
+```
+function openLinkInNewWindow(url) {
+  createWindow(); // existing main.js helper
+  // New window will have pending URL; dispatch after creation
+  const context = getLastWindowContext();
+  if (context) {
+    context.dispatch(context.win, { type: INTENTS.OPEN_URL, url }, context.state);
+  }
+}
+```
+
+If multi-window URL dispatch race exists, queue the URL in `pendingUrls` and let `createWindow` drain it.
+
+### 6.3 `openFolderLinksInNewTabs(folderNode)`
+
+Recursive walk of folder children. For every `type === "entry"` node, call `buffers.create(entry.url)`.
+
+---
+
+## 7. Disabled-State Rules
+
+| Context | Item | Disable When |
+|---------|------|--------------|
+| Page default | Previous Page | `!canGoBack` |
+| Page default | Next Page | `!canGoForward` |
+| Link | Open in New Window | Always disabled until multi-window polished *(or use §6.2)* |
+| Tabline | Close All Left | Tab index === 0 |
+| Tabline | Close All Right | Tab index === last |
+| Tabline | Split Tab | `buffers.isSplitEnabled() && split.mode === "regular"` |
+| Downloads | Open File | `entry.state !== "completed"` |
+| Downloads | Open File Location | `!entry.savePath` |
+| Sidepanel entry | Open in Split | *(never disabled; if split active, replaces right pane)* |
+
+---
+
+## 8. Security Boundaries
+
+- All new IPC channels validated via `core/contracts/ipc.js`.
+- URL-line and tabline context menu IPC restricted to `SURFACE_ROLES.TRUSTED_SHELL`.
+- Web content URLs validated via `validateNavigableUrl` before `buffers.create()` or `active.load()`.
+- Download URLs for "Save Image As" go through existing `will-download` policy.
+- `clipboard.writeText` only for strings derived from web params or sidepanel entries; never raw renderer input.
+- DevTools inspect requires active `webContents` that is not destroyed.
+
+---
+
+## 9. Implementation Phases
+
+### Phase A — Web Content Context Menu
+1. Create `core/adapters/platform/contextMenuBuilder.js` with all web content branches.
+2. Create `core/adapters/platform/contextMenuActions.js` with action executors.
+3. Register `webContents.on("context-menu")` in `runtime/contextMenuRegistration.js`.
+4. Wire into `main.js` window creation lifecycle.
+5. Guard `selectionClipboardObserver.js` and `inputCoordinator.js` to ignore right-click for left-click side effects.
+6. Tests: template composition per context type, disabled states, URL validation.
+
+### Phase B — UI Shell Context Menus
+1. Add `contextMenu` to `ui/shell/preload.js`.
+2. Add `contextmenu` listeners to `ui/tabline.js` and `ui/urlline.js`.
+3. Add IPC contract and handler in `runtime/ipcRegistration.js`.
+4. Implement tabline actions: close left/right/all, duplicate, split.
+5. Implement urlline actions: input edit menu, hide urlline.
+6. Add statusline `preventDefault` in `shellTemplates.js`.
+7. Tests: IPC payload validation, menu presence/absence per zone, action side effects.
+
+### Phase C — Sidepanel Context Menus
+1. Extend `core/history/panel.js` `handleMouseEvent` for right-click.
+2. Add helpers: `openFolderLinksInNewTabs`, `openUrlInRightSplit`.
+3. Build sidepanel menu templates in `contextMenuBuilder.js`.
+4. Implement delete/open actions for history, bookmarks, downloads.
+5. Tests: right-click target resolution, folder open, disabled download open.
+
+### Phase D — Hardening & Polish
+1. Verify right-click never triggers left-click behavior anywhere.
+2. Verify disabled states update correctly after state changes.
+3. Verify menu closes when window loses focus.
+4. Add smoke tests for end-to-end flows.
+
+### Phase E — Custom Themed Menu (Future)
+1. Replace `Menu.buildFromTemplate` with custom overlay-based menu renderer.
+2. Reuse existing overlay infrastructure (`createOverlayBrowserView`).
+3. Keep same action dispatch paths; only UI surface changes.
+
+---
+
+## 10. Files to Modify (Checklist)
+
+- [ ] `core/adapters/platform/contextMenuBuilder.js` *(new)*
+- [ ] `core/adapters/platform/contextMenuActions.js` *(new)*
+- [ ] `runtime/contextMenuRegistration.js` *(new)*
+- [ ] `main.js` — integrate registration, add `openUrlInRightSplit` wiring
+- [ ] `ui/shell/preload.js` — add `contextMenu` bridge
+- [ ] `ui/tabline.js` — add `contextmenu` listener
+- [ ] `ui/urlline.js` — add `contextmenu` listener
+- [ ] `ui/shell/services/shellTemplates.js` — statusline prevention
+- [ ] `core/history/panel.js` — right-click branch + helpers
+- [ ] `browser/manager.js` — new public methods
+- [ ] `browser/services/bufferLifecycleService.js` — `duplicateBuffer`, `closeAllBuffers`
+- [ ] `browser/services/splitController.js` — `openUrlInRightSplit`
+- [ ] `core/contracts/ipc.js` — new validator
+- [ ] `runtime/ipcRegistration.js` — new handler
+- [ ] `browser/services/selectionClipboardObserver.js` — right-click guard
+- [ ] `INTENTS.md` — add any new intents if needed
+- [ ] `tests/security/ipc-contracts.test.js` — new payload tests
+- [ ] `tests/security/adapter-contracts.test.js` — context-menu registration test
+- [ ] `tests/app/` — new context-menu behavior tests
+
+---
+
+## 11. Open Decisions
+
+1. **Custom theme vs native**: Locked to **native first** (this plan).
+2. **Open in new window**: Enable via app-controlled `createWindow` (§6.2) or keep disabled? **Recommendation**: enable via app control to avoid security policy conflict.
+3. **Split tab behavior**: Create new buffer or reuse mirrored pane? **Recommendation**: create new buffer (becomes a tab).
+4. **Bookmark "..." on page background**: Open bookmarks panel or add current page? **Recommendation**: dispatch `BOOKMARKS_ADD_ROOT_ACTIVE` (adds current page).
+5. **Image "Send by email"**: Use `mailto:` with image URL, or omit? **Recommendation**: include as lightweight mailto link.

@@ -52,6 +52,15 @@ const INTENT_PAYLOAD_CONTRACTS = {
     direction: validateScrollDirection,
     amount: validateFiniteNumber,
   }),
+  [INTENTS.NAV_BACK]: withBaseFields({
+    bufferId: optional(validateInteger),
+  }),
+  [INTENTS.NAV_FORWARD]: withBaseFields({
+    bufferId: optional(validateInteger),
+  }),
+  [INTENTS.RELOAD_PAGE]: withBaseFields({
+    bufferId: optional(validateInteger),
+  }),
   [INTENTS.OPEN_URL]: withBaseFields({
     url: validateString,
   }),
@@ -67,6 +76,14 @@ const INTENT_PAYLOAD_CONTRACTS = {
   }),
   [INTENTS.CLOSE_BUFFER]: withBaseFields({
     id: optional(nullable(validateInteger)),
+  }),
+  [INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE]: withBaseFields({
+    url: optional(validateString),
+    title: optional(validateString),
+  }),
+  [INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT]: withBaseFields({
+    url: optional(validateString),
+    title: optional(validateString),
   }),
   [INTENTS.SET_URLLINE_VISIBILITY]: withBaseFields({
     enabled: validateBoolean,

@@ -14,6 +14,7 @@ const {
   focusSplitLeft,
   focusSplitRight,
   focusPane,
+  openUrlInRightSplit,
   reconcileSplitSources,
 } = require("./services/splitController");
 const { attachPaneTracking } = require("./services/selectionClipboardObserver");
@@ -295,6 +296,10 @@ class BufferManager {
 
   focusPane(pane = "left") {
     return focusPane(this, pane);
+  }
+
+  openUrlInRightSplit(url) {
+    return openUrlInRightSplit(this, url);
   }
 
   isSplitEnabled() {

@@ -114,8 +114,16 @@ function createHistoryBookmarksHandlers(deps) {
         persist: false,
       });
     },
-    [INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE]: () => {
-      const candidate = getActiveBookmarkCandidate();
+    [INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE]: ({ intent }) => {
+      let candidate = null;
+      if (intent.url) {
+        candidate = {
+          url: String(intent.url).trim(),
+          title: String(intent.title || intent.url).trim(),
+        };
+      } else {
+        candidate = getActiveBookmarkCandidate();
+      }
       if (!candidate) {
         return;
       }
@@ -129,8 +137,16 @@ function createHistoryBookmarksHandlers(deps) {
         sidepanelController.render();
       }
     },
-    [INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT]: () => {
-      const candidate = getActiveBookmarkCandidate();
+    [INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT]: ({ intent }) => {
+      let candidate = null;
+      if (intent.url) {
+        candidate = {
+          url: String(intent.url).trim(),
+          title: String(intent.title || intent.url).trim(),
+        };
+      } else {
+        candidate = getActiveBookmarkCandidate();
+      }
       if (!candidate) {
         return;
       }

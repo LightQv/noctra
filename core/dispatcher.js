@@ -295,8 +295,8 @@ function quitCurrentWindowOrApp(win) {
   windows[windows.length - 1].close();
 }
 
-function getActiveBookmarkCandidate() {
-  const active = buffers.getActive();
+function getActiveBookmarkCandidate(buffersRef) {
+  const active = buffersRef.getActive();
   if (!isBookmarkableBuffer(active)) return null;
   const url = typeof active.url === "string" ? active.url.trim() : "";
   const title = String(active.title || url).trim() || url;
@@ -344,7 +344,7 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     applyThemeAcrossWindows: runtimeDeps.applyThemeAcrossWindows,
     reloadReloadableBuffers: () => reloadReloadableBuffers(runtimeDeps),
     quitCurrentWindowOrApp,
-    getActiveBookmarkCandidate,
+    getActiveBookmarkCandidate: () => getActiveBookmarkCandidate(localBuffers),
     webContentsActions,
   };
 

@@ -1,10 +1,10 @@
-const uiShell = require("../../ui/shell/manager");
 const bookmarksService = require("./service");
 
 const PAGE_SIZE = 9;
 
 class BookmarkInsertScopeModal {
-  constructor() {
+  constructor({ uiShell } = {}) {
+    this.uiShell = uiShell;
     this.active = false;
     this.entry = null;
     this.stack = [];
@@ -25,7 +25,7 @@ class BookmarkInsertScopeModal {
     this.pageByLevel = [0];
     this.confirmIndex = 0;
     this.active = true;
-    uiShell.showSelectionModal(this.buildModel());
+    this.uiShell?.showSelectionModal(this.buildModel());
   }
 
   close() {
@@ -34,7 +34,7 @@ class BookmarkInsertScopeModal {
     this.stack = [];
     this.pageByLevel = [];
     this.confirmIndex = 0;
-    uiShell.hideSelectionModal();
+    this.uiShell?.hideSelectionModal();
   }
 
   getCurrentFolderPath() {
@@ -129,7 +129,7 @@ class BookmarkInsertScopeModal {
 
   rerender() {
     if (!this.active) return;
-    uiShell.updateSelectionModal(this.buildModel());
+    this.uiShell?.updateSelectionModal(this.buildModel());
   }
 
   confirmInsert() {
@@ -272,12 +272,11 @@ class BookmarkInsertScopeModal {
   }
 }
 
-function createBookmarkInsertScopeModal() {
-  return new BookmarkInsertScopeModal();
+function createBookmarkInsertScopeModal({ uiShell } = {}) {
+  return new BookmarkInsertScopeModal({ uiShell });
 }
 
-const defaultBookmarkInsertScopeModal = createBookmarkInsertScopeModal();
-
-module.exports = defaultBookmarkInsertScopeModal;
-module.exports.BookmarkInsertScopeModal = BookmarkInsertScopeModal;
-module.exports.createBookmarkInsertScopeModal = createBookmarkInsertScopeModal;
+module.exports = {
+  BookmarkInsertScopeModal,
+  createBookmarkInsertScopeModal,
+};

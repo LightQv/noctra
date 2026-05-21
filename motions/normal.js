@@ -25,6 +25,7 @@ const defaultBuffers = require("../browser/manager");
 function buildLeaderContext(buffers) {
   return {
     activeBuffer: buffers.getActive(),
+    isSplitEnabled: buffers.isSplitEnabled(),
   };
 }
 

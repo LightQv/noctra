@@ -180,9 +180,12 @@ const ACTION_BUILDERS = {
   split_close_right: createActionBuilder("split_close_right", () => ({
     type: INTENTS.SPLIT_CLOSE_RIGHT,
   })),
-  split_devtools: createActionBuilder("split_devtools", () => ({
-    type: INTENTS.SPLIT_DEVTOOLS,
-  })),
+  split_devtools: setAvailability(
+    createActionBuilder("split_devtools", () => ({
+      type: INTENTS.SPLIT_DEVTOOLS,
+    })),
+    (context = {}) => !context.isSplitEnabled,
+  ),
 };
 
 module.exports = {

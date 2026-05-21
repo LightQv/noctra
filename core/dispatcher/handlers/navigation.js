@@ -32,17 +32,32 @@ function createNavigationHandlers(deps) {
       const buf = buffers.getActive();
       webContentsActions.pageUp(buf.webContents).catch(() => {});
     },
-    [INTENTS.NAV_BACK]: () => {
-      const buf = buffers.getActive();
-      webContentsActions.goBack(buf.webContents);
+    [INTENTS.NAV_BACK]: ({ intent }) => {
+      let buf = buffers.getActive();
+      if (Number.isInteger(intent.bufferId)) {
+        buf = buffers.getBuffers().find((b) => b.id === intent.bufferId) || buf;
+      }
+      if (buf && buf.webContents) {
+        webContentsActions.goBack(buf.webContents);
+      }
     },
-    [INTENTS.NAV_FORWARD]: () => {
-      const buf = buffers.getActive();
-      webContentsActions.goForward(buf.webContents);
+    [INTENTS.NAV_FORWARD]: ({ intent }) => {
+      let buf = buffers.getActive();
+      if (Number.isInteger(intent.bufferId)) {
+        buf = buffers.getBuffers().find((b) => b.id === intent.bufferId) || buf;
+      }
+      if (buf && buf.webContents) {
+        webContentsActions.goForward(buf.webContents);
+      }
     },
-    [INTENTS.RELOAD_PAGE]: () => {
-      const buf = buffers.getActive();
-      webContentsActions.reload(buf.webContents);
+    [INTENTS.RELOAD_PAGE]: ({ intent }) => {
+      let buf = buffers.getActive();
+      if (Number.isInteger(intent.bufferId)) {
+        buf = buffers.getBuffers().find((b) => b.id === intent.bufferId) || buf;
+      }
+      if (buf && buf.webContents) {
+        webContentsActions.reload(buf.webContents);
+      }
     },
     [INTENTS.OPEN_URL]: ({ intent }) => {
       const rawUrl = typeof intent.url === "string" ? intent.url : "";

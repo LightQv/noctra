@@ -41,6 +41,7 @@ const {
 } = require("./services/sessionSnapshotService");
 const {
   createBuffer,
+  createManyBuffers,
   closeBuffer,
   rememberClosedBuffer,
   reopenLastClosed,
@@ -110,6 +111,10 @@ class BufferManager {
 
   create(url = "about:blank", options = {}) {
     return createBuffer(this, url, options);
+  }
+
+  createMany(urlEntries) {
+    return createManyBuffers(this, urlEntries);
   }
 
   openConfiguredBuffer(options = {}) {

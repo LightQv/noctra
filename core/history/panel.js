@@ -1,8 +1,14 @@
-const { clipboard } = require("electron");
+const { clipboard, Menu } = require("electron");
 const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
 const downloadsService = require("../downloads/service");
 const notificationsService = require("../notifications/service");
+const {
+  buildSidepanelContextMenuTemplate,
+} = require("../adapters/platform/contextMenuBuilder");
+const {
+  createSidepanelContextMenuActions,
+} = require("../adapters/platform/contextMenuActions");
 const {
   createPanelRenderTransport,
 } = require("../adapters/renderer/panelRenderTransport");
@@ -1724,8 +1730,22 @@ class HistoryPanel {
     }
   }
 
-  async handleMouseEvent(input) {
+  async handleMouseEvent(input, event) {
     if (!this.visible || !input || input.type !== "mouseUp") return;
+
+    if (input.button === "right") {
+      if (event && typeof event.preventDefault === "function") {
+        event.preventDefault();
+      }
+      const target = await this.resolveMouseTarget(input.x, input.y);
+      if (!target || !target.role) {
+        this.showContextMenu({ rowType: "" }, input.x, input.y);
+        return;
+      }
+      this.showContextMenu(target, input.x, input.y);
+      return;
+    }
+
     if (input.button !== "left") return;
     const clickCount = Number.isFinite(input.clickCount)
       ? input.clickCount
@@ -1778,6 +1798,55 @@ class HistoryPanel {
       this.openCurrent(false);
     }
     this.render();
+  }
+
+  showContextMenu(target, _x, _y) {
+    const rowType = target.rowType || "";
+    const idx = Number.isFinite(target.rowIndex) ? target.rowIndex : -1;
+    const nodes = this.getTreeFlatNodes();
+    let node = null;
+    if (idx >= 0 && idx < nodes.length) {
+      node = nodes[idx];
+    }
+
+    let runtimeSnapshot = {};
+    if (this.treeKind === "downloads" && node) {
+      const entry = node.entry || {};
+      runtimeSnapshot = {
+        isCompleted: entry.state === "completed",
+        hasSavePath: Boolean(entry.savePath),
+      };
+    }
+
+    const actions = createSidepanelContextMenuActions({
+      panel: this,
+      node,
+      buffers: this.buffers,
+      historyService,
+      bookmarksService,
+      downloadsService,
+    });
+
+    const template = buildSidepanelContextMenuTemplate({
+      treeKind: this.treeKind,
+      rowType,
+      runtimeSnapshot,
+      actions,
+    });
+
+    if (!template || template.length === 0) return;
+
+    const menu = Menu.buildFromTemplate(template);
+    menu.popup({ window: this.window });
+  }
+
+  deleteFavoriteNodeById(nodeId) {
+    const location = this.findFavoriteNodeLocation(nodeId);
+    if (!location) return false;
+    this.recordFavoriteMutationSnapshot();
+    location.children.splice(location.index, 1);
+    this.saveBookmarks();
+    return true;
   }
 
   resolveFavoriteScopeBottomIndex(flatNodes, startIndex) {

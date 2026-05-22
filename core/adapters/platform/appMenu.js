@@ -966,7 +966,23 @@ function createAppMenu({
     Menu.setApplicationMenu(Menu.buildFromTemplate(buildTemplate(next)));
   }
 
+  const REBUILD_DEBOUNCE_MS = 50;
+  let debounceTimer = null;
+
   function rebuild() {
+    if (debounceTimer) return;
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      lastSnapshot = null;
+      sync();
+    }, REBUILD_DEBOUNCE_MS);
+  }
+
+  function flush() {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
     lastSnapshot = null;
     sync();
   }
@@ -976,7 +992,7 @@ function createAppMenu({
     rebuild();
   }
 
-  return { sync, rebuild, setFolderIcon };
+  return { sync, rebuild, flush, setFolderIcon };
 }
 
 module.exports = {

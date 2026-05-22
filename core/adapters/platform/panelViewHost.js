@@ -21,9 +21,9 @@ function createPanelViewHost({ windowRef, onMouseDown, onFocus, onMouseEvent }) 
   windowRef.addBrowserView(view);
   markSurfaceRole(view.webContents, SURFACE_ROLES.TRUSTED_PANEL);
 
-  view.webContents.on("before-mouse-event", (_event, input) => {
+  view.webContents.on("before-mouse-event", (event, input) => {
     if (typeof onMouseEvent === "function") {
-      onMouseEvent(input);
+      onMouseEvent(event, input);
     }
     if (!input || input.type !== "mouseDown") return;
     if (typeof onMouseDown === "function") {

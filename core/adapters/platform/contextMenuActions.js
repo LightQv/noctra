@@ -279,7 +279,134 @@ function createUIShellContextMenuActions({
   };
 }
 
+function createSidepanelContextMenuActions({
+  panel,
+  node,
+  buffers,
+  historyService,
+  bookmarksService,
+  downloadsService,
+}) {
+  return {
+    openInNewTab() {
+      if (!node) return;
+      const url = node.entry?.url || node.url || "";
+      if (url) {
+        buffers.create(url);
+      }
+    },
+
+    openInSplit() {
+      if (!node) return;
+      const url = node.entry?.url || node.url || "";
+      if (url && typeof buffers.openUrlInRightSplit === "function") {
+        buffers.openUrlInRightSplit(url);
+      }
+    },
+
+    deleteEntry() {
+      if (!node) return;
+      if (panel.treeKind === "history") {
+        if (node.dateKey && node.entry?.id) {
+          historyService.deleteEntry(node.dateKey, node.entry.id);
+          panel.reloadData();
+          panel.render();
+        }
+      } else if (panel.treeKind === "bookmarks") {
+        panel.deleteFavoriteNodeById(node.id);
+        panel.render();
+      }
+    },
+
+    deleteFolder() {
+      if (!node) return;
+      if (panel.treeKind === "history") {
+        if (node.dateKey) {
+          historyService.deleteDate(node.dateKey);
+          panel.reloadData();
+          panel.render();
+        }
+      } else if (panel.treeKind === "bookmarks") {
+        panel.deleteFavoriteNodeById(node.id);
+        panel.render();
+      }
+    },
+
+    openFolderLinksInNewTabs() {
+      if (!node) return;
+      const urls = [];
+      if (panel.treeKind === "history") {
+        const day = panel.days.find((d) => d.key === node.dateKey);
+        if (!day) return;
+        for (const entry of day.entries) {
+          if (entry.url) {
+            urls.push(entry.url);
+          }
+        }
+      } else if (panel.treeKind === "bookmarks") {
+        const folderNode =
+          node.type === "folder"
+            ? node
+            : panel.findFavoriteNodeLocation(node.id)?.node;
+        if (!folderNode) return;
+        const walk = (n) => {
+          if (n.type === "entry" && n.url) {
+            urls.push(n.url);
+          } else if (n.type === "folder" && Array.isArray(n.children)) {
+            for (const child of n.children) {
+              walk(child);
+            }
+          }
+        };
+        walk(folderNode);
+      }
+      if (urls.length > 0 && typeof buffers.createMany === "function") {
+        buffers.createMany(urls);
+      }
+    },
+
+    deleteAll() {
+      if (panel.treeKind === "bookmarks") {
+        bookmarksService.deleteAll();
+        panel.reloadData();
+        panel.render();
+      } else {
+        historyService.deleteAll();
+        panel.reloadData();
+        panel.render();
+      }
+    },
+
+    deleteAllComplete() {
+      downloadsService.clearCompleted();
+      panel.reloadData();
+      panel.render();
+    },
+
+    showInFolder() {
+      if (!node) return;
+      const id = node.id || node.entry?.id;
+      if (id) {
+        downloadsService.showInFolder(id);
+      }
+    },
+
+    openFile() {
+      if (!node) return;
+      const id = node.id || node.entry?.id;
+      if (id) {
+        downloadsService.openFile(id);
+      }
+    },
+
+    hideSidepanel() {
+      panel.hide();
+    },
+  };
+}
+
 module.exports = {
   createWebContextMenuActions,
   createUIShellContextMenuActions,
+  createSidepanelContextMenuActions,
 };

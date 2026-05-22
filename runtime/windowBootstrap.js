@@ -252,8 +252,8 @@ function bootstrapWindowRuntime({
     onMouseDown: () => {
       sidepanelController.focus();
     },
-    onMouseEvent: (input) => {
-      sidepanelController.handleMouseEvent(input);
+    onMouseEvent: (event, input) => {
+      sidepanelController.handleMouseEvent(input, event);
     },
     onFocus: () => {
       sidepanelController.focus();

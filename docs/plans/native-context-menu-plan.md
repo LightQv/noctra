@@ -472,6 +472,153 @@ Recursive walk of folder children. For every `type === "entry"` node, call `buff
 3. Verify menu closes when window loses focus.
 4. Add smoke tests for end-to-end flows.
 
+### Step 0 — Intent Pipeline Refactor & Right-click Selection Fix
+
+**Objective:** Before moving to Phase E, close the architectural gap between context menu actions and the intent/leader pipeline. Every browser-level behavior reachable from a context menu must also be reachable from the keyboard (via leader actions) and must flow through the dispatcher (via intents). Native/platform-only helpers (clipboard, inspect element, save dialog) may remain direct. Fix the right-click text selection flash on non-editable web content.
+
+**Guiding Rules:**
+1. Every leader action emits an intent — already true; do not break this.
+2. Every browser-level context menu action dispatches an intent — close, duplicate, split, delete history/bookmark/download entries, bulk open, etc.
+3. Native editing and platform helpers stay direct — `cut`, `copy`, `paste`, `selectAll`, `inspectElement`, `dialog.showSaveDialog`, `shell.openExternal`, `clipboard.writeText`.
+4. Guard logic is not duplicated — extract shared predicates (e.g., `canBufferBeSplit`) and use them in both dispatcher handlers and context menu enablement.
+5. Right-click isolation extends to selection — clear `window.getSelection()` after `event.preventDefault()` on non-editable content to suppress the word-under-cursor flash.
+
+**New Intents:**
+
+| Intent | Payload | Description |
+|--------|---------|-------------|
+| `CLOSE_ALL_BUFFERS` | — | Close every buffer; fall back to configured home buffer. |
+| `DUPLICATE_BUFFER` | `{ bufferId: integer }` | Create a copy of the specified buffer. |
+| `OPEN_URL_IN_SPLIT` | `{ url: string }` | Open a URL in the right split pane (creating the split if needed). |
+| `NEW_BUFFERS` | `{ urls: string[] }` | Bulk-create buffers from an array of URLs. |
+| `DELETE_HISTORY_ENTRY` | `{ dateKey: string, entryId: string }` | Remove a single history entry. |
+| `DELETE_HISTORY_DATE` | `{ dateKey: string }` | Remove an entire history day/folder. |
+| `DELETE_BOOKMARK_NODE` | `{ nodeId: string }` | Remove a bookmark entry or folder. |
+| `DOWNLOADS_CLEAR_COMPLETED` | — | Clear all completed download entries. |
+| `SHOW_DOWNLOAD_IN_FOLDER` | `{ downloadId: string }` | Reveal a downloaded file in the file manager. |
+| `OPEN_DOWNLOAD_FILE` | `{ downloadId: string }` | Open a completed download with the default application. |
+
+**Extended Intents:**
+
+| Intent | Added Payload Field | Behavior |
+|--------|---------------------|----------|
+| `CLOSE_LEFT_BUFFERS` | `{ index?: integer }` | If `index` omitted, close all left of *active* buffer. If provided, close all left of the buffer at that index. |
+| `CLOSE_RIGHT_BUFFERS` | `{ index?: integer }` | Same pattern as `CLOSE_LEFT_BUFFERS`. |
+
+**New Leader Actions:**
+
+| Action ID | Intent | Availability Guard |
+|-----------|--------|--------------------|
+| `close_all_buffers` | `CLOSE_ALL_BUFFERS` | — |
+| `duplicate_buffer` | `DUPLICATE_BUFFER` | Buffer must exist and not be editable. |
+| `open_url_in_split` | `OPEN_URL_IN_SPLIT` | `canBufferBeSplit(activeBuffer)` |
+| `new_buffers` | `NEW_BUFFERS` | — |
+| `delete_history_entry` | `DELETE_HISTORY_ENTRY` | Sidepanel must be visible on history tree. |
+| `delete_history_date` | `DELETE_HISTORY_DATE` | Sidepanel must be visible on history tree. |
+| `delete_bookmark_node` | `DELETE_BOOKMARK_NODE` | Sidepanel must be visible on bookmarks tree. |
+| `downloads_clear_completed` | `DOWNLOADS_CLEAR_COMPLETED` | Sidepanel must be visible on downloads tree. |
+| `show_download_in_folder` | `SHOW_DOWNLOAD_IN_FOLDER` | Download entry selected and has `savePath`. |
+| `open_download_file` | `OPEN_DOWNLOAD_FILE` | Download entry selected and `state === "completed"`. |
+
+**Context Menu → Intent Mapping:**
+
+*Web Content (`createWebContextMenuActions`):*
+- `openLinkInSplit(url)` → `OPEN_URL_IN_SPLIT` (was direct `buffers.openUrlInRightSplit()`)
+- `cut` / `copy` / `paste` / `selectAll` / `deleteItem` → **keep direct** (native editing)
+- `copyLinkAddress` / `copyImageAddress` → **keep direct** (clipboard helper)
+- `saveImageAs` / `savePageAs` → **keep direct** (platform download/dialog)
+- `inspectElement` → **keep direct** (dev-only)
+- `sendByEmail` → **keep direct** (platform sharing)
+- All others already use intents — no change.
+
+*UI Shell (`createUIShellContextMenuActions`):*
+- `closeTab(tabId)` → `CLOSE_BUFFER` with `id: tabId`
+- `closeAllTabsToLeft(tabId)` → `CLOSE_LEFT_BUFFERS` with `index`
+- `closeAllTabsToRight(tabId)` → `CLOSE_RIGHT_BUFFERS` with `index`
+- `closeAllTabs()` → `CLOSE_ALL_BUFFERS`
+- `duplicateTab(tabId)` → `DUPLICATE_BUFFER` with `bufferId`
+- `splitTab(tabId)` → `SPLIT_VERTICAL`, then assign URL to right pane via shared `canBufferBeSplit()`
+- `copyUrl()` → **keep direct** (clipboard helper)
+- `editUrl()` → **keep direct** (inline UI state)
+- `hideUrlline()` → already uses `TOGGLE_URLLINE` — no change.
+
+*Sidepanel (`createSidepanelContextMenuActions`):*
+- `openInNewTab()` → `NEW_BUFFER`
+- `openInSplit()` → `OPEN_URL_IN_SPLIT`
+- `openFolderLinksInNewTabs()` → `NEW_BUFFERS`
+- `deleteEntry()` → `DELETE_HISTORY_ENTRY` / `DELETE_BOOKMARK_NODE`
+- `deleteFolder()` → `DELETE_HISTORY_DATE` / `DELETE_BOOKMARK_NODE`
+- `deleteAll()` → `HISTORY_DELETE_ALL` / `BOOKMARKS_DELETE_ALL`
+- `deleteAllComplete()` → `DOWNLOADS_CLEAR_COMPLETED`
+- `showInFolder()` → `SHOW_DOWNLOAD_IN_FOLDER`
+- `openFile()` → `OPEN_DOWNLOAD_FILE`
+- `hideSidepanel()` → `HISTORY_HIDE` / `BOOKMARKS_HIDE` / `DOWNLOADS_HIDE` (based on `treeKind`)
+
+**Right-click Selection Fix:**
+
+In `runtime/contextMenuRegistration.js`, inside `handleContextMenu`, immediately after `event.preventDefault()`:
+
+```javascript
+if (!params.isEditable && webContents && !webContents.isDestroyed()) {
+  webContents.executeJavaScript(
+    "window.getSelection && window.getSelection().removeAllRanges()",
+    true,
+  ).catch(() => {});
+}
+```
+
+- `isEditable === true` (text inputs, CodeMirror) → **skip**. The selection is needed for Cut/Copy/Paste.
+- `isEditable === false` (page background, links, images) → **clear**. Removes the word-under-cursor flash before the native menu renders.
+
+**Guard Deduplication:**
+
+Extract `browser/services/splitEligibility.js` with a shared `canBufferBeSplit(buffer)` predicate. Use in:
+1. `core/dispatcher/handlers/buffers.js` — `SPLIT_VERTICAL` handler
+2. `core/adapters/platform/contextMenuBuilder.js` — `canSplit` runtime snapshot field
+3. `core/adapters/platform/contextMenuActions.js` — `splitTab()` action
+
+**Files to Modify / Create:**
+
+| File | Purpose |
+|------|---------|
+| `core/intents.js` | Add new intent constants |
+| `core/contracts/intents.js` | Add payload contracts for new intents; extend `CLOSE_LEFT_BUFFERS` / `CLOSE_RIGHT_BUFFERS` |
+| `motions/actionBuilders.js` | Add new leader actions |
+| `core/dispatcher/handlers/buffers.js` | Add `CLOSE_ALL_BUFFERS`, `DUPLICATE_BUFFER`, `OPEN_URL_IN_SPLIT`, `NEW_BUFFERS` handlers; refactor `SPLIT_VERTICAL` to use `canBufferBeSplit()` |
+| `core/dispatcher/handlers/history.js` | Add `DELETE_HISTORY_ENTRY`, `DELETE_HISTORY_DATE` handlers |
+| `core/dispatcher/handlers/bookmarks.js` | Add `DELETE_BOOKMARK_NODE` handler |
+| `core/dispatcher/handlers/downloads.js` | Add `DOWNLOADS_CLEAR_COMPLETED`, `SHOW_DOWNLOAD_IN_FOLDER`, `OPEN_DOWNLOAD_FILE` handlers |
+| `browser/services/splitEligibility.js` | **New** — shared `canBufferBeSplit()` helper |
+| `core/adapters/platform/contextMenuActions.js` | Refactor all three factories to dispatch intents; plumb `dispatch`/`win`/`INTENTS` into sidepanel factory |
+| `core/adapters/platform/contextMenuBuilder.js` | Import `canBufferBeSplit()` for `canSplit` computation |
+| `runtime/contextMenuRegistration.js` | Add selection clearing after `event.preventDefault()` |
+| `INTENTS.md` | Document new intents |
+| `tests/app/web-context-menu.test.js` | Add `openLinkInSplit` intent dispatch test |
+| `tests/app/ui-shell-context-menu.test.js` | Update tests for intent dispatch (not direct service calls) |
+| `tests/app/sidepanel-context-menu.test.js` | Update tests for intent dispatch; mock dispatcher instead of services |
+| `tests/app/right-click-isolation.test.js` | Add selection clearing test |
+| `tests/security/intent-contracts.test.js` | Add payload validation for new intents |
+
+**Checklist:**
+
+- [ ] Add new intents to `core/intents.js`
+- [ ] Extend `CLOSE_LEFT_BUFFERS` / `CLOSE_RIGHT_BUFFERS` contracts with optional `index`
+- [ ] Add payload contracts to `core/contracts/intents.js`
+- [ ] Add leader actions to `motions/actionBuilders.js`
+- [ ] Add dispatcher handlers for new intents
+- [ ] Create `browser/services/splitEligibility.js`
+- [ ] Refactor `SPLIT_VERTICAL` handler to use `canBufferBeSplit()`
+- [ ] Refactor `contextMenuBuilder.js` `canSplit` to use `canBufferBeSplit()`
+- [ ] Refactor `contextMenuActions.js` web actions (`openLinkInSplit` → intent)
+- [ ] Refactor `contextMenuActions.js` UI shell actions (close/duplicate/split → intents)
+- [ ] Refactor `contextMenuActions.js` sidepanel actions (all → intents; plumb `dispatch`/`win`/`INTENTS`)
+- [ ] Add selection clearing in `contextMenuRegistration.js`
+- [ ] Update `INTENTS.md`
+- [ ] Update all context menu tests to assert intent dispatch instead of direct calls
+- [ ] Add intent contract tests for new payloads
+- [ ] Run full test suite; ensure 0 failures
+- [ ] Run lint; ensure 0 errors
+
 ### Phase E — Custom Themed Menu (Future)
 1. Replace `Menu.buildFromTemplate` with custom overlay-based menu renderer.
 2. Reuse existing overlay infrastructure (`createOverlayBrowserView`).

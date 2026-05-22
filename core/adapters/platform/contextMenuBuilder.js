@@ -259,7 +259,104 @@ function buildUIShellContextMenuTemplate({ zone, target, runtimeSnapshot, action
   return items;
 }
 
+function buildSidepanelContextMenuTemplate({ treeKind, rowType, runtimeSnapshot, actions }) {
+  const items = [];
+
+  if (treeKind === "history") {
+    if (rowType === "day") {
+      items.push(
+        { label: "Open Every Link in New Tab", click: () => actions.openFolderLinksInNewTabs() },
+        { type: "separator" },
+        { label: "Delete Folder", click: () => actions.deleteFolder() },
+        { type: "separator" },
+        { label: "Hide Sidepanel", click: () => actions.hideSidepanel() },
+      );
+      return items;
+    }
+    if (rowType === "entry") {
+      items.push(
+        { label: "Open in New Tab", click: () => actions.openInNewTab() },
+        { label: "Open in Split", click: () => actions.openInSplit() },
+        { type: "separator" },
+        { label: "Delete Entry", click: () => actions.deleteEntry() },
+        { type: "separator" },
+        { label: "Hide Sidepanel", click: () => actions.hideSidepanel() },
+      );
+      return items;
+    }
+    // background
+    items.push(
+      { label: "Delete All", click: () => actions.deleteAll() },
+      { type: "separator" },
+      { label: "Hide Sidepanel", click: () => actions.hideSidepanel() },
+    );
+    return items;
+  }
+
+  if (treeKind === "bookmarks") {
+    if (rowType === "folder") {
+      items.push(
+        { label: "Open Every Link in New Tab", click: () => actions.openFolderLinksInNewTabs() },
+        { type: "separator" },
+        { label: "Delete Folder", click: () => actions.deleteFolder() },
+        { type: "separator" },
+        { label: "Hide Sidepanel", click: () => actions.hideSidepanel() },
+      );
+      return items;
+    }
+    if (rowType === "entry") {
+      items.push(
+        { label: "Open in New Tab", click: () => actions.openInNewTab() },
+        { label: "Open in Split", click: () => actions.openInSplit() },
+        { type: "separator" },
+        { label: "Delete Entry", click: () => actions.deleteEntry() },
+        { type: "separator" },
+        { label: "Hide Sidepanel", click: () => actions.hideSidepanel() },
+      );
+      return items;
+    }
+    // background
+    items.push(
+      { label: "Delete All", click: () => actions.deleteAll() },
+      { type: "separator" },
+      { label: "Hide Sidepanel", click: () => actions.hideSidepanel() },
+    );
+    return items;
+  }
+
+  if (treeKind === "downloads") {
+    if (rowType === "download") {
+      const { isCompleted, hasSavePath } = runtimeSnapshot;
+      items.push(
+        {
+          label: "Open File Location",
+          enabled: hasSavePath,
+          click: () => actions.showInFolder(),
+        },
+        {
+          label: "Open File",
+          enabled: isCompleted,
+          click: () => actions.openFile(),
+        },
+        { type: "separator" },
+        { label: "Hide Sidepanel", click: () => actions.hideSidepanel() },
+      );
+      return items;
+    }
+    // background
+    items.push(
+      { label: "Delete All Complete", click: () => actions.deleteAllComplete() },
+      { type: "separator" },
+      { label: "Hide Sidepanel", click: () => actions.hideSidepanel() },
+    );
+    return items;
+  }
+
+  return items;
+}
+
 module.exports = {
   buildWebContextMenuTemplate,
   buildUIShellContextMenuTemplate,
+  buildSidepanelContextMenuTemplate,
 };

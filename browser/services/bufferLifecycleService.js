@@ -264,6 +264,44 @@ function closeRightOfActive(manager) {
   return manager.getActive();
 }
 
+function createManyBuffers(manager, urlEntries) {
+  if (!manager.window) {
+    throw new Error(
+      "BufferManager must be initialized with a window before createMany().",
+    );
+  }
+  if (!Array.isArray(urlEntries) || urlEntries.length === 0) {
+    return [];
+  }
+
+  const created = [];
+  for (const entry of urlEntries) {
+    const url = typeof entry === "string" ? entry : entry.url;
+    const options = typeof entry === "object" && entry !== null ? entry.options || {} : {};
+    const buffer = new Buffer(0, options);
+    bindBufferEvents(manager, buffer);
+    manager.buffers.push(buffer);
+    created.push({ buffer, url });
+  }
+
+  manager.reindexBuffers();
+
+  for (const { buffer } of created) {
+    attachView(manager.window, buffer.view);
+  }
+
+  manager.layoutViews();
+
+  for (const { buffer, url } of created) {
+    if (url) {
+      buffer.load(url);
+    }
+  }
+
+  manager.notify({ kind: "structure", activeChanged: false });
+  return created.map((c) => c.buffer);
+}
+
 function closeAllLeftOf(manager, index) {
   if (index <= 0 || manager.buffers.length === 0) {
     return manager.getActive();
@@ -279,7 +317,16 @@ function closeAllLeftOf(manager, index) {
     buffer.destroy();
   }
 
-  manager.activeIndex = 0;
+  if (manager.activeIndex < index) {
+    manager.activeIndex = 0;
+  } else {
+    manager.activeIndex -= index;
+  }
+
+  if (manager.activeIndex >= manager.buffers.length) {
+    manager.activeIndex = Math.max(0, manager.buffers.length - 1);
+  }
+
   manager.reindexBuffers();
   manager.reconcileSplitSources();
   manager.syncDevtoolsTargetToLeftBuffer();
@@ -305,6 +352,14 @@ function closeAllRightOf(manager, index) {
       manager.split.rightPaneSourceBuffer = null;
     }
     buffer.destroy();
+  }
+
+  if (manager.activeIndex > index) {
+    manager.activeIndex = index;
+  }
+
+  if (manager.activeIndex >= manager.buffers.length) {
+    manager.activeIndex = Math.max(0, manager.buffers.length - 1);
   }
 
   manager.reindexBuffers();
@@ -369,6 +424,7 @@ function duplicateBuffer(manager, id) {
 
 module.exports = {
   createBuffer,
+  createManyBuffers,
   closeBuffer,
   rememberClosedBuffer,
   reopenLastClosed,

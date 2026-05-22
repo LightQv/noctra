@@ -340,6 +340,64 @@ function createSmokeScenarios({
       "devtools-lifecycle": runDevtoolsLifecycleSmokeScenario,
       "session-lifecycle": runSessionLifecycleSmokeScenario,
       "focus-lifecycle": runFocusLifecycleSmokeScenario,
+      "context-menu": async () => {
+        const { buildWebContextMenuTemplate } = require("../core/adapters/platform/contextMenuBuilder");
+        const { buildUIShellContextMenuTemplate } = require("../core/adapters/platform/contextMenuBuilder");
+        const { buildSidepanelContextMenuTemplate } = require("../core/adapters/platform/contextMenuBuilder");
+
+        // Verify web context menu template builds for editable input
+        const webTemplate = buildWebContextMenuTemplate({
+          params: { isEditable: true, x: 0, y: 0 },
+          runtimeSnapshot: {
+            canGoBack: false,
+            canGoForward: false,
+            defaultSearchEngine: "duckduckgo",
+            isSplitEnabled: false,
+            isRightPane: false,
+            isBookmarkable: false,
+          },
+          actions: {},
+        });
+        if (!webTemplate || webTemplate.length === 0) {
+          throw new Error("web context menu template is empty for editable input");
+        }
+
+        // Verify UI shell tabline template builds
+        const uiTemplate = buildUIShellContextMenuTemplate({
+          zone: "tabline",
+          target: "tab",
+          runtimeSnapshot: {
+            isFirst: false,
+            isLast: false,
+            isSplitEnabled: false,
+            isEditable: false,
+            hasVirtualDocument: false,
+            isDashboard: false,
+          },
+          actions: {},
+        });
+        if (!uiTemplate || uiTemplate.length === 0) {
+          throw new Error("ui shell context menu template is empty for tabline");
+        }
+
+        // Verify sidepanel template builds
+        const panelTemplate = buildSidepanelContextMenuTemplate({
+          treeKind: "history",
+          rowType: "entry",
+          runtimeSnapshot: {},
+          actions: {},
+        });
+        if (!panelTemplate || panelTemplate.length === 0) {
+          throw new Error("sidepanel context menu template is empty for history entry");
+        }
+
+        // Open a buffer to ensure context menu registration is active
+        const buffer = buffers.create("about:blank", { activate: true });
+        await sleep(250);
+        if (!buffer || !buffer.webContents) {
+          throw new Error("context-menu smoke could not create buffer");
+        }
+      },
     };
     const runner = scenarioRunners[scenario] || scenarioRunners.startup;
     const watchdogMs = 12000;

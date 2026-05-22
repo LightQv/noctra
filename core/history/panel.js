@@ -1739,6 +1739,17 @@ class HistoryPanel {
       if (event && typeof event.preventDefault === "function") {
         event.preventDefault();
       }
+      const webContents = this.getWebContents();
+      if (webContents && !webContents.isDestroyed()) {
+        try {
+          await webContents.executeJavaScript(
+            "window.getSelection && window.getSelection().removeAllRanges()",
+            true,
+          );
+        } catch {
+          // ignore
+        }
+      }
       const target = await this.resolveMouseTarget(input.x, input.y);
       if (!target || !target.role) {
         this.showContextMenu({ rowType: "" }, input.x, input.y);

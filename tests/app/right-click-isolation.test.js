@@ -85,6 +85,35 @@ test("panel handleMouseEvent with right-click does not call focus or openCurrent
   );
 });
 
+test("sidepanel handleMouseEvent clears selection on right-click", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const panelSource = fs.readFileSync(
+    path.join(__dirname, "../../core/history/panel.js"),
+    "utf-8",
+  );
+  const rightClickBranchIndex = panelSource.indexOf('if (input.button === "right")');
+  assert.ok(rightClickBranchIndex >= 0, "panel must have right-click branch");
+
+  const afterRightClick = panelSource.slice(rightClickBranchIndex);
+  const preventDefaultIndex = afterRightClick.indexOf("event.preventDefault()");
+  const executeJsIndex = afterRightClick.indexOf("executeJavaScript");
+  const removeAllRangesIndex = afterRightClick.indexOf("removeAllRanges()");
+
+  assert.ok(
+    preventDefaultIndex >= 0,
+    "panel right-click must call preventDefault",
+  );
+  assert.ok(
+    executeJsIndex > preventDefaultIndex,
+    "panel must execute selection-clearing script after preventDefault",
+  );
+  assert.ok(
+    removeAllRangesIndex > executeJsIndex,
+    "panel script must call removeAllRanges",
+  );
+});
+
 test("context menu registration calls event.preventDefault() for web contents", () => {
   // Verify via source code contract that preventDefault is called
   const fs = require("node:fs");

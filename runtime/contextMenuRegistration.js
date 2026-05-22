@@ -27,12 +27,23 @@ function registerWebContextMenu({
     win,
   });
 
-  function handleContextMenu(event, params, webContents) {
+  async function handleContextMenu(event, params, webContents) {
     if (params.mediaType === "video" && params.hasVideoContents) {
       return;
     }
 
     event.preventDefault();
+
+    if (!params.isEditable && webContents && !webContents.isDestroyed()) {
+      try {
+        await webContents.executeJavaScript(
+          "window.getSelection && window.getSelection().removeAllRanges()",
+          true,
+        );
+      } catch {
+        // ignore
+      }
+    }
 
     let canGoBack = false;
     let canGoForward = false;

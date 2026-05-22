@@ -3,6 +3,8 @@ function truncateSelection(text, maxLen = 24) {
   return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
 }
 
+const { canBufferBeSplit } = require("../../../browser/services/splitEligibility");
+
 function buildWebContextMenuTemplate({ params, runtimeSnapshot, actions }) {
   const {
     canGoBack,
@@ -211,8 +213,8 @@ function buildUIShellContextMenuTemplate({ zone, target, runtimeSnapshot, action
   const items = [];
 
   if (zone === "tabline" && target === "tab") {
-    const { isFirst, isLast, isSplitEnabled, isEditable, hasVirtualDocument, isDashboard } = runtimeSnapshot;
-    const canSplit = !isSplitEnabled && !isEditable && (!hasVirtualDocument || isDashboard);
+    const { isFirst, isLast, isSplitEnabled, buffer } = runtimeSnapshot;
+    const canSplit = !isSplitEnabled && canBufferBeSplit(buffer);
     items.push(
       { label: "Close Tab", click: () => actions.closeTab() },
       {
@@ -229,7 +231,7 @@ function buildUIShellContextMenuTemplate({ zone, target, runtimeSnapshot, action
       { type: "separator" },
       {
         label: "Duplicate Tab",
-        enabled: !isEditable,
+        enabled: Boolean(buffer && !buffer.isEditable),
         click: () => actions.duplicateTab(),
       },
       {

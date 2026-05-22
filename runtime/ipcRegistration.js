@@ -266,16 +266,7 @@ function registerRuntimeIpc({
           index >= 0 && index === buffers.buffers.length - 1,
         isSplitEnabled:
           buffers.isSplitEnabled() && buffers.split.mode === "regular",
-        isEditable: tabBuffer ? Boolean(tabBuffer.isEditable) : false,
-        hasVirtualDocument: tabBuffer ? Boolean(
-          tabBuffer.virtualDocument &&
-          typeof tabBuffer.virtualDocument.html === "string" &&
-          tabBuffer.virtualDocument.html.trim(),
-        ) : false,
-        isDashboard: tabBuffer ? Boolean(
-          tabBuffer.virtualUrl === "noctra://dashboard" ||
-          tabBuffer.url === "noctra://dashboard",
-        ) : false,
+        buffer: tabBuffer,
       };
       const actions = uiActions.forTablineTab(tabId);
       template = buildUIShellContextMenuTemplate({

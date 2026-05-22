@@ -25,13 +25,6 @@ function createWebContextMenuActions({
       }
     }
 
-    function validateAndOpenInSplit(url) {
-      const validation = validateNavigableUrl(url);
-      if (validation.ok) {
-        buffers.openUrlInRightSplit(validation.url);
-      }
-    }
-
     return {
       inspectElement(x, y) {
         if (webContents && !webContents.isDestroyed()) {
@@ -90,7 +83,14 @@ function createWebContextMenuActions({
       },
 
       openLinkInSplit(url) {
-        validateAndOpenInSplit(url);
+        const validation = validateNavigableUrl(url);
+        if (validation.ok) {
+          dispatch(
+            win,
+            { type: INTENTS.OPEN_URL_IN_SPLIT, url: validation.url },
+            state,
+          );
+        }
       },
 
       copyLinkAddress(url) {
@@ -211,47 +211,49 @@ function createUIShellContextMenuActions({
     forTablineTab(tabId) {
       return {
         closeTab() {
-          buffers.close(tabId);
+          dispatch(win, { type: INTENTS.CLOSE_BUFFER, id: tabId }, state);
         },
         closeAllTabsToLeft() {
           const index = getTabIndex(tabId);
           if (index > 0) {
-            buffers.closeAllLeftOf(index);
+            dispatch(
+              win,
+              { type: INTENTS.CLOSE_LEFT_BUFFERS, index },
+              state,
+            );
           }
         },
         closeAllTabsToRight() {
           const index = getTabIndex(tabId);
-          buffers.closeAllRightOf(index);
+          if (index >= 0 && index < buffers.buffers.length - 1) {
+            dispatch(
+              win,
+              { type: INTENTS.CLOSE_RIGHT_BUFFERS, index },
+              state,
+            );
+          }
         },
         closeAllTabs() {
-          buffers.closeAllBuffers();
+          dispatch(win, { type: INTENTS.CLOSE_ALL_BUFFERS }, state);
         },
         duplicateTab() {
-          buffers.duplicateBuffer(tabId);
+          dispatch(
+            win,
+            { type: INTENTS.DUPLICATE_BUFFER, bufferId: tabId },
+            state,
+          );
         },
         splitTab() {
           const target = buffers.buffers.find((buffer) => buffer.id === tabId);
           if (!target) return;
-          if (target.isEditable) return;
-          const isDashboard =
-            target.virtualUrl === "noctra://dashboard" ||
-            target.url === "noctra://dashboard";
-          if (
-            !isDashboard &&
-            target.virtualDocument &&
-            typeof target.virtualDocument.html === "string" &&
-            target.virtualDocument.html.trim()
-          ) {
-            return;
-          }
-          if (!buffers.isSplitEnabled()) {
-            buffers.openVerticalSplit();
-          }
-          if (isDashboard) {
-            buffers.openBufferInRightSplit(target);
-          } else {
-            buffers.openUrlInRightSplit(target.url || "about:blank");
-          }
+          const { canBufferBeSplit } = require("../../../browser/services/splitEligibility");
+          if (!canBufferBeSplit(target)) return;
+          const url = target.url || "about:blank";
+          dispatch(
+            win,
+            { type: INTENTS.OPEN_URL_IN_SPLIT, url },
+            state,
+          );
         },
       };
     },
@@ -280,55 +282,95 @@ function createUIShellContextMenuActions({
 }
 
 function createSidepanelContextMenuActions({
+  dispatch,
+  win,
+  state,
+  INTENTS,
   panel,
   node,
-  buffers,
-  historyService,
-  bookmarksService,
-  downloadsService,
+  _buffers,
 }) {
+  function getNodeUrl() {
+    if (!node) return "";
+    return node.entry?.url || node.url || "";
+  }
+
+  function getNodeId() {
+    if (!node) return null;
+    return node.id || node.entry?.id || null;
+  }
+
+  function getHideIntent() {
+    if (panel.treeKind === "history") return INTENTS.HISTORY_HIDE;
+    if (panel.treeKind === "bookmarks") return INTENTS.BOOKMARKS_HIDE;
+    if (panel.treeKind === "downloads") return INTENTS.DOWNLOADS_HIDE;
+    return INTENTS.HISTORY_HIDE;
+  }
+
+  function getDeleteAllIntent() {
+    if (panel.treeKind === "bookmarks") return INTENTS.BOOKMARKS_DELETE_ALL;
+    return INTENTS.HISTORY_DELETE_ALL;
+  }
+
   return {
     openInNewTab() {
-      if (!node) return;
-      const url = node.entry?.url || node.url || "";
+      const url = getNodeUrl();
       if (url) {
-        buffers.create(url);
+        dispatch(win, { type: INTENTS.NEW_BUFFER, url }, state);
       }
     },
 
     openInSplit() {
-      if (!node) return;
-      const url = node.entry?.url || node.url || "";
-      if (url && typeof buffers.openUrlInRightSplit === "function") {
-        buffers.openUrlInRightSplit(url);
+      const url = getNodeUrl();
+      if (url) {
+        dispatch(win, { type: INTENTS.OPEN_URL_IN_SPLIT, url }, state);
       }
     },
 
     deleteEntry() {
       if (!node) return;
       if (panel.treeKind === "history") {
-        if (node.dateKey && node.entry?.id) {
-          historyService.deleteEntry(node.dateKey, node.entry.id);
-          panel.reloadData();
-          panel.render();
+        const dateKey = node.dateKey;
+        const entryId = node.entry?.id;
+        if (dateKey && entryId) {
+          dispatch(
+            win,
+            { type: INTENTS.DELETE_HISTORY_ENTRY, dateKey, entryId },
+            state,
+          );
         }
       } else if (panel.treeKind === "bookmarks") {
-        panel.deleteFavoriteNodeById(node.id);
-        panel.render();
+        const nodeId = getNodeId();
+        if (nodeId) {
+          dispatch(
+            win,
+            { type: INTENTS.DELETE_BOOKMARK_NODE, nodeId },
+            state,
+          );
+        }
       }
     },
 
     deleteFolder() {
       if (!node) return;
       if (panel.treeKind === "history") {
-        if (node.dateKey) {
-          historyService.deleteDate(node.dateKey);
-          panel.reloadData();
-          panel.render();
+        const dateKey = node.dateKey;
+        if (dateKey) {
+          dispatch(
+            win,
+            { type: INTENTS.DELETE_HISTORY_DATE, dateKey },
+            state,
+          );
         }
       } else if (panel.treeKind === "bookmarks") {
-        panel.deleteFavoriteNodeById(node.id);
-        panel.render();
+        const nodeId = getNodeId();
+        if (nodeId) {
+          dispatch(
+            win,
+            { type: INTENTS.DELETE_BOOKMARK_NODE, nodeId },
+            state,
+          );
+        }
       }
     },
 
@@ -360,47 +402,35 @@ function createSidepanelContextMenuActions({
         };
         walk(folderNode);
       }
-      if (urls.length > 0 && typeof buffers.createMany === "function") {
-        buffers.createMany(urls);
+      if (urls.length > 0) {
+        dispatch(win, { type: INTENTS.NEW_BUFFERS, urls }, state);
       }
     },
 
     deleteAll() {
-      if (panel.treeKind === "bookmarks") {
-        bookmarksService.deleteAll();
-        panel.reloadData();
-        panel.render();
-      } else {
-        historyService.deleteAll();
-        panel.reloadData();
-        panel.render();
-      }
+      dispatch(win, { type: getDeleteAllIntent() }, state);
     },
 
     deleteAllComplete() {
-      downloadsService.clearCompleted();
-      panel.reloadData();
-      panel.render();
+      dispatch(win, { type: INTENTS.DOWNLOADS_CLEAR_COMPLETED }, state);
     },
 
     showInFolder() {
-      if (!node) return;
-      const id = node.id || node.entry?.id;
+      const id = getNodeId();
       if (id) {
-        downloadsService.showInFolder(id);
+        dispatch(win, { type: INTENTS.SHOW_DOWNLOAD_IN_FOLDER, downloadId: id }, state);
       }
     },
 
     openFile() {
-      if (!node) return;
-      const id = node.id || node.entry?.id;
+      const id = getNodeId();
       if (id) {
-        downloadsService.openFile(id);
+        dispatch(win, { type: INTENTS.OPEN_DOWNLOAD_FILE, downloadId: id }, state);
       }
     },
 
     hideSidepanel() {
-      panel.hide();
+      dispatch(win, { type: getHideIntent() }, state);
     },
   };
 }

@@ -177,6 +177,30 @@ const ACTION_BUILDERS = {
   close_right_buffers: createActionBuilder("close_right_buffers", () => ({
     type: INTENTS.CLOSE_RIGHT_BUFFERS,
   })),
+  close_all_buffers: createActionBuilder("close_all_buffers", () => ({
+    type: INTENTS.CLOSE_ALL_BUFFERS,
+  })),
+  duplicate_buffer: setAvailability(
+    createActionBuilder("duplicate_buffer", () => ({
+      type: INTENTS.DUPLICATE_BUFFER,
+    })),
+    (context = {}) => {
+      const buf = context.activeBuffer;
+      return Boolean(buf && !buf.isEditable);
+    },
+  ),
+  open_url_in_split: setAvailability(
+    createActionBuilder("open_url_in_split", () => ({
+      type: INTENTS.OPEN_URL_IN_SPLIT,
+    })),
+    (context = {}) => {
+      const { canBufferBeSplit } = require("../browser/services/splitEligibility");
+      return canBufferBeSplit(context.activeBuffer);
+    },
+  ),
+  new_buffers: createActionBuilder("new_buffers", () => ({
+    type: INTENTS.NEW_BUFFERS,
+  })),
   split_close_right: createActionBuilder("split_close_right", () => ({
     type: INTENTS.SPLIT_CLOSE_RIGHT,
   })),
@@ -185,6 +209,48 @@ const ACTION_BUILDERS = {
       type: INTENTS.SPLIT_DEVTOOLS,
     })),
     (context = {}) => !context.isSplitEnabled,
+  ),
+  delete_history_entry: setAvailability(
+    createActionBuilder("delete_history_entry", () => ({
+      type: INTENTS.DELETE_HISTORY_ENTRY,
+    })),
+    (context = {}) =>
+      context.sidepanelVisible && context.sidepanelTreeKind === "history",
+  ),
+  delete_history_date: setAvailability(
+    createActionBuilder("delete_history_date", () => ({
+      type: INTENTS.DELETE_HISTORY_DATE,
+    })),
+    (context = {}) =>
+      context.sidepanelVisible && context.sidepanelTreeKind === "history",
+  ),
+  delete_bookmark_node: setAvailability(
+    createActionBuilder("delete_bookmark_node", () => ({
+      type: INTENTS.DELETE_BOOKMARK_NODE,
+    })),
+    (context = {}) =>
+      context.sidepanelVisible && context.sidepanelTreeKind === "bookmarks",
+  ),
+  downloads_clear_completed: setAvailability(
+    createActionBuilder("downloads_clear_completed", () => ({
+      type: INTENTS.DOWNLOADS_CLEAR_COMPLETED,
+    })),
+    (context = {}) =>
+      context.sidepanelVisible && context.sidepanelTreeKind === "downloads",
+  ),
+  show_download_in_folder: setAvailability(
+    createActionBuilder("show_download_in_folder", () => ({
+      type: INTENTS.SHOW_DOWNLOAD_IN_FOLDER,
+    })),
+    (context = {}) =>
+      context.sidepanelVisible && context.sidepanelTreeKind === "downloads",
+  ),
+  open_download_file: setAvailability(
+    createActionBuilder("open_download_file", () => ({
+      type: INTENTS.OPEN_DOWNLOAD_FILE,
+    })),
+    (context = {}) =>
+      context.sidepanelVisible && context.sidepanelTreeKind === "downloads",
   ),
 };
 

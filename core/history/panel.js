@@ -1356,11 +1356,13 @@ class HistoryPanel {
     };
   }
 
-  init({ window, buffers, state, viewHost }) {
+  init({ window, buffers, state, viewHost, dispatch, INTENTS }) {
     this.window = window;
     this.buffers = buffers;
     this.state = state;
     this.viewHost = viewHost || null;
+    this.dispatch = dispatch || null;
+    this.INTENTS = INTENTS || null;
     this.renderTransport = createPanelRenderTransport({
       resolveWebContents: () => this.getWebContents(),
       delayMs: 16,
@@ -1819,12 +1821,13 @@ class HistoryPanel {
     }
 
     const actions = createSidepanelContextMenuActions({
+      dispatch: this.dispatch,
+      win: this.window,
+      state: this.state,
+      INTENTS: this.INTENTS,
       panel: this,
       node,
       buffers: this.buffers,
-      historyService,
-      bookmarksService,
-      downloadsService,
     });
 
     const template = buildSidepanelContextMenuTemplate({

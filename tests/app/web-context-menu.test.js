@@ -329,21 +329,23 @@ test("web actions: openLinkInNewTab validates URL before creating buffer", () =>
   assert.equal(created, null);
 });
 
-test("web actions: openLinkInSplit validates URL before opening split", () => {
-  let splitUrl = null;
+test("web actions: openLinkInSplit dispatches OPEN_URL_IN_SPLIT intent after validation", () => {
+  let dispatched = null;
   const validateNavigableUrl = (url) => ({ ok: url.startsWith("https"), url });
-  const buffers = { openUrlInRightSplit: (url) => { splitUrl = url; } };
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT" };
   const webContents = { isDestroyed: () => false };
   const actions = createWebContextMenuActions({
-    clipboard: {}, dialog: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, configService: {}, validateNavigableUrl, isBookmarkableBuffer: () => false, win: {},
+    clipboard: {}, dialog: {}, buffers: {}, dispatch, state: {}, INTENTS, configService: {}, validateNavigableUrl, isBookmarkableBuffer: () => false, win: {},
   })(webContents, {});
 
   actions.openLinkInSplit("https://example.com");
-  assert.equal(splitUrl, "https://example.com");
+  assert.equal(dispatched.type, "OPEN_URL_IN_SPLIT");
+  assert.equal(dispatched.url, "https://example.com");
 
-  splitUrl = null;
+  dispatched = null;
   actions.openLinkInSplit("javascript:void(0)");
-  assert.equal(splitUrl, null);
+  assert.equal(dispatched, null);
 });
 
 test("web actions: copyLinkAddress writes to clipboard", () => {

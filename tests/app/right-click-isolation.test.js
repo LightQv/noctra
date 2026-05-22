@@ -100,6 +100,50 @@ test("context menu registration calls event.preventDefault() for web contents", 
   );
 });
 
+test("context menu registration clears selection on non-editable content", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const regSource = fs.readFileSync(
+    path.join(__dirname, "../../runtime/contextMenuRegistration.js"),
+    "utf-8",
+  );
+  const preventDefaultIndex = regSource.indexOf("event.preventDefault()");
+  const removeAllRangesIndex = regSource.indexOf("removeAllRanges()");
+  assert.ok(
+    removeAllRangesIndex > preventDefaultIndex,
+    "selection must be cleared after preventDefault()",
+  );
+  assert.ok(
+    regSource.includes("!params.isEditable"),
+    "selection clearing must be guarded by !params.isEditable",
+  );
+});
+
+test("context menu handler is async and awaits selection clearing", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const regSource = fs.readFileSync(
+    path.join(__dirname, "../../runtime/contextMenuRegistration.js"),
+    "utf-8",
+  );
+
+  const handleContextMenuIndex = regSource.indexOf("async function handleContextMenu");
+  assert.ok(
+    handleContextMenuIndex >= 0,
+    "handleContextMenu must be declared async",
+  );
+
+  const afterHandle = regSource.slice(handleContextMenuIndex);
+  const executeJsIndex = afterHandle.indexOf("executeJavaScript");
+  assert.ok(executeJsIndex >= 0, "executeJavaScript must be called inside handleContextMenu");
+
+  const snippet = afterHandle.slice(executeJsIndex - 20, executeJsIndex + 30);
+  assert.ok(
+    snippet.includes("await"),
+    "executeJavaScript must be awaited to ensure selection is cleared before menu opens",
+  );
+});
+
 test("tabline contextmenu listener calls preventDefault before sending IPC", () => {
   const fs = require("node:fs");
   const path = require("node:path");

@@ -33,8 +33,12 @@ Every emitted intent must be executable by the dispatcher.
 - `CLOSE_BUFFER`: Close a buffer (active when id omitted).
 - `REOPEN_BUFFER`: Reopen the most recently closed buffer.
 - `CLOSE_FOCUSED`: Close focused context (close split when split is open, otherwise close active buffer).
-- `CLOSE_LEFT_BUFFERS`: Close all buffers to the left of active.
-- `CLOSE_RIGHT_BUFFERS`: Close all buffers to the right of active.
+- `CLOSE_LEFT_BUFFERS`: Close all buffers to the left of active (or at optional `index`).
+- `CLOSE_RIGHT_BUFFERS`: Close all buffers to the right of active (or at optional `index`).
+- `CLOSE_ALL_BUFFERS`: Close every buffer; fall back to configured home buffer.
+- `DUPLICATE_BUFFER`: Create a copy of the specified buffer (`bufferId`).
+- `OPEN_URL_IN_SPLIT`: Open a URL in the right split pane (creating the split if needed).
+- `NEW_BUFFERS`: Bulk-create buffers from an array of URLs (`urls`).
 - `SPLIT_VERTICAL`: Open a vertical split for the current buffer context.
 - `SPLIT_CLOSE_RIGHT`: Close the right split pane.
 - `SPLIT_DEVTOOLS`: Open devtools in right split pane.
@@ -55,6 +59,8 @@ Every emitted intent must be executable by the dispatcher.
 - `HISTORY_TOGGLE_FOCUS`: Toggle focus between history panel and web content.
 - `HISTORY_DELETE_ALL`: Delete all history entries.
 - `HISTORY_DELETE_TODAY`: Delete history entries from today.
+- `DELETE_HISTORY_ENTRY`: Remove a single history entry (`dateKey`, `entryId`).
+- `DELETE_HISTORY_DATE`: Remove an entire history day/folder (`dateKey`).
 - `BOOKMARKS_SHOW`: Show bookmarks panel.
 - `BOOKMARKS_HIDE`: Hide bookmarks panel.
 - `BOOKMARKS_TOGGLE`: Toggle bookmarks panel visibility.
@@ -62,11 +68,15 @@ Every emitted intent must be executable by the dispatcher.
 - `BOOKMARKS_DELETE_ALL`: Delete all bookmarks.
 - `BOOKMARKS_ADD_ROOT_ACTIVE`: Add active page to root bookmarks.
 - `BOOKMARKS_ADD_SCOPED_PROMPT`: Open scoped bookmark insertion prompt.
+- `DELETE_BOOKMARK_NODE`: Remove a bookmark entry or folder (`nodeId`).
 - `DOWNLOADS_SHOW`: Show downloads panel.
 - `DOWNLOADS_HIDE`: Hide downloads panel.
 - `DOWNLOADS_TOGGLE`: Toggle downloads panel visibility.
 - `DOWNLOADS_TOGGLE_FOCUS`: Toggle focus between downloads panel and web content.
 - `DOWNLOADS_CLEAR_ALL`: Clear all download entries.
+- `DOWNLOADS_CLEAR_COMPLETED`: Clear all completed download entries.
+- `SHOW_DOWNLOAD_IN_FOLDER`: Reveal a downloaded file in the file manager (`downloadId`).
+- `OPEN_DOWNLOAD_FILE`: Open a completed download with the default application (`downloadId`).
 - `DOWNLOADS_LIVE_MODAL`: Show live download modal.
 - `TELESCOPE_OPEN_HISTORY`: Open telescope search for history entries.
 - `TELESCOPE_OPEN_BOOKMARKS`: Open telescope search for bookmarks.

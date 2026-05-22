@@ -64,6 +64,101 @@ test("intent contracts reject malformed intent.next", () => {
   assert.equal(result.ok, false);
 });
 
+test("intent contracts accept CLOSE_LEFT_BUFFERS with optional index", () => {
+  const result = validateIntentPayload(INTENTS.CLOSE_LEFT_BUFFERS, {
+    type: INTENTS.CLOSE_LEFT_BUFFERS,
+    index: 2,
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts accept CLOSE_LEFT_BUFFERS without index", () => {
+  const result = validateIntentPayload(INTENTS.CLOSE_LEFT_BUFFERS, {
+    type: INTENTS.CLOSE_LEFT_BUFFERS,
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts accept DUPLICATE_BUFFER payload", () => {
+  const result = validateIntentPayload(INTENTS.DUPLICATE_BUFFER, {
+    type: INTENTS.DUPLICATE_BUFFER,
+    bufferId: 5,
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts accept OPEN_URL_IN_SPLIT payload", () => {
+  const result = validateIntentPayload(INTENTS.OPEN_URL_IN_SPLIT, {
+    type: INTENTS.OPEN_URL_IN_SPLIT,
+    url: "https://example.com",
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts accept NEW_BUFFERS payload", () => {
+  const result = validateIntentPayload(INTENTS.NEW_BUFFERS, {
+    type: INTENTS.NEW_BUFFERS,
+    urls: ["https://a.test", "https://b.test"],
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts reject NEW_BUFFERS with non-string array", () => {
+  const result = validateIntentPayload(INTENTS.NEW_BUFFERS, {
+    type: INTENTS.NEW_BUFFERS,
+    urls: ["https://a.test", 42],
+  });
+  assert.equal(result.ok, false);
+});
+
+test("intent contracts accept DELETE_HISTORY_ENTRY payload", () => {
+  const result = validateIntentPayload(INTENTS.DELETE_HISTORY_ENTRY, {
+    type: INTENTS.DELETE_HISTORY_ENTRY,
+    dateKey: "2024-01-01",
+    entryId: "e1",
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts accept DELETE_HISTORY_DATE payload", () => {
+  const result = validateIntentPayload(INTENTS.DELETE_HISTORY_DATE, {
+    type: INTENTS.DELETE_HISTORY_DATE,
+    dateKey: "2024-01-01",
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts accept DELETE_BOOKMARK_NODE payload", () => {
+  const result = validateIntentPayload(INTENTS.DELETE_BOOKMARK_NODE, {
+    type: INTENTS.DELETE_BOOKMARK_NODE,
+    nodeId: "node-1",
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts accept DOWNLOADS_CLEAR_COMPLETED payload", () => {
+  const result = validateIntentPayload(INTENTS.DOWNLOADS_CLEAR_COMPLETED, {
+    type: INTENTS.DOWNLOADS_CLEAR_COMPLETED,
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts accept SHOW_DOWNLOAD_IN_FOLDER payload", () => {
+  const result = validateIntentPayload(INTENTS.SHOW_DOWNLOAD_IN_FOLDER, {
+    type: INTENTS.SHOW_DOWNLOAD_IN_FOLDER,
+    downloadId: "dl-1",
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts accept OPEN_DOWNLOAD_FILE payload", () => {
+  const result = validateIntentPayload(INTENTS.OPEN_DOWNLOAD_FILE, {
+    type: INTENTS.OPEN_DOWNLOAD_FILE,
+    downloadId: "dl-2",
+  });
+  assert.equal(result.ok, true);
+});
+
 test("unknown intent rejection shape is stable", () => {
   const error = createUnknownIntentError("NOT_REAL", { sample: true });
   assert.equal(error.code, "contract_unknown_intent");

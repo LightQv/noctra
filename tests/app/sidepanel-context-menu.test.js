@@ -165,122 +165,154 @@ test("sidepanel context menu template for downloads background", () => {
   assert.equal(template[2].label, "Hide Sidepanel");
 });
 
-test("sidepanel actions open in new tab creates buffer with url", () => {
-  const created = [];
-  const buffers = {
-    create(url) {
-      created.push(url);
-    },
+function makeIntents() {
+  return {
+    NEW_BUFFER: "NEW_BUFFER",
+    OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT",
+    NEW_BUFFERS: "NEW_BUFFERS",
+    DELETE_HISTORY_ENTRY: "DELETE_HISTORY_ENTRY",
+    DELETE_HISTORY_DATE: "DELETE_HISTORY_DATE",
+    DELETE_BOOKMARK_NODE: "DELETE_BOOKMARK_NODE",
+    HISTORY_DELETE_ALL: "HISTORY_DELETE_ALL",
+    BOOKMARKS_DELETE_ALL: "BOOKMARKS_DELETE_ALL",
+    DOWNLOADS_CLEAR_COMPLETED: "DOWNLOADS_CLEAR_COMPLETED",
+    SHOW_DOWNLOAD_IN_FOLDER: "SHOW_DOWNLOAD_IN_FOLDER",
+    OPEN_DOWNLOAD_FILE: "OPEN_DOWNLOAD_FILE",
+    HISTORY_HIDE: "HISTORY_HIDE",
+    BOOKMARKS_HIDE: "BOOKMARKS_HIDE",
+    DOWNLOADS_HIDE: "DOWNLOADS_HIDE",
   };
+}
+
+function makeDispatch() {
+  const intents = [];
+  function dispatch(win, intent) {
+    intents.push(intent);
+  }
+  dispatch.intents = intents;
+  return dispatch;
+}
+
+test("sidepanel actions open in new tab dispatches NEW_BUFFER intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
     panel: {},
     node: { entry: { url: "https://example.com" } },
-    buffers,
+    buffers: {},
   });
   actions.openInNewTab();
-  assert.deepEqual(created, ["https://example.com"]);
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "NEW_BUFFER");
+  assert.equal(d.intents[0].url, "https://example.com");
 });
 
-test("sidepanel actions open in split delegates to buffers", () => {
-  const splits = [];
-  const buffers = {
-    openUrlInRightSplit(url) {
-      splits.push(url);
-    },
-  };
+test("sidepanel actions open in split dispatches OPEN_URL_IN_SPLIT intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
     panel: {},
     node: { entry: { url: "https://example.com" } },
-    buffers,
+    buffers: {},
   });
   actions.openInSplit();
-  assert.deepEqual(splits, ["https://example.com"]);
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "OPEN_URL_IN_SPLIT");
+  assert.equal(d.intents[0].url, "https://example.com");
 });
 
-test("sidepanel actions delete history entry calls service", () => {
-  const deletions = [];
-  const historyService = {
-    deleteEntry(dateKey, entryId) {
-      deletions.push({ dateKey, entryId });
-    },
-  };
+test("sidepanel actions delete history entry dispatches DELETE_HISTORY_ENTRY intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const panel = {
     treeKind: "history",
-    reloadData() {},
-    render() {},
   };
   const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
     panel,
     node: { dateKey: "2024-01-01", entry: { id: "e1" } },
-    historyService,
+    buffers: {},
   });
   actions.deleteEntry();
-  assert.equal(deletions.length, 1);
-  assert.deepEqual(deletions[0], { dateKey: "2024-01-01", entryId: "e1" });
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "DELETE_HISTORY_ENTRY");
+  assert.equal(d.intents[0].dateKey, "2024-01-01");
+  assert.equal(d.intents[0].entryId, "e1");
 });
 
-test("sidepanel actions delete history day calls service", () => {
-  const deletions = [];
-  const historyService = {
-    deleteDate(dateKey) {
-      deletions.push(dateKey);
-    },
-  };
+test("sidepanel actions delete history day dispatches DELETE_HISTORY_DATE intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const panel = {
     treeKind: "history",
-    reloadData() {},
-    render() {},
   };
   const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
     panel,
     node: { dateKey: "2024-01-01" },
-    historyService,
+    buffers: {},
   });
   actions.deleteFolder();
-  assert.deepEqual(deletions, ["2024-01-01"]);
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "DELETE_HISTORY_DATE");
+  assert.equal(d.intents[0].dateKey, "2024-01-01");
 });
 
-test("sidepanel actions delete all bookmarks delegates to service", () => {
-  let deleted = false;
-  const bookmarksService = {
-    deleteAll() {
-      deleted = true;
-    },
-  };
+test("sidepanel actions delete all bookmarks dispatches BOOKMARKS_DELETE_ALL intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const panel = {
     treeKind: "bookmarks",
-    reloadData() {},
-    render() {},
   };
   const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
     panel,
-    bookmarksService,
+    buffers: {},
   });
   actions.deleteAll();
-  assert.equal(deleted, true);
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "BOOKMARKS_DELETE_ALL");
 });
 
-test("sidepanel actions hide sidepanel calls panel.hide", () => {
-  let hidden = false;
+test("sidepanel actions hide sidepanel dispatches hide intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const panel = {
-    hide() {
-      hidden = true;
-    },
+    treeKind: "history",
   };
-  const actions = createSidepanelContextMenuActions({ panel });
+  const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
+    panel,
+    buffers: {},
+  });
   actions.hideSidepanel();
-  assert.equal(hidden, true);
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "HISTORY_HIDE");
 });
 
-test("sidepanel actions open folder links creates buffers for each entry", () => {
-  const created = [];
-  const buffers = {
-    createMany(urls) {
-      for (const url of urls) {
-        created.push(url);
-      }
-    },
-  };
+test("sidepanel actions open folder links dispatches NEW_BUFFERS intent for bookmarks", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const panel = {
     treeKind: "bookmarks",
     days: [],
@@ -296,23 +328,23 @@ test("sidepanel actions open folder links creates buffers for each entry", () =>
     ],
   };
   const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
     panel,
     node,
-    buffers,
+    buffers: {},
   });
   actions.openFolderLinksInNewTabs();
-  assert.deepEqual(created, ["https://a.test", "https://b.test"]);
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "NEW_BUFFERS");
+  assert.deepEqual(d.intents[0].urls, ["https://a.test", "https://b.test"]);
 });
 
-test("sidepanel actions open history day links creates buffers for each entry", () => {
-  const created = [];
-  const buffers = {
-    createMany(urls) {
-      for (const url of urls) {
-        created.push(url);
-      }
-    },
-  };
+test("sidepanel actions open history day links dispatches NEW_BUFFERS intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const panel = {
     treeKind: "history",
     days: [
@@ -327,73 +359,92 @@ test("sidepanel actions open history day links creates buffers for each entry", 
   };
   const node = { dateKey: "2024-01-01" };
   const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
     panel,
     node,
-    buffers,
+    buffers: {},
   });
   actions.openFolderLinksInNewTabs();
-  assert.deepEqual(created, ["https://a.test", "https://b.test"]);
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "NEW_BUFFERS");
+  assert.deepEqual(d.intents[0].urls, ["https://a.test", "https://b.test"]);
 });
 
-test("sidepanel actions show in folder delegates to downloads service", () => {
-  let calledId = null;
-  const downloadsService = {
-    showInFolder(id) {
-      calledId = id;
-    },
-  };
+test("sidepanel actions show in folder dispatches SHOW_DOWNLOAD_IN_FOLDER intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const actions = createSidepanelContextMenuActions({
-    downloadsService,
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
+    panel: {},
     node: { id: "dl-1" },
+    buffers: {},
   });
   actions.showInFolder();
-  assert.equal(calledId, "dl-1");
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "SHOW_DOWNLOAD_IN_FOLDER");
+  assert.equal(d.intents[0].downloadId, "dl-1");
 });
 
-test("sidepanel actions open file delegates to downloads service", () => {
-  let calledId = null;
-  const downloadsService = {
-    openFile(id) {
-      calledId = id;
-    },
-  };
+test("sidepanel actions open file dispatches OPEN_DOWNLOAD_FILE intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const actions = createSidepanelContextMenuActions({
-    downloadsService,
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
+    panel: {},
     node: { id: "dl-2" },
+    buffers: {},
   });
   actions.openFile();
-  assert.equal(calledId, "dl-2");
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "OPEN_DOWNLOAD_FILE");
+  assert.equal(d.intents[0].downloadId, "dl-2");
 });
 
-test("sidepanel actions delete all complete delegates to downloads service", () => {
-  let cleared = false;
-  const downloadsService = {
-    clearCompleted() {
-      cleared = true;
-    },
-  };
+test("sidepanel actions delete all complete dispatches DOWNLOADS_CLEAR_COMPLETED intent", () => {
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const panel = {
     reloadData() {},
     render() {},
   };
   const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
     panel,
-    downloadsService,
+    buffers: {},
   });
   actions.deleteAllComplete();
-  assert.equal(cleared, true);
+  assert.equal(d.intents.length, 1);
+  assert.equal(d.intents[0].type, "DOWNLOADS_CLEAR_COMPLETED");
 });
 
 test("sidepanel actions no-op when node is missing", () => {
-  const buffers = { create() {}, openUrlInRightSplit() {} };
+  const d = makeDispatch();
+  const INTENTS = makeIntents();
   const actions = createSidepanelContextMenuActions({
+    dispatch: d,
+    win: {},
+    state: {},
+    INTENTS,
     panel: {},
     node: null,
-    buffers,
+    buffers: {},
   });
   assert.doesNotThrow(() => actions.openInNewTab());
   assert.doesNotThrow(() => actions.openInSplit());
   assert.doesNotThrow(() => actions.deleteEntry());
   assert.doesNotThrow(() => actions.deleteFolder());
   assert.doesNotThrow(() => actions.openFolderLinksInNewTabs());
+  assert.equal(d.intents.length, 0);
 });

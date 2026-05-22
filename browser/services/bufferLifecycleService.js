@@ -144,6 +144,7 @@ function closeBuffer(manager, id = null) {
   if (manager.buffers.length === 0) {
     manager.activeIndex = -1;
     manager.openConfiguredBuffer();
+    manager.focusActive();
     return manager.getActive();
   }
 
@@ -317,6 +318,14 @@ function closeAllLeftOf(manager, index) {
     buffer.destroy();
   }
 
+  if (manager.buffers.length === 0) {
+    manager.activeIndex = -1;
+    manager.openConfiguredBuffer();
+    manager.focusActive();
+    manager.notify({ kind: "structure", activeChanged: true });
+    return manager.getActive();
+  }
+
   if (manager.activeIndex < index) {
     manager.activeIndex = 0;
   } else {
@@ -352,6 +361,14 @@ function closeAllRightOf(manager, index) {
       manager.split.rightPaneSourceBuffer = null;
     }
     buffer.destroy();
+  }
+
+  if (manager.buffers.length === 0) {
+    manager.activeIndex = -1;
+    manager.openConfiguredBuffer();
+    manager.focusActive();
+    manager.notify({ kind: "structure", activeChanged: true });
+    return manager.getActive();
   }
 
   if (manager.activeIndex > index) {

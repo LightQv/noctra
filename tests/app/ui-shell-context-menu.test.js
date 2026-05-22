@@ -34,9 +34,7 @@ function makeTablineRuntimeSnapshot(overrides = {}) {
     isFirst: false,
     isLast: false,
     isSplitEnabled: false,
-    isEditable: false,
-    hasVirtualDocument: false,
-    isDashboard: false,
+    buffer: { isEditable: false, virtualDocument: null, virtualUrl: null, url: "https://example.com" },
     ...overrides,
   };
 }
@@ -127,7 +125,9 @@ test("ui shell tabline: split disabled for editable buffer", () => {
   const template = buildUIShellContextMenuTemplate({
     zone: "tabline",
     target: "tab",
-    runtimeSnapshot: makeTablineRuntimeSnapshot({ isEditable: true }),
+    runtimeSnapshot: makeTablineRuntimeSnapshot({
+      buffer: { isEditable: true },
+    }),
     actions,
   });
   const item = template.find((i) => i.label === "Split Tab");
@@ -140,8 +140,7 @@ test("ui shell tabline: split disabled for non-dashboard virtual document", () =
     zone: "tabline",
     target: "tab",
     runtimeSnapshot: makeTablineRuntimeSnapshot({
-      hasVirtualDocument: true,
-      isDashboard: false,
+      buffer: { isEditable: false, virtualDocument: { html: "<div>virtual</div>" }, virtualUrl: "noctra://other" },
     }),
     actions,
   });
@@ -155,8 +154,7 @@ test("ui shell tabline: split enabled for dashboard virtual document", () => {
     zone: "tabline",
     target: "tab",
     runtimeSnapshot: makeTablineRuntimeSnapshot({
-      hasVirtualDocument: true,
-      isDashboard: true,
+      buffer: { isEditable: false, virtualDocument: { html: "<div>dashboard</div>" }, virtualUrl: "noctra://dashboard" },
     }),
     actions,
   });
@@ -170,8 +168,7 @@ test("ui shell tabline: split enabled for regular web buffer", () => {
     zone: "tabline",
     target: "tab",
     runtimeSnapshot: makeTablineRuntimeSnapshot({
-      hasVirtualDocument: false,
-      isDashboard: false,
+      buffer: { isEditable: false, virtualDocument: null, virtualUrl: null, url: "https://example.com" },
     }),
     actions,
   });
@@ -184,7 +181,9 @@ test("ui shell tabline: duplicate disabled for editable buffer", () => {
   const template = buildUIShellContextMenuTemplate({
     zone: "tabline",
     target: "tab",
-    runtimeSnapshot: makeTablineRuntimeSnapshot({ isEditable: true }),
+    runtimeSnapshot: makeTablineRuntimeSnapshot({
+      buffer: { isEditable: true },
+    }),
     actions,
   });
   const item = template.find((i) => i.label === "Duplicate Tab");
@@ -196,7 +195,9 @@ test("ui shell tabline: duplicate enabled for non-editable buffer", () => {
   const template = buildUIShellContextMenuTemplate({
     zone: "tabline",
     target: "tab",
-    runtimeSnapshot: makeTablineRuntimeSnapshot({ isEditable: false }),
+    runtimeSnapshot: makeTablineRuntimeSnapshot({
+      buffer: { isEditable: false },
+    }),
     actions,
   });
   const item = template.find((i) => i.label === "Duplicate Tab");
@@ -205,140 +206,140 @@ test("ui shell tabline: duplicate enabled for non-editable buffer", () => {
 
 // ─── Tabline action tests ───
 
-test("ui shell actions: closeTab calls buffers.close with tabId", () => {
-  let closedId = null;
-  const buffers = {
-    buffers: [{ id: 3 }],
-    close(id) { closedId = id; },
-  };
+test("ui shell actions: closeTab dispatches CLOSE_BUFFER intent", () => {
+  let dispatched = null;
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { CLOSE_BUFFER: "CLOSE_BUFFER" };
+  const buffers = { buffers: [{ id: 3 }] };
   const actions = createUIShellContextMenuActions({
-    clipboard: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, startUrllineEdit: () => {}, win: {},
+    clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(3);
   actions.closeTab();
-  assert.equal(closedId, 3);
+  assert.equal(dispatched.type, "CLOSE_BUFFER");
+  assert.equal(dispatched.id, 3);
 });
 
-test("ui shell actions: closeAllTabsToLeft delegates to closeAllLeftOf", () => {
-  let calledIndex = null;
+test("ui shell actions: closeAllTabsToLeft dispatches CLOSE_LEFT_BUFFERS intent", () => {
+  let dispatched = null;
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { CLOSE_LEFT_BUFFERS: "CLOSE_LEFT_BUFFERS" };
   const buffers = {
     buffers: [{ id: 1 }, { id: 2 }, { id: 3 }],
-    closeAllLeftOf(index) { calledIndex = index; },
   };
   const actions = createUIShellContextMenuActions({
-    clipboard: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, startUrllineEdit: () => {}, win: {},
+    clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(3);
   actions.closeAllTabsToLeft();
-  assert.equal(calledIndex, 2);
+  assert.equal(dispatched.type, "CLOSE_LEFT_BUFFERS");
+  assert.equal(dispatched.index, 2);
 });
 
-test("ui shell actions: closeAllTabsToRight delegates to closeAllRightOf", () => {
-  let calledIndex = null;
+test("ui shell actions: closeAllTabsToRight dispatches CLOSE_RIGHT_BUFFERS intent", () => {
+  let dispatched = null;
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { CLOSE_RIGHT_BUFFERS: "CLOSE_RIGHT_BUFFERS" };
   const buffers = {
     buffers: [{ id: 1 }, { id: 2 }, { id: 3 }],
-    closeAllRightOf(index) { calledIndex = index; },
   };
   const actions = createUIShellContextMenuActions({
-    clipboard: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, startUrllineEdit: () => {}, win: {},
+    clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(1);
   actions.closeAllTabsToRight();
-  assert.equal(calledIndex, 0);
+  assert.equal(dispatched.type, "CLOSE_RIGHT_BUFFERS");
+  assert.equal(dispatched.index, 0);
 });
 
-test("ui shell actions: closeAllTabs delegates to closeAllBuffers", () => {
-  let called = false;
-  const buffers = {
-    buffers: [{ id: 1 }],
-    closeAllBuffers() { called = true; },
-  };
+test("ui shell actions: closeAllTabs dispatches CLOSE_ALL_BUFFERS intent", () => {
+  let dispatched = null;
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { CLOSE_ALL_BUFFERS: "CLOSE_ALL_BUFFERS" };
+  const buffers = { buffers: [{ id: 1 }] };
   const actions = createUIShellContextMenuActions({
-    clipboard: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, startUrllineEdit: () => {}, win: {},
+    clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(1);
   actions.closeAllTabs();
-  assert.equal(called, true);
+  assert.equal(dispatched.type, "CLOSE_ALL_BUFFERS");
 });
 
-test("ui shell actions: duplicateTab delegates to duplicateBuffer", () => {
-  let dupId = null;
-  const buffers = {
-    buffers: [{ id: 5 }],
-    duplicateBuffer(id) { dupId = id; },
-  };
+test("ui shell actions: duplicateTab dispatches DUPLICATE_BUFFER intent", () => {
+  let dispatched = null;
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { DUPLICATE_BUFFER: "DUPLICATE_BUFFER" };
+  const buffers = { buffers: [{ id: 5 }] };
   const actions = createUIShellContextMenuActions({
-    clipboard: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, startUrllineEdit: () => {}, win: {},
+    clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(5);
   actions.duplicateTab();
-  assert.equal(dupId, 5);
+  assert.equal(dispatched.type, "DUPLICATE_BUFFER");
+  assert.equal(dispatched.bufferId, 5);
 });
 
-test("ui shell actions: splitTab opens split for regular URL buffer", () => {
-  let splitOpened = false;
-  let splitUrl = null;
+test("ui shell actions: splitTab dispatches OPEN_URL_IN_SPLIT intent for regular URL buffer", () => {
+  let dispatched = null;
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT" };
   const buffers = {
     buffers: [{ id: 7, url: "https://example.com" }],
     isSplitEnabled: () => false,
-    openVerticalSplit: () => { splitOpened = true; },
-    openUrlInRightSplit: (url) => { splitUrl = url; },
   };
   const actions = createUIShellContextMenuActions({
-    clipboard: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, startUrllineEdit: () => {}, win: {},
+    clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(7);
   actions.splitTab();
-  assert.equal(splitOpened, true);
-  assert.equal(splitUrl, "https://example.com");
+  assert.equal(dispatched.type, "OPEN_URL_IN_SPLIT");
+  assert.equal(dispatched.url, "https://example.com");
 });
 
-test("ui shell actions: splitTab copies virtualDocument for dashboard", () => {
-  let splitOpened = false;
-  let copiedBuffer = null;
-  const dashboardBuffer = {
-    id: 8,
-    url: "noctra://dashboard",
-    virtualUrl: "noctra://dashboard",
-    virtualDocument: { html: "<div>dashboard</div>" },
-  };
+test("ui shell actions: splitTab dispatches OPEN_URL_IN_SPLIT intent for dashboard", () => {
+  let dispatched = null;
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT" };
   const buffers = {
-    buffers: [dashboardBuffer],
+    buffers: [{
+      id: 8,
+      url: "noctra://dashboard",
+      virtualUrl: "noctra://dashboard",
+      virtualDocument: { html: "<div>dashboard</div>" },
+    }],
     isSplitEnabled: () => false,
-    openVerticalSplit: () => { splitOpened = true; },
-    openBufferInRightSplit: (buf) => { copiedBuffer = buf; },
   };
   const actions = createUIShellContextMenuActions({
-    clipboard: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, startUrllineEdit: () => {}, win: {},
+    clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(8);
   actions.splitTab();
-  assert.equal(splitOpened, true);
-  assert.equal(copiedBuffer, dashboardBuffer);
+  assert.equal(dispatched.type, "OPEN_URL_IN_SPLIT");
+  assert.equal(dispatched.url, "noctra://dashboard");
 });
 
 test("ui shell actions: splitTab no-op for editable buffer", () => {
-  let splitOpened = false;
+  let dispatched = null;
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT" };
   const buffers = {
     buffers: [{ id: 9, isEditable: true }],
     isSplitEnabled: () => false,
-    openVerticalSplit: () => { splitOpened = true; },
   };
   const actions = createUIShellContextMenuActions({
-    clipboard: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, startUrllineEdit: () => {}, win: {},
+    clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(9);
   actions.splitTab();
-  assert.equal(splitOpened, false);
+  assert.equal(dispatched, null);
 });
 
-test("ui shell actions: splitTab replaces right pane when split already active", () => {
-  let splitOpened = false;
-  let splitUrl = null;
+test("ui shell actions: splitTab dispatches OPEN_URL_IN_SPLIT when split already active", () => {
+  let dispatched = null;
+  const dispatch = (win, intent) => { dispatched = intent; };
+  const INTENTS = { OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT" };
   const buffers = {
     buffers: [{ id: 10, url: "https://example.com" }],
     isSplitEnabled: () => true,
-    openVerticalSplit: () => { splitOpened = true; },
-    openUrlInRightSplit: (url) => { splitUrl = url; },
   };
   const actions = createUIShellContextMenuActions({
-    clipboard: {}, buffers, dispatch: () => {}, state: {}, INTENTS: {}, startUrllineEdit: () => {}, win: {},
+    clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(10);
   actions.splitTab();
-  assert.equal(splitOpened, false); // already active, don't open again
-  assert.equal(splitUrl, "https://example.com");
+  assert.equal(dispatched.type, "OPEN_URL_IN_SPLIT");
+  assert.equal(dispatched.url, "https://example.com");
 });
 
 // ─── Urlline template tests ───

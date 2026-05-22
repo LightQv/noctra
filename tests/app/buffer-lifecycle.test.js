@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  closeBuffer,
   closeAllLeftOf,
   closeAllRightOf,
 } = require("../../browser/services/bufferLifecycleService");
@@ -20,7 +21,10 @@ function makeMockBuffer(tag) {
 
 function makeMockManager(buffers = [], activeIndex = -1) {
   const notifications = [];
-  return {
+  let focusActiveCount = 0;
+  let openConfiguredCount = 0;
+
+  const manager = {
     buffers: buffers.slice(),
     activeIndex,
     window: { isDestroyed: () => false },
@@ -38,7 +42,17 @@ function makeMockManager(buffers = [], activeIndex = -1) {
     reconcileSplitSources() {},
     syncDevtoolsTargetToLeftBuffer() {},
     layoutViews() {},
-    focusActive() {},
+    focusActive() {
+      focusActiveCount += 1;
+    },
+    openConfiguredBuffer() {
+      openConfiguredCount += 1;
+      const b = makeMockBuffer("configured");
+      this.buffers.push(b);
+      attachView(this.window, b.view);
+      this.reindexBuffers();
+      this.activeIndex = this.buffers.length - 1;
+    },
     getActive() {
       if (this.activeIndex < 0 || this.activeIndex >= this.buffers.length) {
         return null;
@@ -51,9 +65,84 @@ function makeMockManager(buffers = [], activeIndex = -1) {
     getNotifications() {
       return notifications;
     },
+    getFocusActiveCount() {
+      return focusActiveCount;
+    },
+    getOpenConfiguredCount() {
+      return openConfiguredCount;
+    },
     attachPaneTracking() {},
   };
+
+  function attachView(_window, _view) {}
+
+  return manager;
 }
+
+test("closeBuffer calls focusActive when last buffer is closed", () => {
+  const b1 = makeMockBuffer("a");
+  const manager = makeMockManager([b1], 0);
+  closeBuffer(manager, b1.id);
+  assert.equal(manager.buffers.length, 1, "should open configured buffer after close");
+  assert.equal(manager.getActive().tag, "configured");
+  assert.equal(manager.getOpenConfiguredCount(), 1);
+  assert.equal(manager.getFocusActiveCount(), 1, "focusActive must be called when opening dashboard");
+});
+
+test("closeAllLeftOf opens configured buffer and focuses when all buffers removed", () => {
+  const b1 = makeMockBuffer("a");
+  const b2 = makeMockBuffer("b");
+  const manager = makeMockManager([b1, b2], 1);
+  closeAllLeftOf(manager, 2); // edge case: index === length removes all
+  assert.equal(manager.buffers.length, 1, "should open configured buffer after removing all");
+  assert.equal(manager.getActive().tag, "configured");
+  assert.equal(manager.getOpenConfiguredCount(), 1);
+  assert.equal(manager.getFocusActiveCount(), 1, "focusActive must be called when opening dashboard");
+});
+
+test("closeAllLeftOf opens configured buffer and focuses when all buffers removed", () => {
+  const b1 = makeMockBuffer("a");
+  const b2 = makeMockBuffer("b");
+  const manager = makeMockManager([b1, b2], 1);
+  closeAllLeftOf(manager, 2); // edge case: index === length removes all
+  assert.equal(manager.buffers.length, 1, "should open configured buffer after removing all");
+  assert.equal(manager.getActive().tag, "configured");
+  assert.equal(manager.getOpenConfiguredCount(), 1);
+  assert.equal(manager.getFocusActiveCount(), 1, "focusActive must be called when opening dashboard");
+});
+
+test("bufferLifecycleService has 0-buffer safety nets in closeAllLeftOf and closeAllRightOf", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const source = fs.readFileSync(
+    path.join(__dirname, "../../browser/services/bufferLifecycleService.js"),
+    "utf-8",
+  );
+
+  const closeAllLeftOfIndex = source.indexOf("function closeAllLeftOf");
+  const closeAllRightOfIndex = source.indexOf("function closeAllRightOf");
+
+  const afterLeftOf = source.slice(closeAllLeftOfIndex, closeAllRightOfIndex);
+  const afterRightOf = source.slice(closeAllRightOfIndex);
+
+  assert.ok(
+    afterLeftOf.includes('if (manager.buffers.length === 0)'),
+    "closeAllLeftOf must have 0-buffer safety net",
+  );
+  assert.ok(
+    afterLeftOf.includes('manager.focusActive()'),
+    "closeAllLeftOf safety net must call focusActive",
+  );
+
+  assert.ok(
+    afterRightOf.includes('if (manager.buffers.length === 0)'),
+    "closeAllRightOf must have 0-buffer safety net",
+  );
+  assert.ok(
+    afterRightOf.includes('manager.focusActive()'),
+    "closeAllRightOf safety net must call focusActive",
+  );
+});
 
 test("closeAllLeftOf keeps activeIndex correct when active is to the right", () => {
   const b1 = makeMockBuffer("a");

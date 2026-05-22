@@ -1,4 +1,5 @@
 const { INTENTS } = require("../../intents");
+const { canBufferBeSplit } = require("../../../browser/services/splitEligibility");
 
 function createBufferHandlers(deps) {
   const { buffers, configService, notificationsService, normalizeUrl } = deps;
@@ -35,30 +36,76 @@ function createBufferHandlers(deps) {
         buffers.close();
       }
     },
-    [INTENTS.CLOSE_LEFT_BUFFERS]: () => buffers.closeLeftOfActive(),
-    [INTENTS.CLOSE_RIGHT_BUFFERS]: () => buffers.closeRightOfActive(),
-    [INTENTS.SPLIT_VERTICAL]: () => {
-      const active = buffers.getActive();
-      if (active && active.isEditable) {
+    [INTENTS.CLOSE_LEFT_BUFFERS]: ({ intent }) => {
+      if (intent.index !== undefined) {
+        buffers.closeAllLeftOf(intent.index);
+      } else {
+        buffers.closeLeftOfActive();
+      }
+    },
+    [INTENTS.CLOSE_RIGHT_BUFFERS]: ({ intent }) => {
+      if (intent.index !== undefined) {
+        buffers.closeAllRightOf(intent.index);
+      } else {
+        buffers.closeRightOfActive();
+      }
+    },
+    [INTENTS.CLOSE_ALL_BUFFERS]: () => buffers.closeAllBuffers(),
+    [INTENTS.DUPLICATE_BUFFER]: ({ intent }) => {
+      const id = intent.bufferId ?? buffers.getActive()?.id;
+      if (id != null) {
+        buffers.duplicateBuffer(id);
+      }
+    },
+    [INTENTS.OPEN_URL_IN_SPLIT]: ({ intent }) => {
+      let url = intent.url;
+      if (!url) {
+        const active = buffers.getActive();
+        url = active?.url || "about:blank";
+      }
+      const normalized = normalizeUrl(url);
+      if (!normalized) {
         notificationsService.notify({
-          severity: "info",
-          code: "split_not_available_editor",
-          message: "Split is not available for editor buffers",
+          severity: "warning",
+          code: "open_url_in_split_blocked",
+          message: "Cannot open in split: blocked by URL security policy",
           source: "core.dispatcher",
+          context: { intent, url },
           persist: false,
         });
         return;
       }
-      if (
-        active &&
-        active.virtualDocument &&
-        typeof active.virtualDocument.html === "string" &&
-        active.virtualDocument.html.trim()
-      ) {
-        const isDashboard =
-          active.virtualUrl === "noctra://dashboard" ||
-          active.url === "noctra://dashboard";
-        if (!isDashboard) {
+      buffers.openUrlInRightSplit(normalized);
+    },
+    [INTENTS.NEW_BUFFERS]: ({ intent }) => {
+      const urls = (intent.urls || [])
+        .map((u) => normalizeUrl(u))
+        .filter(Boolean);
+      if (urls.length === 0) {
+        notificationsService.notify({
+          severity: "warning",
+          code: "new_buffers_url_blocked",
+          message: "Cannot open buffers: all URLs blocked by security policy",
+          source: "core.dispatcher",
+          context: { intent },
+          persist: false,
+        });
+        return;
+      }
+      buffers.createMany(urls);
+    },
+    [INTENTS.SPLIT_VERTICAL]: () => {
+      const active = buffers.getActive();
+      if (!canBufferBeSplit(active)) {
+        if (active && active.isEditable) {
+          notificationsService.notify({
+            severity: "info",
+            code: "split_not_available_editor",
+            message: "Split is not available for editor buffers",
+            source: "core.dispatcher",
+            persist: false,
+          });
+        } else {
           notificationsService.notify({
             severity: "info",
             code: "split_not_available_virtual",
@@ -66,8 +113,8 @@ function createBufferHandlers(deps) {
             source: "core.dispatcher",
             persist: false,
           });
-          return;
         }
+        return;
       }
       const ratio = configService.getConfigValue(
         "global.split.regular_ratio",

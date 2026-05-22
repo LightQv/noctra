@@ -264,6 +264,8 @@ function bootstrapWindowRuntime({
     buffers,
     state,
     viewHost: sidepanelViewHost,
+    dispatch,
+    INTENTS,
   });
   sidepanelController.setOnFocusChange(() => {
     uiShell.updateStatuslineMode(getStatuslineModeLabel());

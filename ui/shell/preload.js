@@ -28,6 +28,12 @@ const uiShellApi = {
   urllineAction(pane, action) {
     ipcRenderer.send("ui-shell:urlline-action", { pane, action });
   },
+  stopUrllineEdit() {
+    ipcRenderer.send("ui-shell:stop-urlline-edit");
+  },
+  contextMenu(payload) {
+    ipcRenderer.send("ui-shell:context-menu", payload);
+  },
   onThemeUpdate(handler) {
     if (typeof handler !== "function") {
       return () => {};

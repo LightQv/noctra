@@ -157,30 +157,77 @@ function renderUrlline(webContents, model = {}, actions = {}, theme = {}) {
             const target = event.target;
             if (!(target instanceof Element)) return;
             const node = target.closest('[data-urlline-action]');
-            if (!node) return;
+            if (node) {
+              const action = node.getAttribute('data-urlline-action');
+              const pane = node.getAttribute('data-pane') || 'left';
 
-            const action = node.getAttribute('data-urlline-action');
-            const pane = node.getAttribute('data-pane') || 'left';
-
-            if (!action || !window.uiShell) {
-              return;
-            }
-
-            if (action === 'start-edit') {
-              if (typeof window.uiShell.startUrllineEdit === 'function') {
-                window.uiShell.startUrllineEdit(pane);
+              if (!action || !window.uiShell) {
+                return;
               }
-              return;
-            }
 
-            if (node instanceof HTMLButtonElement && node.disabled) {
-              return;
-            }
+              if (action === 'start-edit') {
+                if (typeof window.uiShell.startUrllineEdit === 'function') {
+                  window.uiShell.startUrllineEdit(pane);
+                }
+                return;
+              }
 
-            if (typeof window.uiShell.urllineAction === 'function') {
-              window.uiShell.urllineAction(pane, action);
+              if (node instanceof HTMLButtonElement && node.disabled) {
+                return;
+              }
+
+              if (typeof window.uiShell.urllineAction === 'function') {
+                window.uiShell.urllineAction(pane, action);
+              }
+            } else {
+              const inner = target.closest('.urlline-inner');
+              if (inner && window.uiShell && typeof window.uiShell.stopUrllineEdit === 'function') {
+                window.uiShell.stopUrllineEdit();
+              }
             }
           });
+
+          root.addEventListener('contextmenu', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            event.preventDefault();
+
+            const actionNode = target.closest('[data-urlline-action]');
+            if (actionNode) {
+              const action = actionNode.getAttribute('data-urlline-action');
+              const pane = actionNode.getAttribute('data-pane') || 'left';
+
+              if (action === 'start-edit') {
+                if (window.uiShell && typeof window.uiShell.contextMenu === 'function') {
+                  window.uiShell.contextMenu({
+                    zone: 'urlline',
+                    target: 'url',
+                    pane,
+                    x: event.clientX,
+                    y: event.clientY,
+                  });
+                }
+                return;
+              }
+
+              return;
+            }
+
+            const paneNode = target.closest('.ui-shell-urlline-pane');
+            if (paneNode) {
+              const pane = paneNode.getAttribute('data-pane') || 'left';
+              if (window.uiShell && typeof window.uiShell.contextMenu === 'function') {
+                window.uiShell.contextMenu({
+                  zone: 'urlline',
+                  target: 'background',
+                  pane,
+                  x: event.clientX,
+                  y: event.clientY,
+                });
+              }
+            }
+          });
+
           root.dataset.boundClick = 'true';
         }
 

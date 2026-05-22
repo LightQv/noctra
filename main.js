@@ -1026,6 +1026,7 @@ function createWindow() {
     normalizeHistoryUrl,
     applyBrowserLanguagePreference,
     persistSessionSnapshot: persistSnapshot,
+    clipboard,
   });
 
   context.win = runtime.win;

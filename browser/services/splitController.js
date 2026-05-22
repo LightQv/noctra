@@ -95,6 +95,47 @@ function openUrlInRightSplit(manager, url) {
   return buffer;
 }
 
+function openBufferInRightSplit(manager, sourceBuffer) {
+  if (!manager.window) {
+    throw new Error(
+      "BufferManager must be initialized with a window before openBufferInRightSplit().",
+    );
+  }
+
+  if (!sourceBuffer) {
+    return null;
+  }
+
+  manager.closeDevtoolsSplit();
+  manager.ensureRightPaneBuffer();
+
+  const hasVirtualDocument = Boolean(
+    sourceBuffer.virtualDocument &&
+      typeof sourceBuffer.virtualDocument.html === "string" &&
+      sourceBuffer.virtualDocument.html.trim(),
+  );
+
+  const url = hasVirtualDocument ? null : (sourceBuffer.url || "about:blank");
+  const buffer = manager.create(url, {
+    kind: typeof sourceBuffer.kind === "string" ? sourceBuffer.kind : "web",
+    activate: false,
+  });
+
+  if (hasVirtualDocument) {
+    buffer.loadVirtualDocument(sourceBuffer.virtualDocument);
+  }
+
+  manager.split.enabled = true;
+  manager.split.mode = "regular";
+  manager.split.rightPaneSourceBuffer = buffer;
+  manager.focusedPane = "right";
+
+  manager.layoutViews();
+  manager.focusActive();
+  manager.notify({ kind: "structure", activeChanged: true });
+  return buffer;
+}
+
 function reconcileSplitSources(manager) {
   if (!manager.split.enabled || manager.split.mode !== "regular") {
     return;
@@ -128,5 +169,6 @@ module.exports = {
   focusSplitRight,
   focusPane,
   openUrlInRightSplit,
+  openBufferInRightSplit,
   reconcileSplitSources,
 };

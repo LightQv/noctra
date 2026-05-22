@@ -194,6 +194,92 @@ function createWebContextMenuActions({
   };
 }
 
+function createUIShellContextMenuActions({
+  clipboard,
+  buffers,
+  dispatch,
+  state,
+  INTENTS,
+  startUrllineEdit,
+  win,
+}) {
+  function getTabIndex(tabId) {
+    return buffers.buffers.findIndex((buffer) => buffer.id === tabId);
+  }
+
+  return {
+    forTablineTab(tabId) {
+      return {
+        closeTab() {
+          buffers.close(tabId);
+        },
+        closeAllTabsToLeft() {
+          const index = getTabIndex(tabId);
+          if (index > 0) {
+            buffers.closeAllLeftOf(index);
+          }
+        },
+        closeAllTabsToRight() {
+          const index = getTabIndex(tabId);
+          buffers.closeAllRightOf(index);
+        },
+        closeAllTabs() {
+          buffers.closeAllBuffers();
+        },
+        duplicateTab() {
+          buffers.duplicateBuffer(tabId);
+        },
+        splitTab() {
+          const target = buffers.buffers.find((buffer) => buffer.id === tabId);
+          if (!target) return;
+          if (target.isEditable) return;
+          const isDashboard =
+            target.virtualUrl === "noctra://dashboard" ||
+            target.url === "noctra://dashboard";
+          if (
+            !isDashboard &&
+            target.virtualDocument &&
+            typeof target.virtualDocument.html === "string" &&
+            target.virtualDocument.html.trim()
+          ) {
+            return;
+          }
+          if (!buffers.isSplitEnabled()) {
+            buffers.openVerticalSplit();
+          }
+          if (isDashboard) {
+            buffers.openBufferInRightSplit(target);
+          } else {
+            buffers.openUrlInRightSplit(target.url || "about:blank");
+          }
+        },
+      };
+    },
+
+    forUrllineUrl(pane) {
+      return {
+        copyUrl() {
+          const paneBuffer = buffers.getPaneBuffer(pane);
+          if (paneBuffer && paneBuffer.url) {
+            clipboard.writeText(paneBuffer.url);
+          }
+        },
+        editUrl() {
+          const paneBuffer = buffers.getPaneBuffer(pane);
+          if (!paneBuffer || paneBuffer.isEditable) {
+            return;
+          }
+          startUrllineEdit(pane, paneBuffer.url || "about:blank");
+        },
+        hideUrlline() {
+          dispatch(win, { type: INTENTS.TOGGLE_URLLINE }, state);
+        },
+      };
+    },
+  };
+}
+
 module.exports = {
   createWebContextMenuActions,
+  createUIShellContextMenuActions,
 };

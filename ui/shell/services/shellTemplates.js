@@ -767,6 +767,14 @@ const STATUSLINE_OVERLAY_HTML = `
       <span id="statusline-mode"><span id="statusline-mode-icon"></span><span id="statusline-mode-label">NORMAL</span></span>
       <span id="statusline-right"><span id="statusline-split" aria-label="Split focus"><span id="statusline-split-left">L</span><span id="statusline-split-sep">/</span><span id="statusline-split-right">R</span></span><span id="statusline-scroll">0%</span></span>
     </div>
+    <script>
+      (function preventStatuslineContextMenu() {
+        document.addEventListener('contextmenu', function(event) {
+          event.preventDefault();
+          return false;
+        });
+      })();
+    </script>
   </body>
 </html>
 `;

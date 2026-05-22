@@ -214,6 +214,22 @@ All UI shell menus are triggered by renderer `contextmenu` events sent via **tru
 - In `ui/shell/services/shellTemplates.js` STATUSLINE_OVERLAY_HTML, add script that calls `preventDefault()` on `contextmenu`.
 - No IPC needed.
 
+### 2.4 Urlline Editing Context Menu — Future Enhancement
+
+The current urlline uses a custom `<button>` + `<span>` rendering with cursor-only state (`urllineBuffer` + `urllineCursorIndex`). This means the context menu for an actively-editing urlline only supports:
+
+- Paste (inserts clipboard at cursor)
+- Delete (deletes character at cursor)
+- Select All (copies entire buffer)
+
+**Future work**: Add a full text selection model (`selectionStart`/`selectionEnd`) to `urllineState`. This would enable:
+- Proper Cut/Copy/Paste semantics with selection
+- Shift+arrow selection in the urlline
+- Mouse drag-to-select
+- A truly native-equivalent editing context menu
+
+This is a standalone feature worth its own design pass after the context menu plan is fully executed.
+
 ---
 
 ## 3. Sidepanel Context Menus

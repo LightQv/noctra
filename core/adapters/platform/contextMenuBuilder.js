@@ -207,6 +207,59 @@ function buildWebContextMenuTemplate({ params, runtimeSnapshot, actions }) {
   return items;
 }
 
+function buildUIShellContextMenuTemplate({ zone, target, runtimeSnapshot, actions }) {
+  const items = [];
+
+  if (zone === "tabline" && target === "tab") {
+    const { isFirst, isLast, isSplitEnabled, isEditable, hasVirtualDocument, isDashboard } = runtimeSnapshot;
+    const canSplit = !isSplitEnabled && !isEditable && (!hasVirtualDocument || isDashboard);
+    items.push(
+      { label: "Close Tab", click: () => actions.closeTab() },
+      {
+        label: "Close All Tabs to the Left",
+        enabled: !isFirst,
+        click: () => actions.closeAllTabsToLeft(),
+      },
+      {
+        label: "Close All Tabs to the Right",
+        enabled: !isLast,
+        click: () => actions.closeAllTabsToRight(),
+      },
+      { label: "Close All Tabs", click: () => actions.closeAllTabs() },
+      { type: "separator" },
+      {
+        label: "Duplicate Tab",
+        enabled: !isEditable,
+        click: () => actions.duplicateTab(),
+      },
+      {
+        label: "Split Tab",
+        enabled: canSplit,
+        click: () => actions.splitTab(),
+      },
+    );
+    return items;
+  }
+
+  if (zone === "urlline") {
+    if (target === "url") {
+      items.push(
+        { label: "Copy URL Address", click: () => actions.copyUrl() },
+        { label: "Edit URL", click: () => actions.editUrl() },
+      );
+      return items;
+    }
+
+    if (target === "background") {
+      items.push({ label: "Hide Urlline", click: () => actions.hideUrlline() });
+      return items;
+    }
+  }
+
+  return items;
+}
+
 module.exports = {
   buildWebContextMenuTemplate,
+  buildUIShellContextMenuTemplate,
 };

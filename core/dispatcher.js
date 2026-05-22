@@ -81,26 +81,26 @@ function blurFocusedWebInput(buffer) {
     .catch(() => {});
 }
 
-function openSettingsBuffer() {
+function openSettingsBuffer(buffersRef = buffers) {
   return openEditableFileBuffer({
     virtualUrl: "noctra://settings/config.yml",
     title: "config.yml",
     filePath: configService.getConfigPath(),
     viewTitle: "Settings",
-  });
+  }, buffersRef);
 }
 
-function openNotificationsBuffer() {
+function openNotificationsBuffer(buffersRef = buffers) {
   return openEditableFileBuffer({
     virtualUrl: "noctra://settings/notifications.yml",
     title: "notifications.yml",
     filePath: notificationsStore.ensureNotificationsFile(),
     viewTitle: "Notifications",
-  });
+  }, buffersRef);
 }
 
-function openEditableFileBuffer(options = {}) {
-  const existing = buffers.findByKind("editable");
+function openEditableFileBuffer(options = {}, buffersRef = buffers) {
+  const existing = buffersRef.findByKind("editable");
   const filePath = String(options.filePath || "");
   const virtualUrl = String(options.virtualUrl || "about:blank");
   const title = String(options.title || "[No title]");
@@ -108,7 +108,7 @@ function openEditableFileBuffer(options = {}) {
 
   if (existing) {
     existing.editableFilePath = filePath;
-    buffers.switchTo(existing.id);
+    buffersRef.switchTo(existing.id);
     return existing;
   }
 
@@ -132,7 +132,7 @@ function openEditableFileBuffer(options = {}) {
     { viewTitle },
   );
 
-  const buffer = buffers.create(null, {
+  const buffer = buffersRef.create(null, {
     kind: "editable",
     activate: true,
     preloadPath: path.join(__dirname, "..", "ui", "settings", "preload.js"),
@@ -337,8 +337,8 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     blurEditableBufferSurface: editorSurface.blur,
     runEditableExCommand: editorSurface.runCommand,
     blurFocusedWebInput,
-    openSettingsBuffer,
-    openNotificationsBuffer,
+    openSettingsBuffer: () => openSettingsBuffer(localBuffers),
+    openNotificationsBuffer: () => openNotificationsBuffer(localBuffers),
     normalizeUrl,
     applyThemeEverywhere: (win) => applyThemeEverywhere(win, runtimeDeps),
     applyThemeAcrossWindows: runtimeDeps.applyThemeAcrossWindows,

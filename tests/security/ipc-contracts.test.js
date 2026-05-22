@@ -123,3 +123,54 @@ test("invoke rejection shape is stable and machine-readable", async () => {
   assert.equal(result.error.boundary, "ipc:invoke");
   assert.equal(result.error.subject, "settings:save");
 });
+
+test("ui-shell:context-menu accepts valid tabline payload", () => {
+  const result = validateIpcPayload("ui-shell:context-menu", {
+    zone: "tabline",
+    target: "tab",
+    tabId: 3,
+    x: 120,
+    y: 45,
+  });
+  assert.equal(result.ok, true);
+});
+
+test("ui-shell:context-menu accepts valid urlline payload", () => {
+  const result = validateIpcPayload("ui-shell:context-menu", {
+    zone: "urlline",
+    target: "url",
+    pane: "left",
+    x: 200,
+    y: 60,
+  });
+  assert.equal(result.ok, true);
+});
+
+test("ui-shell:context-menu rejects invalid zone", () => {
+  const result = validateIpcPayload("ui-shell:context-menu", {
+    zone: "invalid",
+    x: 0,
+    y: 0,
+  });
+  assert.equal(result.ok, false);
+});
+
+test("ui-shell:context-menu rejects missing x", () => {
+  const result = validateIpcPayload("ui-shell:context-menu", {
+    zone: "tabline",
+    y: 0,
+  });
+  assert.equal(result.ok, false);
+});
+
+test("ui-shell:context-menu event rejection prevents side effects", () => {
+  const harness = createRuntimeHarness();
+  harness.registered.events["ui-shell:context-menu"](harness.trustedEvent, {
+    zone: "tabline",
+    target: "tab",
+    tabId: "not-a-number",
+    x: 0,
+    y: 0,
+  });
+  assert.equal(harness.notifications.at(-1).code, "contract_invalid_payload");
+});

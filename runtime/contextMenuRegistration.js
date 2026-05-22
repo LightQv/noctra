@@ -86,8 +86,9 @@ function registerWebContextMenu({
 
   const disposables = new Map();
 
-  function attach(targetWebContents) {
+  function attach(targetWebContents, buffer = null) {
     if (!targetWebContents || targetWebContents.isDestroyed()) return;
+    if (buffer && buffer.isEditable) return;
     const id = targetWebContents.id;
     if (disposables.has(id)) return;
 
@@ -113,11 +114,11 @@ function registerWebContextMenu({
   function attachAll() {
     for (const buffer of buffers.getBuffers()) {
       if (buffer && buffer.webContents) {
-        attach(buffer.webContents);
+        attach(buffer.webContents, buffer);
       }
     }
     if (buffers.split && buffers.split.rightPaneBuffer && buffers.split.rightPaneBuffer.webContents) {
-      attach(buffers.split.rightPaneBuffer.webContents);
+      attach(buffers.split.rightPaneBuffer.webContents, buffers.split.rightPaneBuffer);
     }
   }
 
@@ -128,7 +129,7 @@ function registerWebContextMenu({
 
     const currentIds = new Set();
     for (const buffer of buffers.getBuffers()) {
-      if (buffer && buffer.webContents && !buffer.webContents.isDestroyed()) {
+      if (buffer && buffer.webContents && !buffer.webContents.isDestroyed() && !buffer.isEditable) {
         currentIds.add(buffer.webContents.id);
       }
     }
@@ -136,7 +137,8 @@ function registerWebContextMenu({
       buffers.split &&
       buffers.split.rightPaneBuffer &&
       buffers.split.rightPaneBuffer.webContents &&
-      !buffers.split.rightPaneBuffer.webContents.isDestroyed()
+      !buffers.split.rightPaneBuffer.webContents.isDestroyed() &&
+      !buffers.split.rightPaneBuffer.isEditable
     ) {
       currentIds.add(buffers.split.rightPaneBuffer.webContents.id);
     }

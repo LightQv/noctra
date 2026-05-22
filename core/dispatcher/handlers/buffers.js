@@ -38,6 +38,37 @@ function createBufferHandlers(deps) {
     [INTENTS.CLOSE_LEFT_BUFFERS]: () => buffers.closeLeftOfActive(),
     [INTENTS.CLOSE_RIGHT_BUFFERS]: () => buffers.closeRightOfActive(),
     [INTENTS.SPLIT_VERTICAL]: () => {
+      const active = buffers.getActive();
+      if (active && active.isEditable) {
+        notificationsService.notify({
+          severity: "info",
+          code: "split_not_available_editor",
+          message: "Split is not available for editor buffers",
+          source: "core.dispatcher",
+          persist: false,
+        });
+        return;
+      }
+      if (
+        active &&
+        active.virtualDocument &&
+        typeof active.virtualDocument.html === "string" &&
+        active.virtualDocument.html.trim()
+      ) {
+        const isDashboard =
+          active.virtualUrl === "noctra://dashboard" ||
+          active.url === "noctra://dashboard";
+        if (!isDashboard) {
+          notificationsService.notify({
+            severity: "info",
+            code: "split_not_available_virtual",
+            message: "Split is not available for this buffer",
+            source: "core.dispatcher",
+            persist: false,
+          });
+          return;
+        }
+      }
       const ratio = configService.getConfigValue(
         "global.split.regular_ratio",
         0.5,

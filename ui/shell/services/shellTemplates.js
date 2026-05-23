@@ -1016,6 +1016,10 @@ const TOAST_OVERLAY_HTML = `
 </html>
 `;
 
+const {
+  CONTEXT_MENU_OVERLAY_HTML,
+} = require("./contextMenuOverlayTemplate");
+
 module.exports = {
   SHELL_HTML,
   COMMAND_OVERLAY_HTML,
@@ -1026,4 +1030,5 @@ module.exports = {
   TOAST_OVERLAY_HTML,
   DOWNLOADS_MODAL_OVERLAY_HTML,
   BACKDROP_OVERLAY_HTML,
+  CONTEXT_MENU_OVERLAY_HTML,
 };

@@ -1,4 +1,3 @@
-const { Menu } = require("electron");
 const { setEditorMode } = require("../core/state/editorModeState");
 const { validateIpcPayload } = require("../core/contracts/ipc");
 const {
@@ -289,8 +288,9 @@ function registerRuntimeIpc({
     }
 
     if (template.length > 0) {
-      const menu = Menu.buildFromTemplate(template);
-      menu.popup({ window: win });
+      if (uiShell && typeof uiShell.showContextMenu === "function") {
+        uiShell.showContextMenu(template, payload.x, payload.y);
+      }
     }
   };
 

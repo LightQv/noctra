@@ -280,6 +280,14 @@ function handleRawInput(context, event, input) {
     shouldPreventDefault,
     handleUrllineInput,
   } = context;
+
+  // Dismiss context menu on any key press
+  if (uiShell && uiShell.contextMenuVisible) {
+    uiShell.hideContextMenu();
+    event.preventDefault();
+    return;
+  }
+
   const normalized = normalizeInput(input);
   const focusSnapshot = resolveFocusSnapshot({
     state,
@@ -1063,6 +1071,7 @@ function createWindow() {
     isBookmarkableBuffer,
     clipboard,
     dialog,
+    uiShell,
   });
 
   windowContexts.set(context.win.id, context);

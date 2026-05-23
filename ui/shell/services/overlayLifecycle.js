@@ -44,6 +44,7 @@ function relayout() {
       toastOverlayView: this.toastOverlayView,
       downloadsModalView: this.downloadsModalView,
       backdropOverlayView: this.backdropOverlayView,
+      contextMenuOverlayView: this.contextMenuOverlayView,
     },
     visibility: {
       commandVisible: this.commandVisible,
@@ -57,6 +58,8 @@ function relayout() {
         this.selectionModalVisible ||
         this.telescopeVisible ||
         this.downloadsModalVisible,
+      contextMenuVisible: this.contextMenuVisible,
+      contextMenuBounds: this.contextMenuBounds || null,
     },
     chrome: {
       UI_SHELL_TABLINE_HEIGHT,
@@ -103,6 +106,8 @@ function syncOverlayStack() {
       this.telescopeVisible ||
       this.downloadsModalVisible,
     backdropOverlayView: this.backdropOverlayView,
+    contextMenuVisible: this.contextMenuVisible,
+    contextMenuOverlayView: this.contextMenuOverlayView,
   });
 
   this.relayout();

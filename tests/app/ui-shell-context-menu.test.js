@@ -425,3 +425,107 @@ test("ui shell actions: hideUrlline dispatches TOGGLE_URLLINE", () => {
   actions.hideUrlline();
   assert.equal(dispatched.type, "TOGGLE_URLLINE");
 });
+
+// ─── Disabled state reaction tests ───
+
+test("ui shell tabline: split enabled state reacts to snapshot change", () => {
+  const actions = makeActionsStub();
+
+  // When split is NOT enabled, split tab should be enabled (for a regular web buffer)
+  const templateEnabled = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "tab",
+    runtimeSnapshot: makeTablineRuntimeSnapshot({ isSplitEnabled: false }),
+    actions,
+  });
+  const splitItemEnabled = templateEnabled.find((i) => i.label === "Split Tab");
+  assert.equal(splitItemEnabled.enabled, true, "split tab should be enabled when split is inactive");
+
+  // When split IS enabled, split tab should be disabled
+  const templateDisabled = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "tab",
+    runtimeSnapshot: makeTablineRuntimeSnapshot({ isSplitEnabled: true }),
+    actions,
+  });
+  const splitItemDisabled = templateDisabled.find((i) => i.label === "Split Tab");
+  assert.equal(splitItemDisabled.enabled, false, "split tab should be disabled when split is active");
+});
+
+test("ui shell tabline: duplicate enabled state reacts to buffer editability change", () => {
+  const actions = makeActionsStub();
+
+  const templateEditable = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "tab",
+    runtimeSnapshot: makeTablineRuntimeSnapshot({
+      buffer: { isEditable: true },
+    }),
+    actions,
+  });
+  const dupItemEditable = templateEditable.find((i) => i.label === "Duplicate Tab");
+  assert.equal(dupItemEditable.enabled, false, "duplicate should be disabled for editable buffer");
+
+  const templateNonEditable = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "tab",
+    runtimeSnapshot: makeTablineRuntimeSnapshot({
+      buffer: { isEditable: false },
+    }),
+    actions,
+  });
+  const dupItemNonEditable = templateNonEditable.find((i) => i.label === "Duplicate Tab");
+  assert.equal(dupItemNonEditable.enabled, true, "duplicate should be enabled for non-editable buffer");
+});
+
+test("ui shell tabline: close left/right enabled states react to tab position change", () => {
+  const actions = makeActionsStub();
+
+  // First tab: close left disabled, close right enabled
+  const templateFirst = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "tab",
+    runtimeSnapshot: makeTablineRuntimeSnapshot({ isFirst: true, isLast: false }),
+    actions,
+  });
+  assert.equal(
+    templateFirst.find((i) => i.label === "Close All Tabs to the Left").enabled,
+    false,
+  );
+  assert.equal(
+    templateFirst.find((i) => i.label === "Close All Tabs to the Right").enabled,
+    true,
+  );
+
+  // Middle tab: both enabled
+  const templateMiddle = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "tab",
+    runtimeSnapshot: makeTablineRuntimeSnapshot({ isFirst: false, isLast: false }),
+    actions,
+  });
+  assert.equal(
+    templateMiddle.find((i) => i.label === "Close All Tabs to the Left").enabled,
+    true,
+  );
+  assert.equal(
+    templateMiddle.find((i) => i.label === "Close All Tabs to the Right").enabled,
+    true,
+  );
+
+  // Last tab: close left enabled, close right disabled
+  const templateLast = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "tab",
+    runtimeSnapshot: makeTablineRuntimeSnapshot({ isFirst: false, isLast: true }),
+    actions,
+  });
+  assert.equal(
+    templateLast.find((i) => i.label === "Close All Tabs to the Left").enabled,
+    true,
+  );
+  assert.equal(
+    templateLast.find((i) => i.label === "Close All Tabs to the Right").enabled,
+    false,
+  );
+});

@@ -221,3 +221,92 @@ test("statusline prevents contextmenu via shell templates", () => {
     "statusline template must call preventDefault",
   );
 });
+
+test("main.js handleMouseInput ignores right-click and non-left buttons", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const mainSource = fs.readFileSync(
+    path.join(__dirname, "../../main.js"),
+    "utf-8",
+  );
+  const handleMouseInputIndex = mainSource.indexOf("function handleMouseInput");
+  assert.ok(handleMouseInputIndex >= 0, "main.js must have handleMouseInput function");
+
+  const afterFunc = mainSource.slice(handleMouseInputIndex);
+  const guardIndex = afterFunc.indexOf('input.button !== "left"');
+  assert.ok(
+    guardIndex >= 0,
+    "handleMouseInput must guard against non-left mouse buttons",
+  );
+
+  // Verify that dismissIfOutside only appears AFTER the guard
+  const dismissIndex = afterFunc.indexOf("dismissIfOutside");
+  assert.ok(
+    dismissIndex > guardIndex,
+    "overlay dismissal must only happen after left-button guard passes",
+  );
+});
+
+test("inputCoordinator forwards all mouse events without button filtering", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const source = fs.readFileSync(
+    path.join(__dirname, "../../runtime/inputCoordinator.js"),
+    "utf-8",
+  );
+
+  const mouseListenerIndex = source.indexOf("mouseListener = ");
+  assert.ok(mouseListenerIndex >= 0, "inputCoordinator must define mouseListener");
+
+  const afterMouseListener = source.slice(mouseListenerIndex);
+  const handleMouseInputIndex = afterMouseListener.indexOf("handleMouseInput");
+  assert.ok(
+    handleMouseInputIndex >= 0,
+    "mouseListener must call handleMouseInput",
+  );
+
+  // Verify no button filtering inside mouseListener itself
+  const nextFunctionIndex = afterMouseListener.indexOf("function", 20);
+  const mouseListenerBody = nextFunctionIndex > 0
+    ? afterMouseListener.slice(0, nextFunctionIndex)
+    : afterMouseListener;
+
+  assert.ok(
+    !mouseListenerBody.includes('input.button'),
+    "inputCoordinator mouseListener must not filter by button — filtering belongs in handleMouseInput",
+  );
+});
+
+test("panelViewHost forwards all mouse events via onMouseEvent", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const source = fs.readFileSync(
+    path.join(__dirname, "../../core/adapters/platform/panelViewHost.js"),
+    "utf-8",
+  );
+
+  const beforeMouseEventIndex = source.indexOf('"before-mouse-event"');
+  assert.ok(beforeMouseEventIndex >= 0, "panelViewHost must listen to before-mouse-event");
+
+  const afterEvent = source.slice(beforeMouseEventIndex);
+
+  // Verify onMouseEvent is called unconditionally
+  const onMouseEventIndex = afterEvent.indexOf("onMouseEvent");
+  assert.ok(
+    onMouseEventIndex >= 0,
+    "panelViewHost must call onMouseEvent for all mouse events",
+  );
+
+  // Verify onMouseDown is only called for mouseDown
+  const onMouseDownIndex = afterEvent.indexOf("onMouseDown");
+  assert.ok(
+    onMouseDownIndex >= 0,
+    "panelViewHost must call onMouseDown",
+  );
+
+  const betweenMouseEventAndMouseDown = afterEvent.slice(onMouseEventIndex, onMouseDownIndex);
+  assert.ok(
+    betweenMouseEventAndMouseDown.includes('input.type !== "mouseDown"'),
+    "onMouseDown must be guarded by mouseDown type check",
+  );
+});

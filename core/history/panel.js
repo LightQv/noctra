@@ -1,4 +1,4 @@
-const { clipboard, Menu } = require("electron");
+const { clipboard } = require("electron");
 const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
 const downloadsService = require("../downloads/service");
@@ -1356,13 +1356,14 @@ class HistoryPanel {
     };
   }
 
-  init({ window, buffers, state, viewHost, dispatch, INTENTS }) {
+  init({ window, buffers, state, viewHost, dispatch, INTENTS, uiShell }) {
     this.window = window;
     this.buffers = buffers;
     this.state = state;
     this.viewHost = viewHost || null;
     this.dispatch = dispatch || null;
     this.INTENTS = INTENTS || null;
+    this.uiShell = uiShell || null;
     this.renderTransport = createPanelRenderTransport({
       resolveWebContents: () => this.getWebContents(),
       delayMs: 16,
@@ -1850,8 +1851,13 @@ class HistoryPanel {
 
     if (!template || template.length === 0) return;
 
-    const menu = Menu.buildFromTemplate(template);
-    menu.popup({ window: this.window });
+    if (this.uiShell && typeof this.uiShell.showContextMenu === "function") {
+      // input.x, input.y are relative to the sidepanel view;
+      // sidepanel is positioned at y = UI_SHELL_TABLINE_HEIGHT
+      const menuX = _x;
+      const menuY = _y + UI_SHELL_TABLINE_HEIGHT;
+      this.uiShell.showContextMenu(template, menuX, menuY);
+    }
   }
 
   deleteFavoriteNodeById(nodeId) {

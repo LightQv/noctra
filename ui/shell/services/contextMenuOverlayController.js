@@ -125,8 +125,8 @@ function hideContextMenu(options = {}) {
 async function handleContextMenuMouseEvent(input, event) {
   if (!this.contextMenuVisible || !input) return;
 
-  // Right-click anywhere dismisses the menu and lets the event pass
-  // through to the underlying view so it can open a new context menu.
+  // Right-click anywhere dismisses the current menu and requests
+  // a synthetic reopen on the underlying surface at this pointer.
   if (input.button === "right") {
     if (event && typeof event.preventDefault === "function") {
       event.preventDefault();
@@ -150,16 +150,9 @@ async function handleContextMenuMouseEvent(input, event) {
     return;
 
   try {
-    const bounds =
-      this.contextMenuOverlayView &&
-      typeof this.contextMenuOverlayView.getBounds === "function"
-        ? this.contextMenuOverlayView.getBounds()
-        : null;
-    const localX = Number.isFinite(input.x) && bounds ? input.x - bounds.x : input.x;
-    const localY = Number.isFinite(input.y) && bounds ? input.y - bounds.y : input.y;
     const target = await this.contextMenuOverlayView.webContents.executeJavaScript(
       `(() => {
-        const node = document.elementFromPoint(${JSON.stringify(localX)}, ${JSON.stringify(localY)});
+        const node = document.elementFromPoint(${JSON.stringify(input.x)}, ${JSON.stringify(input.y)});
         if (!node) return null;
         const target = node.closest('[data-click-role="menu-item"]');
         if (!target) return null;

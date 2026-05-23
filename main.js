@@ -116,14 +116,6 @@ const {
 const { createAppMenu } = require("./core/adapters/platform/appMenu");
 const { openDoc } = require("./core/adapters/platform/openExternal");
 const { isBookmarkableBuffer } = require("./core/bookmarks/eligibility");
-const {
-  buildUIShellContextMenuTemplate,
-  buildSidepanelContextMenuTemplate,
-} = require("./core/adapters/platform/contextMenuBuilder");
-const {
-  createUIShellContextMenuActions,
-  createSidepanelContextMenuActions,
-} = require("./core/adapters/platform/contextMenuActions");
 app.setName("Noctra");
 const execFileAsync = promisify(execFile);
 
@@ -320,8 +312,8 @@ function wrapTemplateClicks(template, onClick) {
     const originalClick = item.click;
     return {
       ...item,
-      click: () => {
-        originalClick();
+      click: (...args) => {
+        originalClick(...args);
         if (typeof onClick === "function") onClick();
       },
     };
@@ -337,6 +329,32 @@ function closeTelescopeAfterContextAction(context) {
   if (appMenu) appMenu.sync();
 }
 
+function buildTelescopeUrlContextTemplate({ url, dispatch, win, state, clipboard }) {
+  const normalizedUrl = String(url || "").trim();
+  if (!normalizedUrl) return [];
+  return [
+    {
+      label: "Open in New Buffer",
+      click: () => {
+        dispatch(win, { type: INTENTS.NEW_BUFFER, url: normalizedUrl }, state);
+      },
+    },
+    {
+      label: "Open in Split",
+      click: () => {
+        dispatch(win, { type: INTENTS.OPEN_URL_IN_SPLIT, url: normalizedUrl }, state);
+      },
+    },
+    { type: "separator" },
+    {
+      label: "Copy URL Address",
+      click: () => {
+        clipboard.writeText(normalizedUrl);
+      },
+    },
+  ];
+}
+
 function showTelescopeContextMenu(context, payload = {}) {
   const {
     telescopeService,
@@ -344,7 +362,6 @@ function showTelescopeContextMenu(context, payload = {}) {
     buffers,
     dispatch,
     state,
-    INTENTS,
     win,
     clipboard,
   } = context;
@@ -355,12 +372,13 @@ function showTelescopeContextMenu(context, payload = {}) {
   let template = [];
 
   if (target && target.id === "telescope-prompt") {
+    const query = telescopeService.getQuery();
+    const hasQuery = query.length > 0;
     template = [
       {
         label: "Cut",
-        enabled: telescopeService.getQuery().length > 0,
+        enabled: hasQuery,
         click: () => {
-          const query = telescopeService.getQuery();
           if (!query) return;
           clipboard.writeText(query);
           telescopeService.clearQuery();
@@ -369,9 +387,8 @@ function showTelescopeContextMenu(context, payload = {}) {
       },
       {
         label: "Copy",
-        enabled: telescopeService.getQuery().length > 0,
+        enabled: hasQuery,
         click: () => {
-          const query = telescopeService.getQuery();
           if (query) clipboard.writeText(query);
         },
       },
@@ -386,7 +403,7 @@ function showTelescopeContextMenu(context, payload = {}) {
       },
       {
         label: "Delete",
-        enabled: telescopeService.getQuery().length > 0,
+        enabled: hasQuery,
         click: () => {
           telescopeService.clearQuery();
           uiShell.updateTelescope(telescopeService.buildModel());
@@ -400,76 +417,46 @@ function showTelescopeContextMenu(context, payload = {}) {
     if (!item) return;
 
     if (item.contextKind === "buffers" && Number.isFinite(item.bufferId)) {
-      const tabId = item.bufferId;
-      const index = buffers.buffers.findIndex((buffer) => buffer.id === tabId);
-      const tabBuffer = index >= 0 ? buffers.buffers[index] : null;
-      const actions = createUIShellContextMenuActions({
-        clipboard,
-        buffers,
-        dispatch,
-        state,
-        INTENTS,
-        startUrllineEdit: () => {},
-        win,
-      }).forTablineTab(tabId);
-      template = buildUIShellContextMenuTemplate({
-        zone: "tabline",
-        target: "tab",
-        runtimeSnapshot: {
-          tabIndex: index,
-          isFirst: index === 0,
-          isLast: index >= 0 && index === buffers.buffers.length - 1,
-          isSplitEnabled: buffers.isSplitEnabled() && buffers.split.mode === "regular",
-          buffer: tabBuffer,
+      const bufferId = item.bufferId;
+      template = [
+        {
+          label: "Switch to Buffer",
+          click: () => {
+            dispatch(win, { type: INTENTS.SWITCH_BUFFER, id: bufferId }, state);
+          },
         },
-        actions,
-      });
+        {
+          label: "Duplicate Buffer",
+          click: () => {
+            dispatch(
+              win,
+              { type: INTENTS.DUPLICATE_BUFFER, bufferId },
+              state,
+            );
+          },
+        },
+        {
+          label: "Close Buffer",
+          click: () => {
+            dispatch(win, { type: INTENTS.CLOSE_BUFFER, id: bufferId }, state);
+          },
+        },
+      ];
     } else if (item.contextKind === "history") {
-      const node = {
-        type: "entry",
-        dateKey: item.dateKey,
-        entry: {
-          id: item.entryId,
-          url: item.subtitle,
-          title: item.title,
-        },
-      };
-      const actions = createSidepanelContextMenuActions({
+      template = buildTelescopeUrlContextTemplate({
+        url: item.subtitle,
         dispatch,
         win,
         state,
-        INTENTS,
-        panel: { treeKind: "history" },
-        node,
-        buffers,
-      });
-      template = buildSidepanelContextMenuTemplate({
-        treeKind: "history",
-        rowType: "entry",
-        runtimeSnapshot: {},
-        actions,
+        clipboard,
       });
     } else if (item.contextKind === "bookmarks") {
-      const node = {
-        type: "entry",
-        id: item.nodeId,
+      template = buildTelescopeUrlContextTemplate({
         url: item.subtitle,
-        title: item.title,
-      };
-      const actions = createSidepanelContextMenuActions({
         dispatch,
         win,
         state,
-        INTENTS,
-        panel: { treeKind: "bookmarks" },
-        node,
-        buffers,
-      });
-      template = buildSidepanelContextMenuTemplate({
-        treeKind: "bookmarks",
-        rowType: "entry",
-        runtimeSnapshot: {},
-        actions,
+        clipboard,
       });
     }
 

@@ -395,6 +395,12 @@ async function handleSelectionModalMouseEvent(input) {
 
 async function handleTelescopeMouseEvent(input) {
   if (!this.telescopeVisible || !input) return;
+  const bounds =
+    this.telescopeView && typeof this.telescopeView.getBounds === "function"
+      ? this.telescopeView.getBounds()
+      : null;
+  const menuX = Number.isFinite(input.x) && bounds ? input.x + bounds.x : input.x;
+  const menuY = Number.isFinite(input.y) && bounds ? input.y + bounds.y : input.y;
   if (input.type === "mouseDown" && input.button === "right") {
     const target = await resolveOverlayClickTarget(
       this.telescopeView,
@@ -404,8 +410,8 @@ async function handleTelescopeMouseEvent(input) {
     );
     if (typeof this.mouseActions?.showTelescopeContextMenu === "function") {
       this.mouseActions.showTelescopeContextMenu({
-        x: input.x,
-        y: input.y,
+        x: menuX,
+        y: menuY,
         target,
       });
     }

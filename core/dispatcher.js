@@ -236,6 +236,7 @@ function applyThemeEverywhere(win, runtimeDeps = {}) {
       themeContext.contentColorScheme === "light" ? "light" : "dark",
   });
   localBuffers.refreshDashboardBuffers();
+  localBuffers.refreshCatBuffers();
   broadcastUiShellPush({
     win,
     buffers: localBuffers,

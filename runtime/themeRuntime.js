@@ -95,7 +95,12 @@ function createThemeRuntime({
           ? "light"
           : "dark",
     });
-    buffers.refreshDashboardBuffers();
+    if (typeof buffers.refreshDashboardBuffers === "function") {
+      buffers.refreshDashboardBuffers();
+    }
+    if (typeof buffers.refreshCatBuffers === "function") {
+      buffers.refreshCatBuffers();
+    }
     if (shouldBroadcast) {
       broadcastThemeUpdate(payload);
     }

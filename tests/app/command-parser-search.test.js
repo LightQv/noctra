@@ -68,3 +68,15 @@ test("parseCommand supports :lang system and bang variant", () => {
     reload: true,
   });
 });
+
+test("parseCommand supports :open and :tab for noctra dashboard", () => {
+  assert.deepEqual(parseCommand("open noctra://dashboard"), {
+    type: INTENTS.OPEN_URL,
+    url: "noctra://dashboard",
+  });
+
+  assert.deepEqual(parseCommand("tab noctra://dashboard"), {
+    type: INTENTS.NEW_BUFFER,
+    url: "noctra://dashboard",
+  });
+});

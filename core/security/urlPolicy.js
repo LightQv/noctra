@@ -130,6 +130,15 @@ function validateNavigableUrl(rawUrl, policy = {}) {
     return { ok: true, url: parsed.href };
   }
 
+  if (parsed.protocol === "noctra:") {
+    if (parsed.hostname === "cat") {
+      return { ok: true, url: "noctra://cat" };
+    }
+    if (parsed.hostname === "dashboard") {
+      return { ok: true, url: "noctra://dashboard" };
+    }
+  }
+
   return { ok: false, reason: "scheme_not_allowed" };
 }
 

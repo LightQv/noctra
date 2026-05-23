@@ -117,7 +117,7 @@ test("web context menu: link has open/split/window/copy/search/inspect", () => {
     runtimeSnapshot: makeRuntimeSnapshot(),
     actions: actions,
   });
-  assert.ok(template.some((i) => i.label === "Open Link in New Tab"));
+  assert.ok(template.some((i) => i.label === "Open Link in New Buffer"));
   assert.ok(template.some((i) => i.label === "Open Link in Split"));
   assert.ok(template.some((i) => i.label === "Open Link in New Window"));
   const windowItem = template.find((i) => i.label === "Open Link in New Window");
@@ -134,7 +134,7 @@ test("web context menu: image has open/save/copy/copy-address/email/inspect", ()
     runtimeSnapshot: makeRuntimeSnapshot(),
     actions: actions,
   });
-  assert.ok(template.some((i) => i.label === "Open Image in New Tab"));
+  assert.ok(template.some((i) => i.label === "Open Image in New Buffer"));
   assert.ok(template.some((i) => i.label === "Save Image As..."));
   assert.ok(template.some((i) => i.label === "Copy Image"));
   assert.ok(template.some((i) => i.label === "Copy Image Address"));
@@ -156,8 +156,8 @@ test("web context menu: linked image has link actions then image actions", () =>
     actions: actions,
   });
   const labels = template.map((i) => i.label).filter(Boolean);
-  const linkOpenIndex = labels.indexOf("Open Link in New Tab");
-  const imageOpenIndex = labels.indexOf("Open Image in New Tab");
+  const linkOpenIndex = labels.indexOf("Open Link in New Buffer");
+  const imageOpenIndex = labels.indexOf("Open Image in New Buffer");
   assert.ok(linkOpenIndex >= 0);
   assert.ok(imageOpenIndex >= 0);
   assert.ok(linkOpenIndex < imageOpenIndex);

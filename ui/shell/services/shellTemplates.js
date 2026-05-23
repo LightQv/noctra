@@ -499,6 +499,8 @@ const TELESCOPE_OVERLAY_HTML = `
         box-sizing: border-box;
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
         pointer-events: auto;
+        user-select: none;
+        -webkit-user-select: none;
       }
 
       #telescope-prompt {
@@ -670,6 +672,14 @@ const TELESCOPE_OVERLAY_HTML = `
         <div id="telescope-list"></div>
       </fieldset>
     </div>
+    <script>
+      (function preventTelescopeContextMenu() {
+        document.addEventListener('contextmenu', function(event) {
+          event.preventDefault();
+          return false;
+        });
+      })();
+    </script>
   </body>
 </html>
 `;

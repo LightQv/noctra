@@ -300,9 +300,9 @@ test("sidepanel context menu template click dispatches intent through full pipel
     actions,
   });
 
-  // Click "Open in New Tab"
-  const openInNewTab = template.find((i) => i.label === "Open in New Tab");
-  openInNewTab.click();
+  // Click "Open in New Buffer"
+  const openInNewBuffer = template.find((i) => i.label === "Open in New Buffer");
+  openInNewBuffer.click();
   assert.equal(dispatched.type, "NEW_BUFFER");
   assert.equal(dispatched.url, "https://example.com");
 

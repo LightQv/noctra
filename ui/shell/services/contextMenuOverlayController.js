@@ -96,7 +96,8 @@ function showContextMenu(items, x, y) {
   this.syncOverlayStack();
 }
 
-function hideContextMenu() {
+function hideContextMenu(options = {}) {
+  const { skipDismissAction = false } = options;
   if (!this.contextMenuVisible) return;
   this.contextMenuVisible = false;
   this.contextMenuItems = [];
@@ -116,7 +117,7 @@ function hideContextMenu() {
 
   this.syncOverlayStack();
 
-  if (typeof this.mouseActions?.dismissContextMenu === "function") {
+  if (!skipDismissAction && typeof this.mouseActions?.dismissContextMenu === "function") {
     this.mouseActions.dismissContextMenu();
   }
 }
@@ -127,7 +128,13 @@ async function handleContextMenuMouseEvent(input, event) {
   // Right-click anywhere dismisses the menu and lets the event pass
   // through to the underlying view so it can open a new context menu.
   if (input.button === "right") {
-    this.hideContextMenu();
+    if (event && typeof event.preventDefault === "function") {
+      event.preventDefault();
+    }
+    this.hideContextMenu({ skipDismissAction: true });
+    if (typeof this.mouseActions?.reopenContextMenuAt === "function") {
+      this.mouseActions.reopenContextMenuAt(input.x, input.y);
+    }
     return;
   }
 
@@ -143,9 +150,16 @@ async function handleContextMenuMouseEvent(input, event) {
     return;
 
   try {
+    const bounds =
+      this.contextMenuOverlayView &&
+      typeof this.contextMenuOverlayView.getBounds === "function"
+        ? this.contextMenuOverlayView.getBounds()
+        : null;
+    const localX = Number.isFinite(input.x) && bounds ? input.x - bounds.x : input.x;
+    const localY = Number.isFinite(input.y) && bounds ? input.y - bounds.y : input.y;
     const target = await this.contextMenuOverlayView.webContents.executeJavaScript(
       `(() => {
-        const node = document.elementFromPoint(${JSON.stringify(input.x)}, ${JSON.stringify(input.y)});
+        const node = document.elementFromPoint(${JSON.stringify(localX)}, ${JSON.stringify(localY)});
         if (!node) return null;
         const target = node.closest('[data-click-role="menu-item"]');
         if (!target) return null;

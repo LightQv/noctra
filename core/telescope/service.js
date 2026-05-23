@@ -62,6 +62,9 @@ function flattenBookmarks(nodes = [], output = []) {
         title,
         subtitle: url,
         rightText: "",
+        contextKind: "bookmarks",
+        rowType: "entry",
+        nodeId: node.id || null,
         action: { type: "url", url },
       });
     } else if (node.type === "folder" && Array.isArray(node.children)) {
@@ -114,6 +117,10 @@ class TelescopeService {
             title,
             subtitle: url,
             rightText: formatDateTime(entry.timestampMs || entry.timestampIso),
+            contextKind: "history",
+            rowType: "entry",
+            dateKey: day.key,
+            entryId: entry.id || null,
             action: { type: "url", url },
           });
         }
@@ -136,6 +143,9 @@ class TelescopeService {
         title,
         subtitle: `${id}:`,
         rightText: "",
+        contextKind: "buffers",
+        rowType: "buffer",
+        bufferId: id,
         action: { type: "buffer", id },
       };
     });
@@ -238,6 +248,33 @@ class TelescopeService {
     this.selectedIndex = Math.max(0, Math.min(next, max));
   }
 
+  getResultAt(index) {
+    const idx = Number.isFinite(index) ? Math.floor(index) : -1;
+    if (idx < 0 || idx >= this.filteredItems.length) return null;
+    return this.filteredItems[idx] || null;
+  }
+
+  getQuery() {
+    return this.query;
+  }
+
+  setQuery(nextQuery) {
+    this.query = String(nextQuery || "");
+    this.pendingG = false;
+    this.selectedIndex = 0;
+    this.recomputeResults();
+  }
+
+  appendQuery(text) {
+    const addition = String(text || "");
+    if (!addition) return;
+    this.setQuery(`${this.query}${addition}`);
+  }
+
+  clearQuery() {
+    this.setQuery("");
+  }
+
   submit(openInNewBuffer = false) {
     if (!this.filteredItems.length) return null;
     const selected = this.filteredItems[this.selectedIndex];
@@ -287,6 +324,15 @@ class TelescopeService {
     }
 
     if (this.mode === "INSERT") {
+      if (typeof input.pasteText === "string" && input.pasteText.length > 0) {
+        this.appendQuery(input.pasteText);
+        return {
+          consumed: true,
+          close: false,
+          intent: null,
+          modeChanged: false,
+        };
+      }
       if (key === "ArrowUp" || key === "k" || (isCtrlNav && lower === "p")) {
         this.move(-1);
         return {

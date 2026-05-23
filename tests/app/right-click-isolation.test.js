@@ -278,6 +278,28 @@ test("context menu dismissal restores buffer focus", () => {
     overlaySource.includes("dismissContextMenu"),
     "context menu overlay must invoke dismissContextMenu callback on hide",
   );
+  assert.ok(
+    overlaySource.includes("reopenContextMenuAt"),
+    "context menu overlay should support right-click reopen at pointer",
+  );
+});
+
+test("telescope overlay supports right-click context menu", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const source = fs.readFileSync(
+    path.join(__dirname, "../../ui/shell/services/auxOverlayController.js"),
+    "utf-8",
+  );
+
+  assert.ok(
+    source.includes('input.button === "right"'),
+    "telescope mouse handler should branch on right-click",
+  );
+  assert.ok(
+    source.includes("showTelescopeContextMenu"),
+    "telescope right-click should call showTelescopeContextMenu callback",
+  );
 });
 
 test("inputCoordinator forwards all mouse events without button filtering", () => {

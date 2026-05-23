@@ -395,6 +395,22 @@ async function handleSelectionModalMouseEvent(input) {
 
 async function handleTelescopeMouseEvent(input) {
   if (!this.telescopeVisible || !input) return;
+  if (input.type === "mouseDown" && input.button === "right") {
+    const target = await resolveOverlayClickTarget(
+      this.telescopeView,
+      input.x,
+      input.y,
+      '[data-click-role="telescope-row"], #telescope-prompt, #telescope-shell',
+    );
+    if (typeof this.mouseActions?.showTelescopeContextMenu === "function") {
+      this.mouseActions.showTelescopeContextMenu({
+        x: input.x,
+        y: input.y,
+        target,
+      });
+    }
+    return;
+  }
   if (input.type === "mouseDown" && input.button === "left") {
     const target = await resolveOverlayClickTarget(
       this.telescopeView,

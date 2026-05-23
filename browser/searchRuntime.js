@@ -57,11 +57,11 @@ function buildSearchRuntimeBootstrapScript() {
           const root = document.createElement("div");
           root.id = "noctra-search-overlay-root";
           root.setAttribute("aria-hidden", "true");
-          root.style.position = "fixed";
+          root.style.position = "absolute";
           root.style.left = "0";
           root.style.top = "0";
-          root.style.right = "0";
-          root.style.bottom = "0";
+          root.style.width = "100%";
+          root.style.height = "100%";
           root.style.pointerEvents = "none";
           root.style.zIndex = "2147483000";
           root.style.setProperty("--search-main", runtime.themeMainColor);
@@ -204,6 +204,14 @@ function buildSearchRuntimeBootstrapScript() {
           return rect.right > 0 && rect.bottom > 0 && rect.left < w && rect.top < h;
         },
 
+        getScrollOffsets() {
+          if (typeof window === "undefined") return { x: 0, y: 0 };
+          return {
+            x: Number(window.scrollX || window.pageXOffset || 0),
+            y: Number(window.scrollY || window.pageYOffset || 0),
+          };
+        },
+
         getActiveRect() {
           if (!runtime.active || runtime.activeIndex < 1 || runtime.activeIndex > runtime.matches.length) {
             return null;
@@ -237,6 +245,7 @@ function buildSearchRuntimeBootstrapScript() {
           runtime.visibleMatchIndexes = [];
           if (!runtime.active || runtime.total <= 0) return;
 
+          const scroll = runtime.getScrollOffsets();
           for (let i = 0; i < runtime.matches.length; i += 1) {
             const rects = runtime.getMatchRects(runtime.matches[i]);
             let hasVisible = false;
@@ -244,9 +253,9 @@ function buildSearchRuntimeBootstrapScript() {
               if (!runtime.rectVisible(rect)) continue;
               hasVisible = true;
               const node = document.createElement("div");
-              node.style.position = "fixed";
-              node.style.left = String(Math.max(0, rect.left - highlightPaddingPx)) + "px";
-              node.style.top = String(Math.max(0, rect.top - highlightPaddingPx)) + "px";
+              node.style.position = "absolute";
+              node.style.left = String(Math.max(0, rect.left + scroll.x - highlightPaddingPx)) + "px";
+              node.style.top = String(Math.max(0, rect.top + scroll.y - highlightPaddingPx)) + "px";
               node.style.width = String(Math.max(1, rect.width + highlightPaddingPx * 2)) + "px";
               node.style.height = String(Math.max(1, rect.height + highlightPaddingPx * 2)) + "px";
               node.style.borderRadius = "3px";
@@ -306,10 +315,9 @@ function buildSearchRuntimeBootstrapScript() {
 
         bindObservers() {
           if (!runtime.viewportHandlersBound && typeof window !== "undefined") {
-            const onMove = runtime.throttle(() => runtime.scheduleOverlayRefresh(), 50);
+            const onResize = runtime.throttle(() => runtime.scheduleOverlayRefresh(), 100);
             if (typeof window.addEventListener === "function") {
-              window.addEventListener("scroll", onMove, { passive: true });
-              window.addEventListener("resize", onMove, { passive: true });
+              window.addEventListener("resize", onResize, { passive: true });
               runtime.viewportHandlersBound = true;
             }
           }
@@ -371,6 +379,7 @@ function buildSearchRuntimeBootstrapScript() {
           if (runtime.hintLabels.length === 0) return;
           const root = runtime.ensureOverlayRoot();
           if (!root) return;
+          const scroll = runtime.getScrollOffsets();
 
           const indexes = runtime.visibleMatchIndexes.length
             ? runtime.visibleMatchIndexes
@@ -384,15 +393,18 @@ function buildSearchRuntimeBootstrapScript() {
             if (!rect) continue;
 
             const node = document.createElement("div");
-            node.style.position = "fixed";
-            node.style.left = String(Math.max(0, rect.left)) + "px";
-            node.style.top = String(Math.max(0, rect.top - 16)) + "px";
+            node.style.position = "absolute";
+            node.style.left = String(Math.max(0, rect.left + scroll.x)) + "px";
+            node.style.top = String(Math.max(0, rect.top + scroll.y - 18)) + "px";
             node.style.padding = "3px 7px";
             node.style.borderRadius = "6px";
             node.style.fontSize = "12px";
             node.style.fontWeight = "600";
             node.style.lineHeight = "1";
-            node.style.minWidth = "14px";
+            node.style.display = "inline-flex";
+            node.style.alignItems = "center";
+            node.style.justifyContent = "center";
+            node.style.width = "fit-content";
             node.style.background = "var(--search-active-bg)";
             node.style.border = "1px solid var(--search-active-border)";
             node.style.color = "var(--search-active-fg)";
@@ -511,6 +523,7 @@ function buildSearchRuntimeBootstrapScript() {
           }
 
           if (action === "hint-open") {
+            runtime.renderHighlights();
             runtime.openHintsForCurrentViewport(24);
             runtime.scheduleOverlayRefresh();
             return {

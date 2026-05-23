@@ -32,14 +32,14 @@ function computeMenuDimensions(items) {
     } else {
       height += rowHeight;
       const labelWidth =
-        (String(item.label || "").length || 0) * 6.0 + 30; // 30 = cursor (6) + margin (6+2) + padding right (10) + some buffer
+        (String(item.label || "").length || 0) * 7.4 + 42;
       if (labelWidth > maxLabelWidth) {
         maxLabelWidth = labelWidth;
       }
     }
   }
 
-  const width = Math.min(Math.max(Math.ceil(maxLabelWidth), 140), 420);
+  const width = Math.min(Math.max(Math.ceil(maxLabelWidth), 160), 520);
   return { width, height };
 }
 
@@ -115,6 +115,10 @@ function hideContextMenu() {
   }
 
   this.syncOverlayStack();
+
+  if (typeof this.mouseActions?.dismissContextMenu === "function") {
+    this.mouseActions.dismissContextMenu();
+  }
 }
 
 async function handleContextMenuMouseEvent(input, event) {

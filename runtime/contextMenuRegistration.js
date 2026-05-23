@@ -119,12 +119,28 @@ function registerWebContextMenu({
 
     const listener = (event, params) =>
       handleContextMenu(event, params, targetWebContents);
+    const mouseListener = (_event, input) => {
+      if (!input || input.button !== "right" || input.type !== "mouseDown") {
+        return;
+      }
+      if (!targetWebContents || targetWebContents.isDestroyed()) {
+        return;
+      }
+      targetWebContents
+        .executeJavaScript(
+          "window.getSelection && window.getSelection().removeAllRanges()",
+          true,
+        )
+        .catch(() => {});
+    };
     targetWebContents.on("context-menu", listener);
+    targetWebContents.on("before-mouse-event", mouseListener);
 
     const cleanup = () => {
       if (!targetWebContents.isDestroyed()) {
         try {
           targetWebContents.removeListener("context-menu", listener);
+          targetWebContents.removeListener("before-mouse-event", mouseListener);
         } catch {
           // ignore
         }

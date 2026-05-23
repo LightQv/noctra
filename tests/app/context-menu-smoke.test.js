@@ -172,7 +172,7 @@ test("ui shell tabline template click dispatches intent through full pipeline", 
   }
 
   // All items should have dispatched something
-  assert.equal(dispatched.type, "OPEN_URL_IN_SPLIT", "last clicked item (Split Tab) should dispatch OPEN_URL_IN_SPLIT");
+  assert.equal(dispatched.type, "OPEN_URL_IN_SPLIT", "last clicked item (Split Buffer) should dispatch OPEN_URL_IN_SPLIT");
 });
 
 test("web context menu template click dispatches intent through full pipeline", () => {

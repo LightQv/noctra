@@ -581,10 +581,6 @@ function persistSessionSnapshot(context) {
   }
 }
 
-function buildStatuslineLabelGetter(context) {
-  return () => context.computeStatuslineModeLabel(context.state);
-}
-
 function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
   if (!leaderTree || typeof leaderTree !== "object") {
     return [];
@@ -1132,6 +1128,11 @@ function createWindow() {
       uiShell.hideTelescope();
       uiShell.updateStatuslineMode(getStatuslineModeLabel());
       buffers.focusActive();
+      if (appMenu) appMenu.sync();
+    },
+    dismissContextMenu: () => {
+      buffers.focusActive();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
       if (appMenu) appMenu.sync();
     },
     focusTelescopePrompt: () => {

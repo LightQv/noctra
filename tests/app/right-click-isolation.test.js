@@ -187,6 +187,10 @@ test("tabline contextmenu listener calls preventDefault before sending IPC", () 
     preventDefaultIndex > contextmenuIndex,
     "tabline must call preventDefault inside contextmenu handler",
   );
+  assert.ok(
+    tablineSource.includes("target: 'background'"),
+    "tabline contextmenu should send background target when right-clicking empty tabline",
+  );
 });
 
 test("urlline contextmenu listener calls preventDefault before sending IPC", () => {
@@ -244,6 +248,35 @@ test("main.js handleMouseInput ignores right-click and non-left buttons", () => 
   assert.ok(
     dismissIndex > guardIndex,
     "overlay dismissal must only happen after left-button guard passes",
+  );
+});
+
+test("context menu dismissal restores buffer focus", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const mainSource = fs.readFileSync(
+    path.join(__dirname, "../../main.js"),
+    "utf-8",
+  );
+  const overlaySource = fs.readFileSync(
+    path.join(
+      __dirname,
+      "../../ui/shell/services/contextMenuOverlayController.js",
+    ),
+    "utf-8",
+  );
+
+  assert.ok(
+    mainSource.includes("dismissContextMenu:"),
+    "main.js must define dismissContextMenu mouse action",
+  );
+  assert.ok(
+    mainSource.includes("buffers.focusActive()"),
+    "dismissContextMenu should refocus active buffer",
+  );
+  assert.ok(
+    overlaySource.includes("dismissContextMenu"),
+    "context menu overlay must invoke dismissContextMenu callback on hide",
   );
 });
 

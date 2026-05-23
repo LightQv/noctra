@@ -216,28 +216,41 @@ function buildUIShellContextMenuTemplate({ zone, target, runtimeSnapshot, action
     const { isFirst, isLast, isSplitEnabled, buffer } = runtimeSnapshot;
     const canSplit = !isSplitEnabled && canBufferBeSplit(buffer);
     items.push(
-      { label: "Close Tab", click: () => actions.closeTab() },
+      { label: "Close Buffer", click: () => actions.closeBuffer() },
       {
-        label: "Close All Tabs to the Left",
+        label: "Close Buffers to the Left",
         enabled: !isFirst,
-        click: () => actions.closeAllTabsToLeft(),
+        click: () => actions.closeAllBuffersToLeft(),
       },
       {
-        label: "Close All Tabs to the Right",
+        label: "Close Buffers to the Right",
         enabled: !isLast,
-        click: () => actions.closeAllTabsToRight(),
+        click: () => actions.closeAllBuffersToRight(),
       },
-      { label: "Close All Tabs", click: () => actions.closeAllTabs() },
+      { label: "Close All Buffers", click: () => actions.closeAllBuffers() },
       { type: "separator" },
       {
-        label: "Duplicate Tab",
+        label: "Duplicate Buffer",
         enabled: Boolean(buffer && !buffer.isEditable),
-        click: () => actions.duplicateTab(),
+        click: () => actions.duplicateBuffer(),
       },
       {
-        label: "Split Tab",
+        label: "Split Buffer",
         enabled: canSplit,
-        click: () => actions.splitTab(),
+        click: () => actions.splitBuffer(),
+      },
+    );
+    return items;
+  }
+
+  if (zone === "tabline" && target === "background") {
+    const canReopenClosedBuffer = Boolean(runtimeSnapshot.canReopenClosedBuffer);
+    items.push(
+      { label: "New Buffer", click: () => actions.newBuffer() },
+      {
+        label: "Reopen Closed Buffer",
+        enabled: canReopenClosedBuffer,
+        click: () => actions.reopenClosedBuffer(),
       },
     );
     return items;

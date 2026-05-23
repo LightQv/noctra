@@ -221,6 +221,9 @@ function renderTabline(
           if (!(target instanceof Element)) return;
           event.preventDefault();
 
+          const tablineActionButton = target.closest('[data-tabline-action]');
+          if (tablineActionButton) return;
+
           const closeButton = target.closest('.tab-close');
           if (closeButton) return;
 
@@ -237,6 +240,15 @@ function renderTabline(
               });
             }
             return;
+          }
+
+          if (window.uiShell && typeof window.uiShell.contextMenu === 'function') {
+            window.uiShell.contextMenu({
+              zone: 'tabline',
+              target: 'background',
+              x: event.clientX,
+              y: event.clientY,
+            });
           }
         });
 

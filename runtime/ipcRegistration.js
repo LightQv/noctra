@@ -1,9 +1,6 @@
 const { setEditorMode } = require("../core/state/editorModeState");
 const { validateIpcPayload } = require("../core/contracts/ipc");
-const {
-  createInvalidPayloadError,
-  createUnauthorizedSenderError,
-} = require("../core/contracts/errors");
+const { createInvalidPayloadError } = require("../core/contracts/errors");
 const {
   buildUIShellContextMenuTemplate,
 } = require("../core/adapters/platform/contextMenuBuilder");
@@ -249,6 +246,7 @@ function registerRuntimeIpc({
       state,
       INTENTS,
       startUrllineEdit,
+      win,
     });
 
     let template = [];
@@ -268,6 +266,21 @@ function registerRuntimeIpc({
         buffer: tabBuffer,
       };
       const actions = uiActions.forTablineTab(tabId);
+      template = buildUIShellContextMenuTemplate({
+        zone,
+        target,
+        runtimeSnapshot,
+        actions,
+      });
+    }
+
+    if (zone === "tabline" && target === "background") {
+      const actions = uiActions.forTablineBackground();
+      const runtimeSnapshot = {
+        canReopenClosedBuffer: Boolean(
+          buffers.closedBuffers && buffers.closedBuffers.length > 0,
+        ),
+      };
       template = buildUIShellContextMenuTemplate({
         zone,
         target,

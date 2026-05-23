@@ -91,6 +91,7 @@ const CONTEXT_MENU_OVERLAY_HTML = `
         align-items: center;
         flex: 1;
         min-width: 0;
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }

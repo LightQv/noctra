@@ -210,10 +210,10 @@ function createUIShellContextMenuActions({
   return {
     forTablineTab(tabId) {
       return {
-        closeTab() {
+        closeBuffer() {
           dispatch(win, { type: INTENTS.CLOSE_BUFFER, id: tabId }, state);
         },
-        closeAllTabsToLeft() {
+        closeAllBuffersToLeft() {
           const index = getTabIndex(tabId);
           if (index > 0) {
             dispatch(
@@ -223,7 +223,7 @@ function createUIShellContextMenuActions({
             );
           }
         },
-        closeAllTabsToRight() {
+        closeAllBuffersToRight() {
           const index = getTabIndex(tabId);
           if (index >= 0 && index < buffers.buffers.length - 1) {
             dispatch(
@@ -233,17 +233,17 @@ function createUIShellContextMenuActions({
             );
           }
         },
-        closeAllTabs() {
+        closeAllBuffers() {
           dispatch(win, { type: INTENTS.CLOSE_ALL_BUFFERS }, state);
         },
-        duplicateTab() {
+        duplicateBuffer() {
           dispatch(
             win,
             { type: INTENTS.DUPLICATE_BUFFER, bufferId: tabId },
             state,
           );
         },
-        splitTab() {
+        splitBuffer() {
           const target = buffers.buffers.find((buffer) => buffer.id === tabId);
           if (!target) return;
           const { canBufferBeSplit } = require("../../../browser/services/splitEligibility");
@@ -254,6 +254,17 @@ function createUIShellContextMenuActions({
             { type: INTENTS.OPEN_URL_IN_SPLIT, url },
             state,
           );
+        },
+      };
+    },
+
+    forTablineBackground() {
+      return {
+        newBuffer() {
+          dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
+        },
+        reopenClosedBuffer() {
+          dispatch(win, { type: INTENTS.REOPEN_BUFFER }, state);
         },
       };
     },

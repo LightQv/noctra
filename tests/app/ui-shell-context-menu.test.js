@@ -17,12 +17,14 @@ function makeActionsStub() {
     };
   return {
     calls,
-    closeTab: stub("closeTab"),
-    closeAllTabsToLeft: stub("closeAllTabsToLeft"),
-    closeAllTabsToRight: stub("closeAllTabsToRight"),
-    closeAllTabs: stub("closeAllTabs"),
-    duplicateTab: stub("duplicateTab"),
-    splitTab: stub("splitTab"),
+    closeBuffer: stub("closeBuffer"),
+    closeAllBuffersToLeft: stub("closeAllBuffersToLeft"),
+    closeAllBuffersToRight: stub("closeAllBuffersToRight"),
+    closeAllBuffers: stub("closeAllBuffers"),
+    duplicateBuffer: stub("duplicateBuffer"),
+    splitBuffer: stub("splitBuffer"),
+    newBuffer: stub("newBuffer"),
+    reopenClosedBuffer: stub("reopenClosedBuffer"),
     copyUrl: stub("copyUrl"),
     editUrl: stub("editUrl"),
     hideUrlline: stub("hideUrlline"),
@@ -51,12 +53,12 @@ test("ui shell tabline: has all items in correct order", () => {
   });
   const labels = template.map((i) => i.label).filter(Boolean);
   assert.deepEqual(labels, [
-    "Close Tab",
-    "Close All Tabs to the Left",
-    "Close All Tabs to the Right",
-    "Close All Tabs",
-    "Duplicate Tab",
-    "Split Tab",
+    "Close Buffer",
+    "Close Buffers to the Left",
+    "Close Buffers to the Right",
+    "Close All Buffers",
+    "Duplicate Buffer",
+    "Split Buffer",
   ]);
 });
 
@@ -68,7 +70,7 @@ test("ui shell tabline: close left disabled when tab is first", () => {
     runtimeSnapshot: makeTablineRuntimeSnapshot({ isFirst: true }),
     actions,
   });
-  const item = template.find((i) => i.label === "Close All Tabs to the Left");
+  const item = template.find((i) => i.label === "Close Buffers to the Left");
   assert.equal(item.enabled, false);
 });
 
@@ -80,7 +82,7 @@ test("ui shell tabline: close left enabled when tab is not first", () => {
     runtimeSnapshot: makeTablineRuntimeSnapshot({ isFirst: false }),
     actions,
   });
-  const item = template.find((i) => i.label === "Close All Tabs to the Left");
+  const item = template.find((i) => i.label === "Close Buffers to the Left");
   assert.equal(item.enabled, true);
 });
 
@@ -92,7 +94,7 @@ test("ui shell tabline: close right disabled when tab is last", () => {
     runtimeSnapshot: makeTablineRuntimeSnapshot({ isLast: true }),
     actions,
   });
-  const item = template.find((i) => i.label === "Close All Tabs to the Right");
+  const item = template.find((i) => i.label === "Close Buffers to the Right");
   assert.equal(item.enabled, false);
 });
 
@@ -104,7 +106,7 @@ test("ui shell tabline: close right enabled when tab is not last", () => {
     runtimeSnapshot: makeTablineRuntimeSnapshot({ isLast: false }),
     actions,
   });
-  const item = template.find((i) => i.label === "Close All Tabs to the Right");
+  const item = template.find((i) => i.label === "Close Buffers to the Right");
   assert.equal(item.enabled, true);
 });
 
@@ -116,7 +118,7 @@ test("ui shell tabline: split disabled when split already active", () => {
     runtimeSnapshot: makeTablineRuntimeSnapshot({ isSplitEnabled: true }),
     actions,
   });
-  const item = template.find((i) => i.label === "Split Tab");
+  const item = template.find((i) => i.label === "Split Buffer");
   assert.equal(item.enabled, false);
 });
 
@@ -130,7 +132,7 @@ test("ui shell tabline: split disabled for editable buffer", () => {
     }),
     actions,
   });
-  const item = template.find((i) => i.label === "Split Tab");
+  const item = template.find((i) => i.label === "Split Buffer");
   assert.equal(item.enabled, false);
 });
 
@@ -144,7 +146,7 @@ test("ui shell tabline: split disabled for non-dashboard virtual document", () =
     }),
     actions,
   });
-  const item = template.find((i) => i.label === "Split Tab");
+  const item = template.find((i) => i.label === "Split Buffer");
   assert.equal(item.enabled, false);
 });
 
@@ -158,7 +160,7 @@ test("ui shell tabline: split enabled for dashboard virtual document", () => {
     }),
     actions,
   });
-  const item = template.find((i) => i.label === "Split Tab");
+  const item = template.find((i) => i.label === "Split Buffer");
   assert.equal(item.enabled, true);
 });
 
@@ -172,7 +174,7 @@ test("ui shell tabline: split enabled for regular web buffer", () => {
     }),
     actions,
   });
-  const item = template.find((i) => i.label === "Split Tab");
+  const item = template.find((i) => i.label === "Split Buffer");
   assert.equal(item.enabled, true);
 });
 
@@ -186,7 +188,7 @@ test("ui shell tabline: duplicate disabled for editable buffer", () => {
     }),
     actions,
   });
-  const item = template.find((i) => i.label === "Duplicate Tab");
+  const item = template.find((i) => i.label === "Duplicate Buffer");
   assert.equal(item.enabled, false);
 });
 
@@ -200,13 +202,13 @@ test("ui shell tabline: duplicate enabled for non-editable buffer", () => {
     }),
     actions,
   });
-  const item = template.find((i) => i.label === "Duplicate Tab");
+  const item = template.find((i) => i.label === "Duplicate Buffer");
   assert.equal(item.enabled, true);
 });
 
 // ─── Tabline action tests ───
 
-test("ui shell actions: closeTab dispatches CLOSE_BUFFER intent", () => {
+test("ui shell actions: closeBuffer dispatches CLOSE_BUFFER intent", () => {
   let dispatched = null;
   const dispatch = (win, intent) => { dispatched = intent; };
   const INTENTS = { CLOSE_BUFFER: "CLOSE_BUFFER" };
@@ -214,12 +216,12 @@ test("ui shell actions: closeTab dispatches CLOSE_BUFFER intent", () => {
   const actions = createUIShellContextMenuActions({
     clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(3);
-  actions.closeTab();
+  actions.closeBuffer();
   assert.equal(dispatched.type, "CLOSE_BUFFER");
   assert.equal(dispatched.id, 3);
 });
 
-test("ui shell actions: closeAllTabsToLeft dispatches CLOSE_LEFT_BUFFERS intent", () => {
+test("ui shell actions: closeAllBuffersToLeft dispatches CLOSE_LEFT_BUFFERS intent", () => {
   let dispatched = null;
   const dispatch = (win, intent) => { dispatched = intent; };
   const INTENTS = { CLOSE_LEFT_BUFFERS: "CLOSE_LEFT_BUFFERS" };
@@ -229,12 +231,12 @@ test("ui shell actions: closeAllTabsToLeft dispatches CLOSE_LEFT_BUFFERS intent"
   const actions = createUIShellContextMenuActions({
     clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(3);
-  actions.closeAllTabsToLeft();
+  actions.closeAllBuffersToLeft();
   assert.equal(dispatched.type, "CLOSE_LEFT_BUFFERS");
   assert.equal(dispatched.index, 2);
 });
 
-test("ui shell actions: closeAllTabsToRight dispatches CLOSE_RIGHT_BUFFERS intent", () => {
+test("ui shell actions: closeAllBuffersToRight dispatches CLOSE_RIGHT_BUFFERS intent", () => {
   let dispatched = null;
   const dispatch = (win, intent) => { dispatched = intent; };
   const INTENTS = { CLOSE_RIGHT_BUFFERS: "CLOSE_RIGHT_BUFFERS" };
@@ -244,12 +246,12 @@ test("ui shell actions: closeAllTabsToRight dispatches CLOSE_RIGHT_BUFFERS inten
   const actions = createUIShellContextMenuActions({
     clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(1);
-  actions.closeAllTabsToRight();
+  actions.closeAllBuffersToRight();
   assert.equal(dispatched.type, "CLOSE_RIGHT_BUFFERS");
   assert.equal(dispatched.index, 0);
 });
 
-test("ui shell actions: closeAllTabs dispatches CLOSE_ALL_BUFFERS intent", () => {
+test("ui shell actions: closeAllBuffers dispatches CLOSE_ALL_BUFFERS intent", () => {
   let dispatched = null;
   const dispatch = (win, intent) => { dispatched = intent; };
   const INTENTS = { CLOSE_ALL_BUFFERS: "CLOSE_ALL_BUFFERS" };
@@ -257,11 +259,11 @@ test("ui shell actions: closeAllTabs dispatches CLOSE_ALL_BUFFERS intent", () =>
   const actions = createUIShellContextMenuActions({
     clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(1);
-  actions.closeAllTabs();
+  actions.closeAllBuffers();
   assert.equal(dispatched.type, "CLOSE_ALL_BUFFERS");
 });
 
-test("ui shell actions: duplicateTab dispatches DUPLICATE_BUFFER intent", () => {
+test("ui shell actions: duplicateBuffer dispatches DUPLICATE_BUFFER intent", () => {
   let dispatched = null;
   const dispatch = (win, intent) => { dispatched = intent; };
   const INTENTS = { DUPLICATE_BUFFER: "DUPLICATE_BUFFER" };
@@ -269,12 +271,12 @@ test("ui shell actions: duplicateTab dispatches DUPLICATE_BUFFER intent", () => 
   const actions = createUIShellContextMenuActions({
     clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(5);
-  actions.duplicateTab();
+  actions.duplicateBuffer();
   assert.equal(dispatched.type, "DUPLICATE_BUFFER");
   assert.equal(dispatched.bufferId, 5);
 });
 
-test("ui shell actions: splitTab dispatches OPEN_URL_IN_SPLIT intent for regular URL buffer", () => {
+test("ui shell actions: splitBuffer dispatches OPEN_URL_IN_SPLIT intent for regular URL buffer", () => {
   let dispatched = null;
   const dispatch = (win, intent) => { dispatched = intent; };
   const INTENTS = { OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT" };
@@ -285,12 +287,12 @@ test("ui shell actions: splitTab dispatches OPEN_URL_IN_SPLIT intent for regular
   const actions = createUIShellContextMenuActions({
     clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(7);
-  actions.splitTab();
+  actions.splitBuffer();
   assert.equal(dispatched.type, "OPEN_URL_IN_SPLIT");
   assert.equal(dispatched.url, "https://example.com");
 });
 
-test("ui shell actions: splitTab dispatches OPEN_URL_IN_SPLIT intent for dashboard", () => {
+test("ui shell actions: splitBuffer dispatches OPEN_URL_IN_SPLIT intent for dashboard", () => {
   let dispatched = null;
   const dispatch = (win, intent) => { dispatched = intent; };
   const INTENTS = { OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT" };
@@ -306,12 +308,12 @@ test("ui shell actions: splitTab dispatches OPEN_URL_IN_SPLIT intent for dashboa
   const actions = createUIShellContextMenuActions({
     clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(8);
-  actions.splitTab();
+  actions.splitBuffer();
   assert.equal(dispatched.type, "OPEN_URL_IN_SPLIT");
   assert.equal(dispatched.url, "noctra://dashboard");
 });
 
-test("ui shell actions: splitTab no-op for editable buffer", () => {
+test("ui shell actions: splitBuffer no-op for editable buffer", () => {
   let dispatched = null;
   const dispatch = (win, intent) => { dispatched = intent; };
   const INTENTS = { OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT" };
@@ -322,11 +324,11 @@ test("ui shell actions: splitTab no-op for editable buffer", () => {
   const actions = createUIShellContextMenuActions({
     clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(9);
-  actions.splitTab();
+  actions.splitBuffer();
   assert.equal(dispatched, null);
 });
 
-test("ui shell actions: splitTab dispatches OPEN_URL_IN_SPLIT when split already active", () => {
+test("ui shell actions: splitBuffer dispatches OPEN_URL_IN_SPLIT when split already active", () => {
   let dispatched = null;
   const dispatch = (win, intent) => { dispatched = intent; };
   const INTENTS = { OPEN_URL_IN_SPLIT: "OPEN_URL_IN_SPLIT" };
@@ -337,9 +339,70 @@ test("ui shell actions: splitTab dispatches OPEN_URL_IN_SPLIT when split already
   const actions = createUIShellContextMenuActions({
     clipboard: {}, buffers, dispatch, state: {}, INTENTS, startUrllineEdit: () => {}, win: {},
   }).forTablineTab(10);
-  actions.splitTab();
+  actions.splitBuffer();
   assert.equal(dispatched.type, "OPEN_URL_IN_SPLIT");
   assert.equal(dispatched.url, "https://example.com");
+});
+
+test("ui shell tabline background: has new/reopen buffer items", () => {
+  const actions = makeActionsStub();
+  const template = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "background",
+    runtimeSnapshot: { canReopenClosedBuffer: true },
+    actions,
+  });
+  const labels = template.map((i) => i.label).filter(Boolean);
+  assert.deepEqual(labels, ["New Buffer", "Reopen Closed Buffer"]);
+  assert.equal(template[1].enabled, true);
+});
+
+test("ui shell tabline background: reopen closed buffer disabled when unavailable", () => {
+  const actions = makeActionsStub();
+  const template = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "background",
+    runtimeSnapshot: { canReopenClosedBuffer: false },
+    actions,
+  });
+  const reopenItem = template.find((i) => i.label === "Reopen Closed Buffer");
+  assert.equal(reopenItem.enabled, false);
+});
+
+test("ui shell actions: tabline background newBuffer dispatches NEW_BUFFER intent", () => {
+  let dispatched = null;
+  const dispatch = (_win, intent) => {
+    dispatched = intent;
+  };
+  const actions = createUIShellContextMenuActions({
+    clipboard: {},
+    buffers: {},
+    dispatch,
+    state: {},
+    INTENTS: { NEW_BUFFER: "NEW_BUFFER", REOPEN_BUFFER: "REOPEN_BUFFER" },
+    startUrllineEdit: () => {},
+    win: {},
+  }).forTablineBackground();
+  actions.newBuffer();
+  assert.equal(dispatched.type, "NEW_BUFFER");
+});
+
+test("ui shell actions: tabline background reopenClosedBuffer dispatches REOPEN_BUFFER intent", () => {
+  let dispatched = null;
+  const dispatch = (_win, intent) => {
+    dispatched = intent;
+  };
+  const actions = createUIShellContextMenuActions({
+    clipboard: {},
+    buffers: {},
+    dispatch,
+    state: {},
+    INTENTS: { NEW_BUFFER: "NEW_BUFFER", REOPEN_BUFFER: "REOPEN_BUFFER" },
+    startUrllineEdit: () => {},
+    win: {},
+  }).forTablineBackground();
+  actions.reopenClosedBuffer();
+  assert.equal(dispatched.type, "REOPEN_BUFFER");
 });
 
 // ─── Urlline template tests ───
@@ -438,7 +501,7 @@ test("ui shell tabline: split enabled state reacts to snapshot change", () => {
     runtimeSnapshot: makeTablineRuntimeSnapshot({ isSplitEnabled: false }),
     actions,
   });
-  const splitItemEnabled = templateEnabled.find((i) => i.label === "Split Tab");
+  const splitItemEnabled = templateEnabled.find((i) => i.label === "Split Buffer");
   assert.equal(splitItemEnabled.enabled, true, "split tab should be enabled when split is inactive");
 
   // When split IS enabled, split tab should be disabled
@@ -448,7 +511,7 @@ test("ui shell tabline: split enabled state reacts to snapshot change", () => {
     runtimeSnapshot: makeTablineRuntimeSnapshot({ isSplitEnabled: true }),
     actions,
   });
-  const splitItemDisabled = templateDisabled.find((i) => i.label === "Split Tab");
+  const splitItemDisabled = templateDisabled.find((i) => i.label === "Split Buffer");
   assert.equal(splitItemDisabled.enabled, false, "split tab should be disabled when split is active");
 });
 
@@ -463,7 +526,7 @@ test("ui shell tabline: duplicate enabled state reacts to buffer editability cha
     }),
     actions,
   });
-  const dupItemEditable = templateEditable.find((i) => i.label === "Duplicate Tab");
+  const dupItemEditable = templateEditable.find((i) => i.label === "Duplicate Buffer");
   assert.equal(dupItemEditable.enabled, false, "duplicate should be disabled for editable buffer");
 
   const templateNonEditable = buildUIShellContextMenuTemplate({
@@ -474,7 +537,7 @@ test("ui shell tabline: duplicate enabled state reacts to buffer editability cha
     }),
     actions,
   });
-  const dupItemNonEditable = templateNonEditable.find((i) => i.label === "Duplicate Tab");
+  const dupItemNonEditable = templateNonEditable.find((i) => i.label === "Duplicate Buffer");
   assert.equal(dupItemNonEditable.enabled, true, "duplicate should be enabled for non-editable buffer");
 });
 
@@ -489,11 +552,11 @@ test("ui shell tabline: close left/right enabled states react to tab position ch
     actions,
   });
   assert.equal(
-    templateFirst.find((i) => i.label === "Close All Tabs to the Left").enabled,
+    templateFirst.find((i) => i.label === "Close Buffers to the Left").enabled,
     false,
   );
   assert.equal(
-    templateFirst.find((i) => i.label === "Close All Tabs to the Right").enabled,
+    templateFirst.find((i) => i.label === "Close Buffers to the Right").enabled,
     true,
   );
 
@@ -505,11 +568,11 @@ test("ui shell tabline: close left/right enabled states react to tab position ch
     actions,
   });
   assert.equal(
-    templateMiddle.find((i) => i.label === "Close All Tabs to the Left").enabled,
+    templateMiddle.find((i) => i.label === "Close Buffers to the Left").enabled,
     true,
   );
   assert.equal(
-    templateMiddle.find((i) => i.label === "Close All Tabs to the Right").enabled,
+    templateMiddle.find((i) => i.label === "Close Buffers to the Right").enabled,
     true,
   );
 
@@ -521,11 +584,11 @@ test("ui shell tabline: close left/right enabled states react to tab position ch
     actions,
   });
   assert.equal(
-    templateLast.find((i) => i.label === "Close All Tabs to the Left").enabled,
+    templateLast.find((i) => i.label === "Close Buffers to the Left").enabled,
     true,
   );
   assert.equal(
-    templateLast.find((i) => i.label === "Close All Tabs to the Right").enabled,
+    templateLast.find((i) => i.label === "Close Buffers to the Right").enabled,
     false,
   );
 });

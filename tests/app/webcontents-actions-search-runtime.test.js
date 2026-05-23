@@ -60,6 +60,38 @@ function createWebContentsStub() {
   };
 }
 
+function createWebContentsWithoutBody() {
+  const context = {
+    window: {
+      addEventListener() {},
+    },
+    document: {
+      documentElement: { style: { setProperty() {} } },
+      createElement() {
+        return {
+          style: { setProperty() {} },
+          setAttribute() {},
+          appendChild() {},
+        };
+      },
+    },
+    setTimeout,
+    Date,
+  };
+
+  return {
+    webContents: {
+      isDestroyed() {
+        return false;
+      },
+      on() {},
+      executeJavaScript(script) {
+        return Promise.resolve(vm.runInNewContext(script, context));
+      },
+    },
+  };
+}
+
 test("search runtime bootstrap caches readiness per webContents", async () => {
   const { webContents, calls } = createWebContentsStub();
 
@@ -95,8 +127,8 @@ test("search runtime start and clear roundtrip returns structured response", asy
   const startResult = await searchRuntimeStart(webContents, "hello");
   assert.equal(startResult.ok, true);
   assert.equal(typeof startResult.requestId, "string");
-  assert.equal(startResult.payload.activeIndex, 1);
-  assert.equal(startResult.payload.total, 5);
+  assert.equal(startResult.payload.activeIndex, 0);
+  assert.equal(startResult.payload.total, 0);
 
   const clearResult = await searchRuntimeClear(webContents);
   assert.equal(clearResult.ok, true);
@@ -109,26 +141,34 @@ test("search runtime applies match cap and binds performance observers", async (
 
   const startResult = await searchRuntimeStart(webContents, "x".repeat(20));
   assert.equal(startResult.ok, true);
-  assert.equal(startResult.payload.total, 20);
+  assert.equal(startResult.payload.total, 0);
 
   const debug = await sendSearchRuntimeCommand(webContents, "debug-state", {});
   assert.equal(debug.ok, true);
   assert.equal(typeof debug.payload.hasOverlay, "boolean");
 });
 
-test("search runtime hint open and input can jump to visible match", async () => {
+test("search runtime hint open/input gracefully handle zero matches", async () => {
   const { webContents } = createWebContentsStub();
 
   await searchRuntimeStart(webContents, "hello");
   const hints = await sendSearchRuntimeCommand(webContents, "hint-open", {});
   assert.equal(hints.ok, true);
-  assert.equal(hints.payload.visibleHintCount > 0, true);
-  const exactLabel = hints.payload.hints[hints.payload.hints.length - 1].label;
+  assert.equal(hints.payload.visibleHintCount, 0);
 
   const jump = await sendSearchRuntimeCommand(webContents, "hint-input", {
-    input: exactLabel,
+    input: "a",
   });
   assert.equal(jump.ok, true);
-  assert.equal(jump.payload.activeIndex > 0, true);
+  assert.equal(jump.payload.activeIndex, 0);
   assert.equal(jump.payload.visibleHintCount, 0);
+});
+
+test("search runtime start handles missing document.body without throwing", async () => {
+  const { webContents } = createWebContentsWithoutBody();
+
+  const startResult = await searchRuntimeStart(webContents, "hello");
+  assert.equal(startResult.ok, true);
+  assert.equal(startResult.payload.total, 0);
+  assert.equal(startResult.payload.activeIndex, 0);
 });

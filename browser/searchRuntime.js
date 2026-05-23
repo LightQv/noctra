@@ -1,4 +1,9 @@
 const SEARCH_RUNTIME_GLOBAL_KEY = "__noctraSearchRuntime__";
+const SEARCH_HIGHLIGHT_PADDING_PX = 2;
+const SEARCH_VIEWPORT_TOP_RATIO = 0.22;
+const SEARCH_VIEWPORT_BOTTOM_RATIO = 0.78;
+const SEARCH_VIEWPORT_TARGET_RATIO = 0.36;
+const SEARCH_VIEWPORT_MARGIN_PX = 16;
 
 function buildSearchRuntimeBootstrapScript() {
   return `
@@ -6,6 +11,12 @@ function buildSearchRuntimeBootstrapScript() {
       if (window.${SEARCH_RUNTIME_GLOBAL_KEY}) {
         return true;
       }
+
+      const highlightPaddingPx = ${SEARCH_HIGHLIGHT_PADDING_PX};
+      const viewportTopRatio = ${SEARCH_VIEWPORT_TOP_RATIO};
+      const viewportBottomRatio = ${SEARCH_VIEWPORT_BOTTOM_RATIO};
+      const viewportTargetRatio = ${SEARCH_VIEWPORT_TARGET_RATIO};
+      const viewportMarginPx = ${SEARCH_VIEWPORT_MARGIN_PX};
 
       const runtime = {
         ready: true,
@@ -20,6 +31,8 @@ function buildSearchRuntimeBootstrapScript() {
         visibleMatchIndexes: [],
         maxMatches: 5000,
         themeMainColor: "#89dceb",
+        themeSearchActiveTextColor: "",
+        themeSearchPassiveTextColor: "",
         overlayRoot: null,
         highlightNodes: [],
         hintNodes: [],
@@ -55,6 +68,9 @@ function buildSearchRuntimeBootstrapScript() {
           root.style.setProperty("--search-passive-bg", runtime.themeMainColor + "55");
           root.style.setProperty("--search-active-bg", runtime.themeMainColor + "cc");
           root.style.setProperty("--search-active-border", runtime.themeMainColor);
+          const initialText = runtime.getContrastingTextColor(runtime.themeMainColor);
+          root.style.setProperty("--search-active-fg", initialText);
+          root.style.setProperty("--search-passive-fg", initialText);
 
           document.body.appendChild(root);
           runtime.overlayRoot = root;
@@ -64,10 +80,29 @@ function buildSearchRuntimeBootstrapScript() {
         updateOverlayTheme(mainColor) {
           const root = runtime.ensureOverlayRoot();
           if (!root) return;
+          const activeText = runtime.themeSearchActiveTextColor || runtime.getContrastingTextColor(mainColor);
+          const passiveText = runtime.themeSearchPassiveTextColor || activeText;
           root.style.setProperty("--search-main", mainColor);
           root.style.setProperty("--search-passive-bg", mainColor + "55");
           root.style.setProperty("--search-active-bg", mainColor + "cc");
           root.style.setProperty("--search-active-border", mainColor);
+          root.style.setProperty("--search-active-fg", activeText);
+          root.style.setProperty("--search-passive-fg", passiveText);
+        },
+
+        getContrastingTextColor(color) {
+          if (typeof color !== "string") return "#10151d";
+          const hex = color.trim().replace(/^#/, "");
+          if (!(hex.length === 3 || hex.length === 6)) return "#10151d";
+          const normalized = hex.length === 3
+            ? hex.split("").map((part) => part + part).join("")
+            : hex;
+          const r = parseInt(normalized.slice(0, 2), 16);
+          const g = parseInt(normalized.slice(2, 4), 16);
+          const b = parseInt(normalized.slice(4, 6), 16);
+          if (![r, g, b].every((channel) => Number.isFinite(channel))) return "#10151d";
+          const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          return luminance > 0.56 ? "#10151d" : "#f6eddf";
         },
 
         clearNodes(list) {
@@ -108,13 +143,10 @@ function buildSearchRuntimeBootstrapScript() {
 
           if (
             typeof document === "undefined" ||
+            !document.body ||
             typeof document.createTreeWalker !== "function" ||
             typeof NodeFilter === "undefined"
           ) {
-            const fallbackTotal = Math.min(runtime.maxMatches, Math.max(1, query.length));
-            for (let i = 0; i < fallbackTotal; i += 1) {
-              runtime.matches.push({ fallback: true, index: i + 1 });
-            }
             return;
           }
 
@@ -172,6 +204,32 @@ function buildSearchRuntimeBootstrapScript() {
           return rect.right > 0 && rect.bottom > 0 && rect.left < w && rect.top < h;
         },
 
+        getActiveRect() {
+          if (!runtime.active || runtime.activeIndex < 1 || runtime.activeIndex > runtime.matches.length) {
+            return null;
+          }
+          const rects = runtime.getMatchRects(runtime.matches[runtime.activeIndex - 1]);
+          return rects.find((rect) => runtime.rectVisible(rect)) || rects[0] || null;
+        },
+
+        keepActiveMatchInComfortBand() {
+          if (typeof window === "undefined" || typeof window.scrollBy !== "function") return;
+          const rect = runtime.getActiveRect();
+          if (!rect) return;
+          const h = Number(window.innerHeight || 0);
+          if (h <= 0) return;
+
+          const topLimit = h * viewportTopRatio + viewportMarginPx;
+          const bottomLimit = h * viewportBottomRatio - viewportMarginPx;
+          const target = h * viewportTargetRatio;
+          const centerY = rect.top + rect.height / 2;
+          if (centerY >= topLimit && centerY <= bottomLimit) return;
+
+          const deltaY = centerY - target;
+          if (Math.abs(deltaY) < 1) return;
+          window.scrollBy({ top: deltaY, behavior: "smooth" });
+        },
+
         renderHighlights() {
           const root = runtime.ensureOverlayRoot();
           if (!root) return;
@@ -187,16 +245,18 @@ function buildSearchRuntimeBootstrapScript() {
               hasVisible = true;
               const node = document.createElement("div");
               node.style.position = "fixed";
-              node.style.left = String(Math.max(0, rect.left)) + "px";
-              node.style.top = String(Math.max(0, rect.top)) + "px";
-              node.style.width = String(Math.max(1, rect.width)) + "px";
-              node.style.height = String(Math.max(1, rect.height)) + "px";
+              node.style.left = String(Math.max(0, rect.left - highlightPaddingPx)) + "px";
+              node.style.top = String(Math.max(0, rect.top - highlightPaddingPx)) + "px";
+              node.style.width = String(Math.max(1, rect.width + highlightPaddingPx * 2)) + "px";
+              node.style.height = String(Math.max(1, rect.height + highlightPaddingPx * 2)) + "px";
               node.style.borderRadius = "3px";
               if (i + 1 === runtime.activeIndex) {
                 node.style.background = "var(--search-active-bg)";
                 node.style.border = "1px solid var(--search-active-border)";
+                node.style.color = "var(--search-active-fg)";
               } else {
                 node.style.background = "var(--search-passive-bg)";
+                node.style.color = "var(--search-passive-fg)";
               }
               root.appendChild(node);
               runtime.highlightNodes.push(node);
@@ -296,6 +356,16 @@ function buildSearchRuntimeBootstrapScript() {
           return labels;
         },
 
+        openHintsForCurrentViewport(limit = 24) {
+          const visibleIndexes = runtime.visibleMatchIndexes.length
+            ? runtime.visibleMatchIndexes.slice(0, limit)
+            : Array.from({ length: Math.min(runtime.total, limit) }, (_, i) => i + 1);
+          const labels = runtime.buildHintLabels(visibleIndexes.length);
+          runtime.hintInput = "";
+          runtime.hintLabels = labels.map((label, idx) => ({ label, index: visibleIndexes[idx] }));
+          runtime.visibleHintCount = runtime.hintLabels.length;
+        },
+
         renderHints() {
           runtime.clearNodes(runtime.hintNodes);
           if (runtime.hintLabels.length === 0) return;
@@ -317,11 +387,15 @@ function buildSearchRuntimeBootstrapScript() {
             node.style.position = "fixed";
             node.style.left = String(Math.max(0, rect.left)) + "px";
             node.style.top = String(Math.max(0, rect.top - 16)) + "px";
-            node.style.padding = "1px 4px";
-            node.style.borderRadius = "4px";
-            node.style.fontSize = "10px";
+            node.style.padding = "3px 7px";
+            node.style.borderRadius = "6px";
+            node.style.fontSize = "12px";
+            node.style.fontWeight = "600";
+            node.style.lineHeight = "1";
+            node.style.minWidth = "14px";
             node.style.background = "var(--search-active-bg)";
             node.style.border = "1px solid var(--search-active-border)";
+            node.style.color = "var(--search-active-fg)";
             node.textContent = hint.label;
             root.appendChild(node);
             runtime.hintNodes.push(node);
@@ -331,10 +405,11 @@ function buildSearchRuntimeBootstrapScript() {
         handleCommand(envelope) {
           const safeEnvelope = envelope && typeof envelope === "object" ? envelope : {};
           const requestId = safeEnvelope.requestId || null;
-          const action = typeof safeEnvelope.action === "string" ? safeEnvelope.action : "";
-          const payload = safeEnvelope.payload && typeof safeEnvelope.payload === "object"
-            ? safeEnvelope.payload
-            : {};
+          try {
+            const action = typeof safeEnvelope.action === "string" ? safeEnvelope.action : "";
+            const payload = safeEnvelope.payload && typeof safeEnvelope.payload === "object"
+              ? safeEnvelope.payload
+              : {};
 
           if (action === "ping") {
             return { ok: true, requestId, payload: { ready: true } };
@@ -351,6 +426,7 @@ function buildSearchRuntimeBootstrapScript() {
             runtime.buildMatches(query);
             runtime.total = runtime.matches.length;
             runtime.activeIndex = runtime.total > 0 ? 1 : 0;
+            runtime.keepActiveMatchInComfortBand();
             runtime.scheduleOverlayRefresh();
             return {
               ok: true,
@@ -374,6 +450,7 @@ function buildSearchRuntimeBootstrapScript() {
             const delta = action === "next" ? 1 : -1;
             const nextRaw = runtime.activeIndex + delta;
             runtime.activeIndex = nextRaw < 1 ? runtime.total : ((nextRaw - 1) % runtime.total) + 1;
+            runtime.keepActiveMatchInComfortBand();
             runtime.scheduleOverlayRefresh();
             return {
               ok: true,
@@ -409,7 +486,17 @@ function buildSearchRuntimeBootstrapScript() {
               typeof payload.mainColor === "string" && payload.mainColor.length > 0
                 ? payload.mainColor
                 : runtime.themeMainColor;
+            const activeTextColor =
+              typeof payload.searchActiveTextColor === "string" && payload.searchActiveTextColor.trim().length > 0
+                ? payload.searchActiveTextColor.trim()
+                : "";
+            const passiveTextColor =
+              typeof payload.searchPassiveTextColor === "string" && payload.searchPassiveTextColor.trim().length > 0
+                ? payload.searchPassiveTextColor.trim()
+                : "";
             runtime.themeMainColor = mainColor;
+            runtime.themeSearchActiveTextColor = activeTextColor;
+            runtime.themeSearchPassiveTextColor = passiveTextColor;
             runtime.updateOverlayTheme(mainColor);
             runtime.scheduleOverlayRefresh();
             return {
@@ -424,13 +511,7 @@ function buildSearchRuntimeBootstrapScript() {
           }
 
           if (action === "hint-open") {
-            const visibleIndexes = runtime.visibleMatchIndexes.length
-              ? runtime.visibleMatchIndexes.slice(0, 24)
-              : Array.from({ length: Math.min(runtime.total, 24) }, (_, i) => i + 1);
-            const labels = runtime.buildHintLabels(visibleIndexes.length);
-            runtime.hintInput = "";
-            runtime.hintLabels = labels.map((label, idx) => ({ label, index: visibleIndexes[idx] }));
-            runtime.visibleHintCount = runtime.hintLabels.length;
+            runtime.openHintsForCurrentViewport(24);
             runtime.scheduleOverlayRefresh();
             return {
               ok: true,
@@ -466,8 +547,8 @@ function buildSearchRuntimeBootstrapScript() {
             runtime.visibleHintCount = filtered.length;
             if (filtered.length === 1 && filtered[0].label === input) {
               runtime.activeIndex = filtered[0].index;
-              runtime.hintLabels = [];
-              runtime.visibleHintCount = 0;
+              runtime.keepActiveMatchInComfortBand();
+              runtime.openHintsForCurrentViewport(24);
               runtime.scheduleOverlayRefresh();
               return {
                 ok: true,
@@ -475,7 +556,8 @@ function buildSearchRuntimeBootstrapScript() {
                 payload: {
                   total: runtime.total,
                   activeIndex: runtime.activeIndex,
-                  visibleHintCount: 0,
+                  visibleHintCount: runtime.visibleHintCount,
+                  hints: runtime.hintLabels,
                   jumped: true,
                 },
               };
@@ -498,8 +580,13 @@ function buildSearchRuntimeBootstrapScript() {
           if (action === "jump") {
             const index = Number.isFinite(payload.index) ? Math.max(1, Math.floor(payload.index)) : 1;
             runtime.activeIndex = Math.min(index, Math.max(runtime.total, 1));
-            runtime.hintLabels = [];
-            runtime.visibleHintCount = 0;
+            runtime.keepActiveMatchInComfortBand();
+            if (runtime.hintLabels.length > 0 || runtime.hintInput) {
+              runtime.openHintsForCurrentViewport(24);
+            } else {
+              runtime.hintLabels = [];
+              runtime.visibleHintCount = 0;
+            }
             runtime.scheduleOverlayRefresh();
             return {
               ok: true,
@@ -507,7 +594,8 @@ function buildSearchRuntimeBootstrapScript() {
               payload: {
                 total: runtime.total,
                 activeIndex: runtime.activeIndex,
-                visibleHintCount: 0,
+                visibleHintCount: runtime.visibleHintCount,
+                hints: runtime.hintLabels,
               },
             };
           }
@@ -525,14 +613,27 @@ function buildSearchRuntimeBootstrapScript() {
             };
           }
 
-          return {
-            ok: false,
-            requestId,
-            error: {
-              code: "search_runtime_unknown_action",
-              message: "Unknown search runtime action",
-            },
-          };
+            return {
+              ok: false,
+              requestId,
+              error: {
+                code: "search_runtime_unknown_action",
+                message: "Unknown search runtime action",
+              },
+            };
+          } catch (error) {
+            return {
+              ok: false,
+              requestId,
+              error: {
+                code: "search_runtime_command_exception",
+                message:
+                  error && typeof error.message === "string" && error.message.length > 0
+                    ? error.message
+                    : "Search runtime command failed",
+              },
+            };
+          }
         },
       };
 
@@ -554,6 +655,7 @@ function buildSearchRuntimeCommandScript(envelope) {
     (function runNoctraSearchRuntimeCommand() {
       ${buildSearchRuntimeBootstrapScript()}
       const runtime = window.${SEARCH_RUNTIME_GLOBAL_KEY};
+      const envelope = ${serializedEnvelope};
       if (!runtime || typeof runtime.handleCommand !== "function") {
         return {
           ok: false,
@@ -564,7 +666,18 @@ function buildSearchRuntimeCommandScript(envelope) {
           },
         };
       }
-      return runtime.handleCommand(${serializedEnvelope});
+      try {
+        return runtime.handleCommand(envelope);
+      } catch (error) {
+        return {
+          ok: false,
+          requestId: envelope && envelope.requestId ? envelope.requestId : null,
+          error: {
+            code: "search_runtime_command_exception",
+            message: error && error.message ? error.message : "Search runtime command failed",
+          },
+        };
+      }
     })();
   `;
 }

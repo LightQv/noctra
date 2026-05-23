@@ -83,8 +83,12 @@ function createSearchHandlers(deps) {
           state,
         );
       })
-      .catch(() => {
-        notifyWarning("Search runtime command failed", "search_runtime_error");
+      .catch((error) => {
+        const message =
+          error && typeof error.message === "string" && error.message.length > 0
+            ? error.message
+            : "Search runtime command failed";
+        notifyWarning(message, "search_runtime_error");
       });
 
     return requestId;

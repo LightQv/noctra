@@ -244,7 +244,11 @@ function applyThemeEverywhere(win, runtimeDeps = {}) {
       webContentsActions.sendSearchRuntimeCommand(
         webContents,
         "theme-update",
-        { mainColor: payload.theme.mainColor },
+        {
+          mainColor: payload.theme.mainColor,
+          searchActiveTextColor: payload.theme.searchActiveTextColor,
+          searchPassiveTextColor: payload.theme.searchPassiveTextColor,
+        },
       ),
     ).catch(() => {});
   }

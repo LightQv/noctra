@@ -193,7 +193,17 @@ test("search hint open and input update hint mode and runtime actions", async ()
           return {
             ok: true,
             requestId: options.requestId,
-            payload: { total: 5, activeIndex: 2, visibleHintCount: 0 },
+            payload: {
+              total: 5,
+              activeIndex: 2,
+              visibleHintCount: 3,
+              hints: [
+                { label: "a", index: 2 },
+                { label: "s", index: 3 },
+                { label: "d", index: 4 },
+              ],
+              jumped: true,
+            },
           };
         }
         return {
@@ -223,8 +233,9 @@ test("search hint open and input update hint mode and runtime actions", async ()
     state: harness.state,
   });
   await tick();
-  assert.equal(harness.state.searchHintMode, false);
-  assert.equal(harness.state.searchHintInput, "");
+  assert.equal(harness.state.searchHintMode, true);
+  assert.equal(harness.state.searchHintInput, "a");
+  assert.equal(harness.state.searchVisibleHintCount, 3);
   assert.equal(harness.state.searchMatchIndex, 2);
 });
 
@@ -248,6 +259,32 @@ test("search submit reports runtime error without native fallback", async () => 
   assert.equal(harness.getFindInPageCalls(), 0);
   assert.equal(
     harness.notifications.some((entry) => entry.code === "search_runtime_error"),
+    true,
+  );
+});
+
+test("search submit reports thrown runtime error message", async () => {
+  const harness = createHarness({
+    webContentsActions: {
+      sendSearchRuntimeCommand: async () => {
+        throw new Error("runtime exploded");
+      },
+    },
+  });
+
+  harness.handlers[INTENTS.SEARCH_SUBMIT]({
+    win: null,
+    intent: { type: INTENTS.SEARCH_SUBMIT, query: "boom" },
+    state: harness.state,
+  });
+  await tick();
+
+  assert.equal(
+    harness.notifications.some(
+      (entry) =>
+        entry.code === "search_runtime_error" &&
+        entry.message === "runtime exploded",
+    ),
     true,
   );
 });

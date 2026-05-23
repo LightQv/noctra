@@ -61,6 +61,8 @@ const defaultConfig = {
         secondaryActiveTextColor: "#84b7cb",
         accentIconColor: "#8ec5ff",
         mainColor: "#89dceb",
+        searchActiveTextColor: "#10151d",
+        searchPassiveTextColor: "#10151d",
         accentPillBackground: "#2c3e46",
         accentPillBorder: "#557b88",
         dangerTextColor: "#ffb4c2",

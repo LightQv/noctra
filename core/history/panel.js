@@ -1733,43 +1733,50 @@ class HistoryPanel {
     }
   }
 
+  resolveTreeNodeFromTarget(target) {
+    if (!target || target.role !== "tree-row") return null;
+    const idx = Number.isFinite(target.rowIndex) ? target.rowIndex : -1;
+    const nodes = this.getTreeFlatNodes();
+    if (idx < 0 || idx >= nodes.length) return null;
+    const node = nodes[idx];
+    return node || null;
+  }
+
+  applyHoverTreeNode(node) {
+    if (!node) return false;
+    if (this.treeKind === "bookmarks") {
+      if (this.bookmarkCursor.nodeId === node.id) return false;
+      this.bookmarkCursor = { nodeId: node.id };
+      return true;
+    }
+
+    if (this.treeKind === "downloads") {
+      if (this.downloadCursor.id === node.id) return false;
+      this.downloadCursor = { id: node.id };
+      return true;
+    }
+
+    const nextEntryId = node.entry ? node.entry.id : null;
+    const isSameHistoryCursor =
+      this.cursor.type === node.type &&
+      this.cursor.dateKey === node.dateKey &&
+      String(this.cursor.entryId || "") === String(nextEntryId || "");
+    if (isSameHistoryCursor) return false;
+    this.cursor = {
+      type: node.type,
+      dateKey: node.dateKey,
+      entryId: nextEntryId,
+    };
+    return true;
+  }
+
   async handleMouseEvent(input, event) {
     if (!this.visible || !input) return;
 
     if (input.type === "mouseMove") {
       const target = await this.resolveMouseTarget(input.x, input.y);
-      if (!target || target.role !== "tree-row") return;
-      const idx = Number.isFinite(target.rowIndex) ? target.rowIndex : -1;
-      const nodes = this.getTreeFlatNodes();
-      if (idx < 0 || idx >= nodes.length) return;
-      const node = nodes[idx];
-      if (!node) return;
-
-      if (this.treeKind === "bookmarks") {
-        if (this.bookmarkCursor.nodeId === node.id) return;
-        this.bookmarkCursor = { nodeId: node.id };
-        this.render();
-        return;
-      }
-
-      if (this.treeKind === "downloads") {
-        if (this.downloadCursor.id === node.id) return;
-        this.downloadCursor = { id: node.id };
-        this.render();
-        return;
-      }
-
-      const nextEntryId = node.entry ? node.entry.id : null;
-      const isSameHistoryCursor =
-        this.cursor.type === node.type &&
-        this.cursor.dateKey === node.dateKey &&
-        String(this.cursor.entryId || "") === String(nextEntryId || "");
-      if (isSameHistoryCursor) return;
-      this.cursor = {
-        type: node.type,
-        dateKey: node.dateKey,
-        entryId: nextEntryId,
-      };
+      const node = this.resolveTreeNodeFromTarget(target);
+      if (!this.applyHoverTreeNode(node)) return;
       this.render();
       return;
     }
@@ -1816,10 +1823,7 @@ class HistoryPanel {
       return;
     }
     if (target.role !== "tree-row") return;
-    const idx = Number.isFinite(target.rowIndex) ? target.rowIndex : -1;
-    const nodes = this.getTreeFlatNodes();
-    if (idx < 0 || idx >= nodes.length) return;
-    const node = nodes[idx];
+    const node = this.resolveTreeNodeFromTarget(target);
     if (!node) return;
 
     if (this.treeKind === "bookmarks") {

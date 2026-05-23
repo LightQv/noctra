@@ -577,6 +577,7 @@ const TELESCOPE_OVERLAY_HTML = `
         color: var(--ui-text-soft, #b6c7e8);
         font-size: 12px;
         cursor: pointer;
+        overflow: hidden;
       }
 
       .telescope-row.selected {
@@ -598,21 +599,19 @@ const TELESCOPE_OVERLAY_HTML = `
 
       .telescope-primary {
         min-width: 0;
-        flex: 1;
+        flex: 1 1 auto;
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
         padding: 0 ${UI_TREE_LAYOUT.namePaddingRight}px 0 ${UI_TREE_LAYOUT.namePaddingLeft}px;
-        display: flex;
-        align-items: center;
+        display: block;
       }
 
       .telescope-right {
         color: var(--ui-text-muted, #7d8aa3);
         white-space: nowrap;
         text-align: right;
-        width: ${UI_TREE_LAYOUT.rightColWidth}px;
-        flex: 0 0 ${UI_TREE_LAYOUT.rightColWidth}px;
+        flex: 0 0 auto;
         padding: 0 ${UI_TREE_LAYOUT.namePaddingRight}px 0 0;
         display: flex;
         align-items: center;

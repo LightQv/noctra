@@ -1435,6 +1435,15 @@ function createWindow() {
       }
       if (appMenu) appMenu.sync();
     },
+    hoverTelescopeIndex: (index) => {
+      if (!telescopeService.isActive()) return;
+      const next = Number.isFinite(index) ? Math.floor(index) : -1;
+      if (next < 0) return;
+      const current = telescopeService.getSelectedIndex();
+      if (current === next) return;
+      telescopeService.setSelectedIndex(next);
+      uiShell.updateTelescope(telescopeService.buildModel());
+    },
     clickDownloadsModalIndex: (index, clickCount = 1) => {
       const consumed = downloadsModal.clickIndex(index, clickCount);
       if (!consumed) return;

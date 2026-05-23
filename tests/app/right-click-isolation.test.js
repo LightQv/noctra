@@ -114,6 +114,52 @@ test("sidepanel handleMouseEvent clears selection on right-click", () => {
   );
 });
 
+test("sidepanel handleMouseEvent updates cursor on mouseMove tree-row hover", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const panelSource = fs.readFileSync(
+    path.join(__dirname, "../../core/history/panel.js"),
+    "utf-8",
+  );
+  assert.ok(
+    panelSource.includes('if (input.type === "mouseMove")'),
+    "panel must handle mouseMove events",
+  );
+  assert.ok(
+    panelSource.includes('target.role !== "tree-row"'),
+    "panel hover logic must target tree rows only",
+  );
+  assert.ok(
+    panelSource.includes("this.render();"),
+    "panel hover updates should trigger render",
+  );
+});
+
+test("telescope overlay hover routes row index through hoverTelescopeIndex", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const overlaySource = fs.readFileSync(
+    path.join(__dirname, "../../ui/shell/services/auxOverlayController.js"),
+    "utf-8",
+  );
+  const mainSource = fs.readFileSync(
+    path.join(__dirname, "../../main.js"),
+    "utf-8",
+  );
+  assert.ok(
+    overlaySource.includes('if (input.type === "mouseMove")'),
+    "telescope overlay must handle mouseMove",
+  );
+  assert.ok(
+    overlaySource.includes("hoverTelescopeIndex(target.index)"),
+    "telescope hover should forward hovered row index",
+  );
+  assert.ok(
+    mainSource.includes("hoverTelescopeIndex: (index) =>"),
+    "main mouseActions must implement hoverTelescopeIndex",
+  );
+});
+
 test("context menu registration calls event.preventDefault() for web contents", () => {
   // Verify via source code contract that preventDefault is called
   const fs = require("node:fs");

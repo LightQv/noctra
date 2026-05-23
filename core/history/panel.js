@@ -1734,7 +1734,47 @@ class HistoryPanel {
   }
 
   async handleMouseEvent(input, event) {
-    if (!this.visible || !input || input.type !== "mouseUp") return;
+    if (!this.visible || !input) return;
+
+    if (input.type === "mouseMove") {
+      const target = await this.resolveMouseTarget(input.x, input.y);
+      if (!target || target.role !== "tree-row") return;
+      const idx = Number.isFinite(target.rowIndex) ? target.rowIndex : -1;
+      const nodes = this.getTreeFlatNodes();
+      if (idx < 0 || idx >= nodes.length) return;
+      const node = nodes[idx];
+      if (!node) return;
+
+      if (this.treeKind === "bookmarks") {
+        if (this.bookmarkCursor.nodeId === node.id) return;
+        this.bookmarkCursor = { nodeId: node.id };
+        this.render();
+        return;
+      }
+
+      if (this.treeKind === "downloads") {
+        if (this.downloadCursor.id === node.id) return;
+        this.downloadCursor = { id: node.id };
+        this.render();
+        return;
+      }
+
+      const nextEntryId = node.entry ? node.entry.id : null;
+      const isSameHistoryCursor =
+        this.cursor.type === node.type &&
+        this.cursor.dateKey === node.dateKey &&
+        String(this.cursor.entryId || "") === String(nextEntryId || "");
+      if (isSameHistoryCursor) return;
+      this.cursor = {
+        type: node.type,
+        dateKey: node.dateKey,
+        entryId: nextEntryId,
+      };
+      this.render();
+      return;
+    }
+
+    if (input.type !== "mouseUp") return;
 
     if (input.button === "right") {
       if (event && typeof event.preventDefault === "function") {

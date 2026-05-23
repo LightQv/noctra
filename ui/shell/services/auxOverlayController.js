@@ -444,6 +444,18 @@ async function handleTelescopeMouseEvent(input) {
       }
     }
   }
+  if (input.type === "mouseMove") {
+    const target = await resolveOverlayClickTarget(
+      this.telescopeView,
+      input.x,
+      input.y,
+      '[data-click-role="telescope-row"], #telescope-prompt, #telescope-shell',
+    );
+    if (!target || target.role !== "telescope-row") return;
+    if (typeof this.mouseActions?.hoverTelescopeIndex === "function") {
+      this.mouseActions.hoverTelescopeIndex(target.index);
+    }
+  }
 }
 
 function computeSelectionModalHeight(model = null) {

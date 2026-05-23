@@ -248,6 +248,10 @@ class TelescopeService {
     this.selectedIndex = Math.max(0, Math.min(next, max));
   }
 
+  getSelectedIndex() {
+    return this.selectedIndex;
+  }
+
   getResultAt(index) {
     const idx = Number.isFinite(index) ? Math.floor(index) : -1;
     if (idx < 0 || idx >= this.filteredItems.length) return null;

@@ -1,7 +1,11 @@
 const { setCommandTarget, setCommandBuffer } = require("./state/commandState");
+const {
+  setSearchPromptVisible,
+  setSearchQuery,
+} = require("./state/searchState");
 
 function normalizeMode(mode) {
-  if (mode === "INSERT" || mode === "COMMAND") {
+  if (mode === "INSERT" || mode === "COMMAND" || mode === "SEARCH") {
     return mode;
   }
   return "NORMAL";
@@ -81,10 +85,44 @@ function exitCommandMode(state, options = {}) {
   return true;
 }
 
+function enterSearchMode(state, options = {}) {
+  if (!state || typeof state !== "object") {
+    return false;
+  }
+
+  const initialQuery =
+    typeof options.initialQuery === "string"
+      ? options.initialQuery
+      : state.searchQuery || "";
+  setMode(state, "SEARCH", options.reason || "enter-search");
+  setSearchQuery(state, initialQuery);
+  setSearchPromptVisible(state, options.showPrompt !== false);
+  return true;
+}
+
+function exitSearchMode(state, options = {}) {
+  if (!state || typeof state !== "object") {
+    return false;
+  }
+
+  if (state.mode !== "SEARCH") {
+    warnIllegalTransition("Exiting search mode while not in search mode", {
+      mode: state.mode,
+      reason: options.reason || "",
+    });
+  }
+
+  setSearchPromptVisible(state, false);
+  setMode(state, "NORMAL", options.reason || "exit-search");
+  return true;
+}
+
 module.exports = {
   enterInsertMode,
   enterNormalMode,
   enterCommandMode,
   exitCommandMode,
+  enterSearchMode,
+  exitSearchMode,
   setMode,
 };

@@ -23,6 +23,21 @@ test("intent contracts accept SET_BROWSER_LANGUAGE system payload", () => {
   assert.equal(result.ok, true);
 });
 
+test("intent contracts accept SEARCH_SUBMIT payload", () => {
+  const result = validateIntentPayload(INTENTS.SEARCH_SUBMIT, {
+    type: INTENTS.SEARCH_SUBMIT,
+    query: "noctra",
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts reject SEARCH_SUBMIT without query", () => {
+  const result = validateIntentPayload(INTENTS.SEARCH_SUBMIT, {
+    type: INTENTS.SEARCH_SUBMIT,
+  });
+  assert.equal(result.ok, false);
+});
+
 test("intent contracts accept valid payload", () => {
   const result = validateIntentPayload(INTENTS.SCROLL, {
     type: INTENTS.SCROLL,

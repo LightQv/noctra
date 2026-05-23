@@ -12,12 +12,19 @@ function createCommandUiHandlers(deps) {
     dispatch,
   } = deps;
 
+  function resolveCommandContext(state) {
+    if (state.mode === "SEARCH" || state.searchPromptVisible) {
+      return "search";
+    }
+    return state.commandTarget === "EDITOR" ? "editor" : "shell";
+  }
+
   return {
     [INTENTS.SHOW_COMMAND]: ({ state }) => {
       uiShell.showCommand(
         state.commandBuffer,
         state.commandCursorIndex,
-        state.commandTarget === "EDITOR" ? "editor" : "shell",
+        resolveCommandContext(state),
       );
       buffers.focusActive();
     },
@@ -31,10 +38,17 @@ function createCommandUiHandlers(deps) {
     },
     [INTENTS.COMMAND_INPUT]: ({ state }) => {
       uiShell.updateCommand(
-        state.commandBuffer,
-        state.commandCursorIndex,
-        state.commandTarget === "EDITOR" ? "editor" : "shell",
+        state.mode === "SEARCH" || state.searchPromptVisible
+          ? state.searchQuery
+          : state.commandBuffer,
+        state.mode === "SEARCH" || state.searchPromptVisible
+          ? state.searchQuery.length
+          : state.commandCursorIndex,
+        resolveCommandContext(state),
       );
+      if (state.mode === "SEARCH" || state.searchPromptVisible) {
+        uiShell.showCommand(state.searchQuery, state.searchQuery.length, "search");
+      }
     },
     [INTENTS.SUBMIT_EDITOR_COMMAND]: ({ intent }) => {
       const activeEditableBuffer = buffers.getActive();

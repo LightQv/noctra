@@ -3,6 +3,7 @@ const buffers = require("../browser/manager");
 const { createHandleNormal } = require("../motions/normal");
 const { handleInsert } = require("../motions/insert");
 const { handleCommand } = require("../motions/command");
+const { handleSearch } = require("../motions/search");
 const { dispatch } = require("./dispatcher");
 const sidepanelController = require("./sidepanel/controller");
 const { resolveSemanticContext } = require("./semanticContextResolver");
@@ -46,6 +47,9 @@ function createInputHandler(deps = {}) {
       case "INSERT":
         return input.key === "Escape";
 
+      case "SEARCH":
+        return true;
+
       default:
         return false;
     }
@@ -77,6 +81,10 @@ function createInputHandler(deps = {}) {
 
       case "COMMAND":
         intent = handleCommand(localState, input);
+        break;
+
+      case "SEARCH":
+        intent = handleSearch(localState, input);
         break;
     }
 

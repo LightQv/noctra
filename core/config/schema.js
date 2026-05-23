@@ -16,6 +16,9 @@ const ACTION_IDS = new Set([
   "buffer_next",
   "enter_insert",
   "open_url_prompt",
+  "search_open_prompt",
+  "search_next",
+  "search_prev",
   "new_buffer",
   "split_vertical",
   "scroll_half_down",
@@ -335,6 +338,7 @@ function normalizeConfig(rawConfig) {
   const userNormalMap = keymapSection ? keymapSection.normal : null;
   const userModMap = keymapSection ? keymapSection.mod : null;
   const userLeaderTree = keymapSection ? keymapSection.leader : null;
+  const userSearchMap = keymapSection ? keymapSection.search : null;
   normalized.keymap.normal = normalizeDiscreteKeymap(
     userNormalMap,
     defaults.keymap.normal,
@@ -342,6 +346,10 @@ function normalizeConfig(rawConfig) {
   normalized.keymap.mod = normalizeDiscreteKeymap(
     userModMap,
     defaults.keymap.mod,
+  );
+  normalized.keymap.search = normalizeDiscreteKeymap(
+    userSearchMap,
+    defaults.keymap.search,
   );
   const normalizedUserLeaderNode = normalizeLeaderNode({
     label: "Leader",

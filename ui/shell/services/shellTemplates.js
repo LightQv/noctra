@@ -769,12 +769,19 @@ const STATUSLINE_OVERLAY_HTML = `
         align-items: center;
         line-height: 1;
       }
+
+      #statusline-search-count {
+        display: none;
+        color: var(--ui-text-soft, #b6c7e8);
+        align-items: center;
+        line-height: 1;
+      }
     </style>
   </head>
   <body>
     <div id="statusline">
       <span id="statusline-mode"><span id="statusline-mode-icon"></span><span id="statusline-mode-label">NORMAL</span></span>
-      <span id="statusline-right"><span id="statusline-split" aria-label="Split focus"><span id="statusline-split-left">L</span><span id="statusline-split-sep">/</span><span id="statusline-split-right">R</span></span><span id="statusline-scroll">0%</span></span>
+      <span id="statusline-right"><span id="statusline-search-count">0/0</span><span id="statusline-split" aria-label="Split focus"><span id="statusline-split-left">L</span><span id="statusline-split-sep">/</span><span id="statusline-split-right">R</span></span><span id="statusline-scroll">0%</span></span>
     </div>
     <script>
       (function preventStatuslineContextMenu() {

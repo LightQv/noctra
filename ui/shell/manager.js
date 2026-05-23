@@ -520,6 +520,10 @@ class UiShellManager {
     );
   }
 
+  updateStatuslineSearchCount(model = {}) {
+    return auxOverlayController.updateStatuslineSearchCount.call(this, model);
+  }
+
   updateCommand(text = "", cursorIndex = null, context = null) {
     return commandOverlayController.updateCommand.call(
       this,

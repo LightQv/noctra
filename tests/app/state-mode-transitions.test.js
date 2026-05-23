@@ -6,6 +6,8 @@ const {
   enterNormalMode,
   enterCommandMode,
   exitCommandMode,
+  enterSearchMode,
+  exitSearchMode,
 } = require("../../core/modeTransitionService");
 
 function createState() {
@@ -14,6 +16,8 @@ function createState() {
     commandTarget: "SHELL",
     commandBuffer: "",
     commandCursorIndex: 0,
+    searchQuery: "",
+    searchPromptVisible: false,
   };
 }
 
@@ -45,4 +49,20 @@ test("command mode entry and exit route through command state helpers", () => {
   assert.equal(state.commandTarget, "SHELL");
   assert.equal(state.commandBuffer, "");
   assert.equal(state.commandCursorIndex, 0);
+});
+
+test("search mode entry and exit update prompt state", () => {
+  const state = createState();
+  enterSearchMode(state, {
+    initialQuery: "hello",
+    showPrompt: true,
+  });
+
+  assert.equal(state.mode, "SEARCH");
+  assert.equal(state.searchQuery, "hello");
+  assert.equal(state.searchPromptVisible, true);
+
+  exitSearchMode(state);
+  assert.equal(state.mode, "NORMAL");
+  assert.equal(state.searchPromptVisible, false);
 });

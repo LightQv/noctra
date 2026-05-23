@@ -58,7 +58,9 @@ function resolveFocusSnapshot({
       sidepanel && sidepanel.isTextInputActive(),
     ),
     urllineEditing: Boolean(state && state.urllineEditing),
-    commandMode: Boolean(state && state.mode === "COMMAND"),
+    commandMode: Boolean(
+      state && (state.mode === "COMMAND" || state.searchPromptVisible),
+    ),
     editorFocused: isEditorFocused(state),
     activeBufferEditable: Boolean(activeBuffer && activeBuffer.isEditable),
   };

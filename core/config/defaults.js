@@ -176,6 +176,7 @@ const defaultConfig = {
       H: "buffer_prev",
       L: "buffer_next",
       i: "enter_insert",
+      "/": "search_open_prompt",
       o: "open_url_prompt",
       b: "new_buffer",
       "|": "split_vertical",
@@ -192,6 +193,11 @@ const defaultConfig = {
       q: "close_focused",
       t: "new_buffer",
       T: "reopen_buffer",
+    },
+    search: {
+      n: "search_next",
+      N: "search_prev",
+      "/": "search_open_prompt",
     },
     leader: {
       ",": {

@@ -1,3 +1,12 @@
+const {
+  buildSearchRuntimeBootstrapScript,
+  buildSearchRuntimeCommandScript,
+} = require("../../../browser/searchRuntime");
+
+let searchRuntimeRequestSequence = 0;
+const searchRuntimeReadyByWebContents = new WeakMap();
+const searchRuntimeLifecycleWired = new WeakSet();
+
 function isUsableWebContents(webContents) {
   return Boolean(webContents && !webContents.isDestroyed());
 }
@@ -126,6 +135,124 @@ function stopFindInPage(webContents, action = "clearSelection") {
   webContents.stopFindInPage(action);
 }
 
+function nextSearchRuntimeRequestId() {
+  searchRuntimeRequestSequence += 1;
+  return `search-runtime-${searchRuntimeRequestSequence}`;
+}
+
+function wireSearchRuntimeLifecycle(webContents) {
+  if (
+    !isUsableWebContents(webContents) ||
+    searchRuntimeLifecycleWired.has(webContents)
+  ) {
+    return;
+  }
+
+  searchRuntimeLifecycleWired.add(webContents);
+  const clear = () => {
+    clearSearchRuntimeReady(webContents);
+  };
+
+  if (typeof webContents.on === "function") {
+    webContents.on("did-start-navigation", clear);
+    webContents.on("destroyed", clear);
+  }
+}
+
+async function ensureSearchRuntime(webContents) {
+  if (!isUsableWebContents(webContents)) {
+    return false;
+  }
+
+  if (searchRuntimeReadyByWebContents.get(webContents) === true) {
+    return true;
+  }
+
+  wireSearchRuntimeLifecycle(webContents);
+
+  const result = await executeScript(
+    webContents,
+    buildSearchRuntimeBootstrapScript(),
+  );
+  const ready = result === true;
+  if (ready) {
+    searchRuntimeReadyByWebContents.set(webContents, true);
+  }
+  return ready;
+}
+
+function clearSearchRuntimeReady(webContents) {
+  if (!webContents || typeof webContents !== "object") {
+    return;
+  }
+  searchRuntimeReadyByWebContents.delete(webContents);
+}
+
+async function sendSearchRuntimeCommand(webContents, action, payload = {}, options = {}) {
+  if (!isUsableWebContents(webContents)) {
+    return {
+      ok: false,
+      requestId: null,
+      error: { code: "search_runtime_unusable_webcontents", message: "WebContents is unusable" },
+    };
+  }
+
+  const ready = await ensureSearchRuntime(webContents);
+  if (!ready) {
+    return {
+      ok: false,
+      requestId: null,
+      error: { code: "search_runtime_not_ready", message: "Search runtime not ready" },
+    };
+  }
+
+  const requestId =
+    typeof options.requestId === "string" && options.requestId.length > 0
+      ? options.requestId
+      : nextSearchRuntimeRequestId();
+  const envelope = {
+    channel: "noctra:search-runtime:command",
+    requestId,
+    action,
+    payload: payload && typeof payload === "object" ? payload : {},
+  };
+
+  const result = await executeScript(
+    webContents,
+    buildSearchRuntimeCommandScript(envelope),
+  );
+  if (!result || typeof result !== "object") {
+    return {
+      ok: false,
+      requestId,
+      error: { code: "search_runtime_invalid_response", message: "Invalid search runtime response" },
+    };
+  }
+  return result;
+}
+
+function searchRuntimeStart(webContents, query, options = {}) {
+  const normalizedQuery = typeof query === "string" ? query : "";
+  return sendSearchRuntimeCommand(
+    webContents,
+    "start",
+    { query: normalizedQuery },
+    options,
+  );
+}
+
+function searchRuntimeClear(webContents, options = {}) {
+  return sendSearchRuntimeCommand(webContents, "clear", {}, options);
+}
+
+function searchRuntimeNext(webContents, options = {}) {
+  return sendSearchRuntimeCommand(webContents, "next", {}, options);
+}
+
+function searchRuntimePrev(webContents, options = {}) {
+  return sendSearchRuntimeCommand(webContents, "prev", {}, options);
+}
+
 module.exports = {
   isUsableWebContents,
   executeScript,
@@ -142,4 +269,11 @@ module.exports = {
   readScrollPercent,
   findInPage,
   stopFindInPage,
+  ensureSearchRuntime,
+  clearSearchRuntimeReady,
+  sendSearchRuntimeCommand,
+  searchRuntimeStart,
+  searchRuntimeClear,
+  searchRuntimeNext,
+  searchRuntimePrev,
 };

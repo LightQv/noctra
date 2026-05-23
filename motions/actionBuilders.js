@@ -75,6 +75,9 @@ const ACTION_BUILDERS = {
   search_prev: createActionBuilder("search_prev", () => ({
     type: INTENTS.SEARCH_PREV,
   })),
+  search_hint_open: createActionBuilder("search_hint_open", () => ({
+    type: INTENTS.SEARCH_HINT_OPEN,
+  })),
   new_buffer: createActionBuilder("new_buffer", () => ({
     type: INTENTS.NEW_BUFFER,
   })),

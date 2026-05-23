@@ -198,6 +198,7 @@ const defaultConfig = {
       n: "search_next",
       N: "search_prev",
       "/": "search_open_prompt",
+      f: "search_hint_open",
     },
     leader: {
       ",": {

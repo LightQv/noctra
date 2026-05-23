@@ -38,6 +38,61 @@ test("intent contracts reject SEARCH_SUBMIT without query", () => {
   assert.equal(result.ok, false);
 });
 
+test("intent contracts accept SEARCH_HINT_INPUT payload", () => {
+  const result = validateIntentPayload(INTENTS.SEARCH_HINT_INPUT, {
+    type: INTENTS.SEARCH_HINT_INPUT,
+    input: "af",
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts reject SEARCH_HINT_INPUT with non-string input", () => {
+  const result = validateIntentPayload(INTENTS.SEARCH_HINT_INPUT, {
+    type: INTENTS.SEARCH_HINT_INPUT,
+    input: 12,
+  });
+  assert.equal(result.ok, false);
+});
+
+test("intent contracts accept SEARCH_JUMP_TO_INDEX payload", () => {
+  const result = validateIntentPayload(INTENTS.SEARCH_JUMP_TO_INDEX, {
+    type: INTENTS.SEARCH_JUMP_TO_INDEX,
+    index: 4,
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts reject SEARCH_JUMP_TO_INDEX with invalid index", () => {
+  const result = validateIntentPayload(INTENTS.SEARCH_JUMP_TO_INDEX, {
+    type: INTENTS.SEARCH_JUMP_TO_INDEX,
+    index: 2.3,
+  });
+  assert.equal(result.ok, false);
+});
+
+test("intent contracts accept SEARCH_RUNTIME_UPDATE payload", () => {
+  const result = validateIntentPayload(INTENTS.SEARCH_RUNTIME_UPDATE, {
+    type: INTENTS.SEARCH_RUNTIME_UPDATE,
+    requestId: "search-12",
+    total: 18,
+    activeIndex: 2,
+    visibleHintCount: 6,
+    activeRect: { x: 1, y: 2, width: 3, height: 4 },
+  });
+  assert.equal(result.ok, true);
+});
+
+test("intent contracts reject SEARCH_RUNTIME_UPDATE bad activeRect", () => {
+  const result = validateIntentPayload(INTENTS.SEARCH_RUNTIME_UPDATE, {
+    type: INTENTS.SEARCH_RUNTIME_UPDATE,
+    requestId: "search-13",
+    total: 18,
+    activeIndex: 2,
+    activeRect: { x: 1, y: 2, width: 3 },
+  });
+  assert.equal(result.ok, false);
+});
+
 test("intent contracts accept valid payload", () => {
   const result = validateIntentPayload(INTENTS.SCROLL, {
     type: INTENTS.SCROLL,

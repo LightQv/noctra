@@ -50,6 +50,20 @@ function handlePromptInput(state, input) {
 }
 
 function handleSearch(state, input) {
+  if (state.searchHintMode) {
+    if (input.key === "Escape") {
+      return { type: INTENTS.SEARCH_HINT_INPUT, input: "" };
+    }
+    const char = toSearchChar(input);
+    if (char !== null) {
+      return {
+        type: INTENTS.SEARCH_HINT_INPUT,
+        input: `${state.searchHintInput}${char.toLowerCase()}`,
+      };
+    }
+    return null;
+  }
+
   if (state.searchPromptVisible) {
     return handlePromptInput(state, input);
   }

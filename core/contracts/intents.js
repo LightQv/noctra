@@ -37,6 +37,23 @@ const validateThemeMode = createEnumValidator([
 ]);
 const validateLanguage = createEnumValidator(["system", "en", "fr"]);
 
+function validateSearchRequestId(value) {
+  if (typeof value === "string" && value.length > 0) {
+    return { ok: true };
+  }
+  if (Number.isInteger(value)) {
+    return { ok: true };
+  }
+  return { ok: false, message: "expected non-empty string or integer" };
+}
+
+const validateActiveRect = createStrictObjectValidator({
+  x: validateFiniteNumber,
+  y: validateFiniteNumber,
+  width: validateFiniteNumber,
+  height: validateFiniteNumber,
+});
+
 function validateIntentNext(value) {
   if (!isPlainObject(value)) {
     return { ok: false, message: "expected object" };
@@ -82,6 +99,20 @@ const INTENT_PAYLOAD_CONTRACTS = {
   }),
   [INTENTS.SEARCH_SUBMIT]: withBaseFields({
     query: validateString,
+  }),
+  [INTENTS.SEARCH_HINT_OPEN]: withBaseFields(),
+  [INTENTS.SEARCH_HINT_INPUT]: withBaseFields({
+    input: validateString,
+  }),
+  [INTENTS.SEARCH_JUMP_TO_INDEX]: withBaseFields({
+    index: validateInteger,
+  }),
+  [INTENTS.SEARCH_RUNTIME_UPDATE]: withBaseFields({
+    requestId: validateSearchRequestId,
+    total: validateInteger,
+    activeIndex: validateInteger,
+    visibleHintCount: optional(validateInteger),
+    activeRect: optional(nullable(validateActiveRect)),
   }),
   [INTENTS.NEW_BUFFER]: withBaseFields({
     url: optional(validateString),

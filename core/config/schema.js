@@ -19,6 +19,7 @@ const ACTION_IDS = new Set([
   "search_open_prompt",
   "search_next",
   "search_prev",
+  "search_hint_open",
   "new_buffer",
   "split_vertical",
   "scroll_half_down",

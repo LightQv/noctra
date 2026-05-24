@@ -375,6 +375,13 @@ function normalizeConfig(rawConfig) {
       normalizedGlobal.ui.urlline.enabled = uiSection.urlline.enabled;
     }
 
+    if (
+      isPlainObject(uiSection.loadingline) &&
+      typeof uiSection.loadingline.enabled === "boolean"
+    ) {
+      normalizedGlobal.ui.loadingline.enabled = uiSection.loadingline.enabled;
+    }
+
     if (isPlainObject(uiSection.sidepanel)) {
       normalizedGlobal.ui.sidepanel.width_ratio = normalizeNumber(
         uiSection.sidepanel.width_ratio,

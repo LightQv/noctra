@@ -6,6 +6,8 @@ const { validateNavigableUrl } = require("../../core/security/urlPolicy");
 test("url policy allows https and about:blank", () => {
   assert.equal(validateNavigableUrl("https://example.com").ok, true);
   assert.equal(validateNavigableUrl("about:blank").ok, true);
+  assert.equal(validateNavigableUrl("noctra://cat").ok, true);
+  assert.equal(validateNavigableUrl("noctra://dashboard").ok, true);
 });
 
 test("url policy allows loopback and private LAN over http by default", () => {

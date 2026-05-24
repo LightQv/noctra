@@ -2,6 +2,7 @@ const { nativeTheme } = require("electron");
 const { getConfigValue } = require("../core/config/service");
 const notificationsService = require("../core/notifications/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
+const { buildCatErrorPage } = require("../core/errorbuffer/page");
 const { resolveTheme, resolveThemeMode } = require("../ui/theme");
 const {
   openDevtoolsSplit,
@@ -188,6 +189,47 @@ class BufferManager {
 
     for (const buffer of dashboardBuffers) {
       buffer.loadVirtualDocument(dashboardSpec.document);
+    }
+  }
+
+  refreshCatBuffers() {
+    const catBuffers = this.buffers.filter(
+      (buffer) =>
+        buffer &&
+        (buffer.virtualUrl === "noctra://cat" || buffer.url === "noctra://cat"),
+    );
+    const rightPaneBuffer = this.split?.rightPaneBuffer;
+    if (
+      rightPaneBuffer &&
+      (rightPaneBuffer.virtualUrl === "noctra://cat" ||
+        rightPaneBuffer.url === "noctra://cat")
+    ) {
+      catBuffers.push(rightPaneBuffer);
+    }
+    const uniqueCatBuffers = [...new Set(catBuffers)];
+    if (uniqueCatBuffers.length === 0) {
+      return;
+    }
+
+    const themeContext = this.resolveOpeningBufferThemeContext();
+    for (const buffer of uniqueCatBuffers) {
+      const hasFailure = Boolean(
+        buffer.lastFailedNavigation &&
+          typeof buffer.lastFailedNavigation.failedUrl === "string" &&
+          buffer.lastFailedNavigation.failedUrl.trim(),
+      );
+      const html = buildCatErrorPage({
+        themeContext,
+        fromFailure: hasFailure,
+        failedUrl: hasFailure ? buffer.lastFailedNavigation.failedUrl : "",
+        errorCode: hasFailure ? buffer.lastFailedNavigation.errorCode : null,
+        errorName: hasFailure ? buffer.lastFailedNavigation.errorName : "",
+      });
+      buffer.loadVirtualDocument({
+        url: "noctra://cat",
+        title: "Cat",
+        html,
+      });
     }
   }
 

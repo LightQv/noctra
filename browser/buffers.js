@@ -1,10 +1,18 @@
 const { BrowserView } = require("electron");
 const { EventEmitter } = require("events");
+const { getConfigValue } = require("../core/config/service");
+const { buildOpeningBufferSpec } = require("../core/opening/buffer");
+const { resolveTheme, resolveThemeMode } = require("../ui/theme");
 const {
   applyScrollableUi,
   releaseChromiumPreferredColorScheme,
   resetChromiumPreferredColorSchemeState,
 } = require("./contentUi");
+const { buildCatErrorPage } = require("../core/errorbuffer/page");
+const {
+  normalizeChromiumErrorName,
+  shouldShowCatErrorBuffer,
+} = require("../core/navigation/loadFailurePolicy");
 const {
   markSurfaceRole,
   SURFACE_ROLES,
@@ -69,12 +77,7 @@ class Buffer extends EventEmitter {
       trackColor: "transparent",
       contentColorScheme: "dark",
     };
-    this.loadingState = {
-      isLoading: false,
-      progress: null,
-      indeterminate: false,
-    };
-    this.loadingProgressTimer = null;
+    this.lastFailedNavigation = null;
 
     const clearLoadingProgressTimer = () => {
       if (this.loadingProgressTimer) {
@@ -200,6 +203,42 @@ class Buffer extends EventEmitter {
       this.emit("updated", { kind: "metadata" });
     });
 
+    this.webContents.on(
+      "did-fail-load",
+      (
+        _event,
+        errorCode,
+        errorDescription,
+        validatedURL,
+        isMainFrame,
+      ) => {
+        this.handleLoadFailure({
+          errorCode,
+          errorDescription,
+          validatedURL,
+          isMainFrame,
+        });
+      },
+    );
+
+    this.webContents.on(
+      "did-fail-provisional-load",
+      (
+        _event,
+        errorCode,
+        errorDescription,
+        validatedURL,
+        isMainFrame,
+      ) => {
+        this.handleLoadFailure({
+          errorCode,
+          errorDescription,
+          validatedURL,
+          isMainFrame,
+        });
+      },
+    );
+
     this.webContents.on("devtools-opened", () => {
       this.applyContentUi();
     });
@@ -211,6 +250,15 @@ class Buffer extends EventEmitter {
   }
 
   load(url) {
+    if (url === "noctra://cat") {
+      this.loadCatPage();
+      return;
+    }
+    if (url === "noctra://dashboard") {
+      this.loadDashboardPage();
+      return;
+    }
+
     this.url = url;
     this.virtualUrl = "";
     this.virtualDocument = null;
@@ -218,6 +266,84 @@ class Buffer extends EventEmitter {
     this.faviconUrl = "";
     this.webContents.loadURL(url);
     this.emit("updated", { kind: "metadata" });
+  }
+
+  loadDashboardPage() {
+    const themeConfig = getConfigValue("global.theme", {});
+    const systemPrefersDark = this.contentUiOptions.contentColorScheme !== "light";
+    const resolvedMode = resolveThemeMode(themeConfig, {
+      systemPrefersDark,
+    });
+    const openingBufferConfig = getConfigValue("global.opening_buffer", {});
+    const dashboardSpec = buildOpeningBufferSpec(
+      {
+        ...openingBufferConfig,
+        mode: "dashboard",
+      },
+      {
+        colorScheme: resolvedMode === "light" ? "light" : "dark",
+        theme: resolveTheme(themeConfig, { systemPrefersDark }),
+      },
+    );
+
+    if (
+      dashboardSpec &&
+      dashboardSpec.kind === "virtual" &&
+      dashboardSpec.document
+    ) {
+      this.loadVirtualDocument(dashboardSpec.document);
+      return;
+    }
+
+    this.loadVirtualDocument({
+      url: "noctra://dashboard",
+      title: "Dashboard",
+      html: "<!doctype html><html><head><title>Dashboard</title></head><body></body></html>",
+    });
+  }
+
+  loadCatPage(failure = null) {
+    const fromFailure = Boolean(
+      failure && typeof failure === "object" && failure.fromFailure === true,
+    );
+    const errorName = normalizeChromiumErrorName(failure?.errorDescription);
+    if (fromFailure) {
+      this.lastFailedNavigation = {
+        failedUrl:
+          typeof failure.failedUrl === "string" && failure.failedUrl.trim()
+            ? failure.failedUrl.trim()
+            : "",
+        errorCode: Number.isInteger(failure.errorCode) ? failure.errorCode : null,
+        errorName,
+      };
+    }
+
+    const html = buildCatErrorPage({
+      fromFailure,
+      failedUrl: fromFailure ? this.lastFailedNavigation?.failedUrl : "",
+      errorCode: fromFailure ? this.lastFailedNavigation?.errorCode : null,
+      errorName: fromFailure ? this.lastFailedNavigation?.errorName : "",
+    });
+    this.loadVirtualDocument({
+      url: "noctra://cat",
+      title: "Cat",
+      html,
+    });
+  }
+
+  handleLoadFailure(failure = {}) {
+    if (!shouldShowCatErrorBuffer(failure)) {
+      return;
+    }
+
+    const failedUrl =
+      typeof failure.validatedURL === "string" ? failure.validatedURL : "";
+    this.loadCatPage({
+      fromFailure: true,
+      failedUrl,
+      errorCode: failure.errorCode,
+      errorDescription: failure.errorDescription,
+    });
   }
 
   loadVirtualDocument(options = {}) {

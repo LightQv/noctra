@@ -22,11 +22,14 @@ Apply config changes at runtime with `:config-reload`.
 - `global.editor`: editable buffer behavior
 - `global.ui`: shell UI toggles and panel tuning
 - `global.theme`: app/content theme mode and overrides
-- `global.split`: split ratios and focus keys
+- `global.split`: split layout ratios and divider behavior
 - `global.storage`: file locations for persisted data
 - `global.notifications`: toast and persistence behavior
 - `global.window`: initial window bounds, maximized state, and cascade offset
 - `global.opening_buffer`: startup mode and dashboard settings
+- `keymap.normal`: user NORMAL-mode key mappings
+- `keymap.mod`: user Ctrl-modified key mappings
+- `keymap.search`: user search-mode key mappings
 - `keymap.leader`: user leader-key mappings
 - `browser`: web-content language, search engine, and clipboard-selection behavior
 
@@ -145,9 +148,10 @@ browser:
 `content_mode` is used only when `global.theme.mode` is `custom`.
 When `global.theme.mode` is `dark`, `light`, or `auto`, web content always follows the resolved app theme.
 
-## Leader mapping rules
+## Keymap mapping rules
 
-- Only `keymap.leader` is user-configurable.
+- `keymap.normal`, `keymap.mod`, and `keymap.search` accept `<key>: <action_id>` mappings.
+- `keymap.leader` accepts nested nodes with labels and actions.
 - Each node supports either `action` or nested `children`.
 - `action` must be a known action ID accepted by config schema.
 - Invalid mapping values are ignored during normalization.

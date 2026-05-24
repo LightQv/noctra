@@ -5,7 +5,8 @@ This page documents current default keybindings.
 Notes:
 
 - Normal and modifier defaults are built-in.
-- Leader mappings are configurable through `keymap.leader`.
+- Search defaults are built-in.
+- Keymap customization is supported through `keymap.normal`, `keymap.mod`, `keymap.search`, and `keymap.leader`.
 - Tree-local edit/navigation shortcuts in the side panel are internal for now.
 
 ## NORMAL mode
@@ -41,6 +42,14 @@ Notes:
 - `Ctrl+t`: new buffer
 - `Ctrl+Shift+t`: reopen last closed buffer
 
+## SEARCH mode
+
+- `n`: next search match
+- `N`: previous search match
+- `/`: reopen search prompt
+- `f`: open search hint labels
+- `Escape`: clear search and return to `NORMAL`
+
 ## App menu accelerators
 
 - `CmdOrCtrl+[` : previous page
@@ -74,12 +83,20 @@ Leader key default is `Space`.
 - `<leader> d d`: bookmark active page with path prompt
 - `<leader> n`: open notifications buffer
 
-## Customize leader mappings
+## Customize keymaps
 
 Edit `~/.config/noctra/config.yml`:
 
 ```yaml
 keymap:
+  normal:
+    j: "scroll_down"
+    k: "scroll_up"
+  mod:
+    d: "scroll_half_down"
+  search:
+    n: "search_next"
+    N: "search_prev"
   leader:
     p:
       label: "Session"
@@ -96,6 +113,6 @@ Valid `action` IDs are constrained by schema and comments in generated config.
 
 ## Customization scope
 
-- User customization is supported for `keymap.leader`.
+- User customization is supported for `keymap.normal`, `keymap.mod`, `keymap.search`, and `keymap.leader`.
 - `global.input.leader_key` is configurable.
-- Normal/modifier and tree-local defaults are intentionally fixed in current versions.
+- Tree-local domain actions remain internal in current versions.

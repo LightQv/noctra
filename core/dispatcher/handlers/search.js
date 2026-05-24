@@ -1,8 +1,8 @@
 const { INTENTS } = require("../../intents");
 const { enterSearchMode, exitSearchMode } = require("../../modeTransitionService");
+const { SEARCH_RUNTIME_ACTIONS } = require("../../search/runtimeActions");
 const {
   setSearchQuery,
-  setSearchPromptVisible,
   setSearchActive,
   setSearchCounters,
   setSearchRequestId,
@@ -45,6 +45,7 @@ function createSearchHandlers(deps) {
   function runRuntimeCommand({
     state,
     win,
+    bufferId,
     webContents,
     action,
     payload = {},
@@ -69,6 +70,7 @@ function createSearchHandlers(deps) {
           {
             type: INTENTS.SEARCH_RUNTIME_UPDATE,
             requestId,
+            bufferId,
             total: Number.isFinite(result.payload.total)
               ? Math.max(0, Math.floor(result.payload.total))
               : 0,
@@ -78,7 +80,6 @@ function createSearchHandlers(deps) {
             visibleHintCount: Number.isFinite(result.payload.visibleHintCount)
               ? Math.max(0, Math.floor(result.payload.visibleHintCount))
               : 0,
-            activeRect: result.payload.activeRect || null,
             jumped: result?.payload?.jumped === true,
             hintsCount: Array.isArray(result?.payload?.hints)
               ? result.payload.hints.length
@@ -133,11 +134,23 @@ function createSearchHandlers(deps) {
       runRuntimeCommand({
         state,
         win,
+        bufferId: buffer.id,
         webContents: buffer.webContents,
-        action: "start",
+        action: SEARCH_RUNTIME_ACTIONS.START,
         payload: { query },
       });
       dispatch(win, { type: INTENTS.HIDE_COMMAND }, state);
+    },
+
+    [INTENTS.SEARCH_APPEND_TEXT]: ({ state, intent, win }) => {
+      const text = typeof intent.text === "string" ? intent.text : "";
+      setSearchQuery(state, `${state.searchQuery}${text}`);
+      dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
+    },
+
+    [INTENTS.SEARCH_BACKSPACE]: ({ state, win }) => {
+      setSearchQuery(state, state.searchQuery.slice(0, -1));
+      dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
     },
 
     [INTENTS.SEARCH_NEXT]: ({ state, win }) => {
@@ -150,8 +163,9 @@ function createSearchHandlers(deps) {
       runRuntimeCommand({
         state,
         win,
+        bufferId: buffer.id,
         webContents: buffer.webContents,
-        action: "next",
+        action: SEARCH_RUNTIME_ACTIONS.NEXT,
       });
     },
 
@@ -165,13 +179,20 @@ function createSearchHandlers(deps) {
       runRuntimeCommand({
         state,
         win,
+        bufferId: buffer.id,
         webContents: buffer.webContents,
-        action: "prev",
+        action: SEARCH_RUNTIME_ACTIONS.PREV,
       });
     },
 
     [INTENTS.SEARCH_RUNTIME_UPDATE]: ({ state, intent }) => {
-      if (!state.searchActive || intent.requestId !== state.searchRequestId) {
+      const activeBuffer = buffers.getActive();
+      if (
+        !state.searchActive ||
+        intent.requestId !== state.searchRequestId ||
+        !activeBuffer ||
+        activeBuffer.id !== intent.bufferId
+      ) {
         return;
       }
 
@@ -208,8 +229,9 @@ function createSearchHandlers(deps) {
       runRuntimeCommand({
         state,
         win,
+        bufferId: buffer.id,
         webContents: buffer.webContents,
-        action: "hint-open",
+        action: SEARCH_RUNTIME_ACTIONS.HINT_OPEN,
       });
     },
 
@@ -230,8 +252,9 @@ function createSearchHandlers(deps) {
       runRuntimeCommand({
         state,
         win,
+        bufferId: buffer.id,
         webContents: buffer.webContents,
-        action: "hint-input",
+        action: SEARCH_RUNTIME_ACTIONS.HINT_INPUT,
         payload: { input },
       });
     },
@@ -249,8 +272,9 @@ function createSearchHandlers(deps) {
       runRuntimeCommand({
         state,
         win,
+        bufferId: buffer.id,
         webContents: buffer.webContents,
-        action: "jump",
+        action: SEARCH_RUNTIME_ACTIONS.JUMP,
         payload: { index },
       });
     },
@@ -261,8 +285,9 @@ function createSearchHandlers(deps) {
         runRuntimeCommand({
           state,
           win,
+          bufferId: buffer.id,
           webContents: buffer.webContents,
-          action: "clear",
+          action: SEARCH_RUNTIME_ACTIONS.CLEAR,
         });
       }
       resetSearchSession(state);

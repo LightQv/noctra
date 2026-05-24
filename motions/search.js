@@ -1,9 +1,5 @@
 const { INTENTS } = require("../core/intents");
 const { getSearchKeymap } = require("./keymap");
-const {
-  setSearchQuery,
-  setSearchPromptVisible,
-} = require("../core/state/searchState");
 
 function toSearchChar(input) {
   if (input.ctrl || input.alt || input.meta) {
@@ -23,8 +19,10 @@ function toSearchChar(input) {
 
 function handlePromptInput(state, input) {
   if (typeof input.pasteText === "string" && input.pasteText.length > 0) {
-    setSearchQuery(state, `${state.searchQuery}${input.pasteText}`);
-    return { type: INTENTS.COMMAND_INPUT };
+    return {
+      type: INTENTS.SEARCH_APPEND_TEXT,
+      text: input.pasteText,
+    };
   }
 
   if (input.key === "Escape") {
@@ -36,14 +34,15 @@ function handlePromptInput(state, input) {
   }
 
   if (input.key === "Backspace") {
-    setSearchQuery(state, state.searchQuery.slice(0, -1));
-    return { type: INTENTS.COMMAND_INPUT };
+    return { type: INTENTS.SEARCH_BACKSPACE };
   }
 
   const char = toSearchChar(input);
   if (char !== null) {
-    setSearchQuery(state, `${state.searchQuery}${char}`);
-    return { type: INTENTS.COMMAND_INPUT };
+    return {
+      type: INTENTS.SEARCH_APPEND_TEXT,
+      text: char,
+    };
   }
 
   return null;
@@ -79,7 +78,6 @@ function handleSearch(state, input) {
   }
 
   if (input.key === "Enter") {
-    setSearchPromptVisible(state, true);
     return { type: INTENTS.SEARCH_OPEN_PROMPT };
   }
 

@@ -26,6 +26,17 @@ Every emitted intent must be executable by the dispatcher.
 - `OPEN_URL_PROMPT`: Open command palette prefilled for URL open command.
 - `OPEN_URL`: Load a URL in the active buffer.
 - `SEARCH_WEB`: Search using a configured engine and query.
+- `SEARCH_OPEN_PROMPT`: Open the SEARCH prompt overlay context.
+- `SEARCH_SUBMIT`: Submit current search query to runtime.
+- `SEARCH_NEXT`: Jump to next search result.
+- `SEARCH_PREV`: Jump to previous search result.
+- `SEARCH_CLEAR`: Clear runtime overlays/session and exit SEARCH mode.
+- `SEARCH_HINT_OPEN`: Open visible-first hint labels for current results.
+- `SEARCH_HINT_INPUT`: Update hint input filter/selection text.
+- `SEARCH_JUMP_TO_INDEX`: Jump to an explicit 1-based result index.
+- `SEARCH_APPEND_TEXT`: Append typed/pasted text to search query.
+- `SEARCH_BACKSPACE`: Remove one character from search query.
+- `SEARCH_RUNTIME_UPDATE`: Internal runtime response update for counters/hints.
 - `NEW_BUFFER`: Create a new buffer, optionally with URL.
 - `BUFFER_NEXT`: Switch to next buffer.
 - `BUFFER_PREV`: Switch to previous buffer.
@@ -66,6 +77,7 @@ Every emitted intent must be executable by the dispatcher.
 - `BOOKMARKS_TOGGLE`: Toggle bookmarks panel visibility.
 - `BOOKMARKS_TOGGLE_FOCUS`: Toggle focus between bookmarks panel and web content.
 - `BOOKMARKS_DELETE_ALL`: Delete all bookmarks.
+- `BOOKMARKS_IMPORT`: Import bookmarks from Netscape HTML file.
 - `BOOKMARKS_ADD_ROOT_ACTIVE`: Add active page to root bookmarks.
 - `BOOKMARKS_ADD_SCOPED_PROMPT`: Open scoped bookmark insertion prompt.
 - `DELETE_BOOKMARK_NODE`: Remove a bookmark entry or folder (`nodeId`).

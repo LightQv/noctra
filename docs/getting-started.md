@@ -22,17 +22,19 @@ npm install
 npm run start
 ```
 
-## 3) Learn the three modes
+## 3) Learn the four modes
 
 - `NORMAL`: navigate and trigger browser actions.
 - `INSERT`: interact with web page inputs normally.
 - `COMMAND`: run `:` commands.
+- `SEARCH`: run in-page search and match navigation.
 
 Basic flow:
 
 - Press `i` to enter `INSERT` mode.
 - Press `Escape` to return to `NORMAL` mode.
 - Press `:` to open command mode.
+- Press `/` in `NORMAL` to enter `SEARCH`, then `Enter` to submit, `n`/`N` to move, and `Escape` to clear/exit.
 
 ## 4) First useful commands
 

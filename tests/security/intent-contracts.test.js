@@ -74,6 +74,7 @@ test("intent contracts accept SEARCH_RUNTIME_UPDATE payload", () => {
   const result = validateIntentPayload(INTENTS.SEARCH_RUNTIME_UPDATE, {
     type: INTENTS.SEARCH_RUNTIME_UPDATE,
     requestId: "search-12",
+    bufferId: 1,
     total: 18,
     activeIndex: 2,
     visibleHintCount: 6,
@@ -88,6 +89,7 @@ test("intent contracts reject SEARCH_RUNTIME_UPDATE bad activeRect", () => {
   const result = validateIntentPayload(INTENTS.SEARCH_RUNTIME_UPDATE, {
     type: INTENTS.SEARCH_RUNTIME_UPDATE,
     requestId: "search-13",
+    bufferId: 1,
     total: 18,
     activeIndex: 2,
     activeRect: { x: 1, y: 2, width: 3 },

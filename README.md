@@ -16,11 +16,12 @@ _Current version:_ `0.0.3-alpha`
 
 Noctra is a keyboard-first browser shell that brings a Neovim-style workflow to web browsing.
 
-It runs on Electron with the Chromium engine, treats tabs as buffers, and keeps modal interaction at the center of everything. Three modes drive the experience:
+It runs on Electron with the Chromium engine, treats tabs as buffers, and keeps modal interaction at the center of everything. Four modes drive the experience:
 
 - `NORMAL` — navigate, scroll, and execute commands
 - `INSERT` — interact with web content as usual
 - `COMMAND` — run explicit commands (`:open`, `:tabnew`, `:buffer`, `:session save`, ...)
+- `SEARCH` — run in-page search flows (`/`, `n`, `N`, hints)
 
 Noctra is early-stage and actively evolving. Core browsing and modal workflows are usable, defaults are Vim-like with configurable leader mappings, and security checks are part of the standard CI gate. Commands, mappings, and APIs can still change between versions.
 
@@ -87,9 +88,9 @@ xdg-mime default noctra.desktop x-scheme-handler/https
 | `global.input`          | Leader key and sequence timeout           |
 | `global.ui`             | Shell UI toggles and panel behavior       |
 | `global.theme`          | App and content appearance                |
-| `global.keymap`         | User leader-key mappings                  |
+| `keymap`                | User key mappings (`normal`/`mod`/`search`/`leader`) |
 | `global.editor`         | Editable buffer behavior                  |
-| `global.split`          | Split ratios and focus keys               |
+| `global.split`          | Split layout ratios and divider behavior  |
 | `global.window`         | Initial window bounds and maximized state |
 | `global.storage`        | File locations for persisted data         |
 | `global.notifications`  | Toast and persistence behavior            |

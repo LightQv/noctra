@@ -22,6 +22,12 @@ const contextMenuOverlayController = require("./services/contextMenuOverlayContr
 const {
   createPanelViewHost,
 } = require("../../core/adapters/platform/panelViewHost");
+const {
+  createOverlayBrowserView,
+  attachOverlayBrowserView,
+} = require("../../core/adapters/platform/overlayViewHost");
+
+const LOADINGLINE_OVERLAY_HTML = `<!doctype html><html><head><meta charset="UTF-8" /><style>html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden;pointer-events:none}#line{position:absolute;inset:0;opacity:0;transition:opacity 180ms ease;overflow:hidden}#bar{position:absolute;left:0;top:0;height:100%;width:0;background:#89dceb;box-shadow:0 0 8px #89dceb;transform:translateX(0%);transition:width 140ms ease,transform 220ms ease}@keyframes ui-shell-loadingline-sweep{from{transform:translateX(-40%)}to{transform:translateX(260%)}}</style></head><body><div id="line"><span id="bar"></span></div></body></html>`;
 
 class UiShellManager {
   constructor() {
@@ -85,6 +91,13 @@ class UiShellManager {
     };
     this.urllineActions = {};
     this.urllineModel = { panes: [] };
+    this.loadinglineModel = { panes: [] };
+    this.loadinglineLeftView = null;
+    this.loadinglineLeftReady = false;
+    this.loadinglineLeftVisible = false;
+    this.loadinglineRightView = null;
+    this.loadinglineRightReady = false;
+    this.loadinglineRightVisible = false;
     this.windowChrome = {
       platform: process.platform,
       useNativeControls: process.platform === "darwin",
@@ -330,6 +343,139 @@ class UiShellManager {
 
   renderUrlline(model = { panes: [] }) {
     return shellRenderBridge.renderUrllineBridge.call(this, model);
+  }
+
+  renderLoadingline(model = { panes: [] }) {
+    this.loadinglineModel =
+      model && typeof model === "object" ? model : { panes: [] };
+    if (!this.window || this.window.isDestroyed()) {
+      return;
+    }
+
+    const panes = Array.isArray(this.loadinglineModel.panes)
+      ? this.loadinglineModel.panes
+      : [];
+    const leftModel = panes.find((pane) => pane && pane.pane === "left") || null;
+    const rightModel =
+      panes.find((pane) => pane && pane.pane === "right") || null;
+
+    this.renderLoadinglinePane("left", leftModel);
+    this.renderLoadinglinePane("right", rightModel);
+    this.syncOverlayStack();
+  }
+
+  initializeLoadinglineOverlayViews() {
+    this.initializeLoadinglineOverlayView("left");
+    this.initializeLoadinglineOverlayView("right");
+  }
+
+  initializeLoadinglineOverlayView(pane = "left") {
+    if (!this.window || this.window.isDestroyed()) {
+      return;
+    }
+
+    const isRight = pane === "right";
+    const viewKey = isRight ? "loadinglineRightView" : "loadinglineLeftView";
+    const readyKey = isRight ? "loadinglineRightReady" : "loadinglineLeftReady";
+    if (this[viewKey]) {
+      return;
+    }
+
+    const view = createOverlayBrowserView(LOADINGLINE_OVERLAY_HTML);
+    view.setAutoResize({ width: false, height: false });
+    view.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
+    view.webContents.on("did-finish-load", () => {
+      this[readyKey] = true;
+      this.applyThemeToWebContents(view.webContents);
+      this.renderLoadingline(this.loadinglineModel);
+    });
+
+    attachOverlayBrowserView(this.window, view);
+    this[viewKey] = view;
+  }
+
+  renderLoadinglinePane(pane, paneModel) {
+    const isRight = pane === "right";
+    const view = isRight ? this.loadinglineRightView : this.loadinglineLeftView;
+    const ready = isRight ? this.loadinglineRightReady : this.loadinglineLeftReady;
+    if (!view || !ready || !view.webContents || view.webContents.isDestroyed()) {
+      return;
+    }
+
+    const isLoading = Boolean(paneModel?.isLoading);
+    const progress =
+      typeof paneModel?.loadingProgress === "number"
+        ? Math.max(0, Math.min(1, paneModel.loadingProgress))
+        : null;
+    const indeterminate = Boolean(
+      isLoading && (paneModel?.loadingIndeterminate || progress === null),
+    );
+    const showLine = Boolean(paneModel) && (isLoading || progress === 1);
+    if (!showLine) {
+      view.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
+      if (isRight) {
+        this.loadinglineRightVisible = false;
+      } else {
+        this.loadinglineLeftVisible = false;
+      }
+      return;
+    }
+
+    const x = Number.isFinite(paneModel?.x) ? Math.max(0, Math.floor(paneModel.x)) : 0;
+    const y = Number.isFinite(paneModel?.top)
+      ? Math.max(0, Math.floor(paneModel.top))
+      : UI_SHELL_TABLINE_HEIGHT;
+    const width = Number.isFinite(paneModel?.width)
+      ? Math.max(1, Math.floor(paneModel.width))
+      : 1;
+    const mainColor = this.currentTheme.mainColor || DEFAULT_THEME.mainColor;
+    view.setBounds({ x, y, width, height: 2 });
+    if (isRight) {
+      this.loadinglineRightVisible = true;
+    } else {
+      this.loadinglineLeftVisible = true;
+    }
+
+    view.webContents
+      .executeJavaScript(
+        `
+        (function renderLoadinglinePane() {
+          const line = document.getElementById('line');
+          const bar = document.getElementById('bar');
+          if (!line || !bar) return;
+          const isLoading = ${JSON.stringify(isLoading)};
+          const indeterminate = ${JSON.stringify(indeterminate)};
+          const progress = ${JSON.stringify(progress)};
+          const color = ${JSON.stringify(mainColor)};
+          line.style.pointerEvents = 'none';
+          bar.style.pointerEvents = 'none';
+          bar.style.background = color;
+          bar.style.boxShadow = '0 0 8px ' + color;
+          line.style.opacity = isLoading || progress === 1 ? '1' : '0';
+          if (!isLoading && progress !== 1) {
+            bar.style.width = '0%';
+            bar.style.animation = 'none';
+            return;
+          }
+          if (indeterminate) {
+            bar.style.width = '32%';
+            bar.style.transform = 'translateX(-40%)';
+            bar.style.animation = 'ui-shell-loadingline-sweep 900ms ease-out infinite';
+            return;
+          }
+          const widthPct = progress === null ? 18 : Math.max(2, Math.min(100, Math.round(progress * 100)));
+          bar.style.animation = 'none';
+          bar.style.width = String(widthPct) + '%';
+          bar.style.transform = 'translateX(0%)';
+          if (progress === 1) {
+            setTimeout(() => {
+              if (line.isConnected) line.style.opacity = '0';
+            }, 120);
+          }
+        })();
+      `,
+      )
+      .catch(() => {});
   }
 
   setUrllineActions(actions = {}) {

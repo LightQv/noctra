@@ -14,17 +14,15 @@ function canShowUrllineForBuffer(manager, buffer) {
   return Boolean(manager.urllineVisible && buffer && !buffer.isEditable);
 }
 
-function getUrllineRenderModel(manager) {
+function resolveVisiblePaneModels(manager) {
   if (!manager.isWindowAlive()) {
-    return { panes: [] };
+    return null;
   }
 
   const bounds = manager.window.getContentBounds();
   const left = manager.getLeftBuffer();
   const rightSource =
-    manager.split.mode === "regular"
-      ? manager.split.rightPaneSourceBuffer
-      : null;
+    manager.split.mode === "regular" ? manager.split.rightPaneSourceBuffer : null;
   const rightRegular =
     manager.split.mode === "regular" ? manager.split.rightPaneBuffer : null;
   const showSplit =
@@ -55,10 +53,29 @@ function getUrllineRenderModel(manager) {
         : rightSource
       : null;
 
-  const panes = [];
+  return {
+    contentX,
+    leftWidth,
+    rightX,
+    rightWidth,
+    showSplit,
+    leftBuffer: left,
+    rightBuffer: rightPaneBuffer,
+  };
+}
 
-  if (canShowUrllineForBuffer(manager, left)) {
-    const leftWebContents = left.webContents;
+function getUrllineRenderModel(manager) {
+  const paneLayout = resolveVisiblePaneModels(manager);
+  if (!paneLayout) {
+    return { panes: [] };
+  }
+
+  const panes = [];
+  const { contentX, leftWidth, rightX, rightWidth, showSplit, leftBuffer, rightBuffer } =
+    paneLayout;
+
+  if (canShowUrllineForBuffer(manager, leftBuffer)) {
+    const leftWebContents = leftBuffer.webContents;
     const leftIsLoading = Boolean(
       leftWebContents &&
         !leftWebContents.isDestroyed?.() &&
@@ -71,17 +88,17 @@ function getUrllineRenderModel(manager) {
       x: contentX,
       top: UI_SHELL_TABLINE_HEIGHT,
       width: leftWidth,
-      url: left.url || "about:blank",
-      canGoBack: Boolean(left.webContents?.navigationHistory?.canGoBack?.()),
+      url: leftBuffer.url || "about:blank",
+      canGoBack: Boolean(leftBuffer.webContents?.navigationHistory?.canGoBack?.()),
       canGoForward: Boolean(
-        left.webContents?.navigationHistory?.canGoForward?.(),
+        leftBuffer.webContents?.navigationHistory?.canGoForward?.(),
       ),
       isLoading: leftIsLoading,
     });
   }
 
-  if (showSplit && canShowUrllineForBuffer(manager, rightPaneBuffer)) {
-    const rightWebContents = rightPaneBuffer.webContents;
+  if (showSplit && canShowUrllineForBuffer(manager, rightBuffer)) {
+    const rightWebContents = rightBuffer.webContents;
     const rightIsLoading = Boolean(
       rightWebContents &&
         !rightWebContents.isDestroyed?.() &&
@@ -94,15 +111,74 @@ function getUrllineRenderModel(manager) {
       x: rightX,
       top: UI_SHELL_TABLINE_HEIGHT,
       width: rightWidth,
-      url: rightPaneBuffer.url || "about:blank",
+      url: rightBuffer.url || "about:blank",
       canGoBack: Boolean(
-        rightPaneBuffer.webContents?.navigationHistory?.canGoBack?.(),
+        rightBuffer.webContents?.navigationHistory?.canGoBack?.(),
       ),
       canGoForward: Boolean(
-        rightPaneBuffer.webContents?.navigationHistory?.canGoForward?.(),
+        rightBuffer.webContents?.navigationHistory?.canGoForward?.(),
       ),
       isLoading: rightIsLoading,
     });
+  }
+
+  return { panes };
+}
+
+function getLoadinglineRenderModel(manager) {
+  if (!manager.isLoadinglineVisible()) {
+    return { panes: [] };
+  }
+
+  const paneLayout = resolveVisiblePaneModels(manager);
+  if (!paneLayout) {
+    return { panes: [] };
+  }
+
+  const { contentX, leftWidth, rightX, rightWidth, showSplit, leftBuffer, rightBuffer } =
+    paneLayout;
+  const panes = [];
+
+  const pushPane = (pane, buffer, x, width, hasUrlline) => {
+    if (!buffer || buffer.isEditable) {
+      return;
+    }
+    const webContents = buffer.webContents;
+    const isLoading = Boolean(
+      webContents &&
+        !webContents.isDestroyed?.() &&
+        (webContents.isLoading?.() || webContents.isLoadingMainFrame?.()),
+    );
+
+    panes.push({
+      pane,
+      x,
+      top: UI_SHELL_TABLINE_HEIGHT + (hasUrlline ? UI_SHELL_URLLINE_HEIGHT : 0),
+      width,
+      isLoading,
+      loadingProgress:
+        typeof buffer.loadingState?.progress === "number"
+          ? Math.max(0, Math.min(1, buffer.loadingState.progress))
+          : null,
+      loadingIndeterminate: Boolean(buffer.loadingState?.indeterminate),
+    });
+  };
+
+  pushPane(
+    "left",
+    leftBuffer,
+    contentX,
+    leftWidth,
+    canShowUrllineForBuffer(manager, leftBuffer),
+  );
+  if (showSplit) {
+    pushPane(
+      "right",
+      rightBuffer,
+      rightX,
+      rightWidth,
+      canShowUrllineForBuffer(manager, rightBuffer),
+    );
   }
 
   return { panes };
@@ -283,5 +359,6 @@ function layoutViews(manager) {
 module.exports = {
   canShowUrllineForBuffer,
   getUrllineRenderModel,
+  getLoadinglineRenderModel,
   layoutViews,
 };

@@ -1298,6 +1298,7 @@ function createWindow() {
     updateTablineOptions: () => updateTablineOptions(context),
     updateUrllineActions: () => updateUrllineActions(context),
     updateUrllineRender,
+    updateLoadinglineRender,
     stopUrllineEdit,
     normalizeHistoryUrl,
     applyBrowserLanguagePreference,

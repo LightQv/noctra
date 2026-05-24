@@ -29,7 +29,16 @@ function createWebModeSyncService({
     syncTimer = null;
   }
 
-  function requestSync(webContents, delayMs = 40) {
+  function requestSync(webContents, options = {}) {
+    const delayMs =
+      typeof options === "number"
+        ? options
+        : Math.max(0, Number(options.delayMs) || 0);
+    const reason =
+      options && typeof options === "object" && typeof options.reason === "string"
+        ? options.reason
+        : "focus-change";
+
     if (
       !isUsableWebContents(webContents) ||
       activeWebContents !== webContents
@@ -56,29 +65,33 @@ function createWebModeSyncService({
         }
 
         syncInFlight = true;
-        Promise.resolve(syncWebModeWithFocusedElement(webContents)).finally(
+        Promise.resolve(syncWebModeWithFocusedElement(webContents, { reason })).finally(
           () => {
             syncInFlight = false;
             if (!syncPending) {
               return;
             }
             syncPending = false;
-            requestSync(webContents, 30);
+            requestSync(webContents, { delayMs: 30, reason: "sync-pending" });
           },
         );
       },
-      Math.max(0, Number(delayMs) || 0),
+      delayMs,
     );
   }
 
-  function syncNowIfTracked(webContents) {
+  function syncNowIfTracked(webContents, options = {}) {
+    const reason =
+      options && typeof options === "object" && typeof options.reason === "string"
+        ? options.reason
+        : "focus-change";
     if (
       !isUsableWebContents(webContents) ||
       activeWebContents !== webContents
     ) {
       return Promise.resolve();
     }
-    return Promise.resolve(syncWebModeWithFocusedElement(webContents));
+    return Promise.resolve(syncWebModeWithFocusedElement(webContents, { reason }));
   }
 
   function unbind() {
@@ -102,7 +115,7 @@ function createWebModeSyncService({
     activeWebContents = webContents;
     unbindListeners = bindWebModeTracking(webContents, {
       onFocusChangedInPage() {
-        requestSync(webContents);
+        requestSync(webContents, { delayMs: 40, reason: "focus-change" });
       },
       onBeforeMouseEvent(_event, input) {
         if (
@@ -111,14 +124,41 @@ function createWebModeSyncService({
         ) {
           return;
         }
-        requestSync(webContents, input.type === "mouseDown" ? 10 : 35);
+        requestSync(webContents, {
+          delayMs: input.type === "mouseDown" ? 10 : 35,
+          reason: "mouse-event",
+        });
       },
       onDidFinishLoad() {
-        requestSync(webContents, 20);
+        requestSync(webContents, { delayMs: 20, reason: "did-finish-load" });
+      },
+      onDidStartNavigation(_event, _url, _isInPlace, isMainFrame) {
+        if (isMainFrame === false) {
+          return;
+        }
+        requestSync(webContents, {
+          delayMs: 0,
+          reason: "did-start-navigation",
+        });
+      },
+      onDidNavigate(_event, _url, _httpResponseCode, _httpStatusText) {
+        requestSync(webContents, {
+          delayMs: 0,
+          reason: "did-navigate",
+        });
+      },
+      onDidNavigateInPage(_event, _url, isMainFrame) {
+        if (isMainFrame === false) {
+          return;
+        }
+        requestSync(webContents, {
+          delayMs: 0,
+          reason: "did-navigate-in-page",
+        });
       },
     });
 
-    requestSync(webContents, 0);
+    requestSync(webContents, { delayMs: 0, reason: "bind" });
   }
 
   function getActiveWebContents() {

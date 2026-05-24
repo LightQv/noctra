@@ -384,11 +384,17 @@ test("webContents events adapter binds and unbinds lifecycle listeners", () => {
     onFocusChangedInPage() {},
     onBeforeMouseEvent() {},
     onDidFinishLoad() {},
+    onDidStartNavigation() {},
+    onDidNavigate() {},
+    onDidNavigateInPage() {},
   });
 
   assert.equal(typeof listeners.get("focus-changed-in-page"), "function");
   assert.equal(typeof listeners.get("before-mouse-event"), "function");
   assert.equal(typeof listeners.get("did-finish-load"), "function");
+  assert.equal(typeof listeners.get("did-start-navigation"), "function");
+  assert.equal(typeof listeners.get("did-navigate"), "function");
+  assert.equal(typeof listeners.get("did-navigate-in-page"), "function");
 
   unbind();
   assert.equal(listeners.size, 0);
@@ -411,8 +417,8 @@ test("web mode sync service binds, requests sync, and unbinds safely", async () 
   };
 
   const service = createWebModeSyncService({
-    syncWebModeWithFocusedElement(target) {
-      syncCalls.push(target);
+    syncWebModeWithFocusedElement(target, meta) {
+      syncCalls.push({ target, reason: meta?.reason || "" });
       return Promise.resolve();
     },
     bindWebModeTracking(target, callbacks) {
@@ -424,12 +430,23 @@ test("web mode sync service binds, requests sync, and unbinds safely", async () 
   assert.equal(service.getActiveWebContents(), webContents);
   await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(syncCalls.length >= 1, true);
+  assert.equal(syncCalls[0]?.target, webContents);
 
   const onBeforeMouseEvent = listeners.get("before-mouse-event");
   assert.equal(typeof onBeforeMouseEvent, "function");
   onBeforeMouseEvent(null, { type: "mouseDown" });
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(syncCalls.length >= 2, true);
+  assert.equal(syncCalls.some((entry) => entry.reason === "mouse-event"), true);
+
+  const onDidNavigateInPage = listeners.get("did-navigate-in-page");
+  assert.equal(typeof onDidNavigateInPage, "function");
+  onDidNavigateInPage(null, "https://example.com/results", true);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(
+    syncCalls.some((entry) => entry.reason === "did-navigate-in-page"),
+    true,
+  );
 
   service.unbind();
   assert.equal(service.getActiveWebContents(), null);

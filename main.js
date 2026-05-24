@@ -760,9 +760,14 @@ function handleMouseInput(context, _event, input) {
   }
 }
 
-function syncWebBufferModeWithFocusedElement(context, webContents) {
+function syncWebBufferModeWithFocusedElement(context, webContents, options = {}) {
   const { state, buffers, sidepanelController, uiShell, appMenu, getStatuslineModeLabel } =
     context;
+  const reason = typeof options.reason === "string" ? options.reason : "focus-change";
+  const shouldForceNormalOnNavigation =
+    reason === "did-start-navigation" ||
+    reason === "did-navigate" ||
+    reason === "did-navigate-in-page";
   if (!webContents || webContents.isDestroyed()) {
     return Promise.resolve();
   }
@@ -815,6 +820,18 @@ function syncWebBufferModeWithFocusedElement(context, webContents) {
           Boolean(latestActive && latestActive.isEditable)) ||
         (state.mode !== "NORMAL" && state.mode !== "INSERT")
       ) {
+        return;
+      }
+
+      if (shouldForceNormalOnNavigation && state.mode === "INSERT") {
+        setMode(state, "NORMAL", "web-navigation-normalize");
+        assertModeWriteBoundary({
+          mode: "NORMAL",
+          state,
+          source: "web-navigation-normalize",
+        });
+        uiShell.updateStatuslineMode(getStatuslineModeLabel());
+        if (appMenu) appMenu.sync();
         return;
       }
 

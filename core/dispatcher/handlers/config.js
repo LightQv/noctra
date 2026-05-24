@@ -32,6 +32,9 @@ function createConfigHandlers(deps) {
       buffers.setUrllineVisible(
         configService.getConfigValue("global.ui.urlline.enabled", false),
       );
+      buffers.setLoadinglineVisible(
+        configService.getConfigValue("global.ui.loadingline.enabled", true),
+      );
       sidepanelController.setWidthRatio(
         configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2),
       );

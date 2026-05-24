@@ -4,6 +4,7 @@ function wireWindowLifecycle({
   buffers,
   sidepanelController,
   updateUrllineRender,
+  updateLoadinglineRender,
   configService,
   persistSessionSnapshot,
   webContentsActions,
@@ -15,6 +16,7 @@ function wireWindowLifecycle({
       isFullScreen: win.isFullScreen(),
     });
     updateUrllineRender();
+    updateLoadinglineRender();
   };
 
   win.on("maximize", syncWindowChrome);
@@ -70,6 +72,7 @@ function wireWindowLifecycle({
     sidepanelController.layout();
     uiShell.updateSplitDivider(buffers.getSplitStatus());
     updateUrllineRender();
+    updateLoadinglineRender();
     persistWindowBoundsDebounced();
   });
 

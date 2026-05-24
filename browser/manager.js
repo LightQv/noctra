@@ -23,6 +23,7 @@ const { attachPaneTracking } = require("./services/selectionClipboardObserver");
 const {
   canShowUrllineForBuffer,
   getUrllineRenderModel,
+  getLoadinglineRenderModel,
   layoutViews,
 } = require("./services/paneLayoutController");
 const {
@@ -87,6 +88,7 @@ class BufferManager {
       offsetPx: 0,
     };
     this.urllineVisible = false;
+    this.loadinglineVisible = true;
     this.leftInsetPx = 0;
     this.closedBuffers = [];
     this.maxClosedBuffers = 50;
@@ -405,6 +407,20 @@ class BufferManager {
     return this.urllineVisible;
   }
 
+  setLoadinglineVisible(visible) {
+    const next = Boolean(visible);
+    if (this.loadinglineVisible === next) {
+      return;
+    }
+
+    this.loadinglineVisible = next;
+    this.notify({ kind: "layout", activeChanged: false });
+  }
+
+  isLoadinglineVisible() {
+    return this.loadinglineVisible;
+  }
+
   setLeftInset(px = 0) {
     const next = Number.isFinite(px) ? Math.max(0, Math.floor(px)) : 0;
     if (this.leftInsetPx === next) return;
@@ -450,6 +466,10 @@ class BufferManager {
 
   getUrllineRenderModel() {
     return getUrllineRenderModel(this);
+  }
+
+  getLoadinglineRenderModel() {
+    return getLoadinglineRenderModel(this);
   }
 
   findByKind(kind) {

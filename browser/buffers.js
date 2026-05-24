@@ -79,13 +79,33 @@ class Buffer extends EventEmitter {
     };
     this.lastFailedNavigation = null;
 
-    this.webContents.on("did-finish-load", () => {
-      this.applyContentUi();
-    });
+    const clearLoadingProgressTimer = () => {
+      if (this.loadingProgressTimer) {
+        clearInterval(this.loadingProgressTimer);
+        this.loadingProgressTimer = null;
+      }
+    };
 
-    this.webContents.on("dom-ready", () => {
-      this.applyContentUi();
-    });
+    const startLoadingProgressTimer = () => {
+      clearLoadingProgressTimer();
+      this.loadingProgressTimer = setInterval(() => {
+        if (!this.loadingState.isLoading) {
+          clearLoadingProgressTimer();
+          return;
+        }
+        if (typeof this.loadingState.progress !== "number") {
+          return;
+        }
+        const current = this.loadingState.progress;
+        const delta = Math.max(0.005, (0.92 - current) * 0.12);
+        const next = Math.min(0.92, current + delta);
+        if (next <= current + 0.0001) {
+          return;
+        }
+        this.loadingState.progress = next;
+        this.emit("updated", { kind: "metadata" });
+      }, 120);
+    };
 
     this.webContents.on("page-title-updated", (event, title) => {
       event.preventDefault();
@@ -102,6 +122,15 @@ class Buffer extends EventEmitter {
 
     this.webContents.on("did-navigate", (_, url) => {
       this.url = this.virtualUrl || url;
+      if (this.loadingState.isLoading) {
+        this.loadingState.progress = Math.max(
+          typeof this.loadingState.progress === "number"
+            ? this.loadingState.progress
+            : 0,
+          0.35,
+        );
+        this.loadingState.indeterminate = false;
+      }
       this.emit("updated", { kind: "metadata" });
       this.emit("visit", {
         url: this.url,
@@ -128,10 +157,49 @@ class Buffer extends EventEmitter {
     });
 
     this.webContents.on("did-start-loading", () => {
+      this.loadingState.isLoading = true;
+      this.loadingState.progress = null;
+      this.loadingState.indeterminate = true;
+      this.emit("updated", { kind: "metadata" });
+    });
+
+    this.webContents.on("dom-ready", () => {
+      if (this.loadingState.isLoading) {
+        this.loadingState.progress = Math.max(
+          typeof this.loadingState.progress === "number"
+            ? this.loadingState.progress
+            : 0,
+          0.62,
+        );
+        this.loadingState.indeterminate = false;
+        startLoadingProgressTimer();
+      }
+      this.applyContentUi();
+    });
+
+    this.webContents.on("did-finish-load", () => {
+      this.applyContentUi();
+      if (!this.loadingState.isLoading) {
+        return;
+      }
+      this.loadingState.progress = 1;
+      this.loadingState.indeterminate = false;
       this.emit("updated", { kind: "metadata" });
     });
 
     this.webContents.on("did-stop-loading", () => {
+      clearLoadingProgressTimer();
+      this.loadingState.isLoading = false;
+      this.loadingState.progress = null;
+      this.loadingState.indeterminate = false;
+      this.emit("updated", { kind: "metadata" });
+    });
+
+    this.webContents.on("did-fail-load", () => {
+      clearLoadingProgressTimer();
+      this.loadingState.isLoading = false;
+      this.loadingState.progress = null;
+      this.loadingState.indeterminate = false;
       this.emit("updated", { kind: "metadata" });
     });
 
@@ -325,6 +393,10 @@ class Buffer extends EventEmitter {
   }
 
   destroy() {
+    if (this.loadingProgressTimer) {
+      clearInterval(this.loadingProgressTimer);
+      this.loadingProgressTimer = null;
+    }
     this.removeAllListeners();
     releaseChromiumPreferredColorScheme(this.webContents);
     if (!this.webContents.isDestroyed()) {

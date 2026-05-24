@@ -13,6 +13,7 @@ function createConfigRuntime({
   updateTablineOptions,
   updateUrllineActions,
   updateUrllineRender,
+  updateLoadinglineRender,
 }) {
   function applyReloadedConfig(config, { refreshLayout = false } = {}) {
     state.applyConfig(config);
@@ -22,6 +23,9 @@ function createConfigRuntime({
     applyBrowserLanguagePreference();
     buffers.setUrllineVisible(
       configService.getConfigValue("global.ui.urlline.enabled", false),
+    );
+    buffers.setLoadinglineVisible(
+      configService.getConfigValue("global.ui.loadingline.enabled", true),
     );
     sidepanelController.setWidthRatio(
       configService.getConfigValue("global.ui.sidepanel.width_ratio", 0.2),
@@ -51,6 +55,7 @@ function createConfigRuntime({
     updateTablineOptions();
     updateUrllineActions();
     updateUrllineRender();
+    updateLoadinglineRender();
   }
 
   return {

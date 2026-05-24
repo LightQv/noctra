@@ -2,6 +2,7 @@ const {
   buildSearchRuntimeBootstrapScript,
   buildSearchRuntimeCommandScript,
 } = require("../../../browser/searchRuntime");
+const { SEARCH_RUNTIME_ACTIONS } = require("../../search/runtimeActions");
 
 let searchRuntimeRequestSequence = 0;
 const searchRuntimeReadyByWebContents = new WeakMap();
@@ -235,22 +236,37 @@ function searchRuntimeStart(webContents, query, options = {}) {
   const normalizedQuery = typeof query === "string" ? query : "";
   return sendSearchRuntimeCommand(
     webContents,
-    "start",
+    SEARCH_RUNTIME_ACTIONS.START,
     { query: normalizedQuery },
     options,
   );
 }
 
 function searchRuntimeClear(webContents, options = {}) {
-  return sendSearchRuntimeCommand(webContents, "clear", {}, options);
+  return sendSearchRuntimeCommand(
+    webContents,
+    SEARCH_RUNTIME_ACTIONS.CLEAR,
+    {},
+    options,
+  );
 }
 
 function searchRuntimeNext(webContents, options = {}) {
-  return sendSearchRuntimeCommand(webContents, "next", {}, options);
+  return sendSearchRuntimeCommand(
+    webContents,
+    SEARCH_RUNTIME_ACTIONS.NEXT,
+    {},
+    options,
+  );
 }
 
 function searchRuntimePrev(webContents, options = {}) {
-  return sendSearchRuntimeCommand(webContents, "prev", {}, options);
+  return sendSearchRuntimeCommand(
+    webContents,
+    SEARCH_RUNTIME_ACTIONS.PREV,
+    {},
+    options,
+  );
 }
 
 module.exports = {

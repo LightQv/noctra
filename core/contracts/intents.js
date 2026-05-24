@@ -107,8 +107,13 @@ const INTENT_PAYLOAD_CONTRACTS = {
   [INTENTS.SEARCH_JUMP_TO_INDEX]: withBaseFields({
     index: validateInteger,
   }),
+  [INTENTS.SEARCH_APPEND_TEXT]: withBaseFields({
+    text: validateString,
+  }),
+  [INTENTS.SEARCH_BACKSPACE]: withBaseFields(),
   [INTENTS.SEARCH_RUNTIME_UPDATE]: withBaseFields({
     requestId: validateSearchRequestId,
+    bufferId: validateInteger,
     total: validateInteger,
     activeIndex: validateInteger,
     visibleHintCount: optional(validateInteger),

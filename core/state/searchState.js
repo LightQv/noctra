@@ -38,12 +38,49 @@ function setSearchRequestId(state, requestId) {
   state.searchRequestId = null;
 }
 
+function setSearchHintMode(state, enabled) {
+  state.searchHintMode = Boolean(enabled);
+}
+
+function setSearchHintInput(state, input) {
+  state.searchHintInput = normalizeSearchText(input);
+}
+
+function setSearchVisibleHintCount(state, count) {
+  const safeCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+  state.searchVisibleHintCount = safeCount;
+}
+
+function setSearchLastActiveRect(state, rect) {
+  if (
+    rect &&
+    typeof rect === "object" &&
+    Number.isFinite(rect.x) &&
+    Number.isFinite(rect.y) &&
+    Number.isFinite(rect.width) &&
+    Number.isFinite(rect.height)
+  ) {
+    state.searchLastActiveRect = {
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+    };
+    return;
+  }
+  state.searchLastActiveRect = null;
+}
+
 function resetSearchSession(state) {
   setSearchQuery(state, "");
   setSearchPromptVisible(state, false);
   setSearchActive(state, false);
   resetSearchCounters(state);
   setSearchRequestId(state, null);
+  setSearchHintMode(state, false);
+  setSearchHintInput(state, "");
+  setSearchVisibleHintCount(state, 0);
+  setSearchLastActiveRect(state, null);
 }
 
 module.exports = {
@@ -53,5 +90,9 @@ module.exports = {
   setSearchCounters,
   resetSearchCounters,
   setSearchRequestId,
+  setSearchHintMode,
+  setSearchHintInput,
+  setSearchVisibleHintCount,
+  setSearchLastActiveRect,
   resetSearchSession,
 };

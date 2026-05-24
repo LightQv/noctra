@@ -238,6 +238,21 @@ function applyThemeEverywhere(win, runtimeDeps = {}) {
   });
   localBuffers.refreshDashboardBuffers();
   localBuffers.refreshCatBuffers();
+
+  for (const webContents of localBuffers.getAllWebContents()) {
+    Promise.resolve(
+      webContentsActions.sendSearchRuntimeCommand(
+        webContents,
+        "theme-update",
+        {
+          mainColor: payload.theme.mainColor,
+          searchActiveTextColor: payload.theme.searchActiveTextColor,
+          searchPassiveTextColor: payload.theme.searchPassiveTextColor,
+        },
+      ),
+    ).catch(() => {});
+  }
+
   broadcastUiShellPush({
     win,
     buffers: localBuffers,

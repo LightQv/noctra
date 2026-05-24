@@ -25,10 +25,14 @@ const OWNERS = {
   searchMatchIndex: new Set(["core/state/searchState.js"]),
   searchMatchTotal: new Set(["core/state/searchState.js"]),
   searchRequestId: new Set(["core/state/searchState.js"]),
+  searchHintMode: new Set(["core/state/searchState.js"]),
+  searchHintInput: new Set(["core/state/searchState.js"]),
+  searchVisibleHintCount: new Set(["core/state/searchState.js"]),
+  searchLastActiveRect: new Set(["core/state/searchState.js"]),
 };
 
 const ASSIGNMENT_REGEX =
-  /\bstate\.(mode|leaderActive|leaderPath|leaderNumericBuffer|leaderLastKeyTime|commandBuffer|commandCursorIndex|commandTarget|urllineEditing|urllinePane|urllineBuffer|urllineCursorIndex|editorFocus|editorMode|searchQuery|searchPromptVisible|searchActive|searchMatchIndex|searchMatchTotal|searchRequestId)\s*=(?!=)/g;
+  /\bstate\.(mode|leaderActive|leaderPath|leaderNumericBuffer|leaderLastKeyTime|commandBuffer|commandCursorIndex|commandTarget|urllineEditing|urllinePane|urllineBuffer|urllineCursorIndex|editorFocus|editorMode|searchQuery|searchPromptVisible|searchActive|searchMatchIndex|searchMatchTotal|searchRequestId|searchHintMode|searchHintInput|searchVisibleHintCount|searchLastActiveRect)\s*=(?!=)/g;
 
 const SCAN_ROOTS = ["main.js", "runtime", "core", "motions", "ui", "browser"];
 const EXCLUDED_DIRS = new Set(["node_modules", "dist", "coverage", ".git"]);

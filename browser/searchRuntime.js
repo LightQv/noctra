@@ -320,6 +320,9 @@ function buildSearchRuntimeBootstrapScript() {
           if (!runtime.viewportHandlersBound && typeof window !== "undefined") {
             const onResize = runtime.throttle(() => runtime.scheduleOverlayRefresh(), 100);
             const onScroll = runtime.throttle(() => {
+              if (runtime.hintLabels.length > 0 || runtime.hintInput) {
+                runtime.openHintsForCurrentViewport(24);
+              }
               runtime.scheduleOverlayRefresh();
               if (runtime._hintScrollSettleTimer) {
                 clearTimeout(runtime._hintScrollSettleTimer);
@@ -327,12 +330,11 @@ function buildSearchRuntimeBootstrapScript() {
               runtime._hintScrollSettleTimer = setTimeout(() => {
                 runtime._hintScrollSettleTimer = null;
                 if (runtime.hintLabels.length > 0 || runtime.hintInput) {
-                  runtime.renderHighlights();
                   runtime.openHintsForCurrentViewport(24);
                 }
                 runtime.scheduleOverlayRefresh();
-              }, 90);
-            }, 33);
+              }, 50);
+            }, 20);
             if (typeof window.addEventListener === "function") {
               window.addEventListener("scroll", onScroll, { passive: true });
               window.addEventListener("resize", onResize, { passive: true });

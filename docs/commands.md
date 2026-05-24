@@ -69,6 +69,7 @@ For `:theme dark|light|auto`, web content follows the app theme automatically.
 - `:context`
 - `:history show|hide|toggle|focus|delete-all|delete-today`
 - `:bookmarks show|hide|toggle|focus|delete-all|import`
+- `:downloads show|hide|toggle|focus|clear-all|live`
 
 ## Sessions
 

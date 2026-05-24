@@ -406,13 +406,6 @@ function normalizeConfig(rawConfig) {
       );
     }
 
-    if (
-      isPlainObject(uiSection.statusline) &&
-      typeof uiSection.statusline.enabled === "boolean"
-    ) {
-      normalizedGlobal.ui.statusline.enabled = uiSection.statusline.enabled;
-    }
-
     if (isPlainObject(uiSection.telescope)) {
       const promptPosition = String(uiSection.telescope.prompt_position || "")
         .trim()
@@ -469,33 +462,11 @@ function normalizeConfig(rawConfig) {
       normalizedGlobal.split.divider.enabled = splitSection.divider.enabled;
     }
 
-    if (isPlainObject(splitSection.focus_keys)) {
-      if (
-        typeof splitSection.focus_keys.left === "string" &&
-        splitSection.focus_keys.left.trim()
-      ) {
-        normalizedGlobal.split.focus_keys.left =
-          splitSection.focus_keys.left.trim();
-      }
-
-      if (
-        typeof splitSection.focus_keys.right === "string" &&
-        splitSection.focus_keys.right.trim()
-      ) {
-        normalizedGlobal.split.focus_keys.right =
-          splitSection.focus_keys.right.trim();
-      }
-    }
   }
 
   if (isPlainObject(editorSection)) {
     if (typeof editorSection.enabled === "boolean") {
       normalizedGlobal.editor.enabled = editorSection.enabled;
-    }
-
-    if (typeof editorSection.start_in_normal_mode === "boolean") {
-      normalizedGlobal.editor.start_in_normal_mode =
-        editorSection.start_in_normal_mode;
     }
 
     if (typeof editorSection.relative_line_numbers === "boolean") {

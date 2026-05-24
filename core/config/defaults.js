@@ -11,7 +11,6 @@ const defaultConfig = {
     },
     editor: {
       enabled: true,
-      start_in_normal_mode: true,
       relative_line_numbers: true,
       scrolloff_lines: 3,
     },
@@ -27,9 +26,6 @@ const defaultConfig = {
       },
       urlline: {
         enabled: false,
-      },
-      statusline: {
-        enabled: true,
       },
       telescope: {
         prompt_position: "top",
@@ -110,10 +106,6 @@ const defaultConfig = {
       devtools_ratio: 0.25,
       divider: {
         enabled: true,
-      },
-      focus_keys: {
-        left: "Ctrl+h",
-        right: "Ctrl+l",
       },
     },
     storage: {

@@ -241,6 +241,16 @@ jobs:
           echo "Release tag: $RELEASE_TAG"
           gh release view "$RELEASE_TAG" || echo "Warning: release view failed, but attempting upload anyway"
 
+      - name: Generate release checksums
+        run: |
+          CHECKSUM_FILE="artifacts/checksums.txt"
+          : > "$CHECKSUM_FILE"
+          find artifacts -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -print0 | while IFS= read -r -d '' file; do
+            shasum -a 256 "$file" | awk -v f="$(basename "$file")" '{print $1 "  " f}' >> "$CHECKSUM_FILE"
+          done
+          echo "Generated checksums:"
+          cat "$CHECKSUM_FILE"
+
       - name: Attach artifacts to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -250,6 +260,7 @@ jobs:
             echo "Uploading: $file"
             gh release upload "$RELEASE_TAG" "$file" --clobber
           done
+          gh release upload "$RELEASE_TAG" artifacts/checksums.txt --clobber
 
       - name: Publish release
         env:

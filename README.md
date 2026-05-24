@@ -38,6 +38,10 @@ Prebuilt releases are available on the [Releases](https://github.com/LightQv/noc
 | Linux    | `.rpm`   | Install with `sudo rpm -i noctra_*.rpm`.                                     |
 | Linux    | AppImage | Run directly, then integrate once with `./Noctra-*.AppImage --integrate`.    |
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/LightQv/noctra/main/scripts/install.sh | bash
+```
+
 > [!TIP]
 > **macOS first launch**
 >
@@ -156,5 +160,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution princ
    - [ ] Web compatibility layer improvements (site quirks, auth flows, clipboard/permissions parity)
 
 2. [ ] **CLI support** — Basic actions: open, quit, focus, list-window, list-session, change workspace, search, and more.
-
-3. [ ] **One-line installer** — Install Noctra via `curl` command.

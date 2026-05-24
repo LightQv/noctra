@@ -129,6 +129,7 @@ function createMockBuffers(overrides = {}) {
     isUrllineVisible: () => overrides.urllineVisible || false,
     getClosedBufferCount: () => closedCount,
     close: () => {},
+    focusActive: overrides.focusActive || (() => {}),
   };
 }
 
@@ -520,6 +521,36 @@ test("tools menu contains downloads and notifications", () => {
     (item) => item.label === "Notifications",
   );
   assert.ok(notifications, "Notifications should exist in Tools menu");
+});
+
+test("new buffer menu action restores active buffer focus", () => {
+  const active = createMockBuffer(1, "Test", false);
+  let dispatchCalls = 0;
+  let focusCalls = 0;
+
+  const deps = createDeps({
+    buffers: [active],
+    active,
+    mode: "NORMAL",
+    focusActive: () => {
+      focusCalls += 1;
+    },
+  });
+  deps.dispatch = () => {
+    dispatchCalls += 1;
+  };
+
+  const appMenu = createAppMenu(deps);
+  appMenu.sync();
+
+  const fileMenu = lastMenuTemplate.find((m) => m.label === "File");
+  const newBuffer = fileMenu.submenu.find((item) => item.label === "New Buffer");
+  assert.ok(newBuffer, "New Buffer menu item should exist");
+
+  newBuffer.click();
+
+  assert.equal(dispatchCalls, 1, "New Buffer should dispatch an intent");
+  assert.equal(focusCalls, 1, "New Buffer should restore active buffer focus");
 });
 
 test("history menu lists recent entries", () => {

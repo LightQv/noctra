@@ -145,6 +145,9 @@ function createAppMenu({
   function dispatchAndSync(win, intent, state) {
     dispatch(win, intent, state);
     sync();
+    if (buffers && typeof buffers.focusActive === "function") {
+      buffers.focusActive();
+    }
   }
 
   function truncateLabel(label, maxLen = 60) {

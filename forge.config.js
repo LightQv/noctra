@@ -14,6 +14,8 @@ module.exports = {
     icon: path.resolve(__dirname, "assets/icons/icon"),
     // macOS Info.plist extensions — register as a browser handler
     extendInfo: {
+      CFBundleName: "Noctra",
+      CFBundleDisplayName: "Noctra",
       CFBundleURLTypes: [
         {
           CFBundleURLName: "Noctra HTTP Handler",

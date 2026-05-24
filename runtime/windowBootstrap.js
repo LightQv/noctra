@@ -43,6 +43,7 @@ function bootstrapWindowRuntime({
   updateTablineOptions,
   updateUrllineActions,
   updateUrllineRender,
+  updateLoadinglineRender,
   stopUrllineEdit,
   normalizeHistoryUrl,
   applyBrowserLanguagePreference,
@@ -244,6 +245,9 @@ function bootstrapWindowRuntime({
   buffers.setUrllineVisible(
     configService.getConfigValue("global.ui.urlline.enabled", false),
   );
+  buffers.setLoadinglineVisible(
+    configService.getConfigValue("global.ui.loadingline.enabled", true),
+  );
   uiShell.init(win);
   const sidepanelViewHost = uiShell.initializeSidepanelSurface({
     onMouseDown: () => {
@@ -328,6 +332,7 @@ function bootstrapWindowRuntime({
   updateTablineOptions();
   updateUrllineActions();
   updateUrllineRender();
+  updateLoadinglineRender();
 
   wireWindowLifecycle({
     win,
@@ -335,6 +340,7 @@ function bootstrapWindowRuntime({
     buffers,
     sidepanelController,
     updateUrllineRender,
+    updateLoadinglineRender,
     configService,
     persistSessionSnapshot,
     webContentsActions,
@@ -367,6 +373,7 @@ function bootstrapWindowRuntime({
       }
     }
     updateUrllineRender();
+    updateLoadinglineRender();
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
     uiShell.updateStatuslineSplitIndicator(buffers.getSplitStatus());
     uiShell.updateSplitDivider(buffers.getSplitStatus());
@@ -460,6 +467,7 @@ function bootstrapWindowRuntime({
     updateTablineOptions();
     updateUrllineActions();
     updateUrllineRender();
+    updateLoadinglineRender();
   };
 
   nativeTheme.on("updated", onNativeThemeUpdated);

@@ -85,6 +85,10 @@ function keepCommandOverlayAboveContentViews() {
 function syncOverlayStack() {
   applyOverlayStack(this.window, {
     statuslineView: this.statuslineView,
+    loadinglineLeftVisible: Boolean(this.loadinglineLeftVisible),
+    loadinglineLeftView: this.loadinglineLeftView,
+    loadinglineRightVisible: Boolean(this.loadinglineRightVisible),
+    loadinglineRightView: this.loadinglineRightView,
     whichKeyVisible: this.whichKeyVisible,
     whichKeyOverlayView: this.whichKeyOverlayView,
     selectionModalVisible: this.selectionModalVisible,

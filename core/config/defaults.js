@@ -144,6 +144,7 @@ const defaultConfig = {
       x: null,
       y: null,
       is_maximized: false,
+      cascade_offset_px: 28,
     },
     opening_buffer: {
       mode: "dashboard",

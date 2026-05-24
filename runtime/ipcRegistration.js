@@ -112,11 +112,7 @@ function registerRuntimeIpc({
           ? isEditableSender(event, options)
           : isWindowSender(event);
       if (!win || !trusted) {
-        const error = createUnauthorizedSenderError("ipc:event", channel, {
-          expectedRole,
-          requireActiveBuffer: Boolean(options.requireActiveBuffer),
-        });
-        return rejectEvent(channel, error);
+        return;
       }
 
       const validation = validateIpcPayload(channel, payload);
@@ -139,11 +135,7 @@ function registerRuntimeIpc({
           ? isEditableSender(event, options)
           : isWindowSender(event);
       if (!win || !trusted) {
-        const error = createUnauthorizedSenderError("ipc:invoke", channel, {
-          expectedRole,
-          requireActiveBuffer: Boolean(options.requireActiveBuffer),
-        });
-        return rejectInvoke(error);
+        return undefined;
       }
 
       const validation = validateIpcPayload(channel, payload);

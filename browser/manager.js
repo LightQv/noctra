@@ -512,4 +512,12 @@ class BufferManager {
   }
 }
 
-module.exports = new BufferManager();
+function createBufferManager() {
+  return new BufferManager();
+}
+
+const defaultBufferManager = createBufferManager();
+
+module.exports = defaultBufferManager;
+module.exports.BufferManager = BufferManager;
+module.exports.createBufferManager = createBufferManager;

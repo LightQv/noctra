@@ -1,76 +1,97 @@
 const state = require("./state");
 const buffers = require("../browser/manager");
-const { handleNormal } = require("../motions/normal");
+const { createHandleNormal } = require("../motions/normal");
 const { handleInsert } = require("../motions/insert");
 const { handleCommand } = require("../motions/command");
 const { dispatch } = require("./dispatcher");
 const sidepanelController = require("./sidepanel/controller");
 const { resolveSemanticContext } = require("./semanticContextResolver");
 
-function getSemanticContext() {
-  return resolveSemanticContext({ state, buffers, sidepanelController });
-}
+function createInputHandler(deps = {}) {
+  const localState = deps.state || state;
+  const localBuffers = deps.buffers || buffers;
+  const localSidepanelController = deps.sidepanelController || sidepanelController;
+  const localDispatch = deps.dispatch || dispatch;
+  const handleNormal =
+    deps.handleNormal || createHandleNormal({ buffers: localBuffers });
 
-function shouldPreventDefault(input) {
-  if (input.type !== "keyDown") return false;
-
-  if (state.mode === "COMMAND") {
-    return true;
+  function getSemanticContext() {
+    return resolveSemanticContext({
+      state: localState,
+      buffers: localBuffers,
+      sidepanelController: localSidepanelController,
+    });
   }
 
-  const activeBuffer = buffers.getActive();
+  function shouldPreventDefault(input) {
+    if (input.type !== "keyDown") return false;
 
-  if (getSemanticContext() === "editor" && activeBuffer?.isEditable) {
-    return false;
-  }
-
-  switch (state.mode) {
-    case "NORMAL":
+    if (localState.mode === "COMMAND") {
       return true;
+    }
 
-    case "COMMAND":
-      return true;
+    const activeBuffer = localBuffers.getActive();
 
-    case "INSERT":
-      return input.key === "Escape";
-
-    default:
+    if (getSemanticContext() === "editor" && activeBuffer?.isEditable) {
       return false;
+    }
+
+    switch (localState.mode) {
+      case "NORMAL":
+        return true;
+
+      case "COMMAND":
+        return true;
+
+      case "INSERT":
+        return input.key === "Escape";
+
+      default:
+        return false;
+    }
   }
+
+  function handleInput(win, input) {
+    if (input.type !== "keyDown") return;
+
+    const activeBuffer = localBuffers.getActive();
+
+    if (
+      localState.mode !== "COMMAND" &&
+      getSemanticContext() === "editor" &&
+      activeBuffer?.isEditable
+    ) {
+      return;
+    }
+
+    let intent = null;
+
+    switch (localState.mode) {
+      case "NORMAL":
+        intent = handleNormal(localState, input);
+        break;
+
+      case "INSERT":
+        intent = handleInsert(localState, input.key);
+        break;
+
+      case "COMMAND":
+        intent = handleCommand(localState, input);
+        break;
+    }
+
+    if (intent) {
+      localDispatch(win, intent, localState);
+    }
+  }
+
+  return { handleInput, shouldPreventDefault };
 }
 
-function handleInput(win, input) {
-  if (input.type !== "keyDown") return;
+const defaultHandler = createInputHandler();
 
-  const activeBuffer = buffers.getActive();
-
-  if (
-    state.mode !== "COMMAND" &&
-    getSemanticContext() === "editor" &&
-    activeBuffer?.isEditable
-  ) {
-    return;
-  }
-
-  let intent = null;
-
-  switch (state.mode) {
-    case "NORMAL":
-      intent = handleNormal(state, input);
-      break;
-
-    case "INSERT":
-      intent = handleInsert(state, input.key);
-      break;
-
-    case "COMMAND":
-      intent = handleCommand(state, input);
-      break;
-  }
-
-  if (intent) {
-    dispatch(win, intent, state);
-  }
-}
-
-module.exports = { handleInput, shouldPreventDefault };
+module.exports = {
+  handleInput: defaultHandler.handleInput,
+  shouldPreventDefault: defaultHandler.shouldPreventDefault,
+  createInputHandler,
+};

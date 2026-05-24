@@ -234,7 +234,7 @@ test("search hint open and input update hint mode and runtime actions", async ()
   });
   await tick();
   assert.equal(harness.state.searchHintMode, true);
-  assert.equal(harness.state.searchHintInput, "a");
+  assert.equal(harness.state.searchHintInput, "");
   assert.equal(harness.state.searchVisibleHintCount, 3);
   assert.equal(harness.state.searchMatchIndex, 2);
 });
@@ -287,4 +287,95 @@ test("search submit reports thrown runtime error message", async () => {
     ),
     true,
   );
+});
+
+test("search hint chained jumps reset input and stay active", async () => {
+  const harness = createHarness({
+    webContentsActions: {
+      sendSearchRuntimeCommand: async (_wc, action, payload, options) => {
+        if (action === "hint-open") {
+          return {
+            ok: true,
+            requestId: options.requestId,
+            payload: {
+              total: 5,
+              activeIndex: 1,
+              visibleHintCount: 2,
+              hints: [
+                { label: "a", index: 2 },
+                { label: "s", index: 3 },
+              ],
+            },
+          };
+        }
+        if (action === "hint-input" && payload.input === "a") {
+          return {
+            ok: true,
+            requestId: options.requestId,
+            payload: {
+              total: 5,
+              activeIndex: 2,
+              visibleHintCount: 2,
+              hints: [
+                { label: "a", index: 4 },
+                { label: "s", index: 5 },
+              ],
+              jumped: true,
+            },
+          };
+        }
+        if (action === "hint-input" && payload.input === "s") {
+          return {
+            ok: true,
+            requestId: options.requestId,
+            payload: {
+              total: 5,
+              activeIndex: 5,
+              visibleHintCount: 2,
+              hints: [
+                { label: "a", index: 1 },
+                { label: "s", index: 2 },
+              ],
+              jumped: true,
+            },
+          };
+        }
+        return {
+          ok: true,
+          requestId: options.requestId,
+          payload: { total: 5, activeIndex: 1, visibleHintCount: 0 },
+        };
+      },
+    },
+  });
+
+  harness.state.searchActive = true;
+  harness.state.searchQuery = "noctra";
+
+  harness.handlers[INTENTS.SEARCH_HINT_OPEN]({
+    win: null,
+    intent: { type: INTENTS.SEARCH_HINT_OPEN },
+    state: harness.state,
+  });
+  await tick();
+
+  harness.handlers[INTENTS.SEARCH_HINT_INPUT]({
+    win: null,
+    intent: { type: INTENTS.SEARCH_HINT_INPUT, input: "a" },
+    state: harness.state,
+  });
+  await tick();
+  assert.equal(harness.state.searchHintInput, "");
+  assert.equal(harness.state.searchHintMode, true);
+  assert.equal(harness.state.searchMatchIndex, 2);
+
+  harness.handlers[INTENTS.SEARCH_HINT_INPUT]({
+    win: null,
+    intent: { type: INTENTS.SEARCH_HINT_INPUT, input: "s" },
+    state: harness.state,
+  });
+  await tick();
+  assert.equal(harness.state.searchHintInput, "");
+  assert.equal(harness.state.searchHintMode, true);
+  assert.equal(harness.state.searchMatchIndex, 5);
 });

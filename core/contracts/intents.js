@@ -113,6 +113,8 @@ const INTENT_PAYLOAD_CONTRACTS = {
     activeIndex: validateInteger,
     visibleHintCount: optional(validateInteger),
     activeRect: optional(nullable(validateActiveRect)),
+    jumped: optional(validateBoolean),
+    hintsCount: optional(nullable(validateInteger)),
   }),
   [INTENTS.NEW_BUFFER]: withBaseFields({
     url: optional(validateString),

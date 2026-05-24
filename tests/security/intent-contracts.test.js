@@ -78,6 +78,8 @@ test("intent contracts accept SEARCH_RUNTIME_UPDATE payload", () => {
     activeIndex: 2,
     visibleHintCount: 6,
     activeRect: { x: 1, y: 2, width: 3, height: 4 },
+    jumped: true,
+    hintsCount: 6,
   });
   assert.equal(result.ok, true);
 });

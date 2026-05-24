@@ -115,6 +115,10 @@ function buildSearchRuntimeBootstrapScript() {
         clearOverlay() {
           runtime.clearNodes(runtime.highlightNodes);
           runtime.clearNodes(runtime.hintNodes);
+          if (runtime._hintScrollSettleTimer) {
+            clearTimeout(runtime._hintScrollSettleTimer);
+            runtime._hintScrollSettleTimer = null;
+          }
           if (!runtime.overlayRoot) return;
           const root = runtime.overlayRoot;
           runtime.overlayRoot = null;
@@ -315,7 +319,22 @@ function buildSearchRuntimeBootstrapScript() {
         bindObservers() {
           if (!runtime.viewportHandlersBound && typeof window !== "undefined") {
             const onResize = runtime.throttle(() => runtime.scheduleOverlayRefresh(), 100);
+            const onScroll = runtime.throttle(() => {
+              runtime.scheduleOverlayRefresh();
+              if (runtime._hintScrollSettleTimer) {
+                clearTimeout(runtime._hintScrollSettleTimer);
+              }
+              runtime._hintScrollSettleTimer = setTimeout(() => {
+                runtime._hintScrollSettleTimer = null;
+                if (runtime.hintLabels.length > 0 || runtime.hintInput) {
+                  runtime.renderHighlights();
+                  runtime.openHintsForCurrentViewport(24);
+                }
+                runtime.scheduleOverlayRefresh();
+              }, 90);
+            }, 33);
             if (typeof window.addEventListener === "function") {
+              window.addEventListener("scroll", onScroll, { passive: true });
               window.addEventListener("resize", onResize, { passive: true });
               runtime.viewportHandlersBound = true;
             }
@@ -380,13 +399,11 @@ function buildSearchRuntimeBootstrapScript() {
           if (!root) return;
           const scroll = runtime.getScrollOffsets();
 
-          const indexes = runtime.visibleMatchIndexes.length
-            ? runtime.visibleMatchIndexes
-            : runtime.hintLabels.map((entry) => entry.index);
-
           for (let i = 0; i < runtime.hintLabels.length; i += 1) {
             const hint = runtime.hintLabels[i];
-            const targetIndex = indexes[i] || hint.index;
+            const targetIndex = Number.isFinite(hint.index)
+              ? Math.max(1, Math.floor(hint.index))
+              : 1;
             const rects = runtime.getMatchRects(runtime.matches[targetIndex - 1]);
             const rect = rects.find((candidate) => runtime.rectVisible(candidate));
             if (!rect) continue;

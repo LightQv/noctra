@@ -79,6 +79,10 @@ function createSearchHandlers(deps) {
               ? Math.max(0, Math.floor(result.payload.visibleHintCount))
               : 0,
             activeRect: result.payload.activeRect || null,
+            jumped: result?.payload?.jumped === true,
+            hintsCount: Array.isArray(result?.payload?.hints)
+              ? result.payload.hints.length
+              : null,
           },
           state,
         );
@@ -177,6 +181,12 @@ function createSearchHandlers(deps) {
         : 0;
       setSearchCounters(state, activeIndex, total);
       setSearchVisibleHintCount(state, intent.visibleHintCount);
+      if (intent.jumped === true) {
+        setSearchHintInput(state, "");
+        if (Number.isFinite(intent.hintsCount) && intent.hintsCount > 0) {
+          setSearchHintMode(state, true);
+        }
+      }
       if (state.searchHintMode && state.searchHintInput && intent.visibleHintCount === 0) {
         setSearchHintMode(state, false);
         setSearchHintInput(state, "");

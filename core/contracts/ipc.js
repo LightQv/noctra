@@ -18,6 +18,16 @@ const validateUrllineAction = createEnumValidator([
   "reload",
 ]);
 const validateEditorMode = createEnumValidator(["NORMAL", "INSERT"]);
+const validateContextMenuZone = createEnumValidator([
+  "urlline",
+  "tabline",
+]);
+const validateFiniteNumber = (value) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return { ok: false, message: "expected finite number" };
+  }
+  return { ok: true };
+};
 
 const validateEmptyObject = createStrictObjectValidator({});
 
@@ -56,6 +66,7 @@ const IPC_CONTRACTS = {
       action: validateUrllineAction,
     }),
   },
+  "ui-shell:stop-urlline-edit": { kind: "event", validator: optionalEmptyObject },
   "settings:editor-toggle-context": {
     kind: "event",
     validator: optionalEmptyObject,
@@ -84,6 +95,17 @@ const IPC_CONTRACTS = {
   "security:probe-privileged-ipc": {
     kind: "invoke",
     validator: optionalEmptyObject,
+  },
+  "ui-shell:context-menu": {
+    kind: "event",
+    validator: createStrictObjectValidator({
+      zone: validateContextMenuZone,
+      target: optional(validateString),
+      tabId: optional(validateInteger),
+      pane: optional(validatePane),
+      x: validateFiniteNumber,
+      y: validateFiniteNumber,
+    }),
   },
 };
 

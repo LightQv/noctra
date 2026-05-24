@@ -1,9 +1,16 @@
+const { Menu } = require("electron");
 const { setEditorMode } = require("../core/state/editorModeState");
 const { validateIpcPayload } = require("../core/contracts/ipc");
 const {
   createInvalidPayloadError,
   createUnauthorizedSenderError,
 } = require("../core/contracts/errors");
+const {
+  buildUIShellContextMenuTemplate,
+} = require("../core/adapters/platform/contextMenuBuilder");
+const {
+  createUIShellContextMenuActions,
+} = require("../core/adapters/platform/contextMenuActions");
 
 function registerRuntimeIpc({
   win,
@@ -25,12 +32,14 @@ function registerRuntimeIpc({
   focusActiveEditorSurface,
   getStatuslineModeLabel,
   startUrllineEdit,
+  stopUrllineEdit,
   configService,
   resolveCurrentTheme,
   buildThemePayload,
   applyReloadedConfig,
   registerIpcContracts,
   notificationsService,
+  clipboard,
 }) {
   const isTrustedIpcSender = (
     event,
@@ -197,6 +206,10 @@ function registerRuntimeIpc({
     startUrllineEdit(pane, paneBuffer.url || "about:blank");
   };
 
+  const onStopUrllineEdit = () => {
+    stopUrllineEdit();
+  };
+
   const onUrllineAction = (event, payload) => {
     const pane = payload.pane === "right" ? "right" : "left";
     const action = payload.action;
@@ -224,6 +237,60 @@ function registerRuntimeIpc({
 
     if (action === "stop") {
       webContentsActions.stop(paneBuffer.webContents);
+    }
+  };
+
+  const onContextMenu = (_event, payload) => {
+    const { zone, target, tabId, pane } = payload;
+
+    const uiActions = createUIShellContextMenuActions({
+      clipboard,
+      buffers,
+      dispatch,
+      state,
+      INTENTS,
+      startUrllineEdit,
+    });
+
+    let template = [];
+
+    if (zone === "tabline" && target === "tab" && Number.isInteger(tabId)) {
+      const index = buffers.buffers.findIndex(
+        (buffer) => buffer.id === tabId,
+      );
+      const tabBuffer = index >= 0 ? buffers.buffers[index] : null;
+      const runtimeSnapshot = {
+        tabIndex: index,
+        isFirst: index === 0,
+        isLast:
+          index >= 0 && index === buffers.buffers.length - 1,
+        isSplitEnabled:
+          buffers.isSplitEnabled() && buffers.split.mode === "regular",
+        buffer: tabBuffer,
+      };
+      const actions = uiActions.forTablineTab(tabId);
+      template = buildUIShellContextMenuTemplate({
+        zone,
+        target,
+        runtimeSnapshot,
+        actions,
+      });
+    }
+
+    if (zone === "urlline") {
+      const paneName = pane === "right" ? "right" : "left";
+      const actions = uiActions.forUrllineUrl(paneName);
+      template = buildUIShellContextMenuTemplate({
+        zone,
+        target,
+        runtimeSnapshot: {},
+        actions,
+      });
+    }
+
+    if (template.length > 0) {
+      const menu = Menu.buildFromTemplate(template);
+      menu.popup({ window: win });
     }
   };
 
@@ -401,6 +468,16 @@ function registerRuntimeIpc({
       "ui-shell:urlline-action",
       SURFACE_ROLES.TRUSTED_SHELL,
       onUrllineAction,
+    ),
+    "ui-shell:stop-urlline-edit": withEventBoundary(
+      "ui-shell:stop-urlline-edit",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onStopUrllineEdit,
+    ),
+    "ui-shell:context-menu": withEventBoundary(
+      "ui-shell:context-menu",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onContextMenu,
     ),
     "settings:editor-toggle-context": withEventBoundary(
       "settings:editor-toggle-context",

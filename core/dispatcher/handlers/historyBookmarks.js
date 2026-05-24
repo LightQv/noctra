@@ -31,6 +31,20 @@ function createHistoryBookmarksHandlers(deps) {
       sidepanelController.reloadData();
       sidepanelController.render();
     },
+    [INTENTS.DELETE_HISTORY_ENTRY]: ({ intent }) => {
+      historyService.deleteEntry(intent.dateKey, intent.entryId);
+      if (sidepanelController.isVisible()) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
+      }
+    },
+    [INTENTS.DELETE_HISTORY_DATE]: ({ intent }) => {
+      historyService.deleteDate(intent.dateKey);
+      if (sidepanelController.isVisible()) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
+      }
+    },
     [INTENTS.BOOKMARKS_SHOW]: () => sidepanelController.showTree("bookmarks"),
     [INTENTS.BOOKMARKS_HIDE]: () => sidepanelController.hide(),
     [INTENTS.BOOKMARKS_TOGGLE]: () => {
@@ -114,8 +128,16 @@ function createHistoryBookmarksHandlers(deps) {
         persist: false,
       });
     },
-    [INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE]: () => {
-      const candidate = getActiveBookmarkCandidate();
+    [INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE]: ({ intent }) => {
+      let candidate = null;
+      if (intent.url) {
+        candidate = {
+          url: String(intent.url).trim(),
+          title: String(intent.title || intent.url).trim(),
+        };
+      } else {
+        candidate = getActiveBookmarkCandidate();
+      }
       if (!candidate) {
         return;
       }
@@ -129,12 +151,29 @@ function createHistoryBookmarksHandlers(deps) {
         sidepanelController.render();
       }
     },
-    [INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT]: () => {
-      const candidate = getActiveBookmarkCandidate();
+    [INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT]: ({ intent }) => {
+      let candidate = null;
+      if (intent.url) {
+        candidate = {
+          url: String(intent.url).trim(),
+          title: String(intent.title || intent.url).trim(),
+        };
+      } else {
+        candidate = getActiveBookmarkCandidate();
+      }
       if (!candidate) {
         return;
       }
       bookmarkInsertScopeModal.open(candidate);
+    },
+    [INTENTS.DELETE_BOOKMARK_NODE]: ({ intent }) => {
+      if (sidepanelController && typeof sidepanelController.deleteFavoriteNodeById === "function") {
+        sidepanelController.deleteFavoriteNodeById(intent.nodeId);
+        if (sidepanelController.isVisible()) {
+          sidepanelController.reloadData();
+          sidepanelController.render();
+        }
+      }
     },
     [INTENTS.DOWNLOADS_SHOW]: () => sidepanelController.showTree("downloads"),
     [INTENTS.DOWNLOADS_HIDE]: () => sidepanelController.hide(),
@@ -159,6 +198,22 @@ function createHistoryBookmarksHandlers(deps) {
         sidepanelController.reloadData();
         sidepanelController.render();
       }
+    },
+    [INTENTS.DOWNLOADS_CLEAR_COMPLETED]: () => {
+      const { downloadsService } = require("../../downloads/service");
+      downloadsService.clearCompleted();
+      if (sidepanelController.isVisible()) {
+        sidepanelController.reloadData();
+        sidepanelController.render();
+      }
+    },
+    [INTENTS.SHOW_DOWNLOAD_IN_FOLDER]: ({ intent }) => {
+      const { downloadsService } = require("../../downloads/service");
+      downloadsService.showInFolder(intent.downloadId);
+    },
+    [INTENTS.OPEN_DOWNLOAD_FILE]: ({ intent }) => {
+      const { downloadsService } = require("../../downloads/service");
+      downloadsService.openFile(intent.downloadId);
     },
     [INTENTS.DOWNLOADS_LIVE_MODAL]: () => {
       const downloadsModal = require("../../downloads/modal");

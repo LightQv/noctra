@@ -1,4 +1,3 @@
-const uiShell = require("../../ui/shell/manager");
 const downloadsService = require("./service");
 const buffers = require("../../browser/manager");
 
@@ -37,7 +36,8 @@ function getRightText(entry) {
 }
 
 class DownloadsModal {
-  constructor() {
+  constructor({ uiShell } = {}) {
+    this.uiShell = uiShell;
     this.active = false;
     this.items = [];
     this.selectedIndex = 0;
@@ -77,7 +77,7 @@ class DownloadsModal {
     const items = combined.slice(0, 5);
 
     if (items.length === 0) {
-      uiShell.showNotificationToast({
+      this.uiShell?.showNotificationToast({
         severity: "info",
         message: "No downloads",
         timeoutMs: 2000,
@@ -113,7 +113,7 @@ class DownloadsModal {
       this.rerender();
     });
 
-    uiShell.showDownloadsModal(this.buildModel());
+    this.uiShell?.showDownloadsModal(this.buildModel());
   }
 
   close() {
@@ -124,7 +124,7 @@ class DownloadsModal {
       this.unsubscribe();
       this.unsubscribe = null;
     }
-    uiShell.hideDownloadsModal();
+    this.uiShell?.hideDownloadsModal();
   }
 
   buildModel() {
@@ -153,7 +153,7 @@ class DownloadsModal {
 
   rerender() {
     if (!this.active) return;
-    uiShell.updateDownloadsModal(this.buildModel());
+    this.uiShell?.updateDownloadsModal(this.buildModel());
   }
 
   getSelectedEntry() {
@@ -275,12 +275,11 @@ class DownloadsModal {
   }
 }
 
-function createDownloadsModal() {
-  return new DownloadsModal();
+function createDownloadsModal({ uiShell } = {}) {
+  return new DownloadsModal({ uiShell });
 }
 
-const defaultDownloadsModal = createDownloadsModal();
-
-module.exports = defaultDownloadsModal;
-module.exports.DownloadsModal = DownloadsModal;
-module.exports.createDownloadsModal = createDownloadsModal;
+module.exports = {
+  DownloadsModal,
+  createDownloadsModal,
+};

@@ -92,6 +92,7 @@ const { registerRuntimeIpc } = require("./runtime/ipcRegistration");
 const { wireWindowLifecycle } = require("./runtime/windowLifecycle");
 const { createSmokeScenarios } = require("./runtime/smokeScenarios");
 const { bootstrapWindowRuntime } = require("./runtime/windowBootstrap");
+const { registerWebContextMenu } = require("./runtime/contextMenuRegistration");
 const {
   createBrowserLanguagePolicy,
 } = require("./runtime/browserLanguagePolicy");
@@ -818,8 +819,8 @@ function createWindow() {
   const buffers = createBufferManager();
   const uiShell = createUiShellManager();
   const sidepanelController = createHistoryPanel();
-  const bookmarkInsertScopeModal = createBookmarkInsertScopeModal();
-  const downloadsModal = createDownloadsModal();
+  const bookmarkInsertScopeModal = createBookmarkInsertScopeModal({ uiShell });
+  const downloadsModal = createDownloadsModal({ uiShell });
   const telescopeService = createTelescopeService();
 
   const computeStatuslineModeLabel = createStatuslineModeLabelResolver({
@@ -1026,6 +1027,7 @@ function createWindow() {
     normalizeHistoryUrl,
     applyBrowserLanguagePreference,
     persistSessionSnapshot: persistSnapshot,
+    clipboard,
   });
 
   context.win = runtime.win;
@@ -1050,6 +1052,20 @@ function createWindow() {
     createWindow,
   });
   context.appMenu = appMenu;
+
+  const unregisterWebContextMenu = registerWebContextMenu({
+    win: context.win,
+    buffers,
+    configService,
+    dispatch,
+    state,
+    INTENTS,
+    validateNavigableUrl,
+    isBookmarkableBuffer,
+    clipboard,
+    dialog,
+  });
+
   windowContexts.set(context.win.id, context);
   uiShell.setMouseActions({
     isPointInView,
@@ -1169,6 +1185,9 @@ function createWindow() {
     });
 
   context.win.on("closed", () => {
+    if (typeof unregisterWebContextMenu === "function") {
+      unregisterWebContextMenu();
+    }
     windowContexts.delete(context.win.id);
   });
 

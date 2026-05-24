@@ -23,8 +23,12 @@ const {
 const defaultBuffers = require("../browser/manager");
 
 function buildLeaderContext(buffers) {
+  const sidepanelController = require("../core/sidepanel/controller");
   return {
     activeBuffer: buffers.getActive(),
+    isSplitEnabled: buffers.isSplitEnabled(),
+    sidepanelVisible: sidepanelController.isVisible(),
+    sidepanelTreeKind: sidepanelController.treeKind,
   };
 }
 

@@ -14,6 +14,8 @@ const {
   focusSplitLeft,
   focusSplitRight,
   focusPane,
+  openUrlInRightSplit,
+  openBufferInRightSplit,
   reconcileSplitSources,
 } = require("./services/splitController");
 const { attachPaneTracking } = require("./services/selectionClipboardObserver");
@@ -40,11 +42,16 @@ const {
 } = require("./services/sessionSnapshotService");
 const {
   createBuffer,
+  createManyBuffers,
   closeBuffer,
   rememberClosedBuffer,
   reopenLastClosed,
   closeLeftOfActive,
   closeRightOfActive,
+  closeAllLeftOf,
+  closeAllRightOf,
+  closeAllBuffers,
+  duplicateBuffer,
 } = require("./services/bufferLifecycleService");
 const {
   getLeftBuffer,
@@ -106,6 +113,10 @@ class BufferManager {
 
   create(url = "about:blank", options = {}) {
     return createBuffer(this, url, options);
+  }
+
+  createMany(urlEntries) {
+    return createManyBuffers(this, urlEntries);
   }
 
   openConfiguredBuffer(options = {}) {
@@ -271,6 +282,22 @@ class BufferManager {
     return closeRightOfActive(this);
   }
 
+  closeAllLeftOf(index) {
+    return closeAllLeftOf(this, index);
+  }
+
+  closeAllRightOf(index) {
+    return closeAllRightOf(this, index);
+  }
+
+  closeAllBuffers() {
+    return closeAllBuffers(this);
+  }
+
+  duplicateBuffer(id) {
+    return duplicateBuffer(this, id);
+  }
+
   getClosedBufferCount() {
     return this.closedBuffers.length;
   }
@@ -297,6 +324,14 @@ class BufferManager {
 
   focusPane(pane = "left") {
     return focusPane(this, pane);
+  }
+
+  openUrlInRightSplit(url) {
+    return openUrlInRightSplit(this, url);
+  }
+
+  openBufferInRightSplit(sourceBuffer) {
+    return openBufferInRightSplit(this, sourceBuffer);
   }
 
   isSplitEnabled() {

@@ -76,6 +76,7 @@ function attachPaneTracking(manager, buffer, paneResolver) {
   const onMouseEvent = (event, input) => {
     if (!input || (input.type !== "mouseDown" && input.type !== "mouseUp"))
       return;
+    if (input.button !== "left") return;
     if (input.type === "mouseUp") {
       setTimeout(() => {
         maybeCopySelectionToClipboard().catch(() => {});

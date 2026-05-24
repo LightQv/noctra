@@ -247,6 +247,7 @@ test("appMenu rebuild forces refresh", () => {
   const appMenu = createAppMenu(deps);
   appMenu.sync();
   appMenu.rebuild();
+  appMenu.flush();
 
   assert.equal(buildCount, 2);
 
@@ -266,6 +267,7 @@ test("setFolderIcon triggers rebuild", () => {
   const appMenu = createAppMenu(deps);
   appMenu.sync();
   appMenu.setFolderIcon({ isEmpty: () => false });
+  appMenu.flush();
 
   assert.equal(buildCount, 2);
 

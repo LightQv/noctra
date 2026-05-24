@@ -48,6 +48,7 @@ function bootstrapWindowRuntime({
   normalizeHistoryUrl,
   applyBrowserLanguagePreference,
   persistSessionSnapshot,
+  clipboard,
 }) {
   const DEFAULT_CASCADE_OFFSET_PX = 28;
 
@@ -233,12 +234,14 @@ function bootstrapWindowRuntime({
     focusActiveEditorSurface,
     getStatuslineModeLabel,
     startUrllineEdit,
+    stopUrllineEdit,
     configService,
     resolveCurrentTheme,
     buildThemePayload,
     applyReloadedConfig,
     registerIpcContracts,
     notificationsService,
+    clipboard,
   });
 
   buffers.init(win);
@@ -253,8 +256,8 @@ function bootstrapWindowRuntime({
     onMouseDown: () => {
       sidepanelController.focus();
     },
-    onMouseEvent: (input) => {
-      sidepanelController.handleMouseEvent(input);
+    onMouseEvent: (event, input) => {
+      sidepanelController.handleMouseEvent(input, event);
     },
     onFocus: () => {
       sidepanelController.focus();
@@ -265,6 +268,8 @@ function bootstrapWindowRuntime({
     buffers,
     state,
     viewHost: sidepanelViewHost,
+    dispatch,
+    INTENTS,
   });
   sidepanelController.setOnFocusChange(() => {
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
@@ -368,7 +373,11 @@ function bootstrapWindowRuntime({
       const paneStillVisible = Array.isArray(urllineModel.panes)
         ? urllineModel.panes.some((pane) => pane && pane.pane === editingPane)
         : false;
-      if (!paneStillVisible) {
+      if (
+        !paneStillVisible ||
+        change.activeChanged ||
+        change.kind === "pane-interaction"
+      ) {
         stopUrllineEdit();
       }
     }

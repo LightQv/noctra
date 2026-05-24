@@ -11,6 +11,18 @@ const {
   nullable,
 } = require("./validation");
 
+function validateStringArray(value) {
+  if (!Array.isArray(value)) {
+    return { ok: false, message: "expected array" };
+  }
+  for (let i = 0; i < value.length; i++) {
+    if (typeof value[i] !== "string") {
+      return { ok: false, message: `expected string at index ${i}` };
+    }
+  }
+  return { ok: true };
+}
+
 const validateScrollDirection = createEnumValidator([
   "up",
   "down",
@@ -52,6 +64,15 @@ const INTENT_PAYLOAD_CONTRACTS = {
     direction: validateScrollDirection,
     amount: validateFiniteNumber,
   }),
+  [INTENTS.NAV_BACK]: withBaseFields({
+    bufferId: optional(validateInteger),
+  }),
+  [INTENTS.NAV_FORWARD]: withBaseFields({
+    bufferId: optional(validateInteger),
+  }),
+  [INTENTS.RELOAD_PAGE]: withBaseFields({
+    bufferId: optional(validateInteger),
+  }),
   [INTENTS.OPEN_URL]: withBaseFields({
     url: validateString,
   }),
@@ -67,6 +88,47 @@ const INTENT_PAYLOAD_CONTRACTS = {
   }),
   [INTENTS.CLOSE_BUFFER]: withBaseFields({
     id: optional(nullable(validateInteger)),
+  }),
+  [INTENTS.CLOSE_LEFT_BUFFERS]: withBaseFields({
+    index: optional(validateInteger),
+  }),
+  [INTENTS.CLOSE_RIGHT_BUFFERS]: withBaseFields({
+    index: optional(validateInteger),
+  }),
+  [INTENTS.CLOSE_ALL_BUFFERS]: withBaseFields(),
+  [INTENTS.DUPLICATE_BUFFER]: withBaseFields({
+    bufferId: validateInteger,
+  }),
+  [INTENTS.OPEN_URL_IN_SPLIT]: withBaseFields({
+    url: validateString,
+  }),
+  [INTENTS.NEW_BUFFERS]: withBaseFields({
+    urls: validateStringArray,
+  }),
+  [INTENTS.DELETE_HISTORY_ENTRY]: withBaseFields({
+    dateKey: validateString,
+    entryId: validateString,
+  }),
+  [INTENTS.DELETE_HISTORY_DATE]: withBaseFields({
+    dateKey: validateString,
+  }),
+  [INTENTS.DELETE_BOOKMARK_NODE]: withBaseFields({
+    nodeId: validateString,
+  }),
+  [INTENTS.DOWNLOADS_CLEAR_COMPLETED]: withBaseFields(),
+  [INTENTS.SHOW_DOWNLOAD_IN_FOLDER]: withBaseFields({
+    downloadId: validateString,
+  }),
+  [INTENTS.OPEN_DOWNLOAD_FILE]: withBaseFields({
+    downloadId: validateString,
+  }),
+  [INTENTS.BOOKMARKS_ADD_ROOT_ACTIVE]: withBaseFields({
+    url: optional(validateString),
+    title: optional(validateString),
+  }),
+  [INTENTS.BOOKMARKS_ADD_SCOPED_PROMPT]: withBaseFields({
+    url: optional(validateString),
+    title: optional(validateString),
   }),
   [INTENTS.SET_URLLINE_VISIBILITY]: withBaseFields({
     enabled: validateBoolean,

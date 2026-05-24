@@ -216,6 +216,30 @@ function renderTabline(
           }
         });
 
+        root.addEventListener('contextmenu', (event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          event.preventDefault();
+
+          const closeButton = target.closest('.tab-close');
+          if (closeButton) return;
+
+          const tab = target.closest('.tab');
+          if (tab && tab.dataset.tabId) {
+            const tabId = Number.parseInt(tab.dataset.tabId, 10);
+            if (Number.isInteger(tabId) && window.uiShell && typeof window.uiShell.contextMenu === 'function') {
+              window.uiShell.contextMenu({
+                zone: 'tabline',
+                target: 'tab',
+                tabId,
+                x: event.clientX,
+                y: event.clientY,
+              });
+            }
+            return;
+          }
+        });
+
         root.dataset.boundClick = 'true';
       }
 

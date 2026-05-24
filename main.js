@@ -722,6 +722,7 @@ function updateTablineOptions() {
 }
 
 let updateUrllineRender = () => {};
+let updateLoadinglineRender = () => {};
 let startUrllineEdit = () => {};
 let stopUrllineEdit = () => {};
 let handleUrllineInput = () => {};
@@ -766,6 +767,7 @@ const urllineCoordinator = createUrllineCoordinator({
 });
 
 updateUrllineRender = urllineCoordinator.updateUrllineRender;
+updateLoadinglineRender = urllineCoordinator.updateLoadinglineRender;
 startUrllineEdit = urllineCoordinator.startUrllineEdit;
 stopUrllineEdit = urllineCoordinator.stopUrllineEdit;
 handleUrllineInput = urllineCoordinator.handleUrllineInput;
@@ -785,6 +787,7 @@ const { applyReloadedConfig } = createConfigRuntime({
   updateTablineOptions,
   updateUrllineActions,
   updateUrllineRender,
+  updateLoadinglineRender,
 });
 
 function generateMenuIcon(glyph, strokeColor, outputPath) {
@@ -907,6 +910,7 @@ function createWindow() {
     updateTablineOptions,
     updateUrllineActions,
     updateUrllineRender,
+    updateLoadinglineRender,
     stopUrllineEdit,
     normalizeHistoryUrl,
     applyBrowserLanguagePreference,

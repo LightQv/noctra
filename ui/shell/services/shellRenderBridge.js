@@ -1,5 +1,8 @@
 const { renderTabline } = require("../../tabline");
-const { renderUrlline: renderShellUrlline } = require("../../urlline");
+const {
+  renderUrlline: renderShellUrlline,
+  renderLoadingline: renderShellLoadingline,
+} = require("../../urlline");
 const {
   pushShellPatch,
 } = require("../../../core/adapters/renderer/shellPatchTransport");
@@ -58,6 +61,7 @@ function setThemeBridge(nextTheme = {}) {
   this.applyThemeToWebContents(this.getSidepanelWebContents());
   this.renderTabline(this.pendingTablineSnapshot);
   this.renderUrlline(this.urllineModel);
+  this.renderLoadingline(this.loadinglineModel);
   this.updateStatuslineSplitIndicator(this.statuslineSplitIndicator);
   this.updateSplitDivider(this.splitDividerState);
 }
@@ -126,10 +130,23 @@ function renderUrllineBridge(model = { panes: [] }) {
   );
 }
 
+function renderLoadinglineBridge(model = { panes: [] }) {
+  this.loadinglineModel =
+    model && typeof model === "object" ? model : { panes: [] };
+  if (!this.window || !this.shellHostReady) return;
+
+  renderShellLoadingline(
+    this.window.webContents,
+    this.loadinglineModel,
+    this.currentTheme,
+  );
+}
+
 module.exports = {
   renderTablineBridge,
   setThemeBridge,
   updateSplitDividerBridge,
   applyThemeToWebContentsBridge,
   renderUrllineBridge,
+  renderLoadinglineBridge,
 };

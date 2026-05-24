@@ -8,7 +8,8 @@ function isCommandVisible() {
 
 function showCommand(text = "", cursorIndex = null, context = "shell") {
   this.commandVisible = true;
-  this.commandContext = context === "editor" ? "editor" : "shell";
+  this.commandContext =
+    context === "editor" || context === "search" ? context : "shell";
   this.commandText = text;
   this.commandCursorIndex = Number.isFinite(cursorIndex)
     ? Math.max(0, Math.min(Math.trunc(cursorIndex), String(text).length))
@@ -34,7 +35,8 @@ function updateCommand(text = "", cursorIndex = null, context = null) {
     : maxCursor;
 
   if (typeof context === "string") {
-    this.commandContext = context === "editor" ? "editor" : "shell";
+    this.commandContext =
+      context === "editor" || context === "search" ? context : "shell";
   }
 
   this.commandText = nextText;
@@ -47,8 +49,9 @@ function updateCommand(text = "", cursorIndex = null, context = null) {
   const cursorClass =
     nextCursor < nextText.length ? "cursor-bar" : "cursor-block";
   const isEditorContext = this.commandContext === "editor";
-  const commandTitle = isEditorContext ? "Ex" : "Cmdline";
-  const commandPrefix = "";
+  const isSearchContext = this.commandContext === "search";
+  const commandTitle = isSearchContext ? "Search" : isEditorContext ? "Ex" : "Cmdline";
+  const commandPrefix = isSearchContext ? "󰍉" : "";
 
   pushShellPatch(
     this.commandOverlayView.webContents,

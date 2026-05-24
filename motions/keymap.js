@@ -40,9 +40,23 @@ function getModActionMap() {
   return getConfigValue("keymap.mod", {});
 }
 
+function getSearchKeymap() {
+  const searchActions = getConfigValue("keymap.search", {});
+  const runtime = {};
+
+  for (const [keys, actionId] of Object.entries(searchActions)) {
+    const builder = getBuilderFor(actionId);
+    if (!builder) continue;
+    runtime[keys] = builder;
+  }
+
+  return runtime;
+}
+
 module.exports = {
   getNormalKeymap,
   getModAction,
   getNormalActionMap,
   getModActionMap,
+  getSearchKeymap,
 };

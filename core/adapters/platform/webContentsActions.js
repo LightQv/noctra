@@ -115,6 +115,17 @@ function readScrollPercent(webContents) {
   );
 }
 
+function findInPage(webContents, text, options = {}) {
+  if (!isUsableWebContents(webContents)) return null;
+  const query = typeof text === "string" ? text : "";
+  return webContents.findInPage(query, options);
+}
+
+function stopFindInPage(webContents, action = "clearSelection") {
+  if (!isUsableWebContents(webContents)) return;
+  webContents.stopFindInPage(action);
+}
+
 module.exports = {
   isUsableWebContents,
   executeScript,
@@ -129,4 +140,6 @@ module.exports = {
   stop,
   detectFocusedEditable,
   readScrollPercent,
+  findInPage,
+  stopFindInPage,
 };

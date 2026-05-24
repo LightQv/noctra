@@ -51,6 +51,7 @@ const {
 const { createTelescopeHandlers } = require("./dispatcher/handlers/telescope");
 const { createSessionHandlers } = require("./dispatcher/handlers/session");
 const { createMiscHandlers } = require("./dispatcher/handlers/misc");
+const { createSearchHandlers } = require("./dispatcher/handlers/search");
 
 function blurFocusedWebInput(buffer) {
   if (
@@ -359,6 +360,7 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     ...createTelescopeHandlers(deps),
     ...createSessionHandlers(deps),
     ...createMiscHandlers(deps),
+    ...createSearchHandlers(deps),
   };
 }
 
@@ -433,6 +435,12 @@ function createDispatcher(runtimeDeps = {}) {
     }
 
     localUiShell.updateStatuslineMode(computeStatuslineModeLabel(state));
+    localUiShell.updateStatuslineSearchCount({
+      mode: state.mode,
+      active: state.searchActive,
+      index: state.searchMatchIndex,
+      total: state.searchMatchTotal,
+    });
     localUiShell.setTablineOptions({
       dimActiveBuffer: localSidepanelController.isFocused(),
     });

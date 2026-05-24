@@ -80,6 +80,9 @@ const INTENT_PAYLOAD_CONTRACTS = {
     engine: validateString,
     query: validateString,
   }),
+  [INTENTS.SEARCH_SUBMIT]: withBaseFields({
+    query: validateString,
+  }),
   [INTENTS.NEW_BUFFER]: withBaseFields({
     url: optional(validateString),
   }),

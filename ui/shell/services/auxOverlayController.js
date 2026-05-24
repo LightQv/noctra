@@ -513,6 +513,26 @@ function updateStatuslineScroll(percent) {
   );
 }
 
+function updateStatuslineSearchCount(model = {}) {
+  const mode = String(model.mode || "NORMAL");
+  const active = Boolean(model.active);
+  const index = Number.isFinite(model.index) ? Math.max(0, Math.floor(model.index)) : 0;
+  const total = Number.isFinite(model.total) ? Math.max(0, Math.floor(model.total)) : 0;
+  if (!this.statuslineView || !this.statuslineReady) return;
+  pushShellPatch(
+    this.statuslineView.webContents,
+    `
+      (function updateStatuslineSearchCount() {
+        const node = document.getElementById('statusline-search-count');
+        if (!node) return;
+        const visible = ${JSON.stringify(mode === "SEARCH" && active)};
+        node.style.display = visible ? 'inline-flex' : 'none';
+        node.textContent = ${JSON.stringify(`${index}/${total}`)};
+      })();
+    `,
+  );
+}
+
 function isDownloadsModalVisible() {
   return this.downloadsModalVisible;
 }
@@ -677,5 +697,6 @@ module.exports = {
   handleDownloadsModalMouseEvent,
   updateStatuslineMode,
   updateStatuslineScroll,
+  updateStatuslineSearchCount,
   updateStatuslineSplitIndicator,
 };

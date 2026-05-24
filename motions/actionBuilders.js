@@ -66,6 +66,15 @@ const ACTION_BUILDERS = {
   open_url_prompt: createActionBuilder("open_url_prompt", () => ({
     type: INTENTS.OPEN_URL_PROMPT,
   })),
+  search_open_prompt: createActionBuilder("search_open_prompt", () => ({
+    type: INTENTS.SEARCH_OPEN_PROMPT,
+  })),
+  search_next: createActionBuilder("search_next", () => ({
+    type: INTENTS.SEARCH_NEXT,
+  })),
+  search_prev: createActionBuilder("search_prev", () => ({
+    type: INTENTS.SEARCH_PREV,
+  })),
   new_buffer: createActionBuilder("new_buffer", () => ({
     type: INTENTS.NEW_BUFFER,
   })),

@@ -395,6 +395,28 @@ async function handleSelectionModalMouseEvent(input) {
 
 async function handleTelescopeMouseEvent(input) {
   if (!this.telescopeVisible || !input) return;
+  const bounds =
+    this.telescopeView && typeof this.telescopeView.getBounds === "function"
+      ? this.telescopeView.getBounds()
+      : null;
+  const menuX = Number.isFinite(input.x) && bounds ? input.x + bounds.x : input.x;
+  const menuY = Number.isFinite(input.y) && bounds ? input.y + bounds.y : input.y;
+  if (input.type === "mouseDown" && input.button === "right") {
+    const target = await resolveOverlayClickTarget(
+      this.telescopeView,
+      input.x,
+      input.y,
+      '[data-click-role="telescope-row"], #telescope-prompt, #telescope-shell',
+    );
+    if (typeof this.mouseActions?.showTelescopeContextMenu === "function") {
+      this.mouseActions.showTelescopeContextMenu({
+        x: menuX,
+        y: menuY,
+        target,
+      });
+    }
+    return;
+  }
   if (input.type === "mouseDown" && input.button === "left") {
     const target = await resolveOverlayClickTarget(
       this.telescopeView,
@@ -420,6 +442,18 @@ async function handleTelescopeMouseEvent(input) {
       if (typeof this.mouseActions?.focusTelescopePrompt === "function") {
         this.mouseActions.focusTelescopePrompt();
       }
+    }
+  }
+  if (input.type === "mouseMove") {
+    const target = await resolveOverlayClickTarget(
+      this.telescopeView,
+      input.x,
+      input.y,
+      '[data-click-role="telescope-row"], #telescope-prompt, #telescope-shell',
+    );
+    if (!target || target.role !== "telescope-row") return;
+    if (typeof this.mouseActions?.hoverTelescopeIndex === "function") {
+      this.mouseActions.hoverTelescopeIndex(target.index);
     }
   }
 }

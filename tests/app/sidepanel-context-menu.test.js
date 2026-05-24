@@ -21,7 +21,7 @@ test("sidepanel context menu template for history day", () => {
     actions,
   });
   assert.equal(template.length, 5);
-  assert.equal(template[0].label, "Open Every Link in New Tab");
+  assert.equal(template[0].label, "Open Every Link in New Buffer");
   assert.equal(template[2].label, "Delete Folder");
   assert.equal(template[4].label, "Hide Sidepanel");
 });
@@ -40,7 +40,7 @@ test("sidepanel context menu template for history entry", () => {
     actions,
   });
   assert.equal(template.length, 6);
-  assert.equal(template[0].label, "Open in New Tab");
+  assert.equal(template[0].label, "Open in New Buffer");
   assert.equal(template[1].label, "Open in Split");
   assert.equal(template[3].label, "Delete Entry");
   assert.equal(template[5].label, "Hide Sidepanel");
@@ -75,7 +75,7 @@ test("sidepanel context menu template for bookmarks folder", () => {
     actions,
   });
   assert.equal(template.length, 5);
-  assert.equal(template[0].label, "Open Every Link in New Tab");
+  assert.equal(template[0].label, "Open Every Link in New Buffer");
   assert.equal(template[2].label, "Delete Folder");
 });
 
@@ -93,7 +93,7 @@ test("sidepanel context menu template for bookmarks entry", () => {
     actions,
   });
   assert.equal(template.length, 6);
-  assert.equal(template[0].label, "Open in New Tab");
+  assert.equal(template[0].label, "Open in New Buffer");
   assert.equal(template[1].label, "Open in Split");
   assert.equal(template[3].label, "Delete Entry");
 });

@@ -20,6 +20,7 @@ function applyOverlayLayout({
     toastOverlayView,
     downloadsModalView,
     backdropOverlayView,
+    contextMenuOverlayView,
   } = overlays || {};
 
   if (
@@ -60,6 +61,25 @@ function applyOverlayLayout({
         }
       : { x: -10000, y: -10000, width: 1, height: 1 },
   );
+
+  const contextMenuVisible = Boolean(
+    visibility && visibility.contextMenuVisible,
+  );
+  if (contextMenuVisible && contextMenuOverlayView) {
+    contextMenuOverlayView.setBounds({
+      x: 0,
+      y: 0,
+      width: Math.max(bounds.width, 1),
+      height: Math.max(bounds.height, 1),
+    });
+  } else if (contextMenuOverlayView) {
+    contextMenuOverlayView.setBounds({
+      x: -10000,
+      y: -10000,
+      width: 1,
+      height: 1,
+    });
+  }
 
   const width = commandVisible
     ? Math.min(500, Math.max(bounds.width - 160, 300))
@@ -234,6 +254,10 @@ function applyOverlayStack(windowRef, stack = {}) {
 
   if (stack.downloadsModalVisible && stack.downloadsModalView) {
     windowRef.setTopBrowserView(stack.downloadsModalView);
+  }
+
+  if (stack.contextMenuVisible && stack.contextMenuOverlayView) {
+    windowRef.setTopBrowserView(stack.contextMenuOverlayView);
   }
 }
 

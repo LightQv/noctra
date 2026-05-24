@@ -1,4 +1,3 @@
-const { Menu } = require("electron");
 const { createWebContextMenuActions } = require("../core/adapters/platform/contextMenuActions");
 const { buildWebContextMenuTemplate } = require("../core/adapters/platform/contextMenuBuilder");
 
@@ -13,6 +12,7 @@ function registerWebContextMenu({
   isBookmarkableBuffer,
   clipboard,
   dialog,
+  uiShell,
 }) {
   const createActions = createWebContextMenuActions({
     clipboard,
@@ -91,8 +91,22 @@ function registerWebContextMenu({
 
     if (!template || template.length === 0) return;
 
-    const menu = Menu.buildFromTemplate(template);
-    menu.popup({ window: win });
+    // Convert webContents-relative coordinates to window coordinates
+    let offsetX = 0;
+    let offsetY = 0;
+    if (
+      targetBuffer &&
+      targetBuffer.view &&
+      typeof targetBuffer.view.getBounds === "function"
+    ) {
+      const b = targetBuffer.view.getBounds();
+      offsetX = b.x;
+      offsetY = b.y;
+    }
+
+    if (uiShell && typeof uiShell.showContextMenu === "function") {
+      uiShell.showContextMenu(template, params.x + offsetX, params.y + offsetY);
+    }
   }
 
   const disposables = new Map();
@@ -105,12 +119,28 @@ function registerWebContextMenu({
 
     const listener = (event, params) =>
       handleContextMenu(event, params, targetWebContents);
+    const mouseListener = (_event, input) => {
+      if (!input || input.button !== "right" || input.type !== "mouseDown") {
+        return;
+      }
+      if (!targetWebContents || targetWebContents.isDestroyed()) {
+        return;
+      }
+      targetWebContents
+        .executeJavaScript(
+          "window.getSelection && window.getSelection().removeAllRanges()",
+          true,
+        )
+        .catch(() => {});
+    };
     targetWebContents.on("context-menu", listener);
+    targetWebContents.on("before-mouse-event", mouseListener);
 
     const cleanup = () => {
       if (!targetWebContents.isDestroyed()) {
         try {
           targetWebContents.removeListener("context-menu", listener);
+          targetWebContents.removeListener("before-mouse-event", mouseListener);
         } catch {
           // ignore
         }

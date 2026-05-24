@@ -248,6 +248,16 @@ function normalizeInput(input) {
   };
 }
 
+function isPrimaryPasteShortcut(normalized, platform) {
+  if (!normalized || normalized.type !== "keyDown") return false;
+  if (normalized.key !== "v" && normalized.key !== "V") return false;
+  if (normalized.alt) return false;
+  if (platform === "darwin") {
+    return Boolean(normalized.meta && !normalized.ctrl);
+  }
+  return Boolean(normalized.ctrl && !normalized.meta);
+}
+
 function isPointInView(view, x, y) {
   if (!view || typeof view.getBounds !== "function") return false;
   const bounds = view.getBounds();
@@ -260,6 +270,254 @@ function isPointInView(view, x, y) {
     py >= bounds.y &&
     py < bounds.y + bounds.height
   );
+}
+
+function getBrowserViewForWebContents(win, webContents) {
+  if (!win || !webContents || webContents.isDestroyed()) return null;
+  const views = win.getBrowserViews();
+  for (const view of views) {
+    if (view && view.webContents === webContents) {
+      return view;
+    }
+  }
+  return null;
+}
+
+function sendSyntheticRightClick(webContents, x, y) {
+  if (!webContents || webContents.isDestroyed()) return;
+  const localX = Number.isFinite(x) ? Math.max(0, Math.floor(x)) : 0;
+  const localY = Number.isFinite(y) ? Math.max(0, Math.floor(y)) : 0;
+  webContents.sendInputEvent({
+    type: "mouseDown",
+    x: localX,
+    y: localY,
+    button: "right",
+    clickCount: 1,
+  });
+  webContents.sendInputEvent({
+    type: "mouseUp",
+    x: localX,
+    y: localY,
+    button: "right",
+    clickCount: 1,
+  });
+}
+
+function wrapTemplateClicks(template, onClick) {
+  if (!Array.isArray(template)) return [];
+  return template.map((item) => {
+    if (!item || typeof item !== "object" || typeof item.click !== "function") {
+      return item;
+    }
+    const originalClick = item.click;
+    return {
+      ...item,
+      click: (...args) => {
+        originalClick(...args);
+        if (typeof onClick === "function") onClick();
+      },
+    };
+  });
+}
+
+function closeTelescopeAfterContextAction(context) {
+  const { telescopeService, uiShell, getStatuslineModeLabel, appMenu } = context;
+  if (!telescopeService || !telescopeService.isActive()) return;
+  telescopeService.close();
+  uiShell.hideTelescope();
+  uiShell.updateStatuslineMode(getStatuslineModeLabel());
+  if (appMenu) appMenu.sync();
+}
+
+function buildTelescopeUrlContextTemplate({ url, dispatch, win, state, clipboard }) {
+  const normalizedUrl = String(url || "").trim();
+  if (!normalizedUrl) return [];
+  return [
+    {
+      label: "Open in New Buffer",
+      click: () => {
+        dispatch(win, { type: INTENTS.NEW_BUFFER, url: normalizedUrl }, state);
+      },
+    },
+    {
+      label: "Open in Split",
+      click: () => {
+        dispatch(win, { type: INTENTS.OPEN_URL_IN_SPLIT, url: normalizedUrl }, state);
+      },
+    },
+    { type: "separator" },
+    {
+      label: "Copy URL Address",
+      click: () => {
+        clipboard.writeText(normalizedUrl);
+      },
+    },
+  ];
+}
+
+function showTelescopeContextMenu(context, payload = {}) {
+  const {
+    telescopeService,
+    uiShell,
+    buffers,
+    dispatch,
+    state,
+    win,
+    clipboard,
+  } = context;
+  if (!uiShell || typeof uiShell.showContextMenu !== "function") return;
+  if (!telescopeService || !telescopeService.isActive()) return;
+
+  const target = payload.target || null;
+  let template = [];
+
+  if (target && target.id === "telescope-prompt") {
+    const query = telescopeService.getQuery();
+    const hasQuery = query.length > 0;
+    template = [
+      {
+        label: "Cut",
+        enabled: hasQuery,
+        click: () => {
+          if (!query) return;
+          clipboard.writeText(query);
+          telescopeService.clearQuery();
+          uiShell.updateTelescope(telescopeService.buildModel());
+        },
+      },
+      {
+        label: "Copy",
+        enabled: hasQuery,
+        click: () => {
+          if (query) clipboard.writeText(query);
+        },
+      },
+      {
+        label: "Paste",
+        click: () => {
+          const text = clipboard.readText();
+          if (!text) return;
+          telescopeService.appendQuery(text);
+          uiShell.updateTelescope(telescopeService.buildModel());
+        },
+      },
+      {
+        label: "Delete",
+        enabled: hasQuery,
+        click: () => {
+          telescopeService.clearQuery();
+          uiShell.updateTelescope(telescopeService.buildModel());
+        },
+      },
+      { type: "separator" },
+      { label: "Select All", enabled: false, click: () => {} },
+    ];
+  } else if (target && target.role === "telescope-row") {
+    const item = telescopeService.getResultAt(target.index);
+    if (!item) return;
+
+    if (item.contextKind === "buffers" && Number.isFinite(item.bufferId)) {
+      const bufferId = item.bufferId;
+      template = [
+        {
+          label: "Switch to Buffer",
+          click: () => {
+            dispatch(win, { type: INTENTS.SWITCH_BUFFER, id: bufferId }, state);
+          },
+        },
+        {
+          label: "Duplicate Buffer",
+          click: () => {
+            dispatch(
+              win,
+              { type: INTENTS.DUPLICATE_BUFFER, bufferId },
+              state,
+            );
+          },
+        },
+        {
+          label: "Close Buffer",
+          click: () => {
+            dispatch(win, { type: INTENTS.CLOSE_BUFFER, id: bufferId }, state);
+          },
+        },
+      ];
+    } else if (item.contextKind === "history") {
+      template = buildTelescopeUrlContextTemplate({
+        url: item.subtitle,
+        dispatch,
+        win,
+        state,
+        clipboard,
+      });
+    } else if (item.contextKind === "bookmarks") {
+      template = buildTelescopeUrlContextTemplate({
+        url: item.subtitle,
+        dispatch,
+        win,
+        state,
+        clipboard,
+      });
+    }
+
+    template = wrapTemplateClicks(template, () => {
+      closeTelescopeAfterContextAction(context);
+    });
+  }
+
+  if (!Array.isArray(template) || template.length === 0) return;
+  uiShell.showContextMenu(template, payload.x, payload.y);
+}
+
+function reopenContextMenuAt(context, x, y) {
+  const { uiShell, win, buffers, sidepanelController } = context;
+  if (!uiShell || !win || win.isDestroyed()) return;
+
+  if (
+    uiShell.telescopeView &&
+    uiShell.isTelescopeVisible() &&
+    isPointInView(uiShell.telescopeView, x, y)
+  ) {
+    const bounds = uiShell.telescopeView.getBounds();
+    sendSyntheticRightClick(
+      uiShell.telescopeView.webContents,
+      x - bounds.x,
+      y - bounds.y,
+    );
+    return;
+  }
+
+  const panelWebContents =
+    sidepanelController && typeof sidepanelController.getWebContents === "function"
+      ? sidepanelController.getWebContents()
+      : null;
+  const panelView = getBrowserViewForWebContents(win, panelWebContents);
+  if (panelView && isPointInView(panelView, x, y)) {
+    const b = panelView.getBounds();
+    sendSyntheticRightClick(panelWebContents, x - b.x, y - b.y);
+    return;
+  }
+
+  const candidates = [];
+  for (const buffer of buffers.getBuffers()) {
+    if (buffer && buffer.webContents && buffer.view) {
+      candidates.push(buffer);
+    }
+  }
+  const rightPaneBuffer = buffers.getRightPaneBuffer();
+  if (rightPaneBuffer && rightPaneBuffer.webContents && rightPaneBuffer.view) {
+    candidates.push(rightPaneBuffer);
+  }
+
+  for (const buffer of candidates) {
+    if (isPointInView(buffer.view, x, y)) {
+      const b = buffer.view.getBounds();
+      sendSyntheticRightClick(buffer.webContents, x - b.x, y - b.y);
+      return;
+    }
+  }
+
+  sendSyntheticRightClick(win.webContents, x, y);
 }
 
 function handleRawInput(context, event, input) {
@@ -280,6 +538,14 @@ function handleRawInput(context, event, input) {
     shouldPreventDefault,
     handleUrllineInput,
   } = context;
+
+  // Dismiss context menu on any key press
+  if (uiShell && uiShell.contextMenuVisible) {
+    uiShell.hideContextMenu();
+    event.preventDefault();
+    return;
+  }
+
   const normalized = normalizeInput(input);
   const focusSnapshot = resolveFocusSnapshot({
     state,
@@ -337,6 +603,19 @@ function handleRawInput(context, event, input) {
   }
 
   if (focusSnapshot.telescopeActive) {
+    if (isPrimaryPasteShortcut(normalized, process.platform)) {
+      event.preventDefault();
+      const result = telescopeService.handleInput({
+        ...normalized,
+        pasteText: clipboard.readText(),
+      });
+      if (result.consumed) {
+        uiShell.updateTelescope(telescopeService.buildModel());
+        if (appMenu) appMenu.sync();
+        return;
+      }
+    }
+
     const result = telescopeService.handleInput(normalized);
     if (result.consumed) {
       event.preventDefault();
@@ -571,10 +850,6 @@ function persistSessionSnapshot(context) {
       context: { error: error?.message || String(error) },
     });
   }
-}
-
-function buildStatuslineLabelGetter(context) {
-  return () => context.computeStatuslineModeLabel(context.state);
 }
 
 function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
@@ -847,6 +1122,7 @@ function createWindow() {
     win: null,
     handleUrllineInput: () => {},
     updateTablineOptions: () => {},
+    clipboard,
     resolveCurrentTheme: () => ({ theme: {}, resolvedMode: "dark" }),
     applyTheme: () => {},
     updateTablineActions: () => {},
@@ -1064,6 +1340,7 @@ function createWindow() {
     isBookmarkableBuffer,
     clipboard,
     dialog,
+    uiShell,
   });
 
   windowContexts.set(context.win.id, context);
@@ -1126,6 +1403,17 @@ function createWindow() {
       buffers.focusActive();
       if (appMenu) appMenu.sync();
     },
+    dismissContextMenu: () => {
+      buffers.focusActive();
+      uiShell.updateStatuslineMode(getStatuslineModeLabel());
+      if (appMenu) appMenu.sync();
+    },
+    reopenContextMenuAt: (x, y) => {
+      reopenContextMenuAt(context, x, y);
+    },
+    showTelescopeContextMenu: ({ x, y, target }) => {
+      showTelescopeContextMenu(context, { x, y, target });
+    },
     focusTelescopePrompt: () => {
       if (!telescopeService.isActive()) return;
       telescopeService.setMode("INSERT");
@@ -1147,6 +1435,15 @@ function createWindow() {
         dispatch(context.win, intent, state);
       }
       if (appMenu) appMenu.sync();
+    },
+    hoverTelescopeIndex: (index) => {
+      if (!telescopeService.isActive()) return;
+      const next = Number.isFinite(index) ? Math.floor(index) : -1;
+      if (next < 0) return;
+      const current = telescopeService.getSelectedIndex();
+      if (current === next) return;
+      telescopeService.setSelectedIndex(next);
+      uiShell.updateTelescope(telescopeService.buildModel());
     },
     clickDownloadsModalIndex: (index, clickCount = 1) => {
       const consumed = downloadsModal.clickIndex(index, clickCount);

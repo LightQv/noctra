@@ -42,7 +42,7 @@ function buildWebContextMenuTemplate({ params, runtimeSnapshot, actions }) {
     const linkText = params.linkText || params.selectionText || "";
     items.push(
       {
-        label: "Open Link in New Tab",
+        label: "Open Link in New Buffer",
         click: () => actions.openLinkInNewTab(params.linkURL),
       },
       {
@@ -66,7 +66,7 @@ function buildWebContextMenuTemplate({ params, runtimeSnapshot, actions }) {
     }
     items.push(
       {
-        label: "Open Image in New Tab",
+        label: "Open Image in New Buffer",
         click: () => actions.openImageInNewTab(params.srcURL),
       },
       {
@@ -97,7 +97,7 @@ function buildWebContextMenuTemplate({ params, runtimeSnapshot, actions }) {
   if (params.hasImageContents) {
     items.push(
       {
-        label: "Open Image in New Tab",
+        label: "Open Image in New Buffer",
         click: () => actions.openImageInNewTab(params.srcURL),
       },
       {
@@ -129,7 +129,7 @@ function buildWebContextMenuTemplate({ params, runtimeSnapshot, actions }) {
     const linkText = params.linkText || params.selectionText || "";
     items.push(
       {
-        label: "Open Link in New Tab",
+        label: "Open Link in New Buffer",
         click: () => actions.openLinkInNewTab(params.linkURL),
       },
       {
@@ -216,28 +216,41 @@ function buildUIShellContextMenuTemplate({ zone, target, runtimeSnapshot, action
     const { isFirst, isLast, isSplitEnabled, buffer } = runtimeSnapshot;
     const canSplit = !isSplitEnabled && canBufferBeSplit(buffer);
     items.push(
-      { label: "Close Tab", click: () => actions.closeTab() },
+      { label: "Close Buffer", click: () => actions.closeBuffer() },
       {
-        label: "Close All Tabs to the Left",
+        label: "Close Buffers to the Left",
         enabled: !isFirst,
-        click: () => actions.closeAllTabsToLeft(),
+        click: () => actions.closeAllBuffersToLeft(),
       },
       {
-        label: "Close All Tabs to the Right",
+        label: "Close Buffers to the Right",
         enabled: !isLast,
-        click: () => actions.closeAllTabsToRight(),
+        click: () => actions.closeAllBuffersToRight(),
       },
-      { label: "Close All Tabs", click: () => actions.closeAllTabs() },
+      { label: "Close All Buffers", click: () => actions.closeAllBuffers() },
       { type: "separator" },
       {
-        label: "Duplicate Tab",
+        label: "Duplicate Buffer",
         enabled: Boolean(buffer && !buffer.isEditable),
-        click: () => actions.duplicateTab(),
+        click: () => actions.duplicateBuffer(),
       },
       {
-        label: "Split Tab",
+        label: "Split Buffer",
         enabled: canSplit,
-        click: () => actions.splitTab(),
+        click: () => actions.splitBuffer(),
+      },
+    );
+    return items;
+  }
+
+  if (zone === "tabline" && target === "background") {
+    const canReopenClosedBuffer = Boolean(runtimeSnapshot.canReopenClosedBuffer);
+    items.push(
+      { label: "New Buffer", click: () => actions.newBuffer() },
+      {
+        label: "Reopen Closed Buffer",
+        enabled: canReopenClosedBuffer,
+        click: () => actions.reopenClosedBuffer(),
       },
     );
     return items;
@@ -267,7 +280,7 @@ function buildSidepanelContextMenuTemplate({ treeKind, rowType, runtimeSnapshot,
   if (treeKind === "history") {
     if (rowType === "day") {
       items.push(
-        { label: "Open Every Link in New Tab", click: () => actions.openFolderLinksInNewTabs() },
+        { label: "Open Every Link in New Buffer", click: () => actions.openFolderLinksInNewTabs() },
         { type: "separator" },
         { label: "Delete Folder", click: () => actions.deleteFolder() },
         { type: "separator" },
@@ -277,7 +290,7 @@ function buildSidepanelContextMenuTemplate({ treeKind, rowType, runtimeSnapshot,
     }
     if (rowType === "entry") {
       items.push(
-        { label: "Open in New Tab", click: () => actions.openInNewTab() },
+        { label: "Open in New Buffer", click: () => actions.openInNewTab() },
         { label: "Open in Split", click: () => actions.openInSplit() },
         { type: "separator" },
         { label: "Delete Entry", click: () => actions.deleteEntry() },
@@ -298,7 +311,7 @@ function buildSidepanelContextMenuTemplate({ treeKind, rowType, runtimeSnapshot,
   if (treeKind === "bookmarks") {
     if (rowType === "folder") {
       items.push(
-        { label: "Open Every Link in New Tab", click: () => actions.openFolderLinksInNewTabs() },
+        { label: "Open Every Link in New Buffer", click: () => actions.openFolderLinksInNewTabs() },
         { type: "separator" },
         { label: "Delete Folder", click: () => actions.deleteFolder() },
         { type: "separator" },
@@ -308,7 +321,7 @@ function buildSidepanelContextMenuTemplate({ treeKind, rowType, runtimeSnapshot,
     }
     if (rowType === "entry") {
       items.push(
-        { label: "Open in New Tab", click: () => actions.openInNewTab() },
+        { label: "Open in New Buffer", click: () => actions.openInNewTab() },
         { label: "Open in Split", click: () => actions.openInSplit() },
         { type: "separator" },
         { label: "Delete Entry", click: () => actions.deleteEntry() },

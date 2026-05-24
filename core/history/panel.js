@@ -1,4 +1,4 @@
-const { clipboard, Menu } = require("electron");
+const { clipboard } = require("electron");
 const historyService = require("./service");
 const bookmarksService = require("../bookmarks/service");
 const downloadsService = require("../downloads/service");
@@ -1356,13 +1356,14 @@ class HistoryPanel {
     };
   }
 
-  init({ window, buffers, state, viewHost, dispatch, INTENTS }) {
+  init({ window, buffers, state, viewHost, dispatch, INTENTS, uiShell }) {
     this.window = window;
     this.buffers = buffers;
     this.state = state;
     this.viewHost = viewHost || null;
     this.dispatch = dispatch || null;
     this.INTENTS = INTENTS || null;
+    this.uiShell = uiShell || null;
     this.renderTransport = createPanelRenderTransport({
       resolveWebContents: () => this.getWebContents(),
       delayMs: 16,
@@ -1732,8 +1733,55 @@ class HistoryPanel {
     }
   }
 
+  resolveTreeNodeFromTarget(target) {
+    if (!target || target.role !== "tree-row") return null;
+    const idx = Number.isFinite(target.rowIndex) ? target.rowIndex : -1;
+    const nodes = this.getTreeFlatNodes();
+    if (idx < 0 || idx >= nodes.length) return null;
+    const node = nodes[idx];
+    return node || null;
+  }
+
+  applyHoverTreeNode(node) {
+    if (!node) return false;
+    if (this.treeKind === "bookmarks") {
+      if (this.bookmarkCursor.nodeId === node.id) return false;
+      this.bookmarkCursor = { nodeId: node.id };
+      return true;
+    }
+
+    if (this.treeKind === "downloads") {
+      if (this.downloadCursor.id === node.id) return false;
+      this.downloadCursor = { id: node.id };
+      return true;
+    }
+
+    const nextEntryId = node.entry ? node.entry.id : null;
+    const isSameHistoryCursor =
+      this.cursor.type === node.type &&
+      this.cursor.dateKey === node.dateKey &&
+      String(this.cursor.entryId || "") === String(nextEntryId || "");
+    if (isSameHistoryCursor) return false;
+    this.cursor = {
+      type: node.type,
+      dateKey: node.dateKey,
+      entryId: nextEntryId,
+    };
+    return true;
+  }
+
   async handleMouseEvent(input, event) {
-    if (!this.visible || !input || input.type !== "mouseUp") return;
+    if (!this.visible || !input) return;
+
+    if (input.type === "mouseMove") {
+      const target = await this.resolveMouseTarget(input.x, input.y);
+      const node = this.resolveTreeNodeFromTarget(target);
+      if (!this.applyHoverTreeNode(node)) return;
+      this.render();
+      return;
+    }
+
+    if (input.type !== "mouseUp") return;
 
     if (input.button === "right") {
       if (event && typeof event.preventDefault === "function") {
@@ -1775,10 +1823,7 @@ class HistoryPanel {
       return;
     }
     if (target.role !== "tree-row") return;
-    const idx = Number.isFinite(target.rowIndex) ? target.rowIndex : -1;
-    const nodes = this.getTreeFlatNodes();
-    if (idx < 0 || idx >= nodes.length) return;
-    const node = nodes[idx];
+    const node = this.resolveTreeNodeFromTarget(target);
     if (!node) return;
 
     if (this.treeKind === "bookmarks") {
@@ -1850,8 +1895,13 @@ class HistoryPanel {
 
     if (!template || template.length === 0) return;
 
-    const menu = Menu.buildFromTemplate(template);
-    menu.popup({ window: this.window });
+    if (this.uiShell && typeof this.uiShell.showContextMenu === "function") {
+      // input.x, input.y are relative to the sidepanel view;
+      // sidepanel is positioned at y = UI_SHELL_TABLINE_HEIGHT
+      const menuX = _x;
+      const menuY = _y + UI_SHELL_TABLINE_HEIGHT;
+      this.uiShell.showContextMenu(template, menuX, menuY);
+    }
   }
 
   deleteFavoriteNodeById(nodeId) {

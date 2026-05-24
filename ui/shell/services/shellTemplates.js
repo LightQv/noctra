@@ -499,6 +499,8 @@ const TELESCOPE_OVERLAY_HTML = `
         box-sizing: border-box;
         font-family: var(--ui-font-family, ${UI_FONT_FAMILY});
         pointer-events: auto;
+        user-select: none;
+        -webkit-user-select: none;
       }
 
       #telescope-prompt {
@@ -575,6 +577,7 @@ const TELESCOPE_OVERLAY_HTML = `
         color: var(--ui-text-soft, #b6c7e8);
         font-size: 12px;
         cursor: pointer;
+        overflow: hidden;
       }
 
       .telescope-row.selected {
@@ -596,21 +599,19 @@ const TELESCOPE_OVERLAY_HTML = `
 
       .telescope-primary {
         min-width: 0;
-        flex: 1;
+        flex: 1 1 auto;
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
         padding: 0 ${UI_TREE_LAYOUT.namePaddingRight}px 0 ${UI_TREE_LAYOUT.namePaddingLeft}px;
-        display: flex;
-        align-items: center;
+        display: block;
       }
 
       .telescope-right {
         color: var(--ui-text-muted, #7d8aa3);
         white-space: nowrap;
         text-align: right;
-        width: ${UI_TREE_LAYOUT.rightColWidth}px;
-        flex: 0 0 ${UI_TREE_LAYOUT.rightColWidth}px;
+        flex: 0 0 auto;
         padding: 0 ${UI_TREE_LAYOUT.namePaddingRight}px 0 0;
         display: flex;
         align-items: center;
@@ -670,6 +671,14 @@ const TELESCOPE_OVERLAY_HTML = `
         <div id="telescope-list"></div>
       </fieldset>
     </div>
+    <script>
+      (function preventTelescopeContextMenu() {
+        document.addEventListener('contextmenu', function(event) {
+          event.preventDefault();
+          return false;
+        });
+      })();
+    </script>
   </body>
 </html>
 `;
@@ -1016,6 +1025,10 @@ const TOAST_OVERLAY_HTML = `
 </html>
 `;
 
+const {
+  CONTEXT_MENU_OVERLAY_HTML,
+} = require("./contextMenuOverlayTemplate");
+
 module.exports = {
   SHELL_HTML,
   COMMAND_OVERLAY_HTML,
@@ -1026,4 +1039,5 @@ module.exports = {
   TOAST_OVERLAY_HTML,
   DOWNLOADS_MODAL_OVERLAY_HTML,
   BACKDROP_OVERLAY_HTML,
+  CONTEXT_MENU_OVERLAY_HTML,
 };

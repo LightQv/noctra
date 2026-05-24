@@ -16,7 +16,9 @@ const {
   TOAST_OVERLAY_HTML,
   DOWNLOADS_MODAL_OVERLAY_HTML,
   BACKDROP_OVERLAY_HTML,
+  CONTEXT_MENU_OVERLAY_HTML,
 } = require("./services/shellTemplates");
+const contextMenuOverlayController = require("./services/contextMenuOverlayController");
 const {
   createPanelViewHost,
 } = require("../../core/adapters/platform/panelViewHost");
@@ -64,6 +66,11 @@ class UiShellManager {
     this.downloadsModalModel = null;
     this.backdropOverlayView = null;
     this.backdropOverlayReady = false;
+    this.contextMenuOverlayView = null;
+    this.contextMenuOverlayReady = false;
+    this.contextMenuVisible = false;
+    this.contextMenuItems = [];
+    this.contextMenuBounds = null;
     this.sidepanelViewHost = null;
     this.statuslineMode = "NORMAL";
     this.statuslineScroll = 0;
@@ -133,7 +140,7 @@ class UiShellManager {
     this.initializeToastOverlayView();
     this.initializeDownloadsModalView();
     this.initializeBackdropOverlayView();
-    this.initializeLoadinglineOverlayViews();
+    this.initializeContextMenuOverlayView();
 
     this.window.on("resize", () => this.relayout());
     this.window.on("maximize", () => this.relayout());
@@ -283,6 +290,19 @@ class UiShellManager {
       onReady() {},
       onMouseEvent: (input) => {
         this.handleBackdropMouseEvent(input);
+      },
+    });
+  }
+
+  initializeContextMenuOverlayView() {
+    return overlayLifecycle.initializeOverlayView.call(this, {
+      viewKey: "contextMenuOverlayView",
+      readyKey: "contextMenuOverlayReady",
+      html: CONTEXT_MENU_OVERLAY_HTML,
+      autoResize: { width: false, height: false },
+      onReady() {},
+      onMouseEvent: (input, event) => {
+        this.handleContextMenuMouseEvent(input, event);
       },
     });
   }
@@ -491,6 +511,22 @@ class UiShellManager {
 
   syncOverlayStack() {
     return overlayLifecycle.syncOverlayStack.call(this);
+  }
+
+  showContextMenu(items, x, y) {
+    return contextMenuOverlayController.showContextMenu.call(this, items, x, y);
+  }
+
+  hideContextMenu() {
+    return contextMenuOverlayController.hideContextMenu.call(this);
+  }
+
+  handleContextMenuMouseEvent(input, event) {
+    return contextMenuOverlayController.handleContextMenuMouseEvent.call(
+      this,
+      input,
+      event,
+    );
   }
 
   isCommandVisible() {

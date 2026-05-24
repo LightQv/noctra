@@ -1,5 +1,4 @@
 const SEARCH_RUNTIME_GLOBAL_KEY = "__noctraSearchRuntime__";
-const SEARCH_HIGHLIGHT_PADDING_PX = 2;
 const SEARCH_VIEWPORT_TOP_RATIO = 0.22;
 const SEARCH_VIEWPORT_BOTTOM_RATIO = 0.78;
 const SEARCH_VIEWPORT_TARGET_RATIO = 0.36;
@@ -12,7 +11,6 @@ function buildSearchRuntimeBootstrapScript() {
         return true;
       }
 
-      const highlightPaddingPx = ${SEARCH_HIGHLIGHT_PADDING_PX};
       const viewportTopRatio = ${SEARCH_VIEWPORT_TOP_RATIO};
       const viewportBottomRatio = ${SEARCH_VIEWPORT_BOTTOM_RATIO};
       const viewportTargetRatio = ${SEARCH_VIEWPORT_TARGET_RATIO};
@@ -254,17 +252,18 @@ function buildSearchRuntimeBootstrapScript() {
               hasVisible = true;
               const node = document.createElement("div");
               node.style.position = "absolute";
-              node.style.left = String(Math.max(0, rect.left + scroll.x - highlightPaddingPx)) + "px";
-              node.style.top = String(Math.max(0, rect.top + scroll.y - highlightPaddingPx)) + "px";
-              node.style.width = String(Math.max(1, rect.width + highlightPaddingPx * 2)) + "px";
-              node.style.height = String(Math.max(1, rect.height + highlightPaddingPx * 2)) + "px";
-              node.style.borderRadius = "3px";
+              node.style.left = String(Math.max(0, rect.left + scroll.x)) + "px";
+              node.style.top = String(Math.max(0, rect.top + scroll.y)) + "px";
+              node.style.width = String(Math.max(1, rect.width)) + "px";
+              node.style.height = String(Math.max(1, rect.height)) + "px";
+              node.style.borderRadius = "0";
               if (i + 1 === runtime.activeIndex) {
                 node.style.background = "var(--search-active-bg)";
-                node.style.border = "1px solid var(--search-active-border)";
+                node.style.border = "none";
                 node.style.color = "var(--search-active-fg)";
               } else {
                 node.style.background = "var(--search-passive-bg)";
+                node.style.border = "none";
                 node.style.color = "var(--search-passive-fg)";
               }
               root.appendChild(node);

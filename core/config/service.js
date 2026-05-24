@@ -155,7 +155,7 @@ function addThemeComments(yamlText) {
     }
 
     if (inBrowserSection && /^ {2}language:\s*/.test(line)) {
-      output.push("  # Preferred website language: en | fr");
+      output.push("  # Preferred website language: system | en | fr");
       output.push(
         "  # Mapped to Accept-Language and known locale hints for requests",
       );
@@ -467,7 +467,11 @@ function updateBrowserLanguage(nextLanguage) {
   }
 
   const normalizedLanguage = nextLanguage.trim().toLowerCase();
-  if (normalizedLanguage !== "en" && normalizedLanguage !== "fr") {
+  if (
+    normalizedLanguage !== "system" &&
+    normalizedLanguage !== "en" &&
+    normalizedLanguage !== "fr"
+  ) {
     return cachedConfig;
   }
 

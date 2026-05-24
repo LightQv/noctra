@@ -329,7 +329,7 @@ const defaultConfig = {
     },
   },
   browser: {
-    language: "en",
+    language: "system",
     default_search_engine: "duckduckgo",
     copy_selection_to_clipboard: false,
     allow_http_loopback: true,

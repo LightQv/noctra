@@ -36,6 +36,7 @@ Use command mode:
 
 - `:lang en`
 - `:lang fr`
+- `:lang system`
 
 You can also set `browser.language` in config.
 

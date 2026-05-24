@@ -28,7 +28,7 @@ Apply config changes at runtime with `:config-reload`.
 - `global.window`: initial window bounds and maximized state
 - `global.opening_buffer`: startup mode and dashboard settings
 - `keymap.leader`: user leader-key mappings
-- `browser`: language, search engine, and clipboard-selection behavior
+- `browser`: web-content language, search engine, and clipboard-selection behavior
 
 ## Minimal example
 
@@ -57,7 +57,7 @@ keymap:
           action: "session_restore"
 
 browser:
-  language: "en"
+  language: "system"
   default_search_engine: "duckduckgo"
   copy_selection_to_clipboard: false
   allow_http_loopback: true
@@ -71,6 +71,15 @@ browser:
 ```
 
 ## Search engine fallback
+
+## Web-content language
+
+- `browser.language` controls website language negotiation.
+- Allowed values:
+  - `system` (default): follow OS/system language.
+  - `en`: force English for web content.
+  - `fr`: force French for web content.
+- This does not localize Noctra UI strings; app UI remains English-first.
 
 - `browser.default_search_engine` controls how non-URL text is resolved by `:open`, `:tab`, and URL line submit.
 - Allowed values: `duckduckgo`, `google`, `ecosia`.

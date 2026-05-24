@@ -23,7 +23,7 @@ const validateThemeMode = createEnumValidator([
   "auto",
   "custom",
 ]);
-const validateLanguage = createEnumValidator(["en", "fr"]);
+const validateLanguage = createEnumValidator(["system", "en", "fr"]);
 
 function validateIntentNext(value) {
   if (!isPlainObject(value)) {

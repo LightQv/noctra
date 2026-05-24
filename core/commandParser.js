@@ -158,7 +158,7 @@ function parseCommand(raw) {
       const argHasBang = argToken.endsWith("!");
       const language = argHasBang ? argToken.slice(0, -1) : argToken;
       const reload = hasBang || argHasBang;
-      if (!["en", "fr"].includes(language)) {
+      if (!["system", "en", "fr"].includes(language)) {
         return { type: INTENTS.UNKNOWN_COMMAND, raw };
       }
       return {

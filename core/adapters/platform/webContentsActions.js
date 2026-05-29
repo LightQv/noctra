@@ -27,14 +27,18 @@ function scrollByIntent(webContents, direction, amount) {
       (function applyScroll() {
         const amount = ${safeAmount};
         if (${JSON.stringify(direction)} === "left") {
-          window.scrollBy(-amount, 0);
+          window.scrollBy({ left: -amount, top: 0, behavior: "smooth" });
           return;
         }
         if (${JSON.stringify(direction)} === "right") {
-          window.scrollBy(amount, 0);
+          window.scrollBy({ left: amount, top: 0, behavior: "smooth" });
           return;
         }
-        window.scrollBy(0, ${JSON.stringify(direction)} === "down" ? amount : -amount);
+        window.scrollBy({
+          left: 0,
+          top: ${JSON.stringify(direction)} === "down" ? amount : -amount,
+          behavior: "smooth",
+        });
       })();
     `,
   );
@@ -62,14 +66,14 @@ function scrollBottom(webContents) {
 function pageDown(webContents) {
   return executeScript(
     webContents,
-    `window.scrollBy(0, Math.floor(window.innerHeight * 0.9))`,
+    `window.scrollBy({ top: Math.floor(window.innerHeight * 0.9), behavior: "smooth" })`,
   );
 }
 
 function pageUp(webContents) {
   return executeScript(
     webContents,
-    `window.scrollBy(0, -Math.floor(window.innerHeight * 0.9))`,
+    `window.scrollBy({ top: -Math.floor(window.innerHeight * 0.9), behavior: "smooth" })`,
   );
 }
 

@@ -85,6 +85,10 @@ const IPC_CONTRACTS = {
       initialText: optional(validateString),
     }),
   },
+  "settings:editor-open-search": {
+    kind: "event",
+    validator: optionalEmptyObject,
+  },
   "settings:editor-ready": { kind: "event", validator: optionalEmptyObject },
   "settings:get": { kind: "invoke", validator: optionalEmptyObject },
   "settings:save": {

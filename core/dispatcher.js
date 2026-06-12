@@ -353,6 +353,7 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     focusEditableBufferSurface: editorSurface.focus,
     blurEditableBufferSurface: editorSurface.blur,
     runEditableExCommand: editorSurface.runCommand,
+    runEditableSearch: editorSurface.search,
     blurFocusedWebInput,
     openSettingsBuffer: () => openSettingsBuffer(localBuffers),
     openNotificationsBuffer: () => openNotificationsBuffer(localBuffers),

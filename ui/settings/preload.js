@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld("settingsBridge", {
   editorOpenCommand(initialText = "") {
     ipcRenderer.send("settings:editor-open-command", { initialText });
   },
+  editorOpenSearch() {
+    ipcRenderer.send("settings:editor-open-search");
+  },
   editorToggleContext() {
     ipcRenderer.send("settings:editor-toggle-context");
   },

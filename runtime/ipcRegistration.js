@@ -339,6 +339,10 @@ function registerRuntimeIpc({
     dispatch(win, { type: INTENTS.COMMAND_INPUT }, state);
   };
 
+  const onEditorOpenSearch = (_event) => {
+    dispatch(win, { type: INTENTS.SEARCH_OPEN_PROMPT }, state);
+  };
+
   const onEditorReady = (_event) => {
     setEditorFocused(state, true);
     setEditorMode(state, "NORMAL");
@@ -511,6 +515,11 @@ function registerRuntimeIpc({
       "settings:editor-open-command",
       SURFACE_ROLES.TRUSTED_SETTINGS,
       onEditorOpenCommand,
+    ),
+    "settings:editor-open-search": withEventBoundary(
+      "settings:editor-open-search",
+      SURFACE_ROLES.TRUSTED_SETTINGS,
+      onEditorOpenSearch,
     ),
     "settings:editor-ready": withEventBoundary(
       "settings:editor-ready",

@@ -13,6 +13,7 @@ function createHarness(overrides = {}) {
   const state = createState();
   const notifications = [];
   const sentCommands = [];
+  const editableSearchCalls = [];
   let findInPageCalls = 0;
 
   const webContentsActions = {
@@ -48,7 +49,11 @@ function createHarness(overrides = {}) {
       notify: (entry) => notifications.push(entry),
     },
     webContentsActions,
+    runEditableSearch: (editableBuffer, query) => {
+      editableSearchCalls.push({ buffer: editableBuffer, query });
+    },
     dispatch: () => {},
+    ...overrides.deps,
   };
 
   let handlers = null;
@@ -63,6 +68,7 @@ function createHarness(overrides = {}) {
     state,
     notifications,
     sentCommands,
+    editableSearchCalls,
     handlers,
     getFindInPageCalls: () => findInPageCalls,
   };
@@ -84,6 +90,33 @@ test("search submit uses runtime command and updates count", async () => {
   assert.equal(harness.getFindInPageCalls(), 0);
   assert.equal(harness.state.searchMatchIndex, 1);
   assert.equal(harness.state.searchMatchTotal, 3);
+});
+
+test("search submit in editable buffer delegates to editor search", async () => {
+  const harness = createHarness({
+    buffer: {
+      id: 7,
+      isEditable: true,
+      url: "noctra://settings/config.yml",
+    },
+  });
+  harness.state.mode = "SEARCH";
+  harness.state.searchPromptVisible = true;
+
+  harness.handlers[INTENTS.SEARCH_SUBMIT]({
+    win: null,
+    intent: { type: INTENTS.SEARCH_SUBMIT, query: " editor term " },
+    state: harness.state,
+  });
+  await tick();
+
+  assert.equal(harness.editableSearchCalls.length, 1);
+  assert.equal(harness.editableSearchCalls[0].query, "editor term");
+  assert.equal(harness.sentCommands.length, 0);
+  assert.equal(harness.getFindInPageCalls(), 0);
+  assert.equal(harness.state.mode, "NORMAL");
+  assert.equal(harness.state.searchPromptVisible, false);
+  assert.equal(harness.state.searchActive, false);
 });
 
 test("search next and prev dispatch runtime actions", async () => {

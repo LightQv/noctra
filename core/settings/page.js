@@ -380,6 +380,10 @@ function buildSettingsPageHtml(
             shell.editorOpenCommand(payload?.initialText || "");
             return;
           }
+          if (type === "editor:open-search" && typeof shell.editorOpenSearch === "function") {
+            shell.editorOpenSearch();
+            return;
+          }
           if (type === "editor:toggle-context" && typeof shell.editorToggleContext === "function") {
             shell.editorToggleContext();
           }
@@ -623,6 +627,63 @@ function buildSettingsPageHtml(
           return Promise.resolve();
         };
 
+        const runEditorSearchFallback = (rawQuery) => {
+          if (!editor.getSearchCursor) return;
+
+          const query = String(rawQuery || "");
+          const cursor = editor.getSearchCursor(query, editor.getCursor(), {
+            caseFold: query.toLowerCase() === query,
+            multiline: true,
+          });
+          let found = cursor.findNext();
+          if (!found) {
+            const wrapped = editor.getSearchCursor(query, window.CodeMirror.Pos(editor.firstLine(), 0), {
+              caseFold: query.toLowerCase() === query,
+              multiline: true,
+            });
+            found = wrapped.findNext();
+            if (found) {
+              editor.setSelection(wrapped.from(), wrapped.to());
+              editor.scrollIntoView({ from: wrapped.from(), to: wrapped.to() }, 30);
+            }
+            return;
+          }
+          editor.setSelection(cursor.from(), cursor.to());
+          editor.scrollIntoView({ from: cursor.from(), to: cursor.to() }, 30);
+        };
+
+        const runEditorSearch = (rawQuery) => {
+          const query = String(rawQuery || "");
+          if (!query) return;
+
+          if (
+            window.CodeMirror &&
+            window.CodeMirror.Vim &&
+            typeof window.CodeMirror.Vim.handleKey === "function"
+          ) {
+            const originalOpenDialog = editor.openDialog;
+            let didOpenPrompt = false;
+            editor.openDialog = (_template, onClose) => {
+              didOpenPrompt = true;
+              if (typeof onClose === "function") {
+                onClose(query);
+              }
+              return () => {};
+            };
+
+            try {
+              window.CodeMirror.Vim.handleKey(editor, "/");
+              if (didOpenPrompt) return;
+            } catch {
+              // fall back to plain SearchCursor below
+            } finally {
+              editor.openDialog = originalOpenDialog;
+            }
+          }
+
+          runEditorSearchFallback(query);
+        };
+
         const loadBaselineContent = (content) => {
           editor.setValue(typeof content === "string" ? content : "");
           editor.clearHistory();
@@ -681,6 +742,10 @@ function buildSettingsPageHtml(
           runEditorCommand(commandText).catch(() => {});
         };
 
+        window.__settingsEditorSearch__ = (queryText) => {
+          runEditorSearch(queryText);
+        };
+
         const onEditorKeyDown = (event) => {
           if (mode === "INSERT") {
             return;
@@ -717,6 +782,18 @@ function buildSettingsPageHtml(
             event.preventDefault();
             event.stopImmediatePropagation();
             emitShell("editor:open-command", { initialText: "" });
+            return;
+          }
+
+          if (
+            event.key === "/" &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.altKey
+          ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            emitShell("editor:open-search");
             return;
           }
 

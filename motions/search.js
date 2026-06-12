@@ -1,6 +1,7 @@
 const { INTENTS } = require("../core/intents");
 const { getModAction, getSearchKeymap } = require("./keymap");
 const { isModPressed } = require("./modifiers");
+const { handleLeaderInput } = require("./normal");
 const { rememberRepeatableIntent } = require("./repeat");
 
 function toSearchChar(input) {
@@ -50,7 +51,7 @@ function handlePromptInput(state, input) {
   return null;
 }
 
-function handleSearch(state, input) {
+function handleSearch(state, input, options = {}) {
   if (state.searchPromptVisible) {
     return handlePromptInput(state, input);
   }
@@ -67,6 +68,11 @@ function handleSearch(state, input) {
       };
     }
     return null;
+  }
+
+  const leaderIntent = handleLeaderInput(state, input, Date.now(), options.buffers);
+  if (leaderIntent) {
+    return leaderIntent;
   }
 
   if (isModPressed(input)) {

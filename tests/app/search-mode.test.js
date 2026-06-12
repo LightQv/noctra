@@ -169,3 +169,67 @@ test("search prompt captures input while editor is focused", () => {
   assert.equal(dispatched[0].type, INTENTS.SEARCH_APPEND_TEXT);
   assert.equal(dispatched[0].text, "a");
 });
+
+test("search mode leader key opens which-key", () => {
+  const state = createState();
+  state.mode = "SEARCH";
+  state.searchPromptVisible = false;
+  state.searchHintMode = false;
+
+  const intent = handleSearch(
+    state,
+    { key: "Space", ctrl: false, alt: false, meta: false },
+    {
+      buffers: {
+        getActive: () => null,
+        isSplitEnabled: () => false,
+      },
+    },
+  );
+
+  assert.equal(state.leaderActive, true);
+  assert.equal(intent.type, INTENTS.SHOW_WHICHKEY);
+});
+
+test("search mode leader sequence triggers leader action", () => {
+  const state = createState();
+  state.mode = "SEARCH";
+  state.searchPromptVisible = false;
+  state.searchHintMode = false;
+  const buffers = {
+    getActive: () => null,
+    isSplitEnabled: () => false,
+  };
+
+  handleSearch(state, { key: "Space", ctrl: false, alt: false, meta: false }, { buffers });
+  const intent = handleSearch(
+    state,
+    { key: ",", ctrl: false, alt: false, meta: false },
+    { buffers },
+  );
+
+  assert.equal(state.leaderActive, false);
+  assert.equal(intent.type, INTENTS.HIDE_WHICHKEY);
+  assert.equal(intent.next.type, INTENTS.OPEN_SETTINGS_BUFFER);
+});
+
+test("search mode prevents native arrows during leader sequence", () => {
+  const state = createState();
+  state.mode = "SEARCH";
+  state.searchPromptVisible = false;
+  state.searchHintMode = false;
+  state.leaderActive = true;
+
+  const handler = createInputHandler({ state });
+
+  assert.equal(
+    handler.shouldPreventDefault({
+      type: "keyDown",
+      key: "ArrowDown",
+      ctrl: false,
+      alt: false,
+      meta: false,
+    }),
+    true,
+  );
+});

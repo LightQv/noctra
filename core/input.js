@@ -54,6 +54,10 @@ function createInputHandler(deps = {}) {
         return input.key === "Escape";
 
       case "SEARCH":
+        if (localState.leaderActive) {
+          return true;
+        }
+
         if (localState.searchPromptVisible || localState.searchHintMode) {
           return true;
         }
@@ -112,7 +116,7 @@ function createInputHandler(deps = {}) {
         break;
 
       case "SEARCH":
-        intent = handleSearch(localState, input);
+        intent = handleSearch(localState, input, { buffers: localBuffers });
         break;
     }
 

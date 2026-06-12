@@ -2,7 +2,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { INTENTS } = require("../../core/intents");
-const { handleSearch } = require("../../motions/search");
+const {
+  handleSearch,
+  shouldExitSearchForLeaderAction,
+} = require("../../motions/search");
 const { createInputHandler } = require("../../core/input");
 const { createState } = require("../../core/state");
 
@@ -191,7 +194,7 @@ test("search mode leader key opens which-key", () => {
   assert.equal(intent.type, INTENTS.SHOW_WHICHKEY);
 });
 
-test("search mode leader sequence triggers leader action", () => {
+test("search mode leader sequence clears search before context-changing action", () => {
   const state = createState();
   state.mode = "SEARCH";
   state.searchPromptVisible = false;
@@ -210,7 +213,8 @@ test("search mode leader sequence triggers leader action", () => {
 
   assert.equal(state.leaderActive, false);
   assert.equal(intent.type, INTENTS.HIDE_WHICHKEY);
-  assert.equal(intent.next.type, INTENTS.OPEN_SETTINGS_BUFFER);
+  assert.equal(intent.next.type, INTENTS.SEARCH_CLEAR);
+  assert.equal(intent.next.next.type, INTENTS.OPEN_SETTINGS_BUFFER);
 });
 
 test("search mode prevents native arrows during leader sequence", () => {
@@ -232,4 +236,155 @@ test("search mode prevents native arrows during leader sequence", () => {
     }),
     true,
   );
+});
+
+test("search leader close-side actions keep current search context", () => {
+  const active = { id: 2 };
+  const buffers = {
+    getActive: () => active,
+    getBuffers: () => [{ id: 1 }, active, { id: 3 }],
+  };
+
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.CLOSE_LEFT_BUFFERS }, buffers),
+    false,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.CLOSE_RIGHT_BUFFERS }, buffers),
+    false,
+  );
+});
+
+test("search leader close-side indexed actions exit only when active is removed", () => {
+  const active = { id: 2 };
+  const buffers = {
+    getActive: () => active,
+    getBuffers: () => [{ id: 1 }, active, { id: 3 }],
+  };
+
+  assert.equal(
+    shouldExitSearchForLeaderAction(
+      { type: INTENTS.CLOSE_LEFT_BUFFERS, index: 2 },
+      buffers,
+    ),
+    true,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction(
+      { type: INTENTS.CLOSE_LEFT_BUFFERS, index: 1 },
+      buffers,
+    ),
+    false,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction(
+      { type: INTENTS.CLOSE_RIGHT_BUFFERS, index: 0 },
+      buffers,
+    ),
+    true,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction(
+      { type: INTENTS.CLOSE_RIGHT_BUFFERS, index: 1 },
+      buffers,
+    ),
+    false,
+  );
+});
+
+test("search leader close and switch actions follow active buffer context", () => {
+  const active = { id: 2 };
+  const buffers = {
+    getActive: () => active,
+    getBuffers: () => [{ id: 1 }, active, { id: 3 }],
+  };
+
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.CLOSE_BUFFER }, buffers),
+    true,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.CLOSE_BUFFER, id: 1 }, buffers),
+    false,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.CLOSE_BUFFER, id: 2 }, buffers),
+    true,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.SWITCH_BUFFER, id: 2 }, buffers),
+    false,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.SWITCH_BUFFER, id: 3 }, buffers),
+    true,
+  );
+});
+
+test("search leader exits for known context-changing actions", () => {
+  const buffers = {
+    getActive: () => ({ id: 1 }),
+    getBuffers: () => [{ id: 1 }],
+  };
+
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.NEW_BUFFER }, buffers),
+    true,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.OPEN_URL_IN_SPLIT }, buffers),
+    true,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.OPEN_SETTINGS_BUFFER }, buffers),
+    true,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.TELESCOPE_OPEN_BUFFERS }, buffers),
+    true,
+  );
+});
+
+test("search leader keeps search-native and page-local actions", () => {
+  const buffers = {
+    getActive: () => ({ id: 1 }),
+    getBuffers: () => [{ id: 1 }],
+  };
+
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.SEARCH_NEXT }, buffers),
+    false,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.SCROLL, direction: "down", amount: 100 }, buffers),
+    false,
+  );
+  assert.equal(
+    shouldExitSearchForLeaderAction({ type: INTENTS.RELOAD_PAGE }, buffers),
+    false,
+  );
+});
+
+test("search leader numeric buffer switch clears search when target differs", () => {
+  const state = createState();
+  state.mode = "SEARCH";
+  state.searchPromptVisible = false;
+  state.searchHintMode = false;
+  const active = { id: 1 };
+  const buffers = {
+    getActive: () => active,
+    getBuffers: () => [active, { id: 2 }],
+    isSplitEnabled: () => false,
+  };
+
+  handleSearch(state, { key: "Space", ctrl: false, alt: false, meta: false }, { buffers });
+  const intent = handleSearch(
+    state,
+    { key: "2", ctrl: false, alt: false, meta: false },
+    { buffers },
+  );
+
+  assert.equal(intent.type, INTENTS.SEARCH_CLEAR);
+  assert.equal(intent.next.type, INTENTS.SWITCH_BUFFER);
+  assert.equal(intent.next.id, 2);
 });

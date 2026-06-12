@@ -78,6 +78,12 @@ class Buffer extends EventEmitter {
       contentColorScheme: "dark",
     };
     this.lastFailedNavigation = null;
+    this.loadingState = {
+      isLoading: false,
+      progress: null,
+      indeterminate: false,
+    };
+    this.loadingProgressTimer = null;
 
     const clearLoadingProgressTimer = () => {
       if (this.loadingProgressTimer) {

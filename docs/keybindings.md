@@ -44,11 +44,22 @@ Notes:
 
 ## SEARCH mode
 
+- `h`: scroll left
+- `j`: scroll down
+- `k`: scroll up
+- `l`: scroll right
 - `n`: next search match
 - `N`: previous search match
 - `/`: reopen search prompt
 - `f`: open search hint labels
+- `Ctrl+u`: half-page up
+- `Ctrl+d`: half-page down
 - `Escape`: clear search and return to `NORMAL`
+
+Notes:
+
+- Arrow keys are native in search mode by default so page-level movement still works.
+- You can remap arrows in `keymap.search` if you want app-owned arrow behavior.
 
 ## App menu accelerators
 

@@ -7,6 +7,8 @@ const { handleSearch } = require("../motions/search");
 const { dispatch } = require("./dispatcher");
 const sidepanelController = require("./sidepanel/controller");
 const { resolveSemanticContext } = require("./semanticContextResolver");
+const { getModAction, getSearchKeymap } = require("../motions/keymap");
+const { isModPressed } = require("../motions/modifiers");
 
 function createInputHandler(deps = {}) {
   const localState = deps.state || state;
@@ -48,6 +50,26 @@ function createInputHandler(deps = {}) {
         return input.key === "Escape";
 
       case "SEARCH":
+        if (localState.searchPromptVisible || localState.searchHintMode) {
+          return true;
+        }
+
+        if (
+          input.key === "ArrowDown" ||
+          input.key === "ArrowUp" ||
+          input.key === "ArrowLeft" ||
+          input.key === "ArrowRight"
+        ) {
+          const searchKeymap = getSearchKeymap();
+          if (searchKeymap[input.key]) return true;
+
+          if (isModPressed(input) && getModAction(input.key)) {
+            return true;
+          }
+
+          return false;
+        }
+
         return true;
 
       default:

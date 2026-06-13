@@ -46,7 +46,7 @@ function normalizePasswordManagerAction(action = {}) {
   const icon =
     typeof action.icon === "string" && action.icon.trim().length > 0
       ? action.icon.trim()
-      : "key";
+      : "󰌆";
   const titleByState = {
     installing: `Installing ${label}`,
     loading: `Loading ${label}`,

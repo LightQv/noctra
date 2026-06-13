@@ -1102,7 +1102,7 @@ function updateTablineActions(context) {
       shortcutLabel: downloadsLiveShortcut || "<leader> D | :downloads live",
     },
     passwordManager: {
-      icon: "key",
+      icon: "󰌆",
       status: passwordManagerStatus,
     },
   });

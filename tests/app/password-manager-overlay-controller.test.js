@@ -36,6 +36,10 @@ class FakeWindow extends EventEmitter {
     return { ...this.bounds };
   }
 
+  getContentBounds() {
+    return { ...this.bounds };
+  }
+
   setBounds(bounds) {
     this.bounds = { ...this.bounds, ...bounds };
   }
@@ -132,6 +136,28 @@ test("password manager overlay recenters on popup resize and parent resize", () 
     width: 400,
     height: 200,
   });
+});
+
+test("password manager overlay recenters after popup load moves window", () => {
+  const parent = new FakeWindow({ x: 10, y: 20, width: 900, height: 700 });
+  const popupWindow = new FakeWindow({ x: 0, y: 0, width: 320, height: 520 });
+  const popup = new FakePopup(popupWindow);
+  const controller = createPasswordManagerOverlayController({
+    getParentWindow: () => parent,
+  });
+
+  controller.handlePopupCreated(popup);
+  popupWindow.bounds.x = 0;
+  popupWindow.bounds.y = 90;
+  popupWindow.webContents.emit("did-finish-load");
+
+  assert.deepEqual(popupWindow.getBounds(), {
+    x: 300,
+    y: 110,
+    width: 320,
+    height: 520,
+  });
+  controller.close({ restoreFocus: false });
 });
 
 test("password manager overlay closes on Escape and restores focus", () => {

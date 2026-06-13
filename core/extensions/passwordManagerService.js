@@ -70,6 +70,7 @@ class PasswordManagerService {
     this.updateExtensions = updateExtensions;
     this.onStatusChange = onStatusChange;
     this.installAttemptedExtensionIds = new Set();
+    this.initializeInFlight = null;
     this.status = createStatus(
       resolvePasswordManagerProvider(PASSWORD_MANAGER_PROVIDER_IDS.NONE),
       "disabled",
@@ -91,6 +92,17 @@ class PasswordManagerService {
   }
 
   async initialize() {
+    if (this.initializeInFlight) {
+      return this.initializeInFlight;
+    }
+
+    this.initializeInFlight = this.runInitialize().finally(() => {
+      this.initializeInFlight = null;
+    });
+    return this.initializeInFlight;
+  }
+
+  async runInitialize() {
     const provider = resolvePasswordManagerProvider(
       getConfigProvider(this.configService),
     );
@@ -249,9 +261,10 @@ class PasswordManagerService {
       );
     } catch (error) {
       this.notifyWarning({
+        severity: "info",
         code: "password_manager_service_worker_start_failed",
         message:
-          "The extension background worker did not start explicitly. Popup support may still work; restart Noctra if the provider misbehaves.",
+          "Password manager background worker explicit start was skipped; popup support may still work.",
         detail: sanitizeFailureMessage(
           error,
           "Password manager background worker failed to start.",
@@ -311,17 +324,18 @@ class PasswordManagerService {
     });
   }
 
-  notifyWarning({ code, message, detail }) {
+  notifyWarning({ severity = "warning", code, message, detail }) {
     if (!hasMethod(this.notificationsService, "notify")) {
       return;
     }
 
     this.notificationsService.notify({
-      severity: "warning",
+      severity,
       code,
       message,
       source: "passwordManagerService",
       context: detail ? { message: detail } : undefined,
+      toast: false,
       persist: false,
     });
   }

@@ -247,6 +247,7 @@ function bootstrapWindowRuntime({
     registerIpcContracts,
     notificationsService,
     clipboard,
+    passwordManagerService,
   });
 
   buffers.init(win);

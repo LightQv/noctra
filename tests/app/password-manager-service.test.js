@@ -93,6 +93,54 @@ test("password manager service loads existing provider", async () => {
   ]);
 });
 
+test("password manager service coalesces concurrent initialize calls", async () => {
+  let loadCalls = 0;
+  let releaseLoad;
+  const service = new PasswordManagerService({
+    configService: makeConfigService("bitwarden"),
+    session: makeSession([{ id: BITWARDEN_ID }]),
+    extensionRuntime: makeRuntime(),
+    loadExtension: async () => {
+      loadCalls += 1;
+      await new Promise((resolve) => {
+        releaseLoad = resolve;
+      });
+    },
+  });
+
+  const firstInitialize = service.initialize();
+  const secondInitialize = service.initialize();
+  await new Promise((resolve) => setImmediate(resolve));
+  releaseLoad();
+  const statuses = await Promise.all([firstInitialize, secondInitialize]);
+
+  assert.equal(loadCalls, 1);
+  assert.equal(statuses[0].state, "loaded");
+  assert.equal(statuses[1].state, "loaded");
+});
+
+test("password manager service applies provider disable on reinitialize", async () => {
+  let provider = "bitwarden";
+  const service = new PasswordManagerService({
+    configService: makeConfigService("bitwarden"),
+    session: makeSession([{ id: BITWARDEN_ID }]),
+    extensionRuntime: makeRuntime(),
+  });
+
+  service.configService = {
+    getConfigValue() {
+      return provider;
+    },
+  };
+
+  assert.equal((await service.initialize()).state, "loaded");
+  provider = "none";
+  const status = await service.initialize();
+
+  assert.equal(status.state, "disabled");
+  assert.equal(status.canOpen, false);
+});
+
 test("password manager service installs missing provider", async () => {
   const installed = [];
   const loaded = [];

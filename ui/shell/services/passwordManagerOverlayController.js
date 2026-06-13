@@ -55,6 +55,7 @@ class PasswordManagerOverlayController {
     this.popup = null;
     this.popupWindow = null;
     this.cleanupFns = [];
+    this.centerTimers = new Set();
   }
 
   handlePopupCreated(popup) {
@@ -69,6 +70,8 @@ class PasswordManagerOverlayController {
     this.markExtensionSurface(popupWindow);
     this.bindPopup(popup, popupWindow);
     this.centerPopup();
+    this.scheduleCenterPopup(0);
+    this.scheduleCenterPopup(120);
     return true;
   }
 
@@ -92,6 +95,10 @@ class PasswordManagerOverlayController {
       }
     };
     const onResize = () => this.centerPopup();
+    const onDelayedCenter = () => {
+      this.centerPopup();
+      this.scheduleCenterPopup(80);
+    };
 
     if (popup && typeof popup.on === "function") {
       popup.on("resized", onResize);
@@ -104,11 +111,26 @@ class PasswordManagerOverlayController {
         popupWindow.webContents.off &&
         popupWindow.webContents.off("before-input-event", onEscape),
       );
+      for (const eventName of ["dom-ready", "did-finish-load"]) {
+        popupWindow.webContents.on(eventName, onDelayedCenter);
+        this.cleanupFns.push(() =>
+          popupWindow.webContents.off &&
+          popupWindow.webContents.off(eventName, onDelayedCenter),
+        );
+      }
     }
 
     if (typeof popupWindow.on === "function") {
       popupWindow.on("closed", onClosed);
       this.cleanupFns.push(() => popupWindow.off && popupWindow.off("closed", onClosed));
+      popupWindow.on("ready-to-show", onDelayedCenter);
+      popupWindow.on("show", onDelayedCenter);
+      this.cleanupFns.push(() => {
+        if (popupWindow.off) {
+          popupWindow.off("ready-to-show", onDelayedCenter);
+          popupWindow.off("show", onDelayedCenter);
+        }
+      });
     }
 
     if (isLiveWindow(parentWindow) && typeof parentWindow.on === "function") {
@@ -128,7 +150,11 @@ class PasswordManagerOverlayController {
     }
 
     const parentBounds =
-      typeof parentWindow.getBounds === "function" ? parentWindow.getBounds() : null;
+      typeof parentWindow.getContentBounds === "function"
+        ? parentWindow.getContentBounds()
+        : typeof parentWindow.getBounds === "function"
+          ? parentWindow.getBounds()
+          : null;
     const popupBounds =
       typeof this.popupWindow.getBounds === "function"
         ? this.popupWindow.getBounds()
@@ -144,6 +170,14 @@ class PasswordManagerOverlayController {
     }
 
     return false;
+  }
+
+  scheduleCenterPopup(delayMs) {
+    const timer = setTimeout(() => {
+      this.centerTimers.delete(timer);
+      this.centerPopup();
+    }, delayMs);
+    this.centerTimers.add(timer);
   }
 
   close({ restoreFocus = true } = {}) {
@@ -166,6 +200,10 @@ class PasswordManagerOverlayController {
 
   releasePopup({ restoreFocus = true } = {}) {
     const cleanupFns = this.cleanupFns.splice(0, this.cleanupFns.length);
+    for (const timer of this.centerTimers) {
+      clearTimeout(timer);
+    }
+    this.centerTimers.clear();
     for (const cleanup of cleanupFns) {
       try {
         cleanup();

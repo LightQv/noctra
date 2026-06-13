@@ -199,6 +199,19 @@ function addThemeComments(yamlText) {
       );
     }
 
+    if (inBrowserSection && /^ {2}password_manager:\s*$/.test(line)) {
+      output.push("  # Extension-backed password manager. Noctra stores no passwords.");
+      output.push(
+        "  # provider: none | bitwarden | 1password (1password is experimental)",
+      );
+      output.push(
+        "  # bitwarden/1password auto-install Chrome extensions when enabled.",
+      );
+      output.push(
+        "  # Local validation requires NOCTRA_CHROME_EXTENSIONS_LICENSE.",
+      );
+    }
+
     if (/^ {2}opening_buffer:\s*$/.test(line)) {
       output.push("  # Startup page mode");
       inOpeningBufferSection = true;

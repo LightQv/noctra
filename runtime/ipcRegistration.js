@@ -36,6 +36,7 @@ function registerRuntimeIpc({
   registerIpcContracts,
   notificationsService,
   clipboard,
+  passwordManagerService,
 }) {
   const isTrustedIpcSender = (
     event,
@@ -386,6 +387,10 @@ function registerRuntimeIpc({
 
   const onSettingsSave = async (event, payload) => {
     const activeBuffer = buffers.getActive();
+    const previousPasswordManagerProvider = configService.getConfigValue(
+      "browser.password_manager.provider",
+      "none",
+    );
     const configPath =
       activeBuffer &&
       activeBuffer.isEditable &&
@@ -399,6 +404,28 @@ function registerRuntimeIpc({
       }
       const config = configService.reloadConfig();
       applyReloadedConfig(config, { refreshLayout: true });
+      const nextPasswordManagerProvider = configService.getConfigValue(
+        "browser.password_manager.provider",
+        "none",
+      );
+      if (
+        previousPasswordManagerProvider !== nextPasswordManagerProvider &&
+        passwordManagerService &&
+        typeof passwordManagerService.initialize === "function"
+      ) {
+        passwordManagerService.initialize().catch((error) => {
+          notificationsService.notify({
+            severity: "warning",
+            code: "password_manager_reload_failed",
+            message:
+              error && error.message
+                ? error.message
+                : "Password manager failed to reload after config change.",
+            source: "runtime.ipcRegistration",
+            persist: false,
+          });
+        });
+      }
       return { ok: true };
     } catch (error) {
       return { ok: false, error: error.message };

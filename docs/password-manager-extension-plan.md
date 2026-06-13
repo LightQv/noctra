@@ -90,7 +90,7 @@ Config behavior:
 - Unknown provider normalizes to `none`.
 - Missing `password_manager` section uses defaults.
 - Invalid shape must not crash startup.
-- Runtime reload should eventually refresh the provider state, but first implementation can require restart if hot-swap is too risky.
+- Runtime reload refreshes provider state after saving the main Noctra config.
 
 ## Runtime Status Model
 
@@ -633,7 +633,7 @@ Bitwarden checklist:
 - [ ] Extension-created tabs open as normal Noctra buffers.
 - [ ] Offline restart with already-installed extension works.
 
-Bitwarden M14 result: isolated smoke installed Bitwarden `2026.5.1` from Chrome Web Store under `Extensions/nngceckbapebfimnlniiiahkandclblb/2026.5.1_0`, and restart finds the installed extension. Electron emitted unsupported permission warnings for `contextMenus`, `sidePanel`, `webNavigation`, `notifications`, and `privacy`. Noctra fixed the popup navigation blocker by allowing `chrome-extension://` navigation only for child extension popup windows; the popup open path no longer produces `ERR_FAILED (-2)` or `SIGSEGV` in smoke. A minimal Electron repro showed fresh install can make explicit `session.serviceWorkers.startWorkerForScope("chrome-extension://<id>/")` reject with `Failed to start service worker`, while the provider action popup still opens; restarting and directly loading the installed extension lets the same explicit worker start resolve. Noctra treats explicit MV3 worker start failure as a warning, not an initialization failure, because Electron may already manage the extension worker lifecycle. Login, unlock, autofill, extension-created tabs, and offline restart still require manual validation.
+Bitwarden M14 result: isolated smoke installed Bitwarden `2026.5.1` from Chrome Web Store under `Extensions/nngceckbapebfimnlniiiahkandclblb/2026.5.1_0`, and restart finds the installed extension. Electron emitted unsupported permission warnings for `contextMenus`, `sidePanel`, `webNavigation`, `notifications`, and `privacy`. Noctra fixed the popup navigation blocker by allowing `chrome-extension://` navigation only for child extension popup windows; the popup open path no longer produces `ERR_FAILED (-2)` or `SIGSEGV` in smoke. A minimal Electron repro showed fresh install can make explicit `session.serviceWorkers.startWorkerForScope("chrome-extension://<id>/")` reject with `Failed to start service worker`, while the provider action popup still opens; restarting and directly loading the installed extension lets the same explicit worker start resolve. Noctra treats explicit MV3 worker start failure as a low-severity best-effort signal, not an initialization failure, because Electron may already manage the extension worker lifecycle. Login, unlock, autofill, extension-created tabs, and offline restart still require manual validation.
 
 1Password experimental checklist:
 

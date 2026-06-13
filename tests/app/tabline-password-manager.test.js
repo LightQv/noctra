@@ -16,7 +16,7 @@ function renderWithPasswordManagerStatus(status) {
     webContents,
     [],
     { platform: "linux", useNativeControls: false },
-    { passwordManager: { icon: "key", status } },
+    { passwordManager: { status } },
   );
 
   assert.equal(calls.length, 1);
@@ -100,6 +100,7 @@ test("password manager button is enabled when loaded", () => {
     true,
   );
   assert.equal(script.includes("Open Bitwarden"), true);
+  assert.equal(script.includes("󰌆"), true);
   assert.equal(script.includes(" disabled"), false);
 });
 

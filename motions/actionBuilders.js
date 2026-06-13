@@ -153,6 +153,9 @@ const ACTION_BUILDERS = {
   downloads_live_modal: createActionBuilder("downloads_live_modal", () => ({
     type: INTENTS.DOWNLOADS_LIVE_MODAL,
   })),
+  password_manager_open: createActionBuilder("password_manager_open", () => ({
+    type: INTENTS.PASSWORD_MANAGER_OPEN,
+  })),
   telescope_open_history: createActionBuilder("telescope_open_history", () => ({
     type: INTENTS.TELESCOPE_OPEN_HISTORY,
   })),

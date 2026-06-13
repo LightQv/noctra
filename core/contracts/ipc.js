@@ -18,10 +18,7 @@ const validateUrllineAction = createEnumValidator([
   "reload",
 ]);
 const validateEditorMode = createEnumValidator(["NORMAL", "INSERT"]);
-const validateContextMenuZone = createEnumValidator([
-  "urlline",
-  "tabline",
-]);
+const validateContextMenuZone = createEnumValidator(["urlline", "tabline"]);
 const validateFiniteNumber = (value) => {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return { ok: false, message: "expected finite number" };
@@ -38,6 +35,13 @@ function optionalEmptyObject(value) {
   return validateEmptyObject(value);
 }
 
+function optionalNullOrEmptyObject(value) {
+  if (value === undefined || value === null) {
+    return { ok: true };
+  }
+  return validateEmptyObject(value);
+}
+
 const IPC_CONTRACTS = {
   "ui-shell:window-action": {
     kind: "event",
@@ -47,6 +51,10 @@ const IPC_CONTRACTS = {
   "ui-shell:new-tab": { kind: "event", validator: optionalEmptyObject },
   "ui-shell:open-history": { kind: "event", validator: optionalEmptyObject },
   "ui-shell:open-downloads": { kind: "event", validator: optionalEmptyObject },
+  "ui-shell:open-password-manager": {
+    kind: "event",
+    validator: optionalNullOrEmptyObject,
+  },
   "ui-shell:tab-activate": {
     kind: "event",
     validator: createStrictObjectValidator({ id: validateInteger }),
@@ -66,7 +74,10 @@ const IPC_CONTRACTS = {
       action: validateUrllineAction,
     }),
   },
-  "ui-shell:stop-urlline-edit": { kind: "event", validator: optionalEmptyObject },
+  "ui-shell:stop-urlline-edit": {
+    kind: "event",
+    validator: optionalEmptyObject,
+  },
   "settings:editor-toggle-context": {
     kind: "event",
     validator: optionalEmptyObject,

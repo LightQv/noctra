@@ -8,7 +8,29 @@ const {
   buildSafeDownloadPath,
   resolveDownloadDecision,
 } = require("../../security/downloadPolicy");
+const { isExtensionInternalUrl } = require("../../security/urlPolicy");
 const downloadsService = require("../../downloads/service");
+
+function isExtensionChildWindowNavigation(contents, url) {
+  if (!contents || !isExtensionInternalUrl(url)) {
+    return false;
+  }
+
+  if (typeof contents.getType === "function" && contents.getType() !== "window") {
+    return false;
+  }
+
+  if (typeof contents.getOwnerBrowserWindow !== "function") {
+    return false;
+  }
+
+  const ownerWindow = contents.getOwnerBrowserWindow();
+  return Boolean(
+    ownerWindow &&
+      typeof ownerWindow.getParentWindow === "function" &&
+      ownerWindow.getParentWindow(),
+  );
+}
 
 function registerSessionSecurityPolicy({
   session,
@@ -192,6 +214,10 @@ function registerWebContentsSecurityPolicy({
       }
 
       if (isAllowedNavigationUrl(url)) {
+        return;
+      }
+
+      if (isExtensionChildWindowNavigation(contents, url)) {
         return;
       }
 

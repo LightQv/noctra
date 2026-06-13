@@ -32,6 +32,7 @@ Use `:` in `COMMAND` mode to run the following commands.
 
 - `:settings`, `:config`: open settings buffer
 - `:notifications`, `:notifs`: open notifications buffer
+- `:password-manager`, `:pm`: open password manager
 - `:config-reload`: reload config file
 
 ## URL Line

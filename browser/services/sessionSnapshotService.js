@@ -1,4 +1,5 @@
 const { detachView } = require("../../core/adapters/platform/contentViewHost");
+const { isExtensionInternalUrl } = require("../../core/security/urlPolicy");
 
 function isSessionRestorableBuffer(manager, buffer) {
   if (!buffer || buffer.kind !== "web") {
@@ -10,7 +11,11 @@ function isSessionRestorableBuffer(manager, buffer) {
     return false;
   }
 
-  if (url.startsWith("noctra://") || url.startsWith("data:")) {
+  if (
+    url.startsWith("noctra://") ||
+    url.startsWith("data:") ||
+    isExtensionInternalUrl(url)
+  ) {
     return false;
   }
 
@@ -50,7 +55,8 @@ function restoreSessionSnapshot(manager, snapshot) {
             !url ||
             url === "about:blank" ||
             url.startsWith("noctra://") ||
-            url.startsWith("data:")
+            url.startsWith("data:") ||
+            isExtensionInternalUrl(url)
           ) {
             return null;
           }

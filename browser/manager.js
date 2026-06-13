@@ -93,6 +93,7 @@ class BufferManager {
     this.closedBuffers = [];
     this.maxClosedBuffers = 50;
     this.lastSelectionCopyByWebContentsId = new Map();
+    this.extensionRuntime = null;
   }
 
   init(windowRef) {
@@ -247,6 +248,65 @@ class BufferManager {
 
   getActiveWebContents() {
     return getActiveWebContents(this);
+  }
+
+  setExtensionRuntime(extensionRuntime) {
+    this.extensionRuntime = extensionRuntime || null;
+    for (const buffer of this.buffers) {
+      this.registerBufferWithExtensionRuntime(buffer);
+    }
+    this.selectActiveExtensionBuffer();
+  }
+
+  registerBufferWithExtensionRuntime(buffer) {
+    if (
+      !this.extensionRuntime ||
+      typeof this.extensionRuntime.registerBuffer !== "function"
+    ) {
+      return false;
+    }
+
+    return this.extensionRuntime.registerBuffer(buffer, this.window);
+  }
+
+  removeBufferFromExtensionRuntime(buffer) {
+    if (
+      !this.extensionRuntime ||
+      typeof this.extensionRuntime.removeBuffer !== "function"
+    ) {
+      return false;
+    }
+
+    return this.extensionRuntime.removeBuffer(buffer, this.window);
+  }
+
+  getExtensionActiveBuffer() {
+    if (
+      this.split.enabled &&
+      this.split.mode === "regular" &&
+      this.focusedPane === "right" &&
+      this.split.rightPaneSourceBuffer
+    ) {
+      return this.split.rightPaneSourceBuffer;
+    }
+
+    return this.getLeftBuffer();
+  }
+
+  selectActiveExtensionBuffer() {
+    if (
+      !this.extensionRuntime ||
+      typeof this.extensionRuntime.selectBuffer !== "function"
+    ) {
+      return false;
+    }
+
+    const activeBuffer = this.getExtensionActiveBuffer();
+    if (!activeBuffer) {
+      return false;
+    }
+
+    return this.extensionRuntime.selectBuffer(activeBuffer, this.window);
   }
 
   switchTo(id) {
@@ -582,6 +642,10 @@ class BufferManager {
   }
 
   notify(change = { kind: "metadata", activeChanged: false }) {
+    if (change && change.activeChanged) {
+      this.selectActiveExtensionBuffer();
+    }
+
     const snapshot = this.getSnapshot();
     for (const listener of this.subscribers) {
       listener(snapshot, this.getActive(), change);

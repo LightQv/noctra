@@ -90,6 +90,7 @@ Every emitted intent must be executable by the dispatcher.
 - `SHOW_DOWNLOAD_IN_FOLDER`: Reveal a downloaded file in the file manager (`downloadId`).
 - `OPEN_DOWNLOAD_FILE`: Open a completed download with the default application (`downloadId`).
 - `DOWNLOADS_LIVE_MODAL`: Show live download modal.
+- `PASSWORD_MANAGER_OPEN`: Open selected password-manager extension popup when available.
 - `TELESCOPE_OPEN_HISTORY`: Open telescope search for history entries.
 - `TELESCOPE_OPEN_BOOKMARKS`: Open telescope search for bookmarks.
 - `TELESCOPE_OPEN_BUFFERS`: Open telescope search for buffers.

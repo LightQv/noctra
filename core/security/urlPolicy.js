@@ -142,7 +142,21 @@ function validateNavigableUrl(rawUrl, policy = {}) {
   return { ok: false, reason: "scheme_not_allowed" };
 }
 
+function isExtensionInternalUrl(rawUrl) {
+  if (typeof rawUrl !== "string" || !rawUrl.trim()) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(rawUrl.trim());
+    return parsed.protocol === "chrome-extension:" || parsed.protocol === "crx:";
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
+  isExtensionInternalUrl,
   looksLikeUrlTarget,
   normalizeUrlCandidate,
   normalizeTrustedHosts,

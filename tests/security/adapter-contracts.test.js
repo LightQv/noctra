@@ -272,6 +272,77 @@ test("webContents security policy blocks window open and denied navigation", () 
   assert.equal(notifications[1].code, "security_navigation_blocked");
 });
 
+test("webContents security policy allows extension child popup navigation only", () => {
+  let webContentsCreatedListener = null;
+  const notifications = [];
+  const app = {
+    on(eventName, listener) {
+      if (eventName === "web-contents-created") {
+        webContentsCreatedListener = listener;
+      }
+    },
+  };
+
+  registerWebContentsSecurityPolicy({
+    app,
+    isAllowedNavigationUrl: () => false,
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+
+  const captureNavigate = (contents) => {
+    let listener = null;
+    contents.setWindowOpenHandler = () => {};
+    contents.on = (eventName, nextListener) => {
+      if (eventName === "will-navigate") {
+        listener = nextListener;
+      }
+    };
+    webContentsCreatedListener({}, contents);
+    return listener;
+  };
+
+  const childPopupContents = {
+    getType: () => "window",
+    getOwnerBrowserWindow: () => ({
+      getParentWindow: () => ({ id: 1 }),
+    }),
+  };
+  const popupNavigate = captureNavigate(childPopupContents);
+  let prevented = false;
+  popupNavigate(
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "chrome-extension://abc/popup.html",
+  );
+  assert.equal(prevented, false);
+
+  const normalContents = {
+    getType: () => "browserView",
+    getOwnerBrowserWindow: () => ({
+      getParentWindow: () => null,
+    }),
+  };
+  const normalNavigate = captureNavigate(normalContents);
+  prevented = false;
+  normalNavigate(
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "chrome-extension://abc/popup.html",
+  );
+  assert.equal(prevented, true);
+  assert.equal(notifications.at(-1).code, "security_navigation_blocked");
+});
+
 test("webContents security policy blocks remote navigation for trusted surfaces", () => {
   let webContentsCreatedListener = null;
   const notifications = [];

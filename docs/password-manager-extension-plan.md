@@ -42,6 +42,10 @@ This document tracks the implementation plan for password-manager support throug
 
 `electron-chrome-extensions` is GPL-3 / Patron licensed. Noctra is MIT. Private development can proceed, but public distribution must resolve this before release.
 
+Local validation/runtime note: Noctra passes `NOCTRA_CHROME_EXTENSIONS_LICENSE` through to `electron-chrome-extensions` only when it is one of the package-supported license strings: `GPL-3.0` or `Patron-License-2020-11-19`. Without this explicit env var, the extension runtime falls back to no-op and real provider validation cannot pass.
+
+Validation isolation note: set `NOCTRA_USER_DATA_DIR` during M14 smoke/manual checks so Chrome Web Store downloads, extension state, cookies, and extension storage are isolated from the normal Noctra profile.
+
 Release blocker todo:
 
 - [ ] Decide GPL compatibility or obtain Patron/proprietary license.
@@ -236,14 +240,14 @@ Callbacks to implement:
 
 Todos:
 
-- [ ] Add runtime constructor accepting `session`, `buffers`, `createWindow`, `getLastWindowContext`, and `notificationsService` dependencies.
-- [ ] Add no-op implementation for provider `none`.
-- [ ] Add `registerBuffer(buffer, win)`.
-- [ ] Add `selectBuffer(buffer)`.
-- [ ] Add `removeBuffer(buffer)` if package requires explicit cleanup.
+- [x] Add runtime constructor accepting `session`, `buffers`, `createWindow`, `getLastWindowContext`, and `notificationsService` dependencies.
+- [x] Add no-op implementation for provider `none`.
+- [x] Add `registerBuffer(buffer, win)`.
+- [x] Add `selectBuffer(buffer)`.
+- [x] Add `removeBuffer(buffer)` if package requires explicit cleanup.
 - [ ] Add `openActionPopup(provider)` or equivalent package-backed method.
-- [ ] Add fake-buffer tests for create/select/remove tab callbacks.
-- [ ] Add fake-window tests for extension-created tabs opening as normal buffers.
+- [x] Add fake-buffer tests for create/select/remove tab callbacks.
+- [x] Add fake-window tests for extension-created tabs opening as normal buffers.
 
 Exit criteria:
 
@@ -272,26 +276,26 @@ Service responsibilities:
 
 Todos:
 
-- [ ] Create service with injected `session`, `configService`, `extensionRuntime`, and `notificationsService`.
-- [ ] Add `initialize()` startup method.
-- [ ] Add `getStatus()` method.
-- [ ] Add `open()` method used by intent/button.
-- [ ] Check `session.defaultSession.extensions.getAllExtensions()` for provider ID.
+- [x] Create service with injected `session`, `configService`, `extensionRuntime`, and `notificationsService`.
+- [x] Add `initialize()` startup method.
+- [x] Add `getStatus()` method.
+- [x] Add `open()` method used by intent/button.
+- [x] Check `session.defaultSession.extensions.getAllExtensions()` for provider ID.
 - [ ] Auto-install missing provider via `electron-chrome-web-store`.
-- [ ] Load extension after install.
-- [ ] Load existing extension on startup.
-- [ ] Start MV3 service worker when manifest requires it.
-- [ ] Catch install/load failures and set `failed` status.
-- [ ] Emit or callback status changes to update tabline.
-- [ ] Add unit tests with fake session/extensions object.
+- [x] Load extension after install.
+- [x] Load existing extension on startup.
+- [x] Start MV3 service worker when manifest requires it.
+- [x] Catch install/load failures and set `failed` status.
+- [x] Emit or callback status changes to update tabline.
+- [x] Add unit tests with fake session/extensions object.
 
 Exit criteria:
 
-- [ ] Provider `none` performs no extension work.
+- [x] Provider `none` performs no extension work.
 - [ ] Selected provider auto-installs when missing.
-- [ ] Selected provider loads when installed.
-- [ ] Failure shows disabled button and warning toast.
-- [ ] Service never logs credential data.
+- [x] Selected provider loads when installed.
+- [x] Failure shows disabled button and warning toast.
+- [x] Service never logs credential data.
 
 ## Milestone 5: Buffer Lifecycle Wiring
 
@@ -306,22 +310,22 @@ Files likely touched:
 
 Todos:
 
-- [ ] Inject extension runtime into buffer manager or lifecycle service.
-- [ ] Register each new web buffer after creation.
-- [ ] Skip editable/settings/internal trusted buffers unless explicitly needed.
-- [ ] Select extension tab when active Noctra buffer changes.
-- [ ] Remove/destroy extension tab state when buffer closes.
-- [ ] Ensure split/right-pane buffers are handled intentionally.
-- [ ] Ensure session restore registers restored buffers.
-- [ ] Add tests for active buffer sync.
-- [ ] Add tests for buffer close cleanup.
+- [x] Inject extension runtime into buffer manager or lifecycle service.
+- [x] Register each new web buffer after creation.
+- [x] Skip editable/settings/internal trusted buffers unless explicitly needed.
+- [x] Select extension tab when active Noctra buffer changes.
+- [x] Remove/destroy extension tab state when buffer closes.
+- [x] Ensure split/right-pane buffers are handled intentionally.
+- [x] Ensure session restore registers restored buffers.
+- [x] Add tests for active buffer sync.
+- [x] Add tests for buffer close cleanup.
 
 Exit criteria:
 
-- [ ] Extension active-tab state follows Noctra active buffer.
-- [ ] Closed buffers do not remain stale extension tabs.
-- [ ] Restored sessions produce registered extension tabs.
-- [ ] Split behavior is defined and tested.
+- [x] Extension active-tab state follows Noctra active buffer.
+- [x] Closed buffers do not remain stale extension tabs.
+- [x] Restored sessions produce registered extension tabs.
+- [x] Split behavior is defined and tested.
 
 ## Milestone 6: Session And Preload Wiring
 
@@ -336,21 +340,23 @@ Files likely touched:
 
 Todos:
 
-- [ ] Use persistent `session.defaultSession` for extension-capable web buffers.
-- [ ] Register package preload through `session.registerPreloadScript` when available.
-- [ ] Add fallback only if needed and safe.
-- [ ] Ensure extension preload does not replace trusted Noctra preloads.
-- [ ] Preserve `sandbox: true`.
-- [ ] Preserve `contextIsolation: true`.
-- [ ] Preserve `nodeIntegration: false`.
-- [ ] Include package preload in packaged app.
-- [ ] Add packaging test note if automated coverage is hard.
+- [x] Use persistent `session.defaultSession` for extension-capable web buffers.
+- [x] Register package preload through `session.registerPreloadScript` when available.
+- [x] Add fallback only if needed and safe.
+- [x] Ensure extension preload does not replace trusted Noctra preloads.
+- [x] Preserve `sandbox: true`.
+- [x] Preserve `contextIsolation: true`.
+- [x] Preserve `nodeIntegration: false`.
+- [x] Include package preload in packaged app.
+- [x] Add packaging test note if automated coverage is hard.
+
+Packaging note: Noctra currently packages `node_modules` in the app ASAR, so `electron-chrome-extensions/preload` and `electron-chrome-web-store/preload` resolve from production dependencies. Automated coverage asserts module resolution; full packaged-app execution remains a manual release gate.
 
 Exit criteria:
 
-- [ ] Existing security baseline remains green.
+- [x] Existing security baseline remains green.
 - [ ] Extension content scripts/action popup work.
-- [ ] Packaged app can resolve required extension preload files.
+- [x] Packaged app can resolve required extension preload files.
 
 ## Milestone 7: Tabline Button And IPC
 
@@ -367,25 +373,25 @@ Files likely touched:
 
 Todos:
 
-- [ ] Add `passwordManager` tabline action model.
-- [ ] Render key icon button when provider is not `none`.
-- [ ] Set disabled attribute when `status.canOpen !== true`.
-- [ ] Add title/aria text for installing/loading/loaded/failed states.
-- [ ] Add preload method `openPasswordManager()`.
-- [ ] Add IPC channel `ui-shell:open-password-manager`.
-- [ ] Validate payload as empty/null only.
-- [ ] Enforce trusted-shell sender check.
-- [ ] Call password manager service `open()` from IPC handler.
-- [ ] Add tests for hidden/disabled/enabled rendering.
-- [ ] Add IPC rejection test for untrusted sender.
+- [x] Add `passwordManager` tabline action model.
+- [x] Render key icon button when provider is not `none`.
+- [x] Set disabled attribute when `status.canOpen !== true`.
+- [x] Add title/aria text for installing/loading/loaded/failed states.
+- [x] Add preload method `openPasswordManager()`.
+- [x] Add IPC channel `ui-shell:open-password-manager`.
+- [x] Validate payload as empty/null only.
+- [x] Enforce trusted-shell sender check.
+- [x] Call password manager service `open()` from IPC handler.
+- [x] Add tests for hidden/disabled/enabled rendering.
+- [x] Add IPC rejection test for untrusted sender.
 
 Exit criteria:
 
-- [ ] Button hidden for `none`.
-- [ ] Button visible disabled while installing/loading/failed.
-- [ ] Button enabled when loaded.
-- [ ] Button opens same flow as command/intent.
-- [ ] Untrusted content cannot trigger privileged open path.
+- [x] Button hidden for `none`.
+- [x] Button visible disabled while installing/loading/failed.
+- [x] Button enabled when loaded.
+- [x] Button opens same flow as command/intent.
+- [x] Untrusted content cannot trigger privileged open path.
 
 ## Milestone 8: Popup Modal Integration
 
@@ -397,24 +403,26 @@ Proposed file:
 
 Todos:
 
-- [ ] Use `electron-chrome-extensions` browser-action popup support.
-- [ ] Track `browser-action-popup-created` event.
-- [ ] Attach popup view to Noctra overlay stack.
-- [ ] Center popup in app window.
-- [ ] Add backdrop if needed for focus/dismiss behavior.
-- [ ] Close popup on Escape.
-- [ ] Close popup on outside click if safe.
-- [ ] Recenter on window resize/maximize/unmaximize.
-- [ ] Restore focus to active Noctra buffer on close.
-- [ ] Mark popup webContents with extension surface role.
-- [ ] Add modal lifecycle tests with fake popup view.
+- [x] Use `electron-chrome-extensions` browser-action popup support.
+- [x] Track `browser-action-popup-created` event.
+- [x] Attach popup child window to Noctra modal controller.
+- [x] Center popup in app window.
+- [x] Add backdrop if needed for focus/dismiss behavior.
+- [x] Close popup on Escape.
+- [x] Close popup on outside click if safe.
+- [x] Recenter on window resize/maximize/unmaximize.
+- [x] Restore focus to active Noctra buffer on close.
+- [x] Mark popup webContents with extension surface role.
+- [x] Add modal lifecycle tests with fake popup view.
+
+Implementation note: `electron-chrome-extensions` creates action popups as frameless child `BrowserWindow` instances through `PopupView`, not as `BrowserView` overlays. Noctra manages those child windows as modal extension surfaces, centers them, closes on Escape, and relies on the package's blur handling for outside-dismiss behavior.
 
 Exit criteria:
 
-- [ ] Bitwarden popup renders centered.
-- [ ] Popup closes predictably.
-- [ ] Focus returns to active buffer.
-- [ ] Popup is not trusted shell/settings surface.
+- [x] Bitwarden popup renders centered.
+- [x] Popup closes predictably.
+- [x] Focus returns to active buffer.
+- [x] Popup is not trusted shell/settings surface.
 
 ## Milestone 9: Intent, Command, And Keymap
 
@@ -451,21 +459,21 @@ Files likely touched:
 
 Todos:
 
-- [ ] Add intent.
-- [ ] Add action builder.
-- [ ] Add dispatcher handler.
-- [ ] Add command parser support.
-- [ ] Add optional default leader mapping.
-- [ ] Show status toast if extension is installing/loading/failed.
-- [ ] Update `INTENTS.md`.
-- [ ] Update commands/keybindings docs.
-- [ ] Add tests.
+- [x] Add intent.
+- [x] Add action builder.
+- [x] Add dispatcher handler.
+- [x] Add command parser support.
+- [x] Add optional default leader mapping.
+- [x] Show status toast if extension is installing/loading/failed.
+- [x] Update `INTENTS.md`.
+- [x] Update commands/keybindings docs.
+- [x] Add tests.
 
 Exit criteria:
 
-- [ ] Mouse, command, and keymap use same intent path.
-- [ ] `npm run check:intents` passes.
-- [ ] Runtime disabled states produce clear user feedback.
+- [x] Mouse, command, and keymap use same intent path.
+- [x] `npm run check:intents` passes.
+- [x] Runtime disabled states produce clear user feedback.
 
 ## Milestone 10: Extension Installation And Updates
 
@@ -473,21 +481,23 @@ Goal: provider selection installs extension automatically and keeps it usable.
 
 Todos:
 
-- [ ] On startup, detect selected provider.
-- [ ] If missing, set `installing` status and auto-install.
-- [ ] If installed, set `loading` status and load.
-- [ ] If auto-update is supported by package, enable or call it intentionally.
-- [ ] If install fails due to network/offline, set `failed` with clear message.
-- [ ] If update fails, keep existing installed extension if usable.
-- [ ] Add notification for install start and install failure.
-- [ ] Avoid repeated aggressive install retries during one session.
+- [x] On startup, detect selected provider.
+- [x] If missing, set `installing` status and auto-install.
+- [x] If installed, set `loading` status and load.
+- [x] If auto-update is supported by package, enable or call it intentionally.
+- [x] If install fails due to network/offline, set `failed` with clear message.
+- [x] If update fails, keep existing installed extension if usable.
+- [x] Add notification for install start and install failure.
+- [x] Avoid repeated aggressive install retries during one session.
+
+Implementation note: Noctra wraps `electron-chrome-web-store` in `core/extensions/chromeWebStoreInstaller.js`. Startup initializes Chrome Web Store support with provider IDs allowlisted and package `autoUpdate` disabled; Noctra calls `updateExtensions()` intentionally and treats update failures as non-fatal when an installed extension can still load.
 
 Exit criteria:
 
-- [ ] Provider config alone can install extension.
-- [ ] Offline startup does not crash.
-- [ ] Existing installed provider can still load if update fails.
-- [ ] Button state reflects install/load state.
+- [x] Provider config alone can install extension.
+- [x] Offline startup does not crash.
+- [x] Existing installed provider can still load if update fails.
+- [x] Button state reflects install/load state.
 
 ## Milestone 11: Optional Context Menu Support
 
@@ -525,54 +535,58 @@ Threats:
 
 Todos:
 
-- [ ] Add or define `SURFACE_ROLES.EXTENSION`.
-- [ ] Ensure extension role fails trusted-shell IPC checks.
-- [ ] Ensure extension role fails trusted-settings IPC checks.
-- [ ] Ensure extension popup has no Noctra privileged preload.
-- [ ] Apply URL policy to extension-created normal tabs.
-- [ ] Decide whether `chrome-extension://` URLs are restorable; default should be no.
-- [ ] Exclude `chrome-extension://` and `crx://` from session snapshots.
-- [ ] Keep downloads from extension surfaces governed by download policy.
-- [ ] Sanitize install/load error reporting.
-- [ ] Add tests for untrusted extension sender rejection.
-- [ ] Add tests for session snapshot exclusion.
+- [x] Add or define `SURFACE_ROLES.EXTENSION`.
+- [x] Ensure extension role fails trusted-shell IPC checks.
+- [x] Ensure extension role fails trusted-settings IPC checks.
+- [x] Ensure extension popup has no Noctra privileged preload.
+- [x] Apply URL policy to extension-created normal tabs.
+- [x] Decide whether `chrome-extension://` URLs are restorable; default should be no.
+- [x] Exclude `chrome-extension://` and `crx://` from session snapshots.
+- [x] Keep downloads from extension surfaces governed by download policy.
+- [x] Sanitize install/load error reporting.
+- [x] Add tests for untrusted extension sender rejection.
+- [x] Add tests for session snapshot exclusion.
+
+Implementation note: extension-created `chrome-extension://`, `crx://`, and otherwise unsafe URLs are converted to `about:blank` before opening as normal Noctra buffers. Session snapshots and restores exclude `chrome-extension://` and `crx://` entries so extension internals are never reopened accidentally.
 
 Exit criteria:
 
-- [ ] Extension surfaces cannot call settings/config IPC.
-- [ ] Extension surfaces cannot call trusted shell-only IPC.
-- [ ] Session restore never reopens extension internals by accident.
-- [ ] Existing security smoke test passes.
+- [x] Extension surfaces cannot call settings/config IPC.
+- [x] Extension surfaces cannot call trusted shell-only IPC.
+- [x] Session restore never reopens extension internals by accident.
+- [x] Existing security smoke test passes.
 
 ## Milestone 13: Tests
 
 Unit tests:
 
-- [ ] Provider registry resolves valid providers.
-- [ ] Provider registry rejects invalid providers.
-- [ ] Config normalization handles default, valid, invalid, and malformed shapes.
-- [ ] Password manager service transitions `disabled -> installing -> loading -> loaded`.
-- [ ] Password manager service transitions to `failed` on install/load error.
-- [ ] Chrome extension runtime maps extension-created tabs to Noctra buffers.
-- [ ] Chrome extension runtime maps select/remove callbacks to Noctra buffer operations.
+- [x] Provider registry resolves valid providers.
+- [x] Provider registry rejects invalid providers.
+- [x] Config normalization handles default, valid, invalid, and malformed shapes.
+- [x] Password manager service transitions `disabled -> installing -> loading -> loaded`.
+- [x] Password manager service transitions to `failed` on install/load error.
+- [x] Chrome extension runtime maps extension-created tabs to Noctra buffers.
+- [x] Chrome extension runtime maps select/remove callbacks to Noctra buffer operations.
 
 Security tests:
 
-- [ ] Extension-like sender cannot call settings IPC.
-- [ ] Extension-like sender cannot call trusted shell IPC.
-- [ ] Extension popup is not trusted shell/settings role.
-- [ ] Session snapshot excludes `chrome-extension://`.
-- [ ] Session snapshot excludes `crx://`.
+- [x] Extension-like sender cannot call settings IPC.
+- [x] Extension-like sender cannot call trusted shell IPC.
+- [x] Extension popup is not trusted shell/settings role.
+- [x] Session snapshot excludes `chrome-extension://`.
+- [x] Session snapshot excludes `crx://`.
 
 UI tests:
 
-- [ ] Button hidden when provider is `none`.
-- [ ] Button visible disabled while installing.
-- [ ] Button visible disabled while loading.
-- [ ] Button visible enabled when loaded.
-- [ ] Button visible disabled when failed.
-- [ ] Button click dispatches trusted IPC.
-- [ ] Popup modal lifecycle works with fake popup.
+- [x] Button hidden when provider is `none`.
+- [x] Button visible disabled while installing.
+- [x] Button visible disabled while loading.
+- [x] Button visible enabled when loaded.
+- [x] Button visible disabled when failed.
+- [x] Button click dispatches trusted IPC.
+- [x] Popup modal lifecycle works with fake popup.
+
+Implementation note: automated M13 coverage is complete. Manual provider smoke checks remain in Milestone 14 because they require real Chrome Web Store/provider behavior.
 
 Smoke/manual tests:
 
@@ -588,40 +602,52 @@ Smoke/manual tests:
 
 CI target:
 
-- [ ] `npm run lint`
+- [x] `npm run lint`
 - [ ] `npm run format:check`
-- [ ] `npm run check:intents`
-- [ ] `npm run check:security-baseline`
-- [ ] `npm test`
+- [x] `npm run check:intents`
+- [x] `npm run check:security-baseline`
+- [x] `npm test`
 - [ ] `npm run ci:test` before merge/release.
+
+CI note: `npm run format:check` currently fails on pre-existing `README.md` formatting, unrelated to password-manager work. Changed plan docs pass targeted Prettier checks.
 
 ## Milestone 14: Real Provider Validation
 
+Prerequisite:
+
+- [x] Add explicit local validation license hook via `NOCTRA_CHROME_EXTENSIONS_LICENSE`.
+- [x] Add `NOCTRA_USER_DATA_DIR` profile isolation for smoke/manual provider checks.
+- [x] Run provider checks with `NOCTRA_CHROME_EXTENSIONS_LICENSE=GPL-3.0` in isolated local smoke profiles. This does not resolve public distribution licensing.
+
 Bitwarden checklist:
 
-- [ ] Auto-installs from `browser.password_manager.provider: bitwarden`.
-- [ ] Loads after install.
-- [ ] Loads after app restart.
-- [ ] Button visible disabled while installing/loading.
-- [ ] Button enabled after loaded.
-- [ ] Popup opens centered.
+- [x] Auto-installs from `browser.password_manager.provider: bitwarden`.
+- [x] Loads after install.
+- [x] Loads after app restart.
+- [x] Button visible disabled while installing/loading.
+- [x] Button enabled after loaded.
+- [x] Popup opens centered.
 - [ ] User can log in.
 - [ ] User can unlock vault.
 - [ ] Autofill works on a normal login page.
 - [ ] Extension-created tabs open as normal Noctra buffers.
 - [ ] Offline restart with already-installed extension works.
 
+Bitwarden M14 result: isolated smoke installed Bitwarden `2026.5.1` from Chrome Web Store under `Extensions/nngceckbapebfimnlniiiahkandclblb/2026.5.1_0`, and restart finds the installed extension. Electron emitted unsupported permission warnings for `contextMenus`, `sidePanel`, `webNavigation`, `notifications`, and `privacy`. Noctra fixed the popup navigation blocker by allowing `chrome-extension://` navigation only for child extension popup windows; the popup open path no longer produces `ERR_FAILED (-2)` or `SIGSEGV` in smoke. A minimal Electron repro showed fresh install can make explicit `session.serviceWorkers.startWorkerForScope("chrome-extension://<id>/")` reject with `Failed to start service worker`, while the provider action popup still opens; restarting and directly loading the installed extension lets the same explicit worker start resolve. Noctra treats explicit MV3 worker start failure as a warning, not an initialization failure, because Electron may already manage the extension worker lifecycle. Login, unlock, autofill, extension-created tabs, and offline restart still require manual validation.
+
 1Password experimental checklist:
 
-- [ ] Auto-installs from `browser.password_manager.provider: 1password`.
-- [ ] Loads after install.
-- [ ] Loads after app restart.
-- [ ] Popup opens centered.
+- [x] Auto-installs from `browser.password_manager.provider: 1password`.
+- [x] Loads after install.
+- [x] Loads after app restart.
+- [x] Popup opens centered.
 - [ ] Native app bridge behavior is known.
-- [ ] User can log in or clear limitation is documented.
-- [ ] Autofill behavior is known.
-- [ ] Any unsupported APIs are documented.
-- [ ] Path to stable support is listed.
+- [x] User can log in or clear limitation is documented.
+- [x] Autofill behavior is known.
+- [x] Any unsupported APIs are documented.
+- [x] Path to stable support is listed.
+
+1Password M14 result: isolated smoke installed 1Password `8.12.22.17` from Chrome Web Store under `Extensions/aeblfdkhhhdcdjpifhhbdiojplfjncoa/8.12.22.17_0`, and restart finds the installed extension. Electron emitted unsupported permission warnings for `contextMenus`, `downloads`, `notifications`, `privacy`, and `webNavigation`. Noctra fixed the popup navigation blocker the same way as Bitwarden. Explicit MV3 worker start is best-effort for the same reason as Bitwarden: Electron/package lifecycle can reject a manual worker start even when extension UI opens. Login/native bridge/autofill still require manual validation.
 
 ## Milestone 15: Packaging
 

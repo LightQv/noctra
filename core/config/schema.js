@@ -1,5 +1,8 @@
 const { defaultConfig } = require("./defaults");
 const { normalizeTrustedHosts } = require("../security/urlPolicy");
+const {
+  normalizePasswordManagerProviderName,
+} = require("../extensions/passwordManagerProviders");
 
 const ACTION_IDS = new Set([
   "scroll_down",
@@ -660,6 +663,13 @@ function normalizeConfig(rawConfig) {
         normalized.browser.downloads.auto_open =
           input.browser.downloads.auto_open;
       }
+    }
+
+    if (isPlainObject(input.browser.password_manager)) {
+      normalized.browser.password_manager.provider =
+        normalizePasswordManagerProviderName(
+          input.browser.password_manager.provider,
+        );
     }
   }
 

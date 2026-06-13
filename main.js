@@ -36,7 +36,9 @@ const { resolveInputTarget } = require("./core/resolver");
 const historyService = require("./core/history/service");
 const bookmarksService = require("./core/bookmarks/service");
 const { createHistoryPanel } = require("./core/history/panel");
-const { createBookmarkInsertScopeModal } = require("./core/bookmarks/insertScopeModal");
+const {
+  createBookmarkInsertScopeModal,
+} = require("./core/bookmarks/insertScopeModal");
 const { createDownloadsModal } = require("./core/downloads/modal");
 const { createTelescopeService } = require("./core/telescope/service");
 const { resolveFocusSnapshot } = require("./core/focusResolver");
@@ -101,6 +103,27 @@ const { createUrlPolicyRuntime } = require("./runtime/urlPolicyRuntime");
 const { createConfigRuntime } = require("./runtime/configRuntime");
 const { createUrllineCoordinator } = require("./runtime/urllineCoordinator");
 const {
+  registerChromeExtensionPreloads,
+} = require("./core/extensions/extensionPreloadRegistration");
+const {
+  createChromeExtensionRuntime,
+} = require("./core/extensions/chromeExtensionRuntime");
+const {
+  PasswordManagerService,
+} = require("./core/extensions/passwordManagerService");
+const {
+  createChromeWebStoreInstaller,
+} = require("./core/extensions/chromeWebStoreInstaller");
+const {
+  resolveChromeExtensionLicense,
+} = require("./core/extensions/chromeExtensionLicense");
+const {
+  PASSWORD_MANAGER_PROVIDERS,
+} = require("./core/extensions/passwordManagerProviders");
+const {
+  createPasswordManagerOverlayController,
+} = require("./ui/shell/services/passwordManagerOverlayController");
+const {
   resetLeaderSession,
   resetSequenceBuffers,
 } = require("./core/state/leaderState");
@@ -119,9 +142,62 @@ const { isBookmarkableBuffer } = require("./core/bookmarks/eligibility");
 app.setName("Noctra");
 const execFileAsync = promisify(execFile);
 
+function applyUserDataOverride() {
+  const userDataDir = process.env.NOCTRA_USER_DATA_DIR;
+  if (typeof userDataDir !== "string" || !userDataDir.trim()) {
+    return;
+  }
+
+  const resolvedUserDataDir = path.resolve(userDataDir.trim());
+  fs.mkdirSync(resolvedUserDataDir, { recursive: true });
+  app.setPath("userData", resolvedUserDataDir);
+}
+
+applyUserDataOverride();
+
+function getExtensionStorePath() {
+  return path.join(app.getPath("userData"), "Extensions");
+}
+
 let entryIcons = null;
 let pendingUrls = [];
 const windowContexts = new Map();
+
+function loadElectronChromeExtensionsClass() {
+  try {
+    return require("electron-chrome-extensions").ElectronChromeExtensions;
+  } catch (error) {
+    notificationsService.notify({
+      severity: "warning",
+      code: "chrome_extension_runtime_unavailable",
+      message: "Chrome extension runtime is unavailable.",
+      source: "main",
+      context: {
+        message: error && error.message ? error.message : String(error),
+      },
+      persist: false,
+    });
+    return null;
+  }
+}
+
+function loadElectronChromeWebStore() {
+  try {
+    return require("electron-chrome-web-store");
+  } catch (error) {
+    notificationsService.notify({
+      severity: "warning",
+      code: "chrome_web_store_unavailable",
+      message: "Chrome Web Store installer is unavailable.",
+      source: "main",
+      context: {
+        message: error && error.message ? error.message : String(error),
+      },
+      persist: false,
+    });
+    return null;
+  }
+}
 
 function getLastWindowContext() {
   const values = Array.from(windowContexts.values());
@@ -162,11 +238,23 @@ async function integrateLinuxAppImage() {
   fs.mkdirSync(applicationsDir, { recursive: true });
   fs.mkdirSync(iconsDir, { recursive: true });
 
-  const darkIconSource = path.join(__dirname, "assets", "icons", "icon-dark_512.png");
-  const lightIconSource = path.join(__dirname, "assets", "icons", "icon-light_512.png");
+  const darkIconSource = path.join(
+    __dirname,
+    "assets",
+    "icons",
+    "icon-dark_512.png",
+  );
+  const lightIconSource = path.join(
+    __dirname,
+    "assets",
+    "icons",
+    "icon-light_512.png",
+  );
 
   if (!fs.existsSync(darkIconSource) || !fs.existsSync(lightIconSource)) {
-    throw new Error("Missing generated icons. Run scripts/generate-icons.js first.");
+    throw new Error(
+      "Missing generated icons. Run scripts/generate-icons.js first.",
+    );
   }
 
   fs.copyFileSync(darkIconSource, path.join(iconsDir, "noctra-dark.png"));
@@ -321,7 +409,8 @@ function wrapTemplateClicks(template, onClick) {
 }
 
 function closeTelescopeAfterContextAction(context) {
-  const { telescopeService, uiShell, getStatuslineModeLabel, appMenu } = context;
+  const { telescopeService, uiShell, getStatuslineModeLabel, appMenu } =
+    context;
   if (!telescopeService || !telescopeService.isActive()) return;
   telescopeService.close();
   uiShell.hideTelescope();
@@ -329,7 +418,13 @@ function closeTelescopeAfterContextAction(context) {
   if (appMenu) appMenu.sync();
 }
 
-function buildTelescopeUrlContextTemplate({ url, dispatch, win, state, clipboard }) {
+function buildTelescopeUrlContextTemplate({
+  url,
+  dispatch,
+  win,
+  state,
+  clipboard,
+}) {
   const normalizedUrl = String(url || "").trim();
   if (!normalizedUrl) return [];
   return [
@@ -342,7 +437,11 @@ function buildTelescopeUrlContextTemplate({ url, dispatch, win, state, clipboard
     {
       label: "Open in Split",
       click: () => {
-        dispatch(win, { type: INTENTS.OPEN_URL_IN_SPLIT, url: normalizedUrl }, state);
+        dispatch(
+          win,
+          { type: INTENTS.OPEN_URL_IN_SPLIT, url: normalizedUrl },
+          state,
+        );
       },
     },
     { type: "separator" },
@@ -356,15 +455,8 @@ function buildTelescopeUrlContextTemplate({ url, dispatch, win, state, clipboard
 }
 
 function showTelescopeContextMenu(context, payload = {}) {
-  const {
-    telescopeService,
-    uiShell,
-    buffers,
-    dispatch,
-    state,
-    win,
-    clipboard,
-  } = context;
+  const { telescopeService, uiShell, dispatch, state, win, clipboard } =
+    context;
   if (!uiShell || typeof uiShell.showContextMenu !== "function") return;
   if (!telescopeService || !telescopeService.isActive()) return;
 
@@ -428,11 +520,7 @@ function showTelescopeContextMenu(context, payload = {}) {
         {
           label: "Duplicate Buffer",
           click: () => {
-            dispatch(
-              win,
-              { type: INTENTS.DUPLICATE_BUFFER, bufferId },
-              state,
-            );
+            dispatch(win, { type: INTENTS.DUPLICATE_BUFFER, bufferId }, state);
           },
         },
         {
@@ -488,7 +576,8 @@ function reopenContextMenuAt(context, x, y) {
   }
 
   const panelWebContents =
-    sidepanelController && typeof sidepanelController.getWebContents === "function"
+    sidepanelController &&
+    typeof sidepanelController.getWebContents === "function"
       ? sidepanelController.getWebContents()
       : null;
   const panelView = getBrowserViewForWebContents(win, panelWebContents);
@@ -760,10 +849,21 @@ function handleMouseInput(context, _event, input) {
   }
 }
 
-function syncWebBufferModeWithFocusedElement(context, webContents, options = {}) {
-  const { state, buffers, sidepanelController, uiShell, appMenu, getStatuslineModeLabel } =
-    context;
-  const reason = typeof options.reason === "string" ? options.reason : "focus-change";
+function syncWebBufferModeWithFocusedElement(
+  context,
+  webContents,
+  options = {},
+) {
+  const {
+    state,
+    buffers,
+    sidepanelController,
+    uiShell,
+    appMenu,
+    getStatuslineModeLabel,
+  } = context;
+  const reason =
+    typeof options.reason === "string" ? options.reason : "focus-change";
   const shouldForceNormalOnNavigation =
     reason === "did-start-navigation" ||
     reason === "did-navigate" ||
@@ -975,7 +1075,12 @@ function updateTablineActions(context) {
   const vimShortcut = formatLeaderSequence(openSettingsSeqs[0]) || "<leader> ,";
   const systemShortcut = process.platform === "darwin" ? "Cmd+," : "Ctrl+,";
   const newBufferShortcut = findShortcutLabelForAction("new_buffer");
-  const downloadsLiveShortcut = findShortcutLabelForAction("downloads_live_modal");
+  const downloadsLiveShortcut = findShortcutLabelForAction(
+    "downloads_live_modal",
+  );
+  const passwordManagerStatus = context.passwordManagerService
+    ? context.passwordManagerService.getStatus()
+    : null;
   const newTabShortcut = [newBufferShortcut, ":tab", ":tabnew", ":tabe"]
     .filter((value, index, list) => value && list.indexOf(value) === index)
     .join(" | ");
@@ -995,6 +1100,10 @@ function updateTablineActions(context) {
       label: "Downloads",
       icon: "󰇚",
       shortcutLabel: downloadsLiveShortcut || "<leader> D | :downloads live",
+    },
+    passwordManager: {
+      icon: "key",
+      status: passwordManagerStatus,
     },
   });
 }
@@ -1145,7 +1254,52 @@ function createWindow() {
     updateTablineActions: () => {},
     updateUrllineActions: () => {},
     updateUrllineRender: () => {},
+    passwordManagerService: null,
+    passwordManagerOverlayController: null,
   };
+
+  const passwordManagerOverlayController =
+    createPasswordManagerOverlayController({
+      getParentWindow: () => context.win,
+      focusActiveEditorSurface: (options) =>
+        focusActiveEditorSurface(context, options),
+      markSurfaceRole,
+      extensionRole: SURFACE_ROLES.EXTENSION,
+    });
+  context.passwordManagerOverlayController = passwordManagerOverlayController;
+
+  const extensionRuntime = createChromeExtensionRuntime({
+    ExtensionRuntimeClass: loadElectronChromeExtensionsClass(),
+    session: session.defaultSession,
+    bufferManager: buffers,
+    getBrowserWindow: () => context.win,
+    notificationsService,
+    license: resolveChromeExtensionLicense(),
+    onActionPopupCreated: (popup) =>
+      passwordManagerOverlayController.handlePopupCreated(popup),
+  });
+  buffers.setExtensionRuntime(extensionRuntime);
+
+  const passwordManagerInstaller = createChromeWebStoreInstaller({
+    webStore: loadElectronChromeWebStore(),
+    session: session.defaultSession,
+    extensionsPath: getExtensionStorePath(),
+    allowlist: Object.values(PASSWORD_MANAGER_PROVIDERS)
+      .map((provider) => provider.id)
+      .filter(Boolean),
+    autoUpdate: false,
+    loadExtensions: false,
+  });
+
+  const passwordManagerService = new PasswordManagerService({
+    configService,
+    session: session.defaultSession,
+    extensionRuntime,
+    installer: passwordManagerInstaller,
+    notificationsService,
+    onStatusChange: () => context.updateTablineActions(),
+  });
+  context.passwordManagerService = passwordManagerService;
 
   const applyThemeAcrossWindows = (config) => {
     for (const target of windowContexts.values()) {
@@ -1172,6 +1326,7 @@ function createWindow() {
     downloadsModal,
     telescopeService,
     notificationsService,
+    passwordManagerService,
     applyThemeAcrossWindows,
   });
   context.dispatch = dispatch;
@@ -1200,7 +1355,12 @@ function createWindow() {
     sidepanelController,
     broadcastThemeUpdate: (payload) => {
       if (!context.win) return;
-      broadcastUiShellPush({ win: context.win, buffers, type: "theme:update", payload });
+      broadcastUiShellPush({
+        win: context.win,
+        buffers,
+        type: "theme:update",
+        payload,
+      });
     },
   });
   const { resolveCurrentTheme, buildThemePayload, applyTheme } = themeRuntime;
@@ -1240,7 +1400,10 @@ function createWindow() {
     deleteUrllineForward,
     resolveInputTarget,
     getDefaultSearchEngine: () =>
-      configService.getConfigValue("browser.default_search_engine", "duckduckgo"),
+      configService.getConfigValue(
+        "browser.default_search_engine",
+        "duckduckgo",
+      ),
     getStatuslineModeLabel,
   });
   updateUrllineRender = urllineCoordinator.updateUrllineRender;
@@ -1309,7 +1472,8 @@ function createWindow() {
     performWindowAction,
     setEditorFocused,
     enterCommandMode,
-    focusActiveEditorSurface: (options) => focusActiveEditorSurface(context, options),
+    focusActiveEditorSurface: (options) =>
+      focusActiveEditorSurface(context, options),
     getStatuslineModeLabel,
     startUrllineEdit,
     resolveCurrentTheme,
@@ -1326,10 +1490,23 @@ function createWindow() {
     applyBrowserLanguagePreference,
     persistSessionSnapshot: persistSnapshot,
     clipboard,
+    passwordManagerService,
   });
 
   context.win = runtime.win;
   context.smokeScenarios = runtime.smokeScenarios;
+  passwordManagerService.initialize().catch((error) => {
+    notificationsService.notify({
+      severity: "warning",
+      code: "password_manager_initialize_failed",
+      message:
+        error && error.message
+          ? error.message
+          : "Password manager failed to initialize.",
+      source: "main",
+      persist: false,
+    });
+  });
 
   const appMenu = createAppMenu({
     win: context.win,
@@ -1493,7 +1670,8 @@ function createWindow() {
   appMenu.sync();
   buffers.subscribe(() => appMenu.rebuild());
 
-  app.getFileIcon(os.homedir(), { size: "small" })
+  app
+    .getFileIcon(os.homedir(), { size: "small" })
     .then((icon) => {
       if (icon && !icon.isEmpty()) {
         appMenu.setFolderIcon(icon);
@@ -1540,8 +1718,32 @@ app.whenReady().then(async () => {
   });
 
   try {
-    const blackPath = path.join(__dirname, "assets", "menu-icons", "entry-black.png");
-    const whitePath = path.join(__dirname, "assets", "menu-icons", "entry-white.png");
+    registerChromeExtensionPreloads({ session });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    notificationsService.notify({
+      severity: "warning",
+      code: "extension_preload_registration_failed",
+      message: "Chrome extension preload registration failed",
+      source: "main",
+      context: { reason },
+      persist: false,
+    });
+  }
+
+  try {
+    const blackPath = path.join(
+      __dirname,
+      "assets",
+      "menu-icons",
+      "entry-black.png",
+    );
+    const whitePath = path.join(
+      __dirname,
+      "assets",
+      "menu-icons",
+      "entry-white.png",
+    );
     await Promise.all([
       generateMenuIcon("\uf15b", "#000000", blackPath),
       generateMenuIcon("\uf15b", "#ffffff", whitePath),

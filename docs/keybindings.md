@@ -93,6 +93,7 @@ Leader key default is `Space`.
 - `<leader> d r`: bookmark active page at root level
 - `<leader> d d`: bookmark active page with path prompt
 - `<leader> n`: open notifications buffer
+- `<leader> p`: open password manager
 
 ## Customize keymaps
 

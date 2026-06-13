@@ -1,4 +1,4 @@
-const { BrowserView } = require("electron");
+const { BrowserView, session } = require("electron");
 const { EventEmitter } = require("events");
 const { getConfigValue } = require("../core/config/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
@@ -46,6 +46,7 @@ class Buffer extends EventEmitter {
       nodeIntegration: false,
       sandbox: true,
       webviewTag: false,
+      session: options.session || session.defaultSession,
     };
 
     if (

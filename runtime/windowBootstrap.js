@@ -49,6 +49,8 @@ function bootstrapWindowRuntime({
   applyBrowserLanguagePreference,
   persistSessionSnapshot,
   clipboard,
+  passwordManagerService,
+  passwordManagerOverlayController,
 }) {
   const DEFAULT_CASCADE_OFFSET_PX = 28;
 
@@ -161,8 +163,11 @@ function bootstrapWindowRuntime({
       : [];
 
   if (existingWindows.length > 0) {
-    const focusedWindow = existingWindows.find((windowRef) => windowRef.isFocused());
-    const sourceWindow = focusedWindow || existingWindows[existingWindows.length - 1];
+    const focusedWindow = existingWindows.find((windowRef) =>
+      windowRef.isFocused(),
+    );
+    const sourceWindow =
+      focusedWindow || existingWindows[existingWindows.length - 1];
 
     let sourceBounds = sourceWindow.getBounds();
     if (
@@ -318,6 +323,8 @@ function bootstrapWindowRuntime({
     getStatuslineModeLabel,
     updateTablineOptions,
     updateUrllineRender,
+    passwordManagerService,
+    passwordManagerOverlayController,
   });
   smokeScenarios.setupSmokeUiCadenceProbe();
   notificationsService.setToastHandler((toast) => {

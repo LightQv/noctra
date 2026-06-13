@@ -27,6 +27,9 @@ const defaultConfig = {
       urlline: {
         enabled: false,
       },
+      loadingline: {
+        enabled: true,
+      },
       telescope: {
         prompt_position: "top",
       },
@@ -325,6 +328,10 @@ const defaultConfig = {
         label: "Open notifications",
         action: "open_notifications",
       },
+      p: {
+        label: "Password manager",
+        action: "password_manager_open",
+      },
       D: {
         label: "Live downloads",
         action: "downloads_live_modal",
@@ -343,6 +350,9 @@ const defaultConfig = {
       allow_trusted_surfaces: false,
       default_directory: null,
       auto_open: false,
+    },
+    password_manager: {
+      provider: "none",
     },
   },
 };

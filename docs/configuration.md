@@ -31,7 +31,7 @@ Apply config changes at runtime with `:config-reload`.
 - `keymap.mod`: user Ctrl-modified key mappings
 - `keymap.search`: user search-mode key mappings
 - `keymap.leader`: user leader-key mappings
-- `browser`: web-content language, search engine, and clipboard-selection behavior
+- `browser`: web-content language, search engine, clipboard-selection behavior, downloads, and password-manager provider selection
 
 ## Minimal example
 
@@ -42,6 +42,8 @@ global:
     sequence_timeout_ms: 500
   ui:
     urlline:
+      enabled: true
+    loadingline:
       enabled: true
   theme:
     mode: "auto"
@@ -71,6 +73,8 @@ browser:
     allow_trusted_surfaces: false
     default_directory: null
     auto_open: false
+  password_manager:
+    provider: none
 ```
 
 ## Search engine fallback
@@ -122,6 +126,27 @@ browser:
 - `allow_trusted_surfaces` controls whether trusted internal surfaces can initiate downloads.
 - `default_directory` sets an optional preferred destination directory.
 - `auto_open` enables opening files after download completion (disabled by default).
+
+## Password-manager provider
+
+- `browser.password_manager.provider` selects extension-backed password-manager support.
+- Allowed values:
+  - `none` (default): disable password-manager extension support.
+  - `bitwarden`: use Bitwarden, first stable target.
+  - `1password`: use 1Password, experimental target.
+- Invalid provider values normalize to `none`.
+- Noctra does not store, inspect, sync, or log passwords. The selected extension owns credential handling.
+- Real Chrome extension runtime validation requires `NOCTRA_CHROME_EXTENSIONS_LICENSE` to be set to a license accepted by `electron-chrome-extensions`: `GPL-3.0` or `Patron-License-2020-11-19`.
+- Smoke/manual validation can set `NOCTRA_USER_DATA_DIR` to isolate Electron profile data and installed extensions from the normal Noctra profile.
+- Public distribution still requires resolving the `electron-chrome-extensions` license gate before enabling this feature in a release.
+
+Example:
+
+```yaml
+browser:
+  password_manager:
+    provider: bitwarden
+```
 
 ## Theme modes
 

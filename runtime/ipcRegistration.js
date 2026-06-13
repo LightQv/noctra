@@ -179,6 +179,10 @@ function registerRuntimeIpc({
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
+  const onOpenPasswordManager = () => {
+    dispatch(win, { type: INTENTS.PASSWORD_MANAGER_OPEN }, state);
+  };
+
   const onTabActivate = (event, payload) => {
     const bufferId = payload.id;
     buffers.switchTo(bufferId);
@@ -252,15 +256,12 @@ function registerRuntimeIpc({
     let template = [];
 
     if (zone === "tabline" && target === "tab" && Number.isInteger(tabId)) {
-      const index = buffers.buffers.findIndex(
-        (buffer) => buffer.id === tabId,
-      );
+      const index = buffers.buffers.findIndex((buffer) => buffer.id === tabId);
       const tabBuffer = index >= 0 ? buffers.buffers[index] : null;
       const runtimeSnapshot = {
         tabIndex: index,
         isFirst: index === 0,
-        isLast:
-          index >= 0 && index === buffers.buffers.length - 1,
+        isLast: index >= 0 && index === buffers.buffers.length - 1,
         isSplitEnabled:
           buffers.isSplitEnabled() && buffers.split.mode === "regular",
         buffer: tabBuffer,
@@ -465,6 +466,11 @@ function registerRuntimeIpc({
       "ui-shell:open-downloads",
       SURFACE_ROLES.TRUSTED_SHELL,
       onOpenDownloads,
+    ),
+    "ui-shell:open-password-manager": withEventBoundary(
+      "ui-shell:open-password-manager",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onOpenPasswordManager,
     ),
     "ui-shell:tab-activate": withEventBoundary(
       "ui-shell:tab-activate",

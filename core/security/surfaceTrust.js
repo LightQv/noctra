@@ -3,6 +3,7 @@ const SURFACE_ROLES = Object.freeze({
   TRUSTED_SHELL: "trusted-shell",
   TRUSTED_SETTINGS: "trusted-settings",
   TRUSTED_PANEL: "trusted-panel",
+  EXTENSION: "extension",
 });
 
 const surfaceRoleByWebContents = new WeakMap();

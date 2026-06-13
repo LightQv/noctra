@@ -1,7 +1,10 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { validateNavigableUrl } = require("../../core/security/urlPolicy");
+const {
+  isExtensionInternalUrl,
+  validateNavigableUrl,
+} = require("../../core/security/urlPolicy");
 
 test("url policy allows https and about:blank", () => {
   assert.equal(validateNavigableUrl("https://example.com").ok, true);
@@ -48,4 +51,11 @@ test("url policy blocks unsafe schemes", () => {
   assert.equal(validateNavigableUrl("javascript:alert(1)").ok, false);
   assert.equal(validateNavigableUrl("data:text/html,<p>bad</p>").ok, false);
   assert.equal(validateNavigableUrl("file:///tmp/test.html").ok, false);
+});
+
+test("url policy detects extension internal URLs", () => {
+  assert.equal(isExtensionInternalUrl("chrome-extension://abc/popup.html"), true);
+  assert.equal(isExtensionInternalUrl("crx://abc/index.html"), true);
+  assert.equal(isExtensionInternalUrl("https://example.com"), false);
+  assert.equal(isExtensionInternalUrl("not a url"), false);
 });

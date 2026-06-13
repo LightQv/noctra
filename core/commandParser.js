@@ -145,6 +145,10 @@ function parseCommand(raw) {
     case "notifs":
       return { type: INTENTS.OPEN_NOTIFICATIONS_BUFFER };
 
+    case "password-manager":
+    case "pm":
+      return { type: INTENTS.PASSWORD_MANAGER_OPEN };
+
     case "theme": {
       const mode = arg.toLowerCase();
       if (!["dark", "light", "auto", "custom"].includes(mode)) {

@@ -334,6 +334,7 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     sessionService: localSessionService = sessionService,
     notificationsService: localNotificationsService = notificationsService,
     downloadsModal: localDownloadsModal = null,
+    passwordManagerService: localPasswordManagerService = null,
   } = runtimeDeps;
 
   const deps = {
@@ -350,6 +351,7 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     sessionService: localSessionService,
     notificationsService: localNotificationsService,
     downloadsModal: localDownloadsModal,
+    passwordManagerService: localPasswordManagerService,
     enterCommandMode,
     dispatch,
     focusEditableBufferSurface: editorSurface.focus,

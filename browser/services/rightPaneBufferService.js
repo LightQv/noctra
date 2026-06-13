@@ -79,6 +79,9 @@ function destroyRightPaneBuffer(manager) {
 
   detachView(manager.window, rightPane.view);
 
+  if (typeof manager.removeBufferFromExtensionRuntime === "function") {
+    manager.removeBufferFromExtensionRuntime(rightPane);
+  }
   rightPane.destroy();
   manager.split.rightPaneBuffer = null;
   manager.split.rightPaneSourceBuffer = null;

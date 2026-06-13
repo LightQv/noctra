@@ -23,6 +23,10 @@ function renderWithPasswordManagerStatus(status) {
   return calls[0];
 }
 
+function tablineActionIndex(script, action) {
+  return script.indexOf(`data-tabline-action=\\"${action}\\"`);
+}
+
 test("password manager button is hidden for provider none", () => {
   const script = renderWithPasswordManagerStatus({
     provider: "none",
@@ -100,8 +104,27 @@ test("password manager button is enabled when loaded", () => {
     true,
   );
   assert.equal(script.includes("Open Bitwarden"), true);
+  assert.equal(script.includes("Open Bitwarden (&lt;leader&gt; p | :pm)"), true);
   assert.equal(script.includes("󰌆"), true);
   assert.equal(script.includes(" disabled"), false);
+});
+
+test("password manager button renders between downloads and settings", () => {
+  const script = renderWithPasswordManagerStatus({
+    provider: "bitwarden",
+    label: "Bitwarden",
+    state: "loaded",
+    enabled: true,
+    canOpen: true,
+  });
+
+  const downloadsIndex = tablineActionIndex(script, "open-downloads");
+  const passwordIndex = tablineActionIndex(script, "open-password-manager");
+  const settingsIndex = tablineActionIndex(script, "open-settings");
+
+  assert.ok(downloadsIndex > -1);
+  assert.ok(passwordIndex > downloadsIndex);
+  assert.ok(settingsIndex > passwordIndex);
 });
 
 test("password manager failed state uses message title", () => {

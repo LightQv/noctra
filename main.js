@@ -1081,6 +1081,9 @@ function updateTablineActions(context) {
   const passwordManagerStatus = context.passwordManagerService
     ? context.passwordManagerService.getStatus()
     : null;
+  const passwordManagerShortcut = findShortcutLabelForAction(
+    "password_manager_open",
+  );
   const newTabShortcut = [newBufferShortcut, ":tab", ":tabnew", ":tabe"]
     .filter((value, index, list) => value && list.indexOf(value) === index)
     .join(" | ");
@@ -1103,6 +1106,7 @@ function updateTablineActions(context) {
     },
     passwordManager: {
       icon: "󰌆",
+      shortcutLabel: passwordManagerShortcut || "<leader> p | :pm",
       status: passwordManagerStatus,
     },
   });

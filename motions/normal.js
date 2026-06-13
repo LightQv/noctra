@@ -15,12 +15,15 @@ const {
   popLeaderPath,
   appendLeaderNumeric,
   popLeaderNumeric,
+  touchLeaderSession,
   resetSequenceBuffers,
   appendCountDigit,
   appendKeyBuffer,
   clearKeyBuffer,
 } = require("../core/state/leaderState");
 const defaultBuffers = require("../browser/manager");
+
+const WHICHKEY_PAGE_SIZE = 20;
 
 function buildLeaderContext(buffers) {
   const sidepanelController = require("../core/sidepanel/controller");
@@ -127,6 +130,28 @@ function handleLeaderSequence(state, input, now, buffers) {
   }
 
   const loweredKey = key.toLowerCase();
+
+  if (
+    state.whichKeyEnabled &&
+    state.leaderNumericBuffer.length === 0 &&
+    state.leaderPath.length === 0 &&
+    (key === "]" || key === "[")
+  ) {
+    const model = getWhichKeyModel(
+      state.leaderPath,
+      state.leaderNumericBuffer,
+      buildLeaderContext(buffers),
+    );
+    const entryCount = Array.isArray(model.entries) ? model.entries.length : 0;
+    if (entryCount > WHICHKEY_PAGE_SIZE) {
+      touchLeaderSession(state, now);
+      return {
+        type: INTENTS.PAGE_WHICHKEY,
+        delta: key === "]" ? 1 : -1,
+        timeoutMs: state.whichKeyTimeout,
+      };
+    }
+  }
 
   if (state.leaderNumericBuffer.length > 0 || /[0-9]/.test(loweredKey)) {
     if (!/[0-9]/.test(loweredKey)) {

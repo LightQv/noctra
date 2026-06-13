@@ -698,6 +698,138 @@ Documentation todos:
 - [ ] Explain troubleshooting for autofill failure.
 - [ ] Document public-release license blocker.
 
+## Follow-Up Plan: Popup UX, Which-Key, And Trust Review
+
+Goal: polish password-manager UX before main-account validation and make remaining trust boundaries explicit.
+
+### Popup First-Frame Fix
+
+Problem:
+
+- Bitwarden popup briefly appears as a larger blank/white window before the real popup content/size settles.
+- This makes the modal feel unfinished and can show clipping/right-edge placement before Noctra recenters it.
+
+Likely cause:
+
+- `electron-chrome-extensions` creates a hidden popup `BrowserWindow`, loads the provider popup, measures preferred size, anchors it near the browser-action icon, then calls `show()`.
+- Noctra currently calls `show()` from `centerPopup()`, which can reveal the popup before the package finishes preferred-size measurement.
+
+Implementation todos:
+
+- [ ] Remove Noctra's direct `popupWindow.show()` call from `centerPopup()`.
+- [ ] Let `electron-chrome-extensions` perform first show after preferred-size measurement.
+- [ ] Listen to package popup `moved` as well as `resized`.
+- [ ] Recenter immediately on `moved`/`resized` before/after the package anchor position is applied.
+- [ ] Keep recenter hooks for popup `dom-ready`, `did-finish-load`, `ready-to-show`, and delayed fallback timers.
+- [ ] Use parent `getContentBounds()` when available, fallback to `getBounds()`.
+- [ ] Add tests proving Noctra does not show the popup early and still recenters after package move/resize.
+
+Exit criteria:
+
+- [ ] Opening Bitwarden does not flash a large blank modal.
+- [ ] Popup appears centered horizontally and vertically.
+- [ ] Popup does not clip on right edge.
+- [ ] Escape/close/focus restore still work.
+
+### Tabline Button Polish
+
+Problems:
+
+- Password-manager button currently lacks shortcut text in hover title.
+- Button order should place password manager between downloads and settings.
+- Button should keep Nerd Font key glyph, not literal `key` text.
+
+Implementation todos:
+
+- [ ] Keep password-manager icon as Nerd Font glyph `󰌆` or choose a better key glyph if needed.
+- [ ] Add shortcut label to password-manager action: `<leader> p | :pm`.
+- [ ] Render hover title as `Open Bitwarden (<leader> p | :pm)` when loaded.
+- [ ] Preserve disabled-state titles for installing/loading/failed, optionally with shortcut suffix only when useful.
+- [ ] Reorder tabline actions to: downloads, password manager, settings.
+- [ ] Add tabline tests for order, title, disabled/enabled states, and glyph fallback.
+
+Exit criteria:
+
+- [ ] Hovering password-manager button shows keyboard/command alternatives.
+- [ ] Password-manager button is visually centered between downloads and settings.
+- [ ] Button still hides for provider `none` and disables when unavailable.
+
+### Which-Key Pagination
+
+Problems:
+
+- `<leader> p` exists in config but may not appear in which-key because root entries can exceed current visible capacity.
+- Scrolling would work but feels less like Neovim which-key.
+
+Desired behavior:
+
+- Which-key displays all available leader entries through pagination.
+- Use 4 columns per page.
+- Keep current max rows per column unless design changes; page size is `4 * maxRowsPerColumn`.
+- Show page indicator only when multiple pages exist.
+- Use clean page controls, likely `[` previous and `]` next, or `Tab` / `Shift+Tab` if that fits input routing better.
+- Paging keys must not accidentally dispatch leader actions while the overlay is paging.
+
+Implementation todos:
+
+- [ ] Extend which-key model with pagination metadata: current page, total pages, page size, and controls.
+- [ ] Render 4 columns per page.
+- [ ] Add footer hint such as `[ / ] page` only when `totalPages > 1`.
+- [ ] Keep leader state active while paging.
+- [ ] Route pagination keys before leader action dispatch when which-key is visible and has multiple pages.
+- [ ] Ensure root page 1 includes `p` with current default/user config.
+- [ ] Add tests for `p` visibility, page count, page controls, and no accidental action dispatch while paging.
+
+Exit criteria:
+
+- [ ] `<leader> p` appears in which-key.
+- [ ] Which-key can show more than one page without scrollbars.
+- [ ] Existing leader actions still dispatch normally.
+- [ ] Numeric buffer switching remains supported.
+
+### Trust And Main-Account Validation
+
+Current trust chain:
+
+- User trusts the Bitwarden extension.
+- User trusts Electron's extension runtime.
+- User trusts `electron-chrome-extensions` as Chrome-extension compatibility glue.
+- User trusts Noctra to keep extension surfaces isolated from privileged Noctra IPC.
+
+Noctra protections already in place:
+
+- Noctra does not store, inspect, sync, or log passwords.
+- Extension popup/content receives no Noctra privileged preload.
+- Extension surfaces use `SURFACE_ROLES.EXTENSION`, not trusted shell/settings roles.
+- Extension senders are rejected by trusted shell/settings IPC checks.
+- Normal buffers block `chrome-extension://` internals.
+- Session snapshots exclude `chrome-extension://` and `crx://` URLs.
+- Browser surfaces preserve `sandbox: true`, `contextIsolation: true`, and `nodeIntegration: false`.
+
+Residual risks:
+
+- `electron-chrome-extensions` is not Chrome/Firefox's native extension host.
+- Some Chrome APIs are unsupported in Electron and produce provider warnings.
+- Provider behavior may differ from Firefox/Chrome, especially around background workers, native messaging, and autofill.
+- Extension updates come from Chrome Web Store and run inside Noctra's Electron extension environment.
+- Public release remains blocked until `electron-chrome-extensions` GPL-3 / Patron license decision is resolved.
+
+Recommendation before using a main Bitwarden vault:
+
+- [ ] Validate with a test Bitwarden account first.
+- [ ] Confirm login works.
+- [ ] Confirm unlock works.
+- [ ] Confirm autofill works on a normal login page.
+- [ ] Confirm no credential-looking data appears in Noctra logs during login/unlock/autofill.
+- [ ] Confirm extension-created tabs open as normal Noctra buffers or are safely blocked/sanitized.
+- [ ] Confirm restart/offline behavior with installed extension.
+- [ ] Reassess whether the remaining trust in `electron-chrome-extensions` is acceptable for main-vault use.
+
+Decision rule:
+
+- Until the checklist is green, use a test vault only.
+- After the checklist is green, main-vault use still means accepting the extra trust in Electron extension compatibility glue compared with Firefox/Chrome.
+
 ## Implementation Order
 
 Use this order to keep changes reviewable:

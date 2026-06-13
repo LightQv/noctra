@@ -194,6 +194,10 @@ const INTENT_PAYLOAD_CONTRACTS = {
     timeoutMs: optional(nullable(validateFiniteNumber)),
     delayMs: optional(nullable(validateFiniteNumber)),
   }),
+  [INTENTS.PAGE_WHICHKEY]: withBaseFields({
+    delta: validateFiniteNumber,
+    timeoutMs: optional(nullable(validateFiniteNumber)),
+  }),
   [INTENTS.SUBMIT_EDITOR_COMMAND]: withBaseFields({
     command: validateString,
   }),

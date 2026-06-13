@@ -94,15 +94,19 @@ class PasswordManagerOverlayController {
         this.close();
       }
     };
-    const onResize = () => this.centerPopup();
+    const onMoveOrResize = () => this.centerPopup();
     const onDelayedCenter = () => {
       this.centerPopup();
       this.scheduleCenterPopup(80);
     };
 
     if (popup && typeof popup.on === "function") {
-      popup.on("resized", onResize);
-      this.cleanupFns.push(() => popup.off && popup.off("resized", onResize));
+      for (const eventName of ["moved", "resized"]) {
+        popup.on(eventName, onMoveOrResize);
+        this.cleanupFns.push(() =>
+          popup.off && popup.off(eventName, onMoveOrResize),
+        );
+      }
     }
 
     if (popupWindow.webContents && typeof popupWindow.webContents.on === "function") {
@@ -135,9 +139,9 @@ class PasswordManagerOverlayController {
 
     if (isLiveWindow(parentWindow) && typeof parentWindow.on === "function") {
       for (const eventName of ["resize", "maximize", "unmaximize"]) {
-        parentWindow.on(eventName, onResize);
+        parentWindow.on(eventName, onMoveOrResize);
         this.cleanupFns.push(() =>
-          parentWindow.off && parentWindow.off(eventName, onResize),
+          parentWindow.off && parentWindow.off(eventName, onMoveOrResize),
         );
       }
     }
@@ -163,9 +167,6 @@ class PasswordManagerOverlayController {
 
     if (typeof this.popupWindow.setBounds === "function") {
       this.popupWindow.setBounds(nextBounds);
-      if (typeof this.popupWindow.show === "function") {
-        this.popupWindow.show();
-      }
       return true;
     }
 

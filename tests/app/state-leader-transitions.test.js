@@ -7,6 +7,7 @@ const {
   popLeaderPath,
   appendLeaderNumeric,
   popLeaderNumeric,
+  touchLeaderSession,
   resetSequenceBuffers,
 } = require("../../core/state/leaderState");
 
@@ -44,6 +45,9 @@ test("leader session transitions are deterministic", () => {
   popLeaderPath(state, 180);
   assert.deepEqual(state.leaderPath, []);
   assert.equal(state.leaderLastKeyTime, 180);
+
+  touchLeaderSession(state, 190);
+  assert.equal(state.leaderLastKeyTime, 190);
 
   resetLeaderSession(state);
   assert.equal(state.leaderActive, false);

@@ -22,6 +22,7 @@ Every emitted intent must be executable by the dispatcher.
 - `SUBMIT_EDITOR_COMMAND`: Submit command input from the editor command surface.
 - `SHOW_WHICHKEY`: Show the leader help panel.
 - `UPDATE_WHICHKEY`: Update leader help panel based on current prefix.
+- `PAGE_WHICHKEY`: Page the visible leader help panel without dispatching a leader action.
 - `HIDE_WHICHKEY`: Hide the leader help panel.
 - `OPEN_URL_PROMPT`: Open command palette prefilled for URL open command.
 - `OPEN_URL`: Load a URL in the active buffer.

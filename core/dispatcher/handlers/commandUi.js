@@ -68,6 +68,15 @@ function createCommandUiHandlers(deps) {
         intent.delayMs,
       );
     },
+    [INTENTS.PAGE_WHICHKEY]: ({ intent }) => {
+      uiShell.updateWhichKey(
+        { ...(uiShell.whichKeyModel || {}), pageDelta: intent.delta },
+        intent.timeoutMs,
+        0,
+        true,
+        true,
+      );
+    },
     [INTENTS.HIDE_WHICHKEY]: () => {
       uiShell.hideWhichKey();
     },

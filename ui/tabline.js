@@ -47,10 +47,15 @@ function normalizePasswordManagerAction(action = {}) {
     typeof action.icon === "string" && action.icon.trim().length > 0
       ? action.icon.trim()
       : "󰌆";
+  const shortcutLabel =
+    typeof action.shortcutLabel === "string" &&
+    action.shortcutLabel.trim().length > 0
+      ? action.shortcutLabel.trim()
+      : "<leader> p | :pm";
   const titleByState = {
     installing: `Installing ${label}`,
     loading: `Loading ${label}`,
-    loaded: `Open ${label}`,
+    loaded: `Open ${label} (${shortcutLabel})`,
     failed: message || `${label} unavailable`,
   };
 
@@ -200,11 +205,11 @@ function renderTabline(
       )}</span></button>`
     : "";
 
-  const rightActionsMarkup = `<div class="tabline-actions">${passwordManagerMarkup}<button class="tabline-action-btn" type="button" data-tabline-action="open-downloads" title="${escapeHtml(
+  const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-downloads" title="${escapeHtml(
     `${downloadsLabel} (${downloadsShortcut})`,
   )}" aria-label="Open downloads"><span class="tabline-action-icon">${escapeHtml(
     downloadsIcon,
-  )}</span></button><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
+  )}</span></button>${passwordManagerMarkup}<button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
     `${configLabel} (${configShortcut})`,
   )}" aria-label="Open config"><span class="tabline-action-icon">${escapeHtml(
     configIcon,

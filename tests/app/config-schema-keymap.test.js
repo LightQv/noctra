@@ -37,6 +37,27 @@ test("user overrides replace matching normal/mod entries", () => {
   assert.equal(config.keymap.mod.u, "scroll_half_up");
 });
 
+test("user leader mappings merge over built-in defaults", () => {
+  const config = normalizeConfig({
+    keymap: {
+      leader: {
+        x: {
+          label: "Custom reload",
+          action: "reload_page",
+        },
+        p: {
+          label: "Custom password label",
+          action: "password_manager_open",
+        },
+      },
+    },
+  });
+
+  assert.equal(config.keymap.leader.b.label, "Buffers...");
+  assert.equal(config.keymap.leader.x.action, "reload_page");
+  assert.equal(config.keymap.leader.p.label, "Custom password label");
+});
+
 test("invalid keymap entries are ignored safely", () => {
   const config = normalizeConfig({
     keymap: {

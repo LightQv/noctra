@@ -98,7 +98,7 @@ test("password manager overlay centers popup and marks extension role", () => {
     width: 400,
     height: 500,
   });
-  assert.equal(popupWindow.shown, true);
+  assert.equal(popupWindow.shown, false);
   assert.equal(getSurfaceRole(popupWindow.webContents), SURFACE_ROLES.EXTENSION);
 });
 
@@ -121,6 +121,16 @@ test("password manager overlay recenters on popup resize and parent resize", () 
   popupWindow.bounds.width = 400;
   popupWindow.bounds.height = 200;
   popup.emit("resized");
+  assert.deepEqual(popupWindow.getBounds(), {
+    x: 200,
+    y: 200,
+    width: 400,
+    height: 200,
+  });
+
+  popupWindow.bounds.x = 15;
+  popupWindow.bounds.y = 25;
+  popup.emit("moved");
   assert.deepEqual(popupWindow.getBounds(), {
     x: 200,
     y: 200,

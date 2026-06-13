@@ -2,6 +2,46 @@ const {
   pushShellPatch,
 } = require("../../../core/adapters/renderer/shellPatchTransport");
 
+const WHICHKEY_COLUMN_COUNT = 4;
+const WHICHKEY_MAX_ROWS_PER_COLUMN = 5;
+const WHICHKEY_PAGE_SIZE = WHICHKEY_COLUMN_COUNT * WHICHKEY_MAX_ROWS_PER_COLUMN;
+
+function normalizeWhichKeyEntries(entries) {
+  return (Array.isArray(entries) ? entries : []).filter((entry) => {
+    const key = String(entry && entry.key ? entry.key : "").toLowerCase();
+    return key !== "backspace";
+  });
+}
+
+function paginateWhichKeyEntries(entries, page = 0) {
+  const normalizedEntries = normalizeWhichKeyEntries(entries);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(normalizedEntries.length / WHICHKEY_PAGE_SIZE),
+  );
+  const currentPage = Math.min(
+    Math.max(Number.isFinite(page) ? Math.floor(page) : 0, 0),
+    totalPages - 1,
+  );
+  const pageEntries = normalizedEntries.slice(
+    currentPage * WHICHKEY_PAGE_SIZE,
+    (currentPage + 1) * WHICHKEY_PAGE_SIZE,
+  );
+  const columns = Array.from({ length: WHICHKEY_COLUMN_COUNT }, (_, index) =>
+    pageEntries.slice(
+      index * WHICHKEY_MAX_ROWS_PER_COLUMN,
+      (index + 1) * WHICHKEY_MAX_ROWS_PER_COLUMN,
+    ),
+  );
+
+  return {
+    columns,
+    currentPage,
+    totalPages,
+    pageSize: WHICHKEY_PAGE_SIZE,
+  };
+}
+
 function showWhichKey(model, timeoutMs = 1200, delayMs = 0) {
   this.whichKeyModel = model || { prefix: "<leader>", entries: [] };
 
@@ -37,8 +77,28 @@ function updateWhichKey(
     this.clearWhichKeyShowTimer();
   }
 
-  this.whichKeyModel = model ||
-    this.whichKeyModel || { prefix: "<leader>", entries: [] };
+  const previousModel = this.whichKeyModel || { prefix: "<leader>", entries: [] };
+  const nextModel = model || previousModel;
+  const previousPrefix = previousModel.prefix || "<leader>";
+  const nextPrefix = nextModel.prefix || "<leader>";
+  const previousEntryKeys = normalizeWhichKeyEntries(previousModel.entries)
+    .map((entry) => String(entry.key || ""))
+    .join("\u0000");
+  const nextEntryKeys = normalizeWhichKeyEntries(nextModel.entries)
+    .map((entry) => String(entry.key || ""))
+    .join("\u0000");
+  if (
+    previousPrefix !== nextPrefix ||
+    previousEntryKeys !== nextEntryKeys ||
+    !Number.isFinite(this.whichKeyPage)
+  ) {
+    this.whichKeyPage = 0;
+  }
+  if (Number.isFinite(nextModel.pageDelta)) {
+    this.whichKeyPage += Math.floor(nextModel.pageDelta);
+  }
+
+  this.whichKeyModel = nextModel;
   if (timeoutMs === null) {
     this.clearWhichKeyHideTimer();
   } else {
@@ -48,11 +108,17 @@ function updateWhichKey(
   this.syncOverlayStack();
   if (!this.whichKeyOverlayView || !this.whichKeyOverlayReady) return;
 
+  const pagination = paginateWhichKeyEntries(
+    this.whichKeyModel.entries,
+    this.whichKeyPage,
+  );
+  this.whichKeyPage = pagination.currentPage;
+
   const safeModel = {
     prefix: this.whichKeyModel.prefix || "<leader>",
-    entries: Array.isArray(this.whichKeyModel.entries)
-      ? this.whichKeyModel.entries
-      : [],
+    columns: pagination.columns,
+    currentPage: pagination.currentPage,
+    totalPages: pagination.totalPages,
   };
 
   pushShellPatch(
@@ -61,7 +127,8 @@ function updateWhichKey(
       (function updateWhichKeyOverlay() {
         const prefixNode = document.getElementById('whichkey-prefix');
         const gridNode = document.getElementById('whichkey-grid');
-        if (!prefixNode || !gridNode) return;
+        const hintsNode = document.getElementById('whichkey-hints');
+        if (!prefixNode || !gridNode || !hintsNode) return;
 
         const model = ${JSON.stringify(safeModel)};
         prefixNode.textContent = model.prefix || '<leader>';
@@ -73,16 +140,7 @@ function updateWhichKey(
           .replaceAll('"', '&quot;')
           .replaceAll("'", '&#39;');
 
-        const entries = (Array.isArray(model.entries) ? model.entries : []).filter((entry) => {
-          const key = String(entry && entry.key ? entry.key : '').toLowerCase();
-          return key !== 'backspace';
-        });
-
-        const columnCount = 3;
-        const maxRowsPerColumn = 5;
-        const columns = Array.from({ length: columnCount }, (_, index) =>
-          entries.slice(index * maxRowsPerColumn, (index + 1) * maxRowsPerColumn),
-        );
+        const columns = Array.isArray(model.columns) ? model.columns : [];
 
         gridNode.innerHTML = columns
           .map((columnEntries) => {
@@ -97,6 +155,14 @@ function updateWhichKey(
             return '<div class="whichkey-column">' + rows + '</div>';
           })
           .join('');
+
+        const baseHints = '<span class="whichkey-hint"><span class="whichkey-hint-icon">󱊷</span><span class="whichkey-hint-label">close</span></span><span class="whichkey-hint"><span class="whichkey-hint-icon">󰁮</span><span class="whichkey-hint-label">back</span></span>';
+        const totalPages = Number.isFinite(model.totalPages) ? model.totalPages : 1;
+        const currentPage = Number.isFinite(model.currentPage) ? model.currentPage : 0;
+        const pageHint = totalPages > 1
+          ? '<span class="whichkey-hint"><span class="whichkey-hint-icon">[ / ]</span><span class="whichkey-hint-label">page ' + (currentPage + 1) + '/' + totalPages + '</span></span>'
+          : '';
+        hintsNode.innerHTML = baseHints + pageHint;
       })();
     `,
   );
@@ -104,6 +170,7 @@ function updateWhichKey(
 
 function hideWhichKey() {
   this.whichKeyVisible = false;
+  this.whichKeyPage = 0;
   this.clearWhichKeyShowTimer();
   this.clearWhichKeyHideTimer();
   this.relayout();
@@ -184,4 +251,9 @@ module.exports = {
   resetWhichKeyHideTimer,
   clearWhichKeyHideTimer,
   handleWhichKeyMouseEvent,
+  paginateWhichKeyEntries,
+  normalizeWhichKeyEntries,
+  WHICHKEY_COLUMN_COUNT,
+  WHICHKEY_MAX_ROWS_PER_COLUMN,
+  WHICHKEY_PAGE_SIZE,
 };

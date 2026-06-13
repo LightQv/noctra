@@ -360,6 +360,46 @@ test("extension createWindow blocks extension internal URL", async () => {
   assert.equal(manager.created[0].url, "about:blank");
 });
 
+test("extension removeWindow warns when app is running", async () => {
+  const calls = makeCalls();
+  const notifications = [];
+  const runtime = new ChromeExtensionRuntime({
+    ExtensionRuntimeClass: makeFakeExtensionRuntimeClass(calls),
+    bufferManager: makeBufferManager(),
+    getBrowserWindow: () => ({ id: 1 }),
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+
+  await runtime.removeWindow();
+
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].code, "extension_window_remove_ignored");
+});
+
+test("extension removeWindow is quiet during app quit", async () => {
+  const calls = makeCalls();
+  const notifications = [];
+  const runtime = new ChromeExtensionRuntime({
+    ExtensionRuntimeClass: makeFakeExtensionRuntimeClass(calls),
+    bufferManager: makeBufferManager(),
+    getBrowserWindow: () => ({ id: 1 }),
+    isAppQuitting: () => true,
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+
+  await runtime.removeWindow();
+
+  assert.deepEqual(notifications, []);
+});
+
 test("resolveExtensionCreatedUrl allows normal navigable URLs only", () => {
   assert.equal(
     resolveExtensionCreatedUrl("https://example.test/path"),

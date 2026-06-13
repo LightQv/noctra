@@ -94,6 +94,7 @@ class ChromeExtensionRuntime {
     license = null,
     handleCrxProtocol = true,
     onActionPopupCreated = null,
+    isAppQuitting = null,
   } = {}) {
     if (typeof ExtensionRuntimeClass !== "function") {
       throw new TypeError("ExtensionRuntimeClass must be a constructor");
@@ -109,6 +110,7 @@ class ChromeExtensionRuntime {
     this.getBrowserWindow = getBrowserWindow;
     this.notificationsService = notificationsService;
     this.onActionPopupCreated = onActionPopupCreated;
+    this.isAppQuitting = typeof isAppQuitting === "function" ? isAppQuitting : null;
     this.registeredWebContents = new WeakSet();
 
     if (
@@ -228,6 +230,10 @@ class ChromeExtensionRuntime {
   }
 
   async removeWindow() {
+    if (this.isAppQuitting && this.isAppQuitting()) {
+      return null;
+    }
+
     if (
       this.notificationsService &&
       typeof this.notificationsService.notify === "function"

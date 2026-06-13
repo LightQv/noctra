@@ -162,6 +162,7 @@ function getExtensionStorePath() {
 let entryIcons = null;
 let pendingUrls = [];
 const windowContexts = new Map();
+let isAppQuitting = false;
 
 function loadElectronChromeExtensionsClass() {
   try {
@@ -1267,6 +1268,7 @@ function createWindow() {
       getParentWindow: () => context.win,
       focusActiveEditorSurface: (options) =>
         focusActiveEditorSurface(context, options),
+      getTheme: () => context.resolveCurrentTheme().theme,
       markSurfaceRole,
       extensionRole: SURFACE_ROLES.EXTENSION,
     });
@@ -1279,6 +1281,7 @@ function createWindow() {
     getBrowserWindow: () => context.win,
     notificationsService,
     license: resolveChromeExtensionLicense(),
+    isAppQuitting: () => isAppQuitting,
     onActionPopupCreated: (popup) =>
       passwordManagerOverlayController.handlePopupCreated(popup),
   });
@@ -1795,6 +1798,14 @@ app.whenReady().then(async () => {
 app.on("open-url", (event, url) => {
   event.preventDefault();
   handleOpenUrl(url);
+});
+
+app.on("before-quit", () => {
+  isAppQuitting = true;
+});
+
+app.on("will-quit", () => {
+  isAppQuitting = true;
 });
 
 const initialArgUrl = extractHttpUrlFromArgv(process.argv);

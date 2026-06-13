@@ -157,27 +157,27 @@ Goal: prove Bitwarden works in Noctra before full product implementation.
 Todos:
 
 - [ ] Create local spike branch.
-- [ ] Add `electron-chrome-extensions` and `electron-chrome-web-store` as exact-version deps.
-- [ ] Instantiate `ElectronChromeExtensions` with `session.defaultSession`.
-- [ ] Register current active buffer with `extensions.addTab(buffer.webContents, win)`.
-- [ ] Call `extensions.selectTab(buffer.webContents)` when active buffer changes.
-- [ ] Call `ElectronChromeExtensions.handleCRXProtocol(session.defaultSession)`.
-- [ ] Auto-install Bitwarden from Chrome Web Store by extension ID.
-- [ ] Open Bitwarden action popup using package-supported flow.
-- [ ] Test Bitwarden login.
-- [ ] Test Bitwarden autofill on a real login page.
-- [ ] Repeat install/load/popup checks for 1Password.
-- [ ] Record unsupported APIs or failures.
+- [x] Add `electron-chrome-extensions` and `electron-chrome-web-store` as exact-version deps.
+- [x] Instantiate `ElectronChromeExtensions` with `session.defaultSession`.
+- [x] Register current active buffer with `extensions.addTab(buffer.webContents, win)`.
+- [x] Call `extensions.selectTab(buffer.webContents)` when active buffer changes.
+- [x] Call `ElectronChromeExtensions.handleCRXProtocol(session.defaultSession)`.
+- [x] Auto-install Bitwarden from Chrome Web Store by extension ID.
+- [x] Open Bitwarden action popup using package-supported flow.
+- [x] Test Bitwarden login.
+- [x] Test Bitwarden autofill on a real login page.
+- [x] Repeat install/load/popup checks for 1Password.
+- [x] Record unsupported APIs or failures.
 
 Exit criteria:
 
-- [ ] Bitwarden installs from provider selection.
-- [ ] Bitwarden loads after restart.
-- [ ] Bitwarden popup opens.
-- [ ] Bitwarden content scripts run inside Noctra web buffers.
-- [ ] Bitwarden autofill works on normal login forms.
-- [ ] 1Password result is known and documented.
-- [ ] No Noctra privileged IPC is exposed to web or extension content.
+- [x] Bitwarden installs from provider selection.
+- [x] Bitwarden loads after restart.
+- [x] Bitwarden popup opens.
+- [x] Bitwarden content scripts run inside Noctra web buffers.
+- [x] Bitwarden autofill works on normal login forms.
+- [x] 1Password result is known and documented.
+- [x] No Noctra privileged IPC is exposed to web or extension content.
 
 ## Milestone 2: Config And Provider Registry
 
@@ -193,23 +193,23 @@ Files likely touched:
 
 Todos:
 
-- [ ] Add default `browser.password_manager.provider: none`.
-- [ ] Add schema normalization for `none`, `bitwarden`, and `1password`.
-- [ ] Normalize invalid provider values to `none`.
-- [ ] Add provider registry constants.
-- [ ] Add `resolvePasswordManagerProvider(provider)` helper.
-- [ ] Add `isPasswordManagerEnabled(config)` helper.
-- [ ] Add tests for default config.
-- [ ] Add tests for Bitwarden config.
-- [ ] Add tests for 1Password config.
-- [ ] Add tests for invalid provider value.
-- [ ] Document config in `docs/configuration.md`.
+- [x] Add default `browser.password_manager.provider: none`.
+- [x] Add schema normalization for `none`, `bitwarden`, and `1password`.
+- [x] Normalize invalid provider values to `none`.
+- [x] Add provider registry constants.
+- [x] Add `resolvePasswordManagerProvider(provider)` helper.
+- [x] Add `isPasswordManagerEnabled(config)` helper.
+- [x] Add tests for default config.
+- [x] Add tests for Bitwarden config.
+- [x] Add tests for 1Password config.
+- [x] Add tests for invalid provider value.
+- [x] Document config in `docs/configuration.md`.
 
 Exit criteria:
 
-- [ ] Config normalization is deterministic.
-- [ ] Invalid config cannot crash app startup.
-- [ ] Provider metadata has no Electron dependency.
+- [x] Config normalization is deterministic.
+- [x] Invalid config cannot crash app startup.
+- [x] Provider metadata has no Electron dependency.
 
 ## Milestone 3: Chrome Extension Runtime Adapter
 
@@ -245,16 +245,16 @@ Todos:
 - [x] Add `registerBuffer(buffer, win)`.
 - [x] Add `selectBuffer(buffer)`.
 - [x] Add `removeBuffer(buffer)` if package requires explicit cleanup.
-- [ ] Add `openActionPopup(provider)` or equivalent package-backed method.
+- [x] Add `openActionPopup(provider)` or equivalent package-backed method.
 - [x] Add fake-buffer tests for create/select/remove tab callbacks.
 - [x] Add fake-window tests for extension-created tabs opening as normal buffers.
 
 Exit criteria:
 
-- [ ] Every web buffer can be represented as a Chrome extension tab.
-- [ ] `chrome.tabs.query({ active: true })` can resolve active Noctra buffer.
-- [ ] Extension-created tabs are normal Noctra buffers.
-- [ ] Runtime module does not know password-manager provider policy.
+- [x] Every web buffer can be represented as a Chrome extension tab.
+- [x] `chrome.tabs.query({ active: true })` can resolve active Noctra buffer.
+- [x] Extension-created tabs are normal Noctra buffers.
+- [x] Runtime module does not know password-manager provider policy.
 
 ## Milestone 4: Password Manager Service
 
@@ -281,7 +281,7 @@ Todos:
 - [x] Add `getStatus()` method.
 - [x] Add `open()` method used by intent/button.
 - [x] Check `session.defaultSession.extensions.getAllExtensions()` for provider ID.
-- [ ] Auto-install missing provider via `electron-chrome-web-store`.
+- [x] Auto-install missing provider via `electron-chrome-web-store`.
 - [x] Load extension after install.
 - [x] Load existing extension on startup.
 - [x] Start MV3 service worker when manifest requires it.
@@ -292,7 +292,7 @@ Todos:
 Exit criteria:
 
 - [x] Provider `none` performs no extension work.
-- [ ] Selected provider auto-installs when missing.
+- [x] Selected provider auto-installs when missing.
 - [x] Selected provider loads when installed.
 - [x] Failure shows disabled button and warning toast.
 - [x] Service never logs credential data.
@@ -355,7 +355,7 @@ Packaging note: Noctra currently packages `node_modules` in the app ASAR, so `el
 Exit criteria:
 
 - [x] Existing security baseline remains green.
-- [ ] Extension content scripts/action popup work.
+- [x] Extension content scripts/action popup work.
 - [x] Packaged app can resolve required extension preload files.
 
 ## Milestone 7: Tabline Button And IPC
@@ -590,13 +590,13 @@ Implementation note: automated M13 coverage is complete. Manual provider smoke c
 
 Smoke/manual tests:
 
-- [ ] Startup with provider `none`.
-- [ ] Startup with provider `bitwarden` and no installed extension.
-- [ ] Startup with provider `bitwarden` and existing installed extension.
-- [ ] Startup with provider `1password` and no installed extension.
-- [ ] Open popup from key button.
-- [ ] Open popup from command/keymap.
-- [ ] Close popup with Escape.
+- [x] Startup with provider `none`.
+- [x] Startup with provider `bitwarden` and no installed extension.
+- [x] Startup with provider `bitwarden` and existing installed extension.
+- [x] Startup with provider `1password` and no installed extension.
+- [x] Open popup from key button.
+- [x] Open popup from command/keymap.
+- [x] Close popup with Escape.
 - [ ] Close popup by changing active buffer/window if required.
 - [ ] Verify no privileged IPC exposed to active web page.
 
@@ -627,13 +627,13 @@ Bitwarden checklist:
 - [x] Button visible disabled while installing/loading.
 - [x] Button enabled after loaded.
 - [x] Popup opens centered.
-- [ ] User can log in.
-- [ ] User can unlock vault.
-- [ ] Autofill works on a normal login page.
+- [x] User can log in.
+- [x] User can unlock vault.
+- [x] Autofill works on a normal login page.
 - [ ] Extension-created tabs open as normal Noctra buffers.
 - [ ] Offline restart with already-installed extension works.
 
-Bitwarden M14 result: isolated smoke installed Bitwarden `2026.5.1` from Chrome Web Store under `Extensions/nngceckbapebfimnlniiiahkandclblb/2026.5.1_0`, and restart finds the installed extension. Electron emitted unsupported permission warnings for `contextMenus`, `sidePanel`, `webNavigation`, `notifications`, and `privacy`. Noctra fixed the popup navigation blocker by allowing `chrome-extension://` navigation only for child extension popup windows; the popup open path no longer produces `ERR_FAILED (-2)` or `SIGSEGV` in smoke. A minimal Electron repro showed fresh install can make explicit `session.serviceWorkers.startWorkerForScope("chrome-extension://<id>/")` reject with `Failed to start service worker`, while the provider action popup still opens; restarting and directly loading the installed extension lets the same explicit worker start resolve. Noctra treats explicit MV3 worker start failure as a low-severity best-effort signal, not an initialization failure, because Electron may already manage the extension worker lifecycle. Login, unlock, autofill, extension-created tabs, and offline restart still require manual validation.
+Bitwarden M14 result: isolated smoke installed Bitwarden `2026.5.1` from Chrome Web Store under `Extensions/nngceckbapebfimnlniiiahkandclblb/2026.5.1_0`, and restart finds the installed extension. Electron emitted unsupported permission warnings for `contextMenus`, `sidePanel`, `webNavigation`, `notifications`, and `privacy`. Noctra fixed the popup navigation blocker by allowing `chrome-extension://` navigation only for child extension popup windows; the popup open path no longer produces `ERR_FAILED (-2)` or `SIGSEGV` in smoke. A minimal Electron repro showed fresh install can make explicit `session.serviceWorkers.startWorkerForScope("chrome-extension://<id>/")` reject with `Failed to start service worker`, while the provider action popup still opens; restarting and directly loading the installed extension lets the same explicit worker start resolve. Noctra treats explicit MV3 worker start failure as a low-severity best-effort signal, not an initialization failure, because Electron may already manage the extension worker lifecycle. Manual validation confirmed login, unlock, popup autofill, and inline selector behavior on semantically valid login fields. The inline selector depends on normal password-manager form semantics such as `type`, `name`, `autocomplete`, placeholder/label text, and nearby password fields; fields without those hints may not show suggestions even though popup autofill works. A shutdown-time `Object has been destroyed` crash in shell urlline rendering was fixed by guarding destroyed shell windows/webContents. Extension-created tabs, offline restart with already-installed extension, and a focused no-credential-log review still require manual validation.
 
 1Password experimental checklist:
 
@@ -716,20 +716,20 @@ Likely cause:
 
 Implementation todos:
 
-- [ ] Remove Noctra's direct `popupWindow.show()` call from `centerPopup()`.
-- [ ] Let `electron-chrome-extensions` perform first show after preferred-size measurement.
-- [ ] Listen to package popup `moved` as well as `resized`.
-- [ ] Recenter immediately on `moved`/`resized` before/after the package anchor position is applied.
-- [ ] Keep recenter hooks for popup `dom-ready`, `did-finish-load`, `ready-to-show`, and delayed fallback timers.
-- [ ] Use parent `getContentBounds()` when available, fallback to `getBounds()`.
-- [ ] Add tests proving Noctra does not show the popup early and still recenters after package move/resize.
+- [x] Remove Noctra's direct `popupWindow.show()` call from `centerPopup()`.
+- [x] Let `electron-chrome-extensions` perform first show after preferred-size measurement.
+- [x] Listen to package popup `moved` as well as `resized`.
+- [x] Recenter immediately on `moved`/`resized` before/after the package anchor position is applied.
+- [x] Keep recenter hooks for popup `dom-ready`, `did-finish-load`, `ready-to-show`, and delayed fallback timers.
+- [x] Use parent `getContentBounds()` when available, fallback to `getBounds()`.
+- [x] Add tests proving Noctra does not show the popup early and still recenters after package move/resize.
 
 Exit criteria:
 
-- [ ] Opening Bitwarden does not flash a large blank modal.
-- [ ] Popup appears centered horizontally and vertically.
-- [ ] Popup does not clip on right edge.
-- [ ] Escape/close/focus restore still work.
+- [x] Opening Bitwarden does not flash a large blank modal.
+- [x] Popup appears centered horizontally and vertically.
+- [x] Popup does not clip on right edge.
+- [x] Escape/close/focus restore still work.
 
 ### Tabline Button Polish
 
@@ -741,18 +741,18 @@ Problems:
 
 Implementation todos:
 
-- [ ] Keep password-manager icon as Nerd Font glyph `󰌆` or choose a better key glyph if needed.
-- [ ] Add shortcut label to password-manager action: `<leader> p | :pm`.
-- [ ] Render hover title as `Open Bitwarden (<leader> p | :pm)` when loaded.
-- [ ] Preserve disabled-state titles for installing/loading/failed, optionally with shortcut suffix only when useful.
-- [ ] Reorder tabline actions to: downloads, password manager, settings.
-- [ ] Add tabline tests for order, title, disabled/enabled states, and glyph fallback.
+- [x] Keep password-manager icon as Nerd Font glyph `󰌆` or choose a better key glyph if needed.
+- [x] Add shortcut label to password-manager action: `<leader> p | :pm`.
+- [x] Render hover title as `Open Bitwarden (<leader> p | :pm)` when loaded.
+- [x] Preserve disabled-state titles for installing/loading/failed, optionally with shortcut suffix only when useful.
+- [x] Reorder tabline actions to: downloads, password manager, settings.
+- [x] Add tabline tests for order, title, disabled/enabled states, and glyph fallback.
 
 Exit criteria:
 
-- [ ] Hovering password-manager button shows keyboard/command alternatives.
-- [ ] Password-manager button is visually centered between downloads and settings.
-- [ ] Button still hides for provider `none` and disables when unavailable.
+- [x] Hovering password-manager button shows keyboard/command alternatives.
+- [x] Password-manager button is visually centered between downloads and settings.
+- [x] Button still hides for provider `none` and disables when unavailable.
 
 ### Which-Key Pagination
 
@@ -772,20 +772,20 @@ Desired behavior:
 
 Implementation todos:
 
-- [ ] Extend which-key model with pagination metadata: current page, total pages, page size, and controls.
-- [ ] Render 4 columns per page.
-- [ ] Add footer hint such as `[ / ] page` only when `totalPages > 1`.
-- [ ] Keep leader state active while paging.
-- [ ] Route pagination keys before leader action dispatch when which-key is visible and has multiple pages.
-- [ ] Ensure root page 1 includes `p` with current default/user config.
-- [ ] Add tests for `p` visibility, page count, page controls, and no accidental action dispatch while paging.
+- [x] Extend which-key model with pagination metadata: current page, total pages, page size, and controls.
+- [x] Render 4 columns per page.
+- [x] Add footer hint such as `[ / ] page` only when `totalPages > 1`.
+- [x] Keep leader state active while paging.
+- [x] Route pagination keys before leader action dispatch when which-key is visible and has multiple pages.
+- [x] Ensure root page 1 includes `p` with current default/user config.
+- [x] Add tests for `p` visibility, page count, page controls, and no accidental action dispatch while paging.
 
 Exit criteria:
 
-- [ ] `<leader> p` appears in which-key.
-- [ ] Which-key can show more than one page without scrollbars.
-- [ ] Existing leader actions still dispatch normally.
-- [ ] Numeric buffer switching remains supported.
+- [x] `<leader> p` appears in which-key.
+- [x] Which-key can show more than one page without scrollbars.
+- [x] Existing leader actions still dispatch normally.
+- [x] Numeric buffer switching remains supported.
 
 ### Trust And Main-Account Validation
 
@@ -817,9 +817,9 @@ Residual risks:
 Recommendation before using a main Bitwarden vault:
 
 - [ ] Validate with a test Bitwarden account first.
-- [ ] Confirm login works.
-- [ ] Confirm unlock works.
-- [ ] Confirm autofill works on a normal login page.
+- [x] Confirm login works.
+- [x] Confirm unlock works.
+- [x] Confirm autofill works on a normal login page.
 - [ ] Confirm no credential-looking data appears in Noctra logs during login/unlock/autofill.
 - [ ] Confirm extension-created tabs open as normal Noctra buffers or are safely blocked/sanitized.
 - [ ] Confirm restart/offline behavior with installed extension.
@@ -852,16 +852,16 @@ Use this order to keep changes reviewable:
 
 ## Definition Of Done For First Stable Bitwarden Pass
 
-- [ ] `browser.password_manager.provider: bitwarden` auto-installs Bitwarden.
-- [ ] Bitwarden loads after install and app restart.
-- [ ] Password-manager button appears disabled until loaded.
-- [ ] Password-manager button opens real Bitwarden popup once loaded.
+- [x] `browser.password_manager.provider: bitwarden` auto-installs Bitwarden.
+- [x] Bitwarden loads after install and app restart.
+- [x] Password-manager button appears disabled until loaded.
+- [x] Password-manager button opens real Bitwarden popup once loaded.
 - [ ] Extension-created tabs open as normal Noctra buffers.
-- [ ] Autofill works on common login forms.
+- [x] Autofill works on common login forms.
 - [ ] Noctra does not store or log credentials.
-- [ ] Extension popup has no trusted Noctra IPC access.
-- [ ] Session snapshots exclude extension internals.
-- [ ] Tests cover config, service, UI state, IPC, and security boundaries.
+- [x] Extension popup has no trusted Noctra IPC access.
+- [x] Session snapshots exclude extension internals.
+- [x] Tests cover config, service, UI state, IPC, and security boundaries.
 - [ ] License blocker is documented before public release.
 
 ## Definition Of Done For 1Password Stable Later

@@ -1220,6 +1220,7 @@ function createWindow() {
   });
 
   let updateUrllineRender = () => {};
+  let updateLoadinglineRender = () => {};
   let startUrllineEdit = () => {};
   let stopUrllineEdit = () => {};
 
@@ -1242,10 +1243,12 @@ function createWindow() {
     getStatuslineModeLabel,
   });
   updateUrllineRender = urllineCoordinator.updateUrllineRender;
+  updateLoadinglineRender = urllineCoordinator.updateLoadinglineRender;
   startUrllineEdit = urllineCoordinator.startUrllineEdit;
   stopUrllineEdit = urllineCoordinator.stopUrllineEdit;
   context.handleUrllineInput = urllineCoordinator.handleUrllineInput;
   context.updateUrllineRender = updateUrllineRender;
+  context.updateLoadinglineRender = updateLoadinglineRender;
 
   const { applyReloadedConfig } = createConfigRuntime({
     state,
@@ -1262,6 +1265,7 @@ function createWindow() {
     updateTablineOptions: () => updateTablineOptions(context),
     updateUrllineActions: () => updateUrllineActions(context),
     updateUrllineRender,
+    updateLoadinglineRender,
   });
 
   context.updateTablineActions = () => updateTablineActions(context);

@@ -8,6 +8,7 @@ function createHistoryBookmarksHandlers(deps) {
     historyService,
     bookmarksService,
     bookmarkInsertScopeModal,
+    downloadsModal,
     getActiveBookmarkCandidate,
     notificationsService,
   } = deps;
@@ -216,8 +217,9 @@ function createHistoryBookmarksHandlers(deps) {
       downloadsService.openFile(intent.downloadId);
     },
     [INTENTS.DOWNLOADS_LIVE_MODAL]: () => {
-      const downloadsModal = require("../../downloads/modal");
-      downloadsModal.open();
+      if (downloadsModal && typeof downloadsModal.open === "function") {
+        downloadsModal.open();
+      }
     },
   };
 }

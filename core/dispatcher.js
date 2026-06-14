@@ -333,6 +333,7 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     telescopeService: localTelescopeService = telescopeService,
     sessionService: localSessionService = sessionService,
     notificationsService: localNotificationsService = notificationsService,
+    downloadsModal: localDownloadsModal = null,
   } = runtimeDeps;
 
   const deps = {
@@ -348,6 +349,7 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     telescopeService: localTelescopeService,
     sessionService: localSessionService,
     notificationsService: localNotificationsService,
+    downloadsModal: localDownloadsModal,
     enterCommandMode,
     dispatch,
     focusEditableBufferSurface: editorSurface.focus,

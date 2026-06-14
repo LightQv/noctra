@@ -1169,6 +1169,7 @@ function createWindow() {
     uiShell,
     sidepanelController,
     bookmarkInsertScopeModal,
+    downloadsModal,
     telescopeService,
     notificationsService,
     applyThemeAcrossWindows,

@@ -138,3 +138,34 @@ test("search prompt and hint keep arrows blocked", () => {
     true,
   );
 });
+
+test("search prompt captures input while editor is focused", () => {
+  const state = createState();
+  state.mode = "SEARCH";
+  state.editorFocus = true;
+  state.searchPromptVisible = true;
+
+  const dispatched = [];
+  const handler = createInputHandler({
+    state,
+    buffers: {
+      getActive: () => ({ isEditable: true }),
+    },
+    sidepanelController: { isFocused: () => false },
+    dispatch: (_win, intent) => dispatched.push(intent),
+  });
+
+  const input = {
+    type: "keyDown",
+    key: "a",
+    ctrl: false,
+    alt: false,
+    meta: false,
+  };
+
+  assert.equal(handler.shouldPreventDefault(input), true);
+  handler.handleInput(null, input);
+  assert.equal(dispatched.length, 1);
+  assert.equal(dispatched[0].type, INTENTS.SEARCH_APPEND_TEXT);
+  assert.equal(dispatched[0].text, "a");
+});

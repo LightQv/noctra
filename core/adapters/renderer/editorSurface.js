@@ -70,8 +70,28 @@ function runCommand(buffer, commandText) {
   ).catch(() => {});
 }
 
+function search(buffer, queryText) {
+  if (
+    !buffer ||
+    !buffer.isEditable ||
+    !isUsableWebContents(buffer.webContents)
+  ) {
+    return;
+  }
+
+  executeScript(
+    buffer.webContents,
+    `
+      if (typeof window.__settingsEditorSearch__ === "function") {
+        window.__settingsEditorSearch__(${JSON.stringify(String(queryText || ""))});
+      }
+    `,
+  ).catch(() => {});
+}
+
 module.exports = {
   focus,
   blur,
   runCommand,
+  search,
 };

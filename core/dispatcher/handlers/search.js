@@ -24,7 +24,13 @@ function isSearchableBuffer(buffer, webContentsActions) {
 }
 
 function createSearchHandlers(deps) {
-  const { buffers, notificationsService, dispatch, webContentsActions } = deps;
+  const {
+    buffers,
+    notificationsService,
+    dispatch,
+    webContentsActions,
+    runEditableSearch,
+  } = deps;
   let requestSequence = 0;
 
   function notifyWarning(message, code) {
@@ -118,6 +124,18 @@ function createSearchHandlers(deps) {
       }
 
       const buffer = buffers.getActive();
+      if (buffer && buffer.isEditable) {
+        if (typeof runEditableSearch === "function") {
+          runEditableSearch(buffer, query);
+        }
+        setSearchQuery(state, query);
+        setSearchActive(state, false);
+        setSearchCounters(state, 0, 0);
+        exitSearchMode(state, { reason: "editor-search-submit" });
+        dispatch(win, { type: INTENTS.HIDE_COMMAND }, state);
+        return;
+      }
+
       if (!isSearchableBuffer(buffer, webContentsActions)) {
         notifyWarning("Search unavailable in current buffer", "search_unavailable");
         return;

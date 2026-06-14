@@ -35,6 +35,10 @@ function createInputHandler(deps = {}) {
 
     const activeBuffer = localBuffers.getActive();
 
+    if (localState.searchPromptVisible || localState.searchHintMode) {
+      return true;
+    }
+
     if (getSemanticContext() === "editor" && activeBuffer?.isEditable) {
       return false;
     }
@@ -84,6 +88,8 @@ function createInputHandler(deps = {}) {
 
     if (
       localState.mode !== "COMMAND" &&
+      !localState.searchPromptVisible &&
+      !localState.searchHintMode &&
       getSemanticContext() === "editor" &&
       activeBuffer?.isEditable
     ) {

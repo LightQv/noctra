@@ -146,6 +146,11 @@ test("ui-shell:context-menu accepts valid urlline payload", () => {
   assert.equal(result.ok, true);
 });
 
+test("settings:editor-open-search accepts empty payload", () => {
+  const result = validateIpcPayload("settings:editor-open-search", undefined);
+  assert.equal(result.ok, true);
+});
+
 test("ui-shell:context-menu rejects invalid zone", () => {
   const result = validateIpcPayload("ui-shell:context-menu", {
     zone: "invalid",

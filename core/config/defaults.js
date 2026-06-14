@@ -189,6 +189,10 @@ const defaultConfig = {
       T: "reopen_buffer",
     },
     search: {
+      h: "scroll_left",
+      j: "scroll_down",
+      k: "scroll_up",
+      l: "scroll_right",
       n: "search_next",
       N: "search_prev",
       "/": "search_open_prompt",

@@ -6,6 +6,10 @@ const { normalizeConfig } = require("../../core/config/schema");
 test("keymap defaults stay present when keymap section missing", () => {
   const config = normalizeConfig({});
 
+  assert.equal(config.keymap.search.h, "scroll_left");
+  assert.equal(config.keymap.search.j, "scroll_down");
+  assert.equal(config.keymap.search.k, "scroll_up");
+  assert.equal(config.keymap.search.l, "scroll_right");
   assert.equal(config.keymap.normal.j, "scroll_down");
   assert.equal(config.keymap.normal.gg, "scroll_top");
   assert.equal(config.keymap.mod.d, "scroll_half_down");

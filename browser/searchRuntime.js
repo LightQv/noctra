@@ -3,6 +3,11 @@ const SEARCH_VIEWPORT_TOP_RATIO = 0.22;
 const SEARCH_VIEWPORT_BOTTOM_RATIO = 0.78;
 const SEARCH_VIEWPORT_TARGET_RATIO = 0.36;
 const SEARCH_VIEWPORT_MARGIN_PX = 16;
+const SEARCH_HIGHLIGHT_ACTIVE_NAME = "noctra-search-active";
+const SEARCH_HIGHLIGHT_PASSIVE_NAME = "noctra-search-passive";
+const SEARCH_RENDER_MODE_OVERLAY = "overlay";
+const SEARCH_RENDER_MODE_CSS_HIGHLIGHT = "css-highlight";
+const SEARCH_MIN_MATCH_DIMENSION_PX = 1;
 
 function buildSearchRuntimeBootstrapScript() {
   return `
@@ -15,6 +20,11 @@ function buildSearchRuntimeBootstrapScript() {
       const viewportBottomRatio = ${SEARCH_VIEWPORT_BOTTOM_RATIO};
       const viewportTargetRatio = ${SEARCH_VIEWPORT_TARGET_RATIO};
       const viewportMarginPx = ${SEARCH_VIEWPORT_MARGIN_PX};
+      const SEARCH_RENDER_MODE_OVERLAY = "overlay";
+      const SEARCH_RENDER_MODE_CSS_HIGHLIGHT = "css-highlight";
+      const SEARCH_HIGHLIGHT_ACTIVE_NAME = "${SEARCH_HIGHLIGHT_ACTIVE_NAME}";
+      const SEARCH_HIGHLIGHT_PASSIVE_NAME = "${SEARCH_HIGHLIGHT_PASSIVE_NAME}";
+      const SEARCH_MIN_MATCH_DIMENSION_PX = ${SEARCH_MIN_MATCH_DIMENSION_PX};
 
       const runtime = {
         ready: true,
@@ -22,11 +32,17 @@ function buildSearchRuntimeBootstrapScript() {
         query: "",
         activeIndex: 0,
         total: 0,
+        renderMode: SEARCH_RENDER_MODE_OVERLAY,
+        cssHighlightsSupported: false,
+        activeHighlight: null,
+        passiveHighlight: null,
+        highlightStyleElement: null,
         visibleHintCount: 0,
         hintInput: "",
         hintLabels: [],
         matches: [],
         visibleMatchIndexes: [],
+        visibleMatchRects: [],
         maxMatches: 5000,
         themeMainColor: "#89dceb",
         themeSearchActiveTextColor: "",
@@ -77,9 +93,19 @@ function buildSearchRuntimeBootstrapScript() {
 
         updateOverlayTheme(mainColor) {
           const root = runtime.ensureOverlayRoot();
-          if (!root) return;
           const activeText = runtime.themeSearchActiveTextColor || runtime.getContrastingTextColor(mainColor);
           const passiveText = runtime.themeSearchPassiveTextColor || activeText;
+
+          if (typeof document !== "undefined" && document.documentElement) {
+            document.documentElement.style.setProperty("--search-main", mainColor);
+            document.documentElement.style.setProperty("--search-passive-bg", mainColor + "55");
+            document.documentElement.style.setProperty("--search-active-bg", mainColor + "cc");
+            document.documentElement.style.setProperty("--search-active-border", mainColor);
+            document.documentElement.style.setProperty("--search-active-fg", activeText);
+            document.documentElement.style.setProperty("--search-passive-fg", passiveText);
+          }
+
+          if (!root) return;
           root.style.setProperty("--search-main", mainColor);
           root.style.setProperty("--search-passive-bg", mainColor + "55");
           root.style.setProperty("--search-active-bg", mainColor + "cc");
@@ -103,6 +129,57 @@ function buildSearchRuntimeBootstrapScript() {
           return luminance > 0.56 ? "#10151d" : "#f6eddf";
         },
 
+        detectCssHighlightsSupport() {
+          if (runtime.cssHighlightsSupported !== false) return runtime.cssHighlightsSupported;
+
+          const supports =
+            typeof window !== "undefined"
+            && typeof window.CSS !== "undefined"
+            && typeof window.CSS.highlights !== "undefined"
+            && typeof window.CSS.highlights.set === "function"
+            && typeof window.CSS.highlights.delete === "function"
+            && typeof Highlight === "function";
+          runtime.cssHighlightsSupported = Boolean(supports);
+          return runtime.cssHighlightsSupported;
+        },
+
+        ensureHighlightStyle() {
+          if (runtime.highlightStyleElement && runtime.highlightStyleElement.parentNode) return runtime.highlightStyleElement;
+          if (typeof document === "undefined" || !document.head) return null;
+
+          const style = document.createElement("style");
+          style.id = "noctra-search-highlights";
+          style.textContent =
+            "::highlight(" + SEARCH_HIGHLIGHT_PASSIVE_NAME + ") {" +
+            "background-color: var(--search-passive-bg, rgba(137, 220, 235, 0.33));" +
+            "color: var(--search-passive-fg, #10151d);" +
+            "}" +
+            "::highlight(" + SEARCH_HIGHLIGHT_ACTIVE_NAME + ") {" +
+            "background-color: var(--search-active-bg, rgba(137, 220, 235, 0.8));" +
+            "color: var(--search-active-fg, #10151d);" +
+            "}";
+          document.head.appendChild(style);
+          runtime.highlightStyleElement = style;
+          return style;
+        },
+
+        clearTextHighlights() {
+          if (!runtime.cssHighlightsSupported || typeof window === "undefined") return;
+          try {
+            if (window.CSS.highlights.has && window.CSS.highlights.has(SEARCH_HIGHLIGHT_ACTIVE_NAME)) {
+              window.CSS.highlights.delete(SEARCH_HIGHLIGHT_ACTIVE_NAME);
+            }
+            if (window.CSS.highlights.has && window.CSS.highlights.has(SEARCH_HIGHLIGHT_PASSIVE_NAME)) {
+              window.CSS.highlights.delete(SEARCH_HIGHLIGHT_PASSIVE_NAME);
+            }
+          } catch {
+            runtime.activeHighlight = null;
+            runtime.passiveHighlight = null;
+          }
+          runtime.activeHighlight = null;
+          runtime.passiveHighlight = null;
+        },
+
         clearNodes(list) {
           for (const node of list) {
             if (node && node.parentNode && typeof node.parentNode.removeChild === "function") {
@@ -113,6 +190,7 @@ function buildSearchRuntimeBootstrapScript() {
         },
 
         clearOverlay() {
+          runtime.clearTextHighlights();
           runtime.clearNodes(runtime.highlightNodes);
           runtime.clearNodes(runtime.hintNodes);
           if (runtime._hintScrollSettleTimer) {
@@ -185,6 +263,36 @@ function buildSearchRuntimeBootstrapScript() {
           }
         },
 
+        sanitizeRect(rawRect) {
+          const left = Number(rawRect?.left);
+          const top = Number(rawRect?.top);
+          const width = Number(rawRect?.width);
+          const height = Number(rawRect?.height);
+          if (![left, top, width, height].every((value) => Number.isFinite(value))) return null;
+          if (width < SEARCH_MIN_MATCH_DIMENSION_PX || height < SEARCH_MIN_MATCH_DIMENSION_PX) return null;
+          return {
+            left,
+            top,
+            width,
+            height,
+            right: left + width,
+            bottom: top + height,
+          };
+        },
+
+        dedupeRects(rects) {
+          const seen = new Set();
+          const out = [];
+          for (const rect of rects) {
+            const key =
+              rect.left.toFixed(2) + "|" + rect.top.toFixed(2) + "|" + rect.width.toFixed(2) + "|" + rect.height.toFixed(2);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(rect);
+          }
+          return out;
+        },
+
         getMatchRects(match) {
           if (!match || match.fallback) return [];
           if (typeof document.createRange !== "function") return [];
@@ -192,8 +300,10 @@ function buildSearchRuntimeBootstrapScript() {
             const range = document.createRange();
             range.setStart(match.node, match.start);
             range.setEnd(match.node, match.end);
-            const rects = Array.from(range.getClientRects ? range.getClientRects() : []);
-            return rects.filter((rect) => rect && rect.width > 0 && rect.height > 0);
+            const rects = Array.from(range.getClientRects ? range.getClientRects() : [])
+              .map((rect) => runtime.sanitizeRect(rect))
+              .filter(Boolean);
+            return runtime.dedupeRects(rects);
           } catch {
             return [];
           }
@@ -222,6 +332,122 @@ function buildSearchRuntimeBootstrapScript() {
           return rects.find((rect) => runtime.rectVisible(rect)) || rects[0] || null;
         },
 
+        collectVisibleMatchIndexes() {
+          runtime.visibleMatchIndexes = [];
+          runtime.visibleMatchRects = [];
+          if (!runtime.active || runtime.total <= 0) return [];
+
+          for (let i = 0; i < runtime.matches.length; i += 1) {
+            const rects = runtime.getMatchRects(runtime.matches[i]);
+            const visibleRect = rects.find((rect) => runtime.rectVisible(rect));
+            if (visibleRect) {
+              runtime.visibleMatchIndexes.push(i + 1);
+              runtime.visibleMatchRects[i + 1] = visibleRect;
+            }
+          }
+          return runtime.visibleMatchIndexes;
+        },
+
+        renderCssHighlights() {
+          if (runtime.renderMode !== SEARCH_RENDER_MODE_CSS_HIGHLIGHT) {
+            runtime.renderMode = SEARCH_RENDER_MODE_CSS_HIGHLIGHT;
+          }
+          if (typeof document === "undefined" || typeof window === "undefined") return;
+
+          runtime.clearNodes(runtime.highlightNodes);
+          if (!runtime.active || runtime.total <= 0) {
+            runtime.clearTextHighlights();
+            return;
+          }
+          if (!runtime.ensureHighlightStyle()) return;
+
+          runtime.clearTextHighlights();
+          const activeRanges = [];
+          const passiveRanges = [];
+
+          for (let i = 0; i < runtime.matches.length; i += 1) {
+            const match = runtime.matches[i];
+            if (!match || !match.node) continue;
+            try {
+              const range = document.createRange();
+              range.setStart(match.node, match.start);
+              range.setEnd(match.node, match.end);
+              if (i + 1 === runtime.activeIndex) {
+                activeRanges.push(range);
+              } else {
+                passiveRanges.push(range);
+              }
+            } catch {
+              continue;
+            }
+          }
+
+          try {
+            if (activeRanges.length > 0) {
+              runtime.activeHighlight = new Highlight(...activeRanges);
+              runtime.collectVisibleMatchIndexes();
+              window.CSS.highlights.set(SEARCH_HIGHLIGHT_ACTIVE_NAME, runtime.activeHighlight);
+            }
+            if (passiveRanges.length > 0) {
+              runtime.passiveHighlight = new Highlight(...passiveRanges);
+              runtime.collectVisibleMatchIndexes();
+              window.CSS.highlights.set(SEARCH_HIGHLIGHT_PASSIVE_NAME, runtime.passiveHighlight);
+            }
+          } catch {
+            runtime.clearTextHighlights();
+            runtime.renderMode = SEARCH_RENDER_MODE_OVERLAY;
+            runtime.renderOverlayHighlights();
+          }
+        },
+
+        renderOverlayHighlights() {
+          const root = runtime.ensureOverlayRoot();
+          if (!root) return;
+
+          runtime.renderMode = SEARCH_RENDER_MODE_OVERLAY;
+          runtime.clearNodes(runtime.highlightNodes);
+          runtime.visibleMatchIndexes = [];
+          runtime.visibleMatchRects = [];
+          if (!runtime.active || runtime.total <= 0) return;
+
+          const scroll = runtime.getScrollOffsets();
+          for (let i = 0; i < runtime.matches.length; i += 1) {
+            const rects = runtime.getMatchRects(runtime.matches[i]);
+            let hasVisible = false;
+            for (const rect of rects) {
+              if (!runtime.rectVisible(rect)) continue;
+              hasVisible = true;
+              const node = document.createElement("div");
+              node.style.position = "absolute";
+              node.style.left = String(Math.max(0, rect.left + scroll.x)) + "px";
+              node.style.top = String(Math.max(0, rect.top + scroll.y)) + "px";
+              node.style.width = String(Math.max(SEARCH_MIN_MATCH_DIMENSION_PX, rect.width)) + "px";
+              node.style.height = String(Math.max(SEARCH_MIN_MATCH_DIMENSION_PX, rect.height)) + "px";
+              node.style.borderRadius = "0";
+              if (i + 1 === runtime.activeIndex) {
+                node.style.background = "var(--search-active-bg)";
+                node.style.border = "none";
+                node.style.color = "var(--search-active-fg)";
+              } else {
+                node.style.background = "var(--search-passive-bg)";
+                node.style.border = "none";
+                node.style.color = "var(--search-passive-fg)";
+              }
+              root.appendChild(node);
+              runtime.highlightNodes.push(node);
+              runtime.visibleMatchRects[i + 1] = {
+                left: rect.left,
+                top: rect.top,
+                width: rect.width,
+                height: rect.height,
+              };
+            }
+            if (hasVisible) {
+              runtime.visibleMatchIndexes.push(i + 1);
+            }
+          }
+        },
+
         keepActiveMatchInComfortBand() {
           if (typeof window === "undefined" || typeof window.scrollBy !== "function") return;
           const rect = runtime.getActiveRect();
@@ -241,42 +467,27 @@ function buildSearchRuntimeBootstrapScript() {
         },
 
         renderHighlights() {
-          const root = runtime.ensureOverlayRoot();
-          if (!root) return;
-          runtime.clearNodes(runtime.highlightNodes);
+          if (typeof window === "undefined" || typeof document === "undefined") return;
           runtime.visibleMatchIndexes = [];
-          if (!runtime.active || runtime.total <= 0) return;
+          runtime.visibleMatchRects = [];
 
-          const scroll = runtime.getScrollOffsets();
-          for (let i = 0; i < runtime.matches.length; i += 1) {
-            const rects = runtime.getMatchRects(runtime.matches[i]);
-            let hasVisible = false;
-            for (const rect of rects) {
-              if (!runtime.rectVisible(rect)) continue;
-              hasVisible = true;
-              const node = document.createElement("div");
-              node.style.position = "absolute";
-              node.style.left = String(Math.max(0, rect.left + scroll.x)) + "px";
-              node.style.top = String(Math.max(0, rect.top + scroll.y)) + "px";
-              node.style.width = String(Math.max(1, rect.width)) + "px";
-              node.style.height = String(Math.max(1, rect.height)) + "px";
-              node.style.borderRadius = "0";
-              if (i + 1 === runtime.activeIndex) {
-                node.style.background = "var(--search-active-bg)";
-                node.style.border = "none";
-                node.style.color = "var(--search-active-fg)";
-              } else {
-                node.style.background = "var(--search-passive-bg)";
-                node.style.border = "none";
-                node.style.color = "var(--search-passive-fg)";
-              }
-              root.appendChild(node);
-              runtime.highlightNodes.push(node);
-            }
-            if (hasVisible) {
-              runtime.visibleMatchIndexes.push(i + 1);
-            }
+          if (!runtime.detectCssHighlightsSupport()) {
+            runtime.cssHighlightsSupported = false;
+            runtime.renderMode = SEARCH_RENDER_MODE_OVERLAY;
+            runtime.clearTextHighlights();
+            runtime.renderOverlayHighlights();
+            runtime.collectVisibleMatchIndexes();
+            return;
           }
+
+          if (runtime.active) {
+            runtime.collectVisibleMatchIndexes();
+            runtime.renderCssHighlights();
+            return;
+          }
+
+          runtime.clearNodes(runtime.highlightNodes);
+          runtime.clearTextHighlights();
         },
 
         throttle(fn, waitMs) {
@@ -385,6 +596,7 @@ function buildSearchRuntimeBootstrapScript() {
         },
 
         openHintsForCurrentViewport(limit = 24) {
+          runtime.collectVisibleMatchIndexes();
           const visibleIndexes = runtime.visibleMatchIndexes.length
             ? runtime.visibleMatchIndexes.slice(0, limit)
             : Array.from({ length: Math.min(runtime.total, limit) }, (_, i) => i + 1);
@@ -406,8 +618,8 @@ function buildSearchRuntimeBootstrapScript() {
             const targetIndex = Number.isFinite(hint.index)
               ? Math.max(1, Math.floor(hint.index))
               : 1;
-            const rects = runtime.getMatchRects(runtime.matches[targetIndex - 1]);
-            const rect = rects.find((candidate) => runtime.rectVisible(candidate));
+            const rect = runtime.visibleMatchRects[targetIndex]
+              || runtime.getMatchRects(runtime.matches[targetIndex - 1]).find((candidate) => runtime.rectVisible(candidate));
             if (!rect) continue;
 
             const node = document.createElement("div");

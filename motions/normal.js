@@ -179,10 +179,7 @@ function handleLeaderSequence(state, input, now, buffers) {
   return hideWhichKeyAndReset(state);
 }
 
-function createHandleNormal({ buffers = defaultBuffers } = {}) {
-  return function handleNormal(state, input) {
-  const now = Date.now();
-
+function handleLeaderInput(state, input, now = Date.now(), buffers = defaultBuffers) {
   if (
     state.leaderActive &&
     Number.isFinite(state.whichKeyTimeout) &&
@@ -194,67 +191,83 @@ function createHandleNormal({ buffers = defaultBuffers } = {}) {
     }
   }
 
-  if (hasSequenceTimedOut(now, state.lastKeyTime, state.sequenceTimeout)) {
-    resetSequenceBuffers(state);
-  }
-
-  state.lastKeyTime = now;
-
-  const { key } = input;
-  const mod = isModPressed(input);
-  const leaderKey = state.leaderKey || "Space";
-
   if (state.leaderActive) {
     return handleLeaderSequence(state, input, now, buffers);
   }
 
-  if (key === ":") {
-    enterCommandMode(state, {
-      target: "SHELL",
-      initialText: "",
-      cursorIndex: 0,
-      reason: "normal-colon",
-    });
-    return { type: INTENTS.SHOW_COMMAND };
-  }
-
-  if (isLeaderKey(key, leaderKey)) {
+  const leaderKey = state.leaderKey || "Space";
+  if (isLeaderKey(input.key, leaderKey)) {
     startLeaderSession(state, now);
     resetSequenceBuffers(state);
     return showWhichKey(state, buffers);
   }
 
-  if (!mod && /[0-9]/.test(key)) {
-    appendCountDigit(state, key);
-    return null;
-  }
-
-  if (mod) {
-    return handleMod(state, key);
-  }
-
-  appendKeyBuffer(state, key);
-
-  const keymap = getNormalKeymap();
-  const match = keymap[state.keyBuffer];
-
-  if (match) {
-    const count = consumePositiveCount(state.countBuffer, 1);
-    resetSequenceBuffers(state);
-
-    const intent = match(state, count);
-    rememberRepeatableIntent(state, intent, match.actionId);
-    return intent;
-  }
-
-  if (state.keyBuffer.length > 3) {
-    clearKeyBuffer(state);
-  }
-
   return null;
+}
+
+function createHandleNormal({ buffers = defaultBuffers } = {}) {
+  return function handleNormal(state, input) {
+    const now = Date.now();
+
+    if (hasSequenceTimedOut(now, state.lastKeyTime, state.sequenceTimeout)) {
+      resetSequenceBuffers(state);
+    }
+
+    state.lastKeyTime = now;
+
+    const { key } = input;
+    const mod = isModPressed(input);
+    const leaderIntent = handleLeaderInput(state, input, now, buffers);
+    if (leaderIntent) {
+      return leaderIntent;
+    }
+
+    if (key === ":") {
+      enterCommandMode(state, {
+        target: "SHELL",
+        initialText: "",
+        cursorIndex: 0,
+        reason: "normal-colon",
+      });
+      return { type: INTENTS.SHOW_COMMAND };
+    }
+
+    if (!mod && /[0-9]/.test(key)) {
+      appendCountDigit(state, key);
+      return null;
+    }
+
+    if (mod) {
+      return handleMod(state, key);
+    }
+
+    appendKeyBuffer(state, key);
+
+    const keymap = getNormalKeymap();
+    const match = keymap[state.keyBuffer];
+
+    if (match) {
+      const count = consumePositiveCount(state.countBuffer, 1);
+      resetSequenceBuffers(state);
+
+      const intent = match(state, count);
+      rememberRepeatableIntent(state, intent, match.actionId);
+      return intent;
+    }
+
+    if (state.keyBuffer.length > 3) {
+      clearKeyBuffer(state);
+    }
+
+    return null;
   };
 }
 
 const handleNormal = createHandleNormal();
 
-module.exports = { handleNormal, createHandleNormal };
+module.exports = {
+  handleNormal,
+  createHandleNormal,
+  handleLeaderInput,
+  isLeaderKey,
+};

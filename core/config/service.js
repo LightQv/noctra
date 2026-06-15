@@ -37,20 +37,41 @@ function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function mergeWithDefaults(defaultsNode, inputNode) {
+function cloneConfigValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneConfigValue(item));
+  }
+
+  if (isPlainObject(value)) {
+    const cloned = {};
+    for (const [key, childValue] of Object.entries(value)) {
+      cloned[key] = cloneConfigValue(childValue);
+    }
+    return cloned;
+  }
+
+  return value;
+}
+
+function addMissingDefaults(inputNode, defaultsNode = defaultConfig) {
   if (!isPlainObject(defaultsNode)) {
-    return inputNode === undefined ? defaultsNode : inputNode;
+    return inputNode === undefined ? cloneConfigValue(defaultsNode) : inputNode;
   }
 
-  const merged = {};
-  const inputObject = isPlainObject(inputNode) ? inputNode : {};
-  const keys = Object.keys(defaultsNode);
+  const output = isPlainObject(inputNode) ? cloneConfigValue(inputNode) : {};
 
-  for (const key of keys) {
-    merged[key] = mergeWithDefaults(defaultsNode[key], inputObject[key]);
+  for (const [key, defaultValue] of Object.entries(defaultsNode)) {
+    if (!Object.prototype.hasOwnProperty.call(output, key)) {
+      output[key] = cloneConfigValue(defaultValue);
+      continue;
+    }
+
+    if (isPlainObject(defaultValue) && isPlainObject(output[key])) {
+      output[key] = addMissingDefaults(output[key], defaultValue);
+    }
   }
 
-  return merged;
+  return output;
 }
 
 function readRawConfig() {
@@ -232,7 +253,7 @@ function serializeConfig(configObject) {
 }
 
 function syncConfigFile(rawConfig) {
-  const merged = mergeWithDefaults(defaultConfig, rawConfig);
+  const merged = addMissingDefaults(rawConfig, defaultConfig);
   const nextText = serializeConfig(merged);
 
   try {
@@ -610,6 +631,7 @@ module.exports = {
   getConfig,
   getConfigPath,
   getConfigValue,
+  addMissingDefaults,
   updateThemeMode,
   updateBrowserLanguage,
   updateCopySelectionToClipboard,

@@ -661,51 +661,55 @@ Goal: ensure generic managed Chrome extension support works outside dev mode. Bi
 
 Todos:
 
-- [ ] Verify packaged app includes `electron-chrome-extensions/preload` or equivalent copied file.
-- [ ] Verify packaged app can install selected managed extension provider.
-- [ ] Verify packaged app can load installed managed extension provider after restart.
-- [ ] Verify extension storage persists across restart.
-- [ ] Verify extension action popup opens.
-- [ ] Verify extension-created safe web tabs open as normal buffers.
-- [ ] Verify known managed-extension popouts open as transient extension buffers.
-- [ ] Verify no dev-only absolute paths are used.
-- [ ] Verify signed/unsigned macOS behavior if relevant.
+- [x] Verify packaged app includes `electron-chrome-extensions/preload` or equivalent copied file.
+- [x] Verify packaged app can install selected managed extension provider.
+- [x] Verify packaged app can load installed managed extension provider after restart.
+- [x] Verify extension storage persists across restart.
+- [x] Verify extension action popup opens.
+- [x] Verify extension-created safe web tabs open as normal buffers.
+- [x] Verify known managed-extension popouts open as transient extension buffers.
+- [x] Verify no dev-only absolute paths are used.
+- [x] Verify signed/unsigned macOS behavior if relevant.
 - [x] Add packaging notes to release checklist.
+
+M15 result: `npm run make` produced macOS arm64 DMG and ZIP artifacts under `out/make` and a packaged app under `out/Noctra-darwin-arm64/Noctra.app`. Packaged resources include the Noctra MIT `LICENSE`, `THIRD_PARTY_NOTICES.md`, and `licenses/electron-chrome-extensions/LICENSE-GPL`. The packaged ASAR contains `node_modules/electron-chrome-extensions/dist/chrome-extension-api.preload.js` and `node_modules/electron-chrome-web-store/dist/chrome-web-store.preload.js`. Isolated packaged smoke with `browser.password_manager.provider: bitwarden` installed Bitwarden `2026.5.1`, opened the action popup, created a safe extension-created web tab as a normal web buffer, and opened a known managed-extension popout URL as a transient extension buffer. A second packaged smoke run against the same `NOCTRA_USER_DATA_DIR` loaded the installed extension without reinstalling, opened the popup again, and preserved the Bitwarden extension directory plus `Local Extension Settings/nngceckbapebfimnlniiiahkandclblb`. The unsigned macOS app executable launches directly for local validation; full signed/notarized release behavior remains covered by the normal release checklist.
 
 Exit criteria:
 
-- [ ] `npm run make` output can use managed extension action popup with Bitwarden as stable fixture.
-- [ ] No missing preload/resource errors in packaged app.
+- [x] `npm run make` output can use managed extension action popup with Bitwarden as stable fixture.
+- [x] No missing preload/resource errors in packaged app.
 - [x] Public release checklist includes license gate.
 
 ## Milestone 16: Documentation
 
 Docs to update:
 
-- `docs/configuration.md`
-- `docs/keybindings.md`
-- `docs/commands.md`
-- `docs/release-checklist.md`
-- `docs/release-hygiene-status.md`
-- `README.md` once feature is stable.
+- [x] `docs/configuration.md`
+- [x] `docs/keybindings.md`
+- [x] `docs/commands.md`
+- [x] `docs/release-checklist.md`
+- [x] `docs/release-hygiene-status.md`
+- [x] `README.md` once feature is stable.
 
 Possible new docs:
 
-- `docs/password-managers.md`
-- `docs/extensions.md`
+- [x] `docs/password-managers.md`
+- Deferred: `docs/extensions.md` can cover generic managed-extension support later.
 
 Documentation todos:
 
-- [ ] Explain Noctra does not store passwords.
-- [ ] Explain provider config.
-- [ ] Explain auto-install behavior.
-- [ ] Explain button disabled states.
-- [ ] Explain Bitwarden support status.
-- [ ] Explain 1Password experimental status.
-- [ ] Explain troubleshooting for install failure.
-- [ ] Explain troubleshooting for popup failure.
-- [ ] Explain troubleshooting for autofill failure.
+- [x] Explain Noctra does not store passwords.
+- [x] Explain provider config.
+- [x] Explain auto-install behavior.
+- [x] Explain button disabled states.
+- [x] Explain Bitwarden support status.
+- [x] Explain 1Password experimental status.
+- [x] Explain troubleshooting for install failure.
+- [x] Explain troubleshooting for popup failure.
+- [x] Explain troubleshooting for autofill failure.
 - [x] Document public-release GPL-compatible license posture and bundled notices.
+
+M16 result: added `docs/password-managers.md` as the user-facing guide for provider selection, Bitwarden stable support, 1Password experimental status, auto-install/load behavior, popup entry points, button states, autofill expectations, extension-buffer behavior, security boundaries, troubleshooting, and GPL-compatible release notices. README now links the guide from User Reference, and configuration docs point users to the guide from the password-manager provider section.
 
 ## Follow-Up Plan: Popup UX, Which-Key, And Trust Review
 

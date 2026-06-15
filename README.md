@@ -122,6 +122,7 @@ Apply config changes at runtime with `:config-reload`.
 - [Keybindings](docs/keybindings.md)
 - [Commands](docs/commands.md)
 - [Configuration](docs/configuration.md)
+- [Password Managers](docs/password-managers.md)
 
 ### Deep Dive
 

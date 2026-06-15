@@ -51,6 +51,7 @@ function bootstrapWindowRuntime({
   clipboard,
   passwordManagerService,
   passwordManagerOverlayController,
+  extensionRuntime,
 }) {
   const DEFAULT_CASCADE_OFFSET_PX = 28;
 
@@ -326,6 +327,7 @@ function bootstrapWindowRuntime({
     updateUrllineRender,
     passwordManagerService,
     passwordManagerOverlayController,
+    extensionRuntime,
   });
   smokeScenarios.setupSmokeUiCadenceProbe();
   notificationsService.setToastHandler((toast) => {

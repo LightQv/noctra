@@ -18,6 +18,7 @@ function createSmokeScenarios({
   updateUrllineRender,
   passwordManagerService,
   passwordManagerOverlayController,
+  extensionRuntime,
 }) {
   let smokeUiCadenceProbe = null;
 
@@ -317,6 +318,36 @@ function createSmokeScenarios({
           fail(
             `password manager popup failed: ${openStatus.state} ${openStatus.message || ""}`.trim(),
           );
+        }
+      }
+
+      if (process.env.NOCTRA_SMOKE_PASSWORD_MANAGER_WINDOWS === "1") {
+        if (!extensionRuntime || typeof extensionRuntime.createWindow !== "function") {
+          fail("extension runtime window callbacks unavailable");
+        } else {
+          const safeUrl = "https://example.com/";
+          await extensionRuntime.createWindow({ type: "normal", url: safeUrl });
+          const bufferList = Array.isArray(buffers.buffers) ? buffers.buffers : [];
+          const safeBuffer = bufferList.find(
+            (buffer) => buffer && buffer.url === safeUrl,
+          );
+          if (!safeBuffer || safeBuffer.kind !== "web") {
+            fail("extension-created safe web tab did not open as web buffer");
+          }
+
+          const extensionId = status.extensionId;
+          const popoutUrl = `chrome-extension://${extensionId}/popup/index.html?uilocation=popout#/tabs/vault`;
+          await extensionRuntime.createWindow({ type: "popup", url: popoutUrl });
+          const popoutBuffer = bufferList.find(
+            (buffer) => buffer && buffer.url === popoutUrl,
+          );
+          if (
+            !popoutBuffer ||
+            popoutBuffer.kind !== "extension" ||
+            popoutBuffer.extension?.id !== extensionId
+          ) {
+            fail("managed-extension popout did not open as extension buffer");
+          }
         }
       }
     }

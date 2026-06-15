@@ -138,6 +138,7 @@ browser:
 - Noctra does not store, inspect, sync, or log passwords. The selected extension owns credential handling.
 - Smoke/manual validation can set `NOCTRA_USER_DATA_DIR` to isolate Electron profile data and installed extensions from the normal Noctra profile.
 - Chrome extension support uses the GPL-compatible distribution path for `electron-chrome-extensions`; see `THIRD_PARTY_NOTICES.md` for bundled notices.
+- See [Password Managers](password-managers.md) for setup, button states, provider status, and troubleshooting.
 
 Example:
 

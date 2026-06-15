@@ -1258,6 +1258,7 @@ function createWindow() {
     updateUrllineRender: () => {},
     passwordManagerService: null,
     passwordManagerOverlayController: null,
+    extensionRuntime: null,
   };
 
   const passwordManagerOverlayController =
@@ -1281,6 +1282,7 @@ function createWindow() {
     onActionPopupCreated: (popup) =>
       passwordManagerOverlayController.handlePopupCreated(popup),
   });
+  context.extensionRuntime = extensionRuntime;
   buffers.setExtensionRuntime(extensionRuntime);
 
   const passwordManagerInstaller = createChromeWebStoreInstaller({
@@ -1492,6 +1494,7 @@ function createWindow() {
     persistSessionSnapshot: persistSnapshot,
     clipboard,
     passwordManagerService,
+    extensionRuntime,
   });
 
   context.win = runtime.win;

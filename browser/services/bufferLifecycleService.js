@@ -72,6 +72,10 @@ function rememberClosedBuffer(manager, buffer, index) {
     return;
   }
 
+  if (buffer.kind === "extension") {
+    return;
+  }
+
   const snapshot = {
     url: typeof buffer.url === "string" ? buffer.url : "about:blank",
     kind: typeof buffer.kind === "string" ? buffer.kind : "web",
@@ -444,6 +448,7 @@ function closeAllBuffers(manager) {
 function duplicateBuffer(manager, id) {
   const target = manager.buffers.find((buffer) => buffer.id === id) || null;
   if (!target) return null;
+  if (target.kind === "extension") return null;
 
   const hasVirtualDocument = Boolean(
     target.virtualDocument &&

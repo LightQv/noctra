@@ -416,6 +416,13 @@ function bootstrapWindowRuntime({
     }
 
     if (change.kind === "visit" && change.url) {
+      const sourceBuffer = buffers.buffers.find(
+        (buffer) => buffer && buffer.id === change.sourceBufferId,
+      );
+      if (sourceBuffer?.kind === "extension") {
+        return;
+      }
+
       const normalizedUrl = normalizeHistoryUrl(change.url);
       if (!normalizedUrl) {
         return;
@@ -448,6 +455,13 @@ function bootstrapWindowRuntime({
     }
 
     if (change.kind === "title-updated" && change.url && change.title) {
+      const sourceBuffer = buffers.buffers.find(
+        (buffer) => buffer && buffer.id === change.sourceBufferId,
+      );
+      if (sourceBuffer?.kind === "extension") {
+        return;
+      }
+
       const normalizedUrl = normalizeHistoryUrl(change.url);
       if (!normalizedUrl) {
         return;

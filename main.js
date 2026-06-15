@@ -1722,6 +1722,13 @@ app.whenReady().then(async () => {
     app,
     isAllowedNavigationUrl,
     notificationsService,
+    openExtensionWindowUrl: (url) => {
+      const context = getLastWindowContext();
+      if (!context || !context.buffers) {
+        return;
+      }
+      context.buffers.create(url, { activate: true });
+    },
   });
 
   try {

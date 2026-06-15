@@ -272,6 +272,57 @@ test("webContents security policy blocks window open and denied navigation", () 
   assert.equal(notifications[1].code, "security_navigation_blocked");
 });
 
+test("webContents security policy routes safe extension window open", () => {
+  const notifications = [];
+  const openedUrls = [];
+  let webContentsCreatedListener = null;
+  const app = {
+    on(eventName, listener) {
+      if (eventName === "web-contents-created") {
+        webContentsCreatedListener = listener;
+      }
+    },
+  };
+
+  registerWebContentsSecurityPolicy({
+    app,
+    isAllowedNavigationUrl: (url) => url === "https://bitwarden.com/terms/",
+    openExtensionWindowUrl(url) {
+      openedUrls.push(url);
+    },
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+
+  let windowOpenHandler = null;
+  const extensionContents = {
+    setWindowOpenHandler(listener) {
+      windowOpenHandler = listener;
+    },
+    on() {},
+  };
+  markSurfaceRole(extensionContents, SURFACE_ROLES.EXTENSION);
+  webContentsCreatedListener({}, extensionContents);
+
+  const allowedDecision = windowOpenHandler({
+    url: "https://bitwarden.com/terms/",
+  });
+  assert.deepEqual(allowedDecision, { action: "deny" });
+  assert.deepEqual(openedUrls, ["https://bitwarden.com/terms/"]);
+  assert.equal(notifications.length, 0);
+
+  const blockedDecision = windowOpenHandler({
+    url: "chrome-extension://abc/options.html",
+  });
+  assert.deepEqual(blockedDecision, { action: "deny" });
+  assert.deepEqual(openedUrls, ["https://bitwarden.com/terms/"]);
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].code, "security_window_open_blocked");
+});
+
 test("webContents security policy allows extension child popup navigation only", () => {
   let webContentsCreatedListener = null;
   const notifications = [];
@@ -338,6 +389,63 @@ test("webContents security policy allows extension child popup navigation only",
       },
     },
     "chrome-extension://abc/popup.html",
+  );
+  assert.equal(prevented, true);
+  assert.equal(notifications.at(-1).code, "security_navigation_blocked");
+});
+
+test("webContents security policy allows known provider extension buffers", () => {
+  let webContentsCreatedListener = null;
+  const notifications = [];
+  const app = {
+    on(eventName, listener) {
+      if (eventName === "web-contents-created") {
+        webContentsCreatedListener = listener;
+      }
+    },
+  };
+
+  registerWebContentsSecurityPolicy({
+    app,
+    isAllowedNavigationUrl: () => false,
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+
+  let navigate = null;
+  const extensionBufferContents = {
+    setWindowOpenHandler() {},
+    on(eventName, listener) {
+      if (eventName === "will-navigate") {
+        navigate = listener;
+      }
+    },
+  };
+  markSurfaceRole(extensionBufferContents, SURFACE_ROLES.EXTENSION);
+  webContentsCreatedListener({}, extensionBufferContents);
+
+  let prevented = false;
+  navigate(
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup/index.html",
+  );
+  assert.equal(prevented, false);
+
+  prevented = false;
+  navigate(
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "chrome-extension://unknownextensionid/options.html",
   );
   assert.equal(prevented, true);
   assert.equal(notifications.at(-1).code, "security_navigation_blocked");

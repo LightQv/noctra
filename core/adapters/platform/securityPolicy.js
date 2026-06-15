@@ -1,4 +1,5 @@
 const {
+  SURFACE_ROLES,
   getSurfaceRole,
   isTrustedInternalRole,
   isAllowedTrustedSurfaceUrl,
@@ -9,6 +10,9 @@ const {
   resolveDownloadDecision,
 } = require("../../security/downloadPolicy");
 const { isExtensionInternalUrl } = require("../../security/urlPolicy");
+const {
+  isKnownPasswordManagerExtensionUrl,
+} = require("../../extensions/passwordManagerProviders");
 const downloadsService = require("../../downloads/service");
 
 function isExtensionChildWindowNavigation(contents, url) {
@@ -175,6 +179,7 @@ function registerWebContentsSecurityPolicy({
   app,
   isAllowedNavigationUrl,
   notificationsService,
+  openExtensionWindowUrl,
 }) {
   if (!app || typeof app.on !== "function") {
     return;
@@ -183,6 +188,17 @@ function registerWebContentsSecurityPolicy({
   app.on("web-contents-created", (_event, contents) => {
     contents.setWindowOpenHandler(({ url }) => {
       const role = getSurfaceRole(contents);
+      if (
+        role === SURFACE_ROLES.EXTENSION &&
+        typeof url === "string" &&
+        url.length &&
+        isAllowedNavigationUrl(url) &&
+        typeof openExtensionWindowUrl === "function"
+      ) {
+        openExtensionWindowUrl(url);
+        return { action: "deny" };
+      }
+
       if (typeof url === "string" && url.length) {
         notificationsService.notify({
           severity: "info",
@@ -214,6 +230,13 @@ function registerWebContentsSecurityPolicy({
       }
 
       if (isAllowedNavigationUrl(url)) {
+        return;
+      }
+
+      if (
+        role === SURFACE_ROLES.EXTENSION &&
+        isKnownPasswordManagerExtensionUrl(url)
+      ) {
         return;
       }
 

@@ -88,7 +88,7 @@ function getUrllineRenderModel(manager) {
       x: contentX,
       top: UI_SHELL_TABLINE_HEIGHT,
       width: leftWidth,
-      url: leftBuffer.url || "about:blank",
+      url: leftBuffer.displayUrl || leftBuffer.url || "about:blank",
       canGoBack: Boolean(leftBuffer.webContents?.navigationHistory?.canGoBack?.()),
       canGoForward: Boolean(
         leftBuffer.webContents?.navigationHistory?.canGoForward?.(),
@@ -111,7 +111,7 @@ function getUrllineRenderModel(manager) {
       x: rightX,
       top: UI_SHELL_TABLINE_HEIGHT,
       width: rightWidth,
-      url: rightBuffer.url || "about:blank",
+      url: rightBuffer.displayUrl || rightBuffer.url || "about:blank",
       canGoBack: Boolean(
         rightBuffer.webContents?.navigationHistory?.canGoBack?.(),
       ),

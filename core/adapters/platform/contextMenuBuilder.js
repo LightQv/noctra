@@ -231,7 +231,7 @@ function buildUIShellContextMenuTemplate({ zone, target, runtimeSnapshot, action
       { type: "separator" },
       {
         label: "Duplicate Buffer",
-        enabled: Boolean(buffer && !buffer.isEditable),
+        enabled: Boolean(buffer && !buffer.isEditable && buffer.kind !== "extension"),
         click: () => actions.duplicateBuffer(),
       },
       {

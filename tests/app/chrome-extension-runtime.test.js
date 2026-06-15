@@ -39,7 +39,10 @@ function makeBufferManager(initialBuffers = []) {
     create(url, options = {}) {
       const buffer = makeBuffer(this.buffers.length + 1, `created-${url}`, {
         url,
+        kind: options.kind,
       });
+      buffer.extension = options.extension || null;
+      buffer.displayUrl = options.displayUrl || "";
       this.buffers.push(buffer);
       this.created.push({ url, options, buffer });
       if (options.activate !== false) {
@@ -344,6 +347,49 @@ test("extension createWindow opens URL as current-window buffer", async () => {
   assert.equal(ownerWindow, browserWindow);
   assert.equal(manager.created[0].url, "https://example.test/window");
   assert.deepEqual(calls.selectTab, [manager.created[0].buffer.webContents]);
+});
+
+test("extension popup createWindow opens known provider as extension buffer", async () => {
+  const calls = makeCalls();
+  const browserWindow = { id: 1 };
+  const manager = makeBufferManager();
+  const runtime = new ChromeExtensionRuntime({
+    ExtensionRuntimeClass: makeFakeExtensionRuntimeClass(calls),
+    bufferManager: manager,
+    getBrowserWindow: () => browserWindow,
+  });
+
+  const ownerWindow = await runtime.createWindow({
+    type: "popup",
+    url: "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup/index.html",
+  });
+
+  assert.equal(ownerWindow, browserWindow);
+  assert.equal(
+    manager.created[0].url,
+    "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup/index.html",
+  );
+  assert.equal(manager.created[0].options.kind, "extension");
+  assert.equal(manager.created[0].options.displayUrl, "Bitwarden");
+  assert.deepEqual(manager.created[0].options.extension, {
+    id: "nngceckbapebfimnlniiiahkandclblb",
+    provider: "bitwarden",
+    label: "Bitwarden",
+  });
+  assert.deepEqual(calls.selectTab, [manager.created[0].buffer.webContents]);
+
+  await runtime.createWindow({
+    type: "popup",
+    url: "chrome-extension://aeblfdkhhhdcdjpifhhbdiojplfjncoa/app.html",
+  });
+
+  assert.equal(manager.created[1].options.kind, "extension");
+  assert.equal(manager.created[1].options.displayUrl, "1Password");
+  assert.deepEqual(manager.created[1].options.extension, {
+    id: "aeblfdkhhhdcdjpifhhbdiojplfjncoa",
+    provider: "1password",
+    label: "1Password",
+  });
 });
 
 test("extension createWindow blocks extension internal URL", async () => {

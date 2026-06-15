@@ -83,18 +83,18 @@ xdg-mime default noctra.desktop x-scheme-handler/https
 
 #### Config sections
 
-| Section                 | Purpose                                   |
-| ----------------------- | ----------------------------------------- |
-| `global.input`          | Leader key and sequence timeout           |
-| `global.ui`             | Shell UI toggles and panel behavior       |
-| `global.theme`          | App and content appearance                |
+| Section                 | Purpose                                              |
+| ----------------------- | ---------------------------------------------------- |
+| `global.input`          | Leader key and sequence timeout                      |
+| `global.ui`             | Shell UI toggles and panel behavior                  |
+| `global.theme`          | App and content appearance                           |
 | `keymap`                | User key mappings (`normal`/`mod`/`search`/`leader`) |
-| `global.editor`         | Editable buffer behavior                  |
-| `global.split`          | Split layout ratios and divider behavior  |
-| `global.window`         | Initial window bounds and maximized state |
-| `global.storage`        | File locations for persisted data         |
-| `global.notifications`  | Toast and persistence behavior            |
-| `global.opening_buffer` | Startup mode and dashboard settings       |
+| `global.editor`         | Editable buffer behavior                             |
+| `global.split`          | Split layout ratios and divider behavior             |
+| `global.window`         | Initial window bounds and maximized state            |
+| `global.storage`        | File locations for persisted data                    |
+| `global.notifications`  | Toast and persistence behavior                       |
+| `global.opening_buffer` | Startup mode and dashboard settings                  |
 
 #### Persisted data
 

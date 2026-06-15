@@ -201,7 +201,7 @@ const ACTION_BUILDERS = {
     })),
     (context = {}) => {
       const buf = context.activeBuffer;
-      return Boolean(buf && !buf.isEditable);
+      return Boolean(buf && !buf.isEditable && buf.kind !== "extension");
     },
   ),
   open_url_in_split: setAvailability(

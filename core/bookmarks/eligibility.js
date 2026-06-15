@@ -1,5 +1,5 @@
 function isBookmarkableBuffer(buffer) {
-  if (!buffer || buffer.isEditable) {
+  if (!buffer || buffer.isEditable || buffer.kind === "extension") {
     return false;
   }
 

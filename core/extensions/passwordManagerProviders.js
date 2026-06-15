@@ -42,6 +42,40 @@ function resolvePasswordManagerProvider(value) {
   return PASSWORD_MANAGER_PROVIDERS[normalizePasswordManagerProviderName(value)];
 }
 
+function resolvePasswordManagerProviderByExtensionId(extensionId) {
+  if (typeof extensionId !== "string" || !extensionId.trim()) {
+    return null;
+  }
+
+  const normalizedId = extensionId.trim();
+  return (
+    Object.values(PASSWORD_MANAGER_PROVIDERS).find(
+      (provider) => provider && provider.id === normalizedId,
+    ) || null
+  );
+}
+
+function resolvePasswordManagerProviderByExtensionUrl(rawUrl) {
+  if (typeof rawUrl !== "string" || !rawUrl.trim()) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(rawUrl.trim());
+    if (parsed.protocol !== "chrome-extension:") {
+      return null;
+    }
+
+    return resolvePasswordManagerProviderByExtensionId(parsed.hostname);
+  } catch {
+    return null;
+  }
+}
+
+function isKnownPasswordManagerExtensionUrl(rawUrl) {
+  return Boolean(resolvePasswordManagerProviderByExtensionUrl(rawUrl));
+}
+
 function isPasswordManagerEnabled(configOrProvider) {
   const providerName =
     typeof configOrProvider === "string"
@@ -58,6 +92,9 @@ module.exports = {
   PASSWORD_MANAGER_PROVIDER_IDS,
   PASSWORD_MANAGER_PROVIDERS,
   isPasswordManagerEnabled,
+  isKnownPasswordManagerExtensionUrl,
   normalizePasswordManagerProviderName,
+  resolvePasswordManagerProviderByExtensionId,
+  resolvePasswordManagerProviderByExtensionUrl,
   resolvePasswordManagerProvider,
 };

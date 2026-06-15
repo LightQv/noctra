@@ -206,6 +206,20 @@ test("ui shell tabline: duplicate enabled for non-editable buffer", () => {
   assert.equal(item.enabled, true);
 });
 
+test("ui shell tabline: duplicate disabled for extension buffer", () => {
+  const actions = makeActionsStub();
+  const template = buildUIShellContextMenuTemplate({
+    zone: "tabline",
+    target: "tab",
+    runtimeSnapshot: makeTablineRuntimeSnapshot({
+      buffer: { isEditable: false, kind: "extension" },
+    }),
+    actions,
+  });
+  const item = template.find((i) => i.label === "Duplicate Buffer");
+  assert.equal(item.enabled, false);
+});
+
 // ─── Tabline action tests ───
 
 test("ui shell actions: closeBuffer dispatches CLOSE_BUFFER intent", () => {

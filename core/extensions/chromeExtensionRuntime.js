@@ -2,6 +2,10 @@ const {
   isExtensionInternalUrl,
   validateNavigableUrl,
 } = require("../security/urlPolicy");
+const {
+  resolvePasswordManagerProviderByExtensionUrl,
+} = require("./passwordManagerProviders");
+const { SURFACE_ROLES } = require("../security/surfaceTrust");
 
 function hasLiveWebContents(buffer) {
   return Boolean(
@@ -56,6 +60,24 @@ function resolveExtensionCreatedUrl(rawUrl) {
 
   const validation = validateNavigableUrl(url);
   return validation.ok ? validation.url : "about:blank";
+}
+
+function resolveExtensionBufferOptions(rawUrl) {
+  const provider = resolvePasswordManagerProviderByExtensionUrl(rawUrl);
+  if (!provider || !provider.id) {
+    return null;
+  }
+
+  return {
+    kind: "extension",
+    surfaceRole: SURFACE_ROLES.EXTENSION,
+    displayUrl: provider.label,
+    extension: {
+      id: provider.id,
+      provider: provider.name,
+      label: provider.label,
+    },
+  };
 }
 
 class NoopChromeExtensionRuntime {
@@ -219,6 +241,21 @@ class ChromeExtensionRuntime {
 
   async createWindow(details = {}) {
     const url = Array.isArray(details.url) ? details.url[0] : details.url;
+    const extensionBufferOptions =
+      details.type === "popup" ? resolveExtensionBufferOptions(url) : null;
+    if (extensionBufferOptions) {
+      const buffer = this.bufferManager.create(url, {
+        ...extensionBufferOptions,
+        activate: true,
+      });
+      const browserWindow = this.getBrowserWindow();
+
+      this.registerBuffer(buffer, browserWindow);
+      this.selectBuffer(buffer);
+
+      return browserWindow;
+    }
+
     const normalizedUrl = resolveExtensionCreatedUrl(url);
     const buffer = this.bufferManager.create(normalizedUrl, { activate: true });
     const browserWindow = this.getBrowserWindow();

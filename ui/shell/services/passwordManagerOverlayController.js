@@ -3,10 +3,11 @@ const { DEFAULT_THEME } = require("../../theme");
 const DEFAULT_POPUP_WIDTH = 420;
 const DEFAULT_POPUP_HEIGHT = 560;
 const POPUP_COVER_FALLBACK_MS = 1800;
-const POPUP_COVER_ID = "noctra-password-manager-popup-cover";
 
 function isLiveWindow(win) {
-  return Boolean(win && typeof win.isDestroyed === "function" && !win.isDestroyed());
+  return Boolean(
+    win && typeof win.isDestroyed === "function" && !win.isDestroyed(),
+  );
 }
 
 function getPopupWindow(popup) {
@@ -153,30 +154,37 @@ class PasswordManagerOverlayController {
     if (popup && typeof popup.on === "function") {
       for (const eventName of ["moved", "resized"]) {
         popup.on(eventName, onMoveOrResize);
-        this.cleanupFns.push(() =>
-          popup.off && popup.off(eventName, onMoveOrResize),
+        this.cleanupFns.push(
+          () => popup.off && popup.off(eventName, onMoveOrResize),
         );
       }
     }
 
-    if (popupWindow.webContents && typeof popupWindow.webContents.on === "function") {
+    if (
+      popupWindow.webContents &&
+      typeof popupWindow.webContents.on === "function"
+    ) {
       popupWindow.webContents.on("before-input-event", onEscape);
-      this.cleanupFns.push(() =>
-        popupWindow.webContents.off &&
-        popupWindow.webContents.off("before-input-event", onEscape),
+      this.cleanupFns.push(
+        () =>
+          popupWindow.webContents.off &&
+          popupWindow.webContents.off("before-input-event", onEscape),
       );
       for (const eventName of ["dom-ready", "did-finish-load"]) {
         popupWindow.webContents.on(eventName, onContentReady);
-        this.cleanupFns.push(() =>
-          popupWindow.webContents.off &&
-          popupWindow.webContents.off(eventName, onContentReady),
+        this.cleanupFns.push(
+          () =>
+            popupWindow.webContents.off &&
+            popupWindow.webContents.off(eventName, onContentReady),
         );
       }
     }
 
     if (typeof popupWindow.on === "function") {
       popupWindow.on("closed", onClosed);
-      this.cleanupFns.push(() => popupWindow.off && popupWindow.off("closed", onClosed));
+      this.cleanupFns.push(
+        () => popupWindow.off && popupWindow.off("closed", onClosed),
+      );
       popupWindow.on("ready-to-show", onDelayedCenter);
       popupWindow.on("show", onDelayedCenter);
       this.cleanupFns.push(() => {
@@ -190,8 +198,8 @@ class PasswordManagerOverlayController {
     if (isLiveWindow(parentWindow) && typeof parentWindow.on === "function") {
       for (const eventName of ["resize", "maximize", "unmaximize"]) {
         parentWindow.on(eventName, onMoveOrResize);
-        this.cleanupFns.push(() =>
-          parentWindow.off && parentWindow.off(eventName, onMoveOrResize),
+        this.cleanupFns.push(
+          () => parentWindow.off && parentWindow.off(eventName, onMoveOrResize),
         );
       }
     }
@@ -227,128 +235,16 @@ class PasswordManagerOverlayController {
     if (this.popupContentRevealed || !isLiveWindow(popupWindow)) {
       return;
     }
-    const webContents = popupWindow.webContents;
-    if (!webContents || typeof webContents.executeJavaScript !== "function") {
-      this.revealPopupWindow(popupWindow);
-      return;
-    }
-
-    this.installPopupCover(popupWindow)
-      .then(() => this.revealPopupWindow(popupWindow))
-      .then(() => this.waitForPopupVisualReadiness(popupWindow))
-      .then((ready) => {
-        if (ready) {
-          this.revealPopupContent(popupWindow);
-        }
-      })
-      .catch(() => {});
+    this.revealPopupWindow(popupWindow);
+    this.scheduleCoverFallback(240);
   }
 
   installPopupCover(popupWindow) {
-    const webContents = popupWindow && popupWindow.webContents;
-    if (!webContents || typeof webContents.executeJavaScript !== "function") {
-      return Promise.resolve(false);
-    }
-    const color = JSON.stringify(this.popupBackgroundColor);
-    const coverId = JSON.stringify(POPUP_COVER_ID);
-
-    return webContents.executeJavaScript(
-      `(() => {
-        const id = ${coverId};
-        const color = ${color};
-        let cover = document.getElementById(id);
-        if (!cover) {
-          cover = document.createElement('div');
-          cover.id = id;
-          cover.setAttribute('aria-hidden', 'true');
-          document.documentElement.appendChild(cover);
-        }
-        Object.assign(cover.style, {
-          position: 'fixed',
-          inset: '0',
-          zIndex: '2147483647',
-          pointerEvents: 'none',
-          background: color,
-          opacity: '1',
-          transition: 'opacity 80ms linear',
-        });
-        return true;
-      })();`,
-    );
+    return Promise.resolve(Boolean(popupWindow));
   }
 
   waitForPopupVisualReadiness(popupWindow) {
-    const webContents = popupWindow && popupWindow.webContents;
-    if (!webContents || typeof webContents.executeJavaScript !== "function") {
-      return Promise.resolve(true);
-    }
-
-    return webContents.executeJavaScript(
-      `(() => new Promise((resolve) => {
-          const coverId = ${JSON.stringify(POPUP_COVER_ID)};
-          const isBlankColor = (value) => {
-            const color = String(value || '').replace(/\\s+/g, '').toLowerCase();
-            return color === 'transparent' || color === 'rgba(0,0,0,0)' || color === 'rgb(255,255,255)' || color === '#fff' || color === '#ffffff';
-          };
-          const hasVisibleContent = () => {
-            const body = document.body;
-            if (!body) return false;
-            const bodyRect = body.getBoundingClientRect();
-            if (bodyRect.width <= 0 || bodyRect.height <= 0) return false;
-            const candidates = Array.from(body.querySelectorAll('*')).filter((element) => element.id !== coverId).slice(0, 120);
-            return candidates.some((element) => {
-              const style = window.getComputedStyle(element);
-              if (!style || style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) return false;
-              const rect = element.getBoundingClientRect();
-              if (rect.width <= 1 || rect.height <= 1) return false;
-              const tagName = String(element.tagName || '').toLowerCase();
-              const hasText = Boolean(String(element.textContent || '').trim()) && !isBlankColor(style.color);
-              const isControl = ['button', 'input', 'select', 'textarea', 'svg', 'img'].includes(tagName) || element.getAttribute('role') === 'button';
-              const hasRealPaint = !isBlankColor(style.backgroundColor) || style.backgroundImage !== 'none' || style.boxShadow !== 'none';
-              return hasText || isControl || hasRealPaint;
-            });
-          };
-          const waitForFonts = () => {
-            if (!document.fonts || !document.fonts.ready) return Promise.resolve();
-            return Promise.race([
-              document.fonts.ready.catch(() => {}),
-              new Promise((resolveFonts) => setTimeout(resolveFonts, 220)),
-            ]);
-          };
-          const waitForStableLayout = (remaining = 5, previous = null, stable = 0) => {
-            requestAnimationFrame(() => {
-              const body = document.body;
-              const rect = body ? body.getBoundingClientRect() : { width: 0, height: 0 };
-              const next = [Math.round(rect.width), Math.round(rect.height), document.body ? document.body.scrollHeight : 0].join(':');
-              const nextStable = previous === next ? stable + 1 : 0;
-              if (nextStable >= 2 || remaining <= 0) {
-                resolve(hasVisibleContent());
-                return;
-              }
-              waitForStableLayout(remaining - 1, next, nextStable);
-            });
-          };
-          const finishIfReady = () => {
-            if (!hasVisibleContent()) return false;
-            waitForFonts().then(() => waitForStableLayout());
-            return true;
-          };
-          if (finishIfReady()) {
-            return;
-          }
-          const timeout = setTimeout(() => {
-            if (observer) observer.disconnect();
-            if (!finishIfReady()) resolve(false);
-          }, 320);
-          const observer = new MutationObserver(() => {
-            if (!hasVisibleContent()) return;
-            clearTimeout(timeout);
-            observer.disconnect();
-            waitForFonts().then(() => waitForStableLayout());
-          });
-          observer.observe(document.documentElement || document, { childList: true, subtree: true, characterData: true, attributes: true });
-        }))();`,
-    );
+    return Promise.resolve(Boolean(popupWindow));
   }
 
   revealPopupWindow(popupWindow = this.popupWindow) {
@@ -373,22 +269,7 @@ class PasswordManagerOverlayController {
     }
     this.revealTimers.clear();
     this.revealPopupWindow(popupWindow);
-    const webContents = popupWindow.webContents;
-    if (!webContents || typeof webContents.executeJavaScript !== "function") {
-      return Promise.resolve(true);
-    }
-    return webContents
-      .executeJavaScript(
-        `(() => {
-          const cover = document.getElementById(${JSON.stringify(POPUP_COVER_ID)});
-          if (!cover) return false;
-          cover.style.opacity = '0';
-          setTimeout(() => cover.remove(), 100);
-          return true;
-        })();`,
-      )
-      .then(() => true)
-      .catch(() => false);
+    return Promise.resolve(true);
   }
 
   scheduleCoverFallback(delayMs) {
@@ -418,7 +299,11 @@ class PasswordManagerOverlayController {
     const popupWindow = this.popupWindow;
     this.releasePopup({ restoreFocus });
 
-    if (popup && typeof popup.destroy === "function" && !popup.isDestroyed?.()) {
+    if (
+      popup &&
+      typeof popup.destroy === "function" &&
+      !popup.isDestroyed?.()
+    ) {
       popup.destroy();
       return true;
     }

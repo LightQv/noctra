@@ -4,11 +4,11 @@ Noctra supports password managers through managed Chrome extensions. The selecte
 
 ## Supported Providers
 
-| Provider | Config value | Status       | Notes                                  |
-| -------- | ------------ | ------------ | -------------------------------------- |
-| None     | `none`       | Stable       | Default. Disables password-manager UI. |
-| Bitwarden | `bitwarden` | Stable       | First stable provider target.          |
-| 1Password | `1password` | Experimental | Installs, loads, and opens popup; login/native bridge/autofill need more validation. |
+| Provider  | Config value | Status       | Notes                                                                                |
+| --------- | ------------ | ------------ | ------------------------------------------------------------------------------------ |
+| None      | `none`       | Stable       | Default. Disables password-manager UI.                                               |
+| Bitwarden | `bitwarden`  | Stable       | First stable provider target.                                                        |
+| 1Password | `1password`  | Experimental | Installs, loads, and opens popup; login/native bridge/autofill need more validation. |
 
 ## Enable Bitwarden
 
@@ -31,6 +31,8 @@ browser:
 ```
 
 When provider is `none`, Noctra hides the password-manager button and performs no extension install/load work.
+
+If a provider was already loaded in the current app session, Noctra tries to unload it through Electron's extension API. If Electron cannot unload it safely, Noctra reports a restart-required state instead of claiming the extension stopped. Restart Noctra after disabling or switching providers when prompted.
 
 ## Open The Popup
 
@@ -65,7 +67,7 @@ Fields without those hints may not show inline suggestions even when popup autof
 
 ## Extension Tabs And Popouts
 
-Extension-created safe web links open as normal Noctra buffers. Known managed-extension popouts open as visible transient extension buffers with provider labels such as `Bitwarden`.
+Extension-created safe web links open as normal Noctra buffers. Known managed-extension popouts and internal pages open as visible transient extension buffers with provider labels such as `Bitwarden`.
 
 Extension buffers are visible in buffer navigation, but Noctra excludes them from history, bookmarks, session restore, closed-buffer reopen, and duplicate-buffer actions.
 
@@ -77,7 +79,27 @@ Extension popup and extension buffer surfaces are isolated from trusted Noctra s
 - Extension surfaces do not receive trusted Noctra preload APIs.
 - Extension senders fail trusted shell/settings IPC checks.
 - Normal web buffers cannot navigate into arbitrary `chrome-extension://` internals.
-- Session snapshots exclude `chrome-extension://` and `crx://` URLs.
+- Known managed extension internals can only load on extension-role surfaces.
+- Unknown extension internals remain blocked.
+- Session snapshots and bookmarks exclude `chrome-extension://` and `crx://` URLs.
+- Password-manager popups are revealed with window-level timing only; Noctra does not inspect provider popup DOM, form fields, or credential values.
+
+Global extension preloads are registered on the persistent Electron session because `electron-chrome-extensions` and `electron-chrome-web-store` require session-level preloads. The package preloads are origin-gated: extension APIs inject only into service workers or `chrome-extension://` pages, and Web Store APIs inject only on `https://chromewebstore.google.com`.
+
+## Permission Support
+
+Noctra denies browser permission requests by default. Known managed extension surfaces receive explicit decisions instead of broad grants.
+
+| Permission area                                               | Current behavior                                                                                        |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Clipboard read/write                                          | Unsupported by Noctra permission policy until provider workflows are validated.                         |
+| Native messaging / desktop bridge                             | Unsupported. This is one reason 1Password remains experimental.                                         |
+| Notifications                                                 | Denied. Provider popup/autofill can still work without Noctra notifications.                            |
+| Downloads from extension surfaces                             | Routed through existing download policy only after explicit support; denied by default permission path. |
+| WebAuthn / passkeys                                           | Unsupported until tested with real providers.                                                           |
+| Camera, microphone, geolocation, MIDI, HID, serial, Bluetooth | Denied.                                                                                                 |
+
+Denied known-extension permission requests may produce a `security_extension_permission_unsupported` notification. Notification context includes only permission metadata, never credentials.
 
 Using a password manager inside Noctra still means trusting the provider extension, Electron extension support, and `electron-chrome-extensions` compatibility glue.
 

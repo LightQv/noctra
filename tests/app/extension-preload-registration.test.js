@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 
 const {
   EXTENSION_PRELOAD_MODULES,
@@ -72,4 +73,28 @@ test("extension preload modules resolve from installed packages", () => {
   for (const moduleName of EXTENSION_PRELOAD_MODULES) {
     assert.match(require.resolve(moduleName), /electron-chrome-/);
   }
+});
+
+test("extension package preload is gated to extension contexts", () => {
+  const source = fs.readFileSync(
+    require.resolve("electron-chrome-extensions/preload"),
+    "utf8",
+  );
+
+  assert.match(source, /process\.type === ["']service-worker["']/);
+  assert.match(source, /location\.href\.startsWith\(["']chrome-extension:\/\//);
+  assert.match(source, /injectExtensionAPIs\(\)/);
+});
+
+test("web store preload is gated to Chrome Web Store origin", () => {
+  const source = fs.readFileSync(
+    require.resolve("electron-chrome-web-store/preload"),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /location\.href\.startsWith\(["']https:\/\/chromewebstore\.google\.com["']\)/,
+  );
+  assert.match(source, /setupChromeWebStoreApi\(\)/);
 });

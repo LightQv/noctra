@@ -125,7 +125,10 @@ test("password manager overlay centers popup and marks extension role", () => {
   });
   assert.equal(popupWindow.shown, false);
   assert.deepEqual(popupWindow.opacityValues, [0]);
-  assert.equal(getSurfaceRole(popupWindow.webContents), SURFACE_ROLES.EXTENSION);
+  assert.equal(
+    getSurfaceRole(popupWindow.webContents),
+    SURFACE_ROLES.EXTENSION,
+  );
 });
 
 test("password manager overlay uses active theme background while hidden", () => {
@@ -144,69 +147,10 @@ test("password manager overlay uses active theme background while hidden", () =>
   controller.close({ restoreFocus: false });
 });
 
-test("password manager overlay reveals after popup content paints", async () => {
+test("password manager overlay reveals without provider DOM inspection", async () => {
   const parent = new FakeWindow({ x: 0, y: 0, width: 800, height: 600 });
   const popupWindow = new FakeWindow({ x: 0, y: 0, width: 300, height: 300 });
   const popup = new FakePopup(popupWindow);
-  let resolvePaint;
-  popupWindow.webContents.executeJavaScriptResults = [
-    Promise.resolve(true),
-    new Promise((resolve) => {
-      resolvePaint = resolve;
-    }),
-    Promise.resolve(true),
-  ];
-  const controller = createPasswordManagerOverlayController({
-    getParentWindow: () => parent,
-  });
-
-  controller.handlePopupCreated(popup);
-  popupWindow.webContents.emit("did-finish-load");
-  assert.deepEqual(popupWindow.opacityValues, [0]);
-
-  resolvePaint(true);
-  await new Promise((resolve) => setImmediate(resolve));
-
-  assert.deepEqual(popupWindow.opacityValues, [0, 1]);
-  assert.match(
-    popupWindow.webContents.executeJavaScriptCalls[0],
-    /noctra-password-manager-popup-cover/,
-  );
-  assert.match(popupWindow.webContents.executeJavaScriptCalls[2], /cover\.remove/);
-  controller.close({ restoreFocus: false });
-});
-
-test("password manager overlay keeps cover when content is not visually ready", async () => {
-  const parent = new FakeWindow({ x: 0, y: 0, width: 800, height: 600 });
-  const popupWindow = new FakeWindow({ x: 0, y: 0, width: 300, height: 300 });
-  const popup = new FakePopup(popupWindow);
-  popupWindow.webContents.executeJavaScriptResults = [true, false];
-  const controller = createPasswordManagerOverlayController({
-    getParentWindow: () => parent,
-  });
-
-  controller.handlePopupCreated(popup);
-  popupWindow.webContents.emit("dom-ready");
-  await new Promise((resolve) => setImmediate(resolve));
-
-  assert.deepEqual(popupWindow.opacityValues, [0, 1]);
-  assert.match(
-    popupWindow.webContents.executeJavaScriptCalls[1],
-    /hasVisibleContent/,
-  );
-  assert.match(
-    popupWindow.webContents.executeJavaScriptCalls[1],
-    /waitForStableLayout/,
-  );
-  assert.equal(popupWindow.webContents.executeJavaScriptCalls.length, 2);
-  controller.close({ restoreFocus: false });
-});
-
-test("password manager overlay visual-readiness gate waits for fonts", async () => {
-  const parent = new FakeWindow({ x: 0, y: 0, width: 800, height: 600 });
-  const popupWindow = new FakeWindow({ x: 0, y: 0, width: 300, height: 300 });
-  const popup = new FakePopup(popupWindow);
-  popupWindow.webContents.executeJavaScriptResults = [true, true, true];
   const controller = createPasswordManagerOverlayController({
     getParentWindow: () => parent,
   });
@@ -215,8 +159,8 @@ test("password manager overlay visual-readiness gate waits for fonts", async () 
   popupWindow.webContents.emit("did-finish-load");
   await new Promise((resolve) => setImmediate(resolve));
 
-  assert.match(popupWindow.webContents.executeJavaScriptCalls[1], /document\.fonts/);
   assert.deepEqual(popupWindow.opacityValues, [0, 1]);
+  assert.deepEqual(popupWindow.webContents.executeJavaScriptCalls, []);
   controller.close({ restoreFocus: false });
 });
 
@@ -233,7 +177,7 @@ test("password manager overlay fallback reveals without content signal", async (
   await new Promise((resolve) => setTimeout(resolve, 1));
 
   assert.deepEqual(popupWindow.opacityValues, [0, 1]);
-  assert.match(popupWindow.webContents.executeJavaScriptCalls.at(-1), /cover\.remove/);
+  assert.deepEqual(popupWindow.webContents.executeJavaScriptCalls, []);
   controller.close({ restoreFocus: false });
 });
 

@@ -6,17 +6,15 @@ const {
   resolveManagedExtension,
   resolveManagedExtensionByExtensionUrl,
 } = require("./managedExtensionRegistry");
-const {
-  resolveChromeExtensionLicense,
-} = require("./chromeExtensionLicense");
+const { resolveChromeExtensionLicense } = require("./chromeExtensionLicense");
 const { SURFACE_ROLES } = require("../security/surfaceTrust");
 
 function hasLiveWebContents(buffer) {
   return Boolean(
     buffer &&
-      buffer.webContents &&
-      typeof buffer.webContents.isDestroyed === "function" &&
-      !buffer.webContents.isDestroyed(),
+    buffer.webContents &&
+    typeof buffer.webContents.isDestroyed === "function" &&
+    !buffer.webContents.isDestroyed(),
   );
 }
 
@@ -25,7 +23,11 @@ function isRegisterableBuffer(buffer) {
     return false;
   }
 
-  if (buffer.isEditable || buffer.kind === "editable" || buffer.kind === "settings") {
+  if (
+    buffer.isEditable ||
+    buffer.kind === "editable" ||
+    buffer.kind === "settings"
+  ) {
     return false;
   }
 
@@ -41,8 +43,13 @@ function getBufferByWebContents(bufferManager, webContents) {
     return bufferManager.getBufferByWebContents(webContents);
   }
 
-  const buffers = Array.isArray(bufferManager.buffers) ? bufferManager.buffers : [];
-  return buffers.find((buffer) => buffer && buffer.webContents === webContents) || null;
+  const buffers = Array.isArray(bufferManager.buffers)
+    ? bufferManager.buffers
+    : [];
+  return (
+    buffers.find((buffer) => buffer && buffer.webContents === webContents) ||
+    null
+  );
 }
 
 function getActiveBuffer(bufferManager) {
@@ -54,9 +61,8 @@ function getActiveBuffer(bufferManager) {
 }
 
 function resolveExtensionCreatedUrl(rawUrl) {
-  const url = typeof rawUrl === "string" && rawUrl.trim()
-    ? rawUrl.trim()
-    : "about:blank";
+  const url =
+    typeof rawUrl === "string" && rawUrl.trim() ? rawUrl.trim() : "about:blank";
 
   if (isExtensionInternalUrl(url)) {
     return "about:blank";
@@ -64,6 +70,21 @@ function resolveExtensionCreatedUrl(rawUrl) {
 
   const validation = validateNavigableUrl(url);
   return validation.ok ? validation.url : "about:blank";
+}
+
+function resolveExtensionCreatedBuffer(rawUrl, options = {}) {
+  const extensionBufferOptions = resolveExtensionBufferOptions(rawUrl);
+  if (extensionBufferOptions) {
+    return {
+      url: typeof rawUrl === "string" ? rawUrl.trim() : "about:blank",
+      options: { ...extensionBufferOptions, ...options },
+    };
+  }
+
+  return {
+    url: resolveExtensionCreatedUrl(rawUrl),
+    options,
+  };
 }
 
 function resolveExtensionBufferOptions(rawUrl) {
@@ -137,7 +158,8 @@ class ChromeExtensionRuntime {
     this.getBrowserWindow = getBrowserWindow;
     this.notificationsService = notificationsService;
     this.onActionPopupCreated = onActionPopupCreated;
-    this.isAppQuitting = typeof isAppQuitting === "function" ? isAppQuitting : null;
+    this.isAppQuitting =
+      typeof isAppQuitting === "function" ? isAppQuitting : null;
     this.registeredWebContents = new WeakSet();
 
     if (
@@ -205,7 +227,14 @@ class ChromeExtensionRuntime {
       return false;
     }
 
-    return this.registeredWebContents.has(buffer.webContents);
+    if (!this.registeredWebContents.has(buffer.webContents)) {
+      return false;
+    }
+
+    if (typeof this.extensions.removeTab === "function") {
+      this.extensions.removeTab(buffer.webContents);
+    }
+    return true;
   }
 
   setActionPopupHandler(handler) {
@@ -213,9 +242,9 @@ class ChromeExtensionRuntime {
   }
 
   async createTab(details = {}) {
-    const url = resolveExtensionCreatedUrl(details.url);
     const activate = details.active !== false;
-    const buffer = this.bufferManager.create(url, { activate });
+    const created = resolveExtensionCreatedBuffer(details.url, { activate });
+    const buffer = this.bufferManager.create(created.url, created.options);
     const browserWindow = this.getBrowserWindow();
 
     this.registerBuffer(buffer, browserWindow);
@@ -246,23 +275,8 @@ class ChromeExtensionRuntime {
 
   async createWindow(details = {}) {
     const url = Array.isArray(details.url) ? details.url[0] : details.url;
-    const extensionBufferOptions =
-      details.type === "popup" ? resolveExtensionBufferOptions(url) : null;
-    if (extensionBufferOptions) {
-      const buffer = this.bufferManager.create(url, {
-        ...extensionBufferOptions,
-        activate: true,
-      });
-      const browserWindow = this.getBrowserWindow();
-
-      this.registerBuffer(buffer, browserWindow);
-      this.selectBuffer(buffer);
-
-      return browserWindow;
-    }
-
-    const normalizedUrl = resolveExtensionCreatedUrl(url);
-    const buffer = this.bufferManager.create(normalizedUrl, { activate: true });
+    const created = resolveExtensionCreatedBuffer(url, { activate: true });
+    const buffer = this.bufferManager.create(created.url, created.options);
     const browserWindow = this.getBrowserWindow();
 
     this.registerBuffer(buffer, browserWindow);
@@ -320,7 +334,8 @@ class ChromeExtensionRuntime {
 
     const provider = resolvePasswordManagerProviderSafe(providerName);
     const browserAction = this.extensions.api?.browserAction;
-    const activeTab = this.extensions.ctx?.store?.getActiveTabOfCurrentWindow?.();
+    const activeTab =
+      this.extensions.ctx?.store?.getActiveTabOfCurrentWindow?.();
     const browserWindow = this.getBrowserWindow();
     if (
       provider.id &&
@@ -395,4 +410,5 @@ module.exports = {
   createChromeExtensionRuntime,
   isRegisterableBuffer,
   resolveExtensionCreatedUrl,
+  resolveExtensionCreatedBuffer,
 };

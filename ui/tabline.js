@@ -57,6 +57,8 @@ function normalizePasswordManagerAction(action = {}) {
     loading: `Loading ${label}`,
     loaded: `Open ${label} (${shortcutLabel})`,
     failed: message || `${label} unavailable`,
+    disabled_restart_required: message || `${label} disabled after restart`,
+    switch_restart_required: message || `${label} switch requires restart`,
   };
 
   return {

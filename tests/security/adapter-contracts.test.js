@@ -7,6 +7,7 @@ const {
 const {
   registerSessionSecurityPolicy,
   registerWebContentsSecurityPolicy,
+  resolvePermissionDecision,
 } = require("../../core/adapters/platform/securityPolicy");
 const {
   createPanelRenderTransport,
@@ -97,7 +98,7 @@ test("ipc registry registers and unregisters events and handlers symmetrically",
   ]);
 });
 
-test("session security policy enforces deny-all permission handlers", () => {
+test("session security policy enforces explicit permission handlers", () => {
   const sessionState = {
     checkHandler: null,
     requestHandler: null,
@@ -198,6 +199,88 @@ test("session security policy enforces deny-all permission handlers", () => {
     notifications.some((entry) => entry.code === "download_cancelled_by_user"),
     true,
   );
+});
+
+test("permission policy denies web and known extension permissions explicitly", () => {
+  const webContents = {
+    getURL: () => "https://example.test",
+  };
+  const extensionContents = {
+    getURL: () =>
+      "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup.html",
+  };
+  markSurfaceRole(extensionContents, SURFACE_ROLES.EXTENSION);
+
+  assert.deepEqual(
+    resolvePermissionDecision({ webContents, permission: "notifications" }),
+    {
+      allow: false,
+      role: SURFACE_ROLES.UNTRUSTED_WEB,
+      reason: "permission_denied_by_default",
+      knownManagedExtension: false,
+    },
+  );
+  assert.deepEqual(
+    resolvePermissionDecision({
+      webContents: extensionContents,
+      permission: "notifications",
+    }),
+    {
+      allow: false,
+      role: SURFACE_ROLES.EXTENSION,
+      reason: "unsupported",
+      knownManagedExtension: true,
+    },
+  );
+});
+
+test("session permission handler reports known extension denials safely", () => {
+  const sessionState = {};
+  const notifications = [];
+  registerSessionSecurityPolicy({
+    session: {
+      defaultSession: {
+        setPermissionCheckHandler(handler) {
+          sessionState.checkHandler = handler;
+        },
+        setPermissionRequestHandler(handler) {
+          sessionState.requestHandler = handler;
+        },
+        on() {},
+      },
+    },
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+  const extensionContents = {
+    getURL: () =>
+      "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup.html",
+  };
+  markSurfaceRole(extensionContents, SURFACE_ROLES.EXTENSION);
+
+  let allowed = null;
+  sessionState.requestHandler(
+    extensionContents,
+    "notifications",
+    (decision) => {
+      allowed = decision;
+    },
+  );
+
+  assert.equal(allowed, false);
+  assert.equal(notifications.length, 1);
+  assert.equal(
+    notifications[0].code,
+    "security_extension_permission_unsupported",
+  );
+  assert.deepEqual(notifications[0].context, {
+    permission: "notifications",
+    role: SURFACE_ROLES.EXTENSION,
+    reason: "unsupported",
+  });
 });
 
 test("webContents security policy blocks window open and denied navigation", () => {
@@ -616,7 +699,10 @@ test("web mode sync service binds, requests sync, and unbinds safely", async () 
   onBeforeMouseEvent(null, { type: "mouseDown" });
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(syncCalls.length >= 2, true);
-  assert.equal(syncCalls.some((entry) => entry.reason === "mouse-event"), true);
+  assert.equal(
+    syncCalls.some((entry) => entry.reason === "mouse-event"),
+    true,
+  );
 
   const onDidNavigateInPage = listeners.get("did-navigate-in-page");
   assert.equal(typeof onDidNavigateInPage, "function");

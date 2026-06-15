@@ -1,3 +1,5 @@
+const { isExtensionInternalUrl } = require("../security/urlPolicy");
+
 function isBookmarkableBuffer(buffer) {
   if (!buffer || buffer.isEditable || buffer.kind === "extension") {
     return false;
@@ -5,6 +7,10 @@ function isBookmarkableBuffer(buffer) {
 
   const url = typeof buffer.url === "string" ? buffer.url.trim() : "";
   if (!url || url === "about:blank") {
+    return false;
+  }
+
+  if (isExtensionInternalUrl(url)) {
     return false;
   }
 

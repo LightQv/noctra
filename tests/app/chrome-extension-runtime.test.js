@@ -68,7 +68,8 @@ function makeBufferManager(initialBuffers = []) {
     },
     getBufferByWebContents(webContents) {
       return (
-        this.buffers.find((buffer) => buffer.webContents === webContents) || null
+        this.buffers.find((buffer) => buffer.webContents === webContents) ||
+        null
       );
     },
   };
@@ -95,6 +96,10 @@ function makeFakeExtensionRuntimeClass(calls) {
       calls.selectTab.push(webContents);
     }
 
+    removeTab(webContents) {
+      calls.removeTab.push(webContents);
+    }
+
     getContextMenuItems(webContents, params) {
       calls.getContextMenuItems.push({ webContents, params });
       return ["extension-item"];
@@ -108,6 +113,7 @@ function makeCalls() {
     constructorOptions: [],
     addTab: [],
     selectTab: [],
+    removeTab: [],
     getContextMenuItems: [],
     activateClick: [],
   };
@@ -143,7 +149,10 @@ test("createChromeExtensionRuntime returns no-op when package constructor fails"
 
   assert.ok(runtime instanceof NoopChromeExtensionRuntime);
   assert.equal(runtime.enabled, false);
-  assert.equal(notifications.at(-1).code, "chrome_extension_runtime_unavailable");
+  assert.equal(
+    notifications.at(-1).code,
+    "chrome_extension_runtime_unavailable",
+  );
 });
 
 test("chrome extension runtime registers and selects buffers", () => {
@@ -232,7 +241,10 @@ test("chrome extension runtime opens popup through package browser action fallba
 
   assert.equal(runtime.openActionPopup("bitwarden"), true);
   assert.equal(calls.activateClick.length, 1);
-  assert.equal(calls.activateClick[0].extensionId, "nngceckbapebfimnlniiiahkandclblb");
+  assert.equal(
+    calls.activateClick[0].extensionId,
+    "nngceckbapebfimnlniiiahkandclblb",
+  );
   assert.equal(calls.activateClick[0].tabId, 42);
 });
 
@@ -294,7 +306,34 @@ test("extension createTab falls back to about blank and can stay inactive", asyn
   assert.equal(calls.selectTab.length, 0);
 });
 
-test("extension createTab blocks extension internals and unsafe URLs", async () => {
+test("extension createTab opens known extension internals as extension buffers", async () => {
+  const calls = makeCalls();
+  const manager = makeBufferManager();
+  const runtime = new ChromeExtensionRuntime({
+    ExtensionRuntimeClass: makeFakeExtensionRuntimeClass(calls),
+    bufferManager: manager,
+    getBrowserWindow: () => ({ id: 1 }),
+  });
+
+  await runtime.createTab({
+    url: "chrome-extension://nngceckbapebfimnlniiiahkandclblb/options.html",
+  });
+
+  assert.equal(
+    manager.created[0].url,
+    "chrome-extension://nngceckbapebfimnlniiiahkandclblb/options.html",
+  );
+  assert.equal(manager.created[0].options.kind, "extension");
+  assert.equal(manager.created[0].options.displayUrl, "Bitwarden");
+  assert.deepEqual(manager.created[0].options.extension, {
+    id: "nngceckbapebfimnlniiiahkandclblb",
+    provider: "bitwarden",
+    category: "password-manager",
+    label: "Bitwarden",
+  });
+});
+
+test("extension createTab blocks unknown extension internals and unsafe URLs", async () => {
   const calls = makeCalls();
   const manager = makeBufferManager();
   const runtime = new ChromeExtensionRuntime({
@@ -328,6 +367,24 @@ test("extension select and remove callbacks map to buffer manager", () => {
 
   runtime.removeTab(buffer.webContents);
   assert.deepEqual(manager.closed, [7]);
+});
+
+test("extension removeBuffer unregisters tracked runtime tab", () => {
+  const calls = makeCalls();
+  const browserWindow = { id: 1 };
+  const buffer = makeBuffer(7, "target");
+  const manager = makeBufferManager([buffer]);
+  const runtime = new ChromeExtensionRuntime({
+    ExtensionRuntimeClass: makeFakeExtensionRuntimeClass(calls),
+    bufferManager: manager,
+    getBrowserWindow: () => browserWindow,
+  });
+
+  assert.equal(runtime.removeBuffer(buffer), false);
+  assert.equal(runtime.registerBuffer(buffer, browserWindow), true);
+  assert.equal(runtime.removeBuffer(buffer), true);
+
+  assert.deepEqual(calls.removeTab, [buffer.webContents]);
 });
 
 test("extension createWindow opens URL as current-window buffer", async () => {
@@ -394,7 +451,27 @@ test("extension popup createWindow opens known provider as extension buffer", as
   });
 });
 
-test("extension createWindow blocks extension internal URL", async () => {
+test("extension createWindow opens known extension internal URL", async () => {
+  const calls = makeCalls();
+  const manager = makeBufferManager();
+  const runtime = new ChromeExtensionRuntime({
+    ExtensionRuntimeClass: makeFakeExtensionRuntimeClass(calls),
+    bufferManager: manager,
+    getBrowserWindow: () => ({ id: 1 }),
+  });
+
+  await runtime.createWindow({
+    url: ["chrome-extension://nngceckbapebfimnlniiiahkandclblb/options.html"],
+  });
+
+  assert.equal(
+    manager.created[0].url,
+    "chrome-extension://nngceckbapebfimnlniiiahkandclblb/options.html",
+  );
+  assert.equal(manager.created[0].options.kind, "extension");
+});
+
+test("extension createWindow blocks unknown extension internal URL", async () => {
   const calls = makeCalls();
   const manager = makeBufferManager();
   const runtime = new ChromeExtensionRuntime({
@@ -454,8 +531,14 @@ test("resolveExtensionCreatedUrl allows normal navigable URLs only", () => {
     "https://example.test/path",
   );
   assert.equal(resolveExtensionCreatedUrl("about:blank"), "about:blank");
-  assert.equal(resolveExtensionCreatedUrl("chrome-extension://abc/page.html"), "about:blank");
-  assert.equal(resolveExtensionCreatedUrl("file:///tmp/test.html"), "about:blank");
+  assert.equal(
+    resolveExtensionCreatedUrl("chrome-extension://abc/page.html"),
+    "about:blank",
+  );
+  assert.equal(
+    resolveExtensionCreatedUrl("file:///tmp/test.html"),
+    "about:blank",
+  );
 });
 
 test("assignTabDetails adds safe tab metadata", () => {

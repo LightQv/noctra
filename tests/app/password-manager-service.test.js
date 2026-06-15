@@ -6,6 +6,7 @@ const {
 } = require("../../core/extensions/passwordManagerService");
 
 const BITWARDEN_ID = "nngceckbapebfimnlniiiahkandclblb";
+const ONE_PASSWORD_ID = "aeblfdkhhhdcdjpifhhbdiojplfjncoa";
 
 function makeConfigService(provider) {
   return {
@@ -66,7 +67,10 @@ test("password manager service disables provider none", async () => {
   assert.equal(status.state, "disabled");
   assert.equal(status.enabled, false);
   assert.equal(status.canOpen, false);
-  assert.deepEqual(statusChanges.map((item) => item.state), ["disabled"]);
+  assert.deepEqual(
+    statusChanges.map((item) => item.state),
+    ["disabled"],
+  );
 });
 
 test("password manager service loads existing provider", async () => {
@@ -87,10 +91,10 @@ test("password manager service loads existing provider", async () => {
   assert.equal(status.enabled, true);
   assert.equal(status.canOpen, true);
   assert.deepEqual(loaded, [BITWARDEN_ID]);
-  assert.deepEqual(statusChanges.map((item) => item.state), [
-    "loading",
-    "loaded",
-  ]);
+  assert.deepEqual(
+    statusChanges.map((item) => item.state),
+    ["loading", "loaded"],
+  );
 });
 
 test("password manager service coalesces concurrent initialize calls", async () => {
@@ -137,8 +141,71 @@ test("password manager service applies provider disable on reinitialize", async 
   provider = "none";
   const status = await service.initialize();
 
-  assert.equal(status.state, "disabled");
+  assert.equal(status.state, "disabled_restart_required");
+  assert.equal(status.restartRequired, true);
   assert.equal(status.canOpen, false);
+  assert.match(status.message, /remains loaded until Noctra restarts/);
+});
+
+test("password manager service unloads active provider when supported", async () => {
+  let provider = "bitwarden";
+  const extensions = [{ id: BITWARDEN_ID }];
+  const removed = [];
+  const service = new PasswordManagerService({
+    configService: {
+      getConfigValue() {
+        return provider;
+      },
+    },
+    session: {
+      extensions: {
+        getAllExtensions() {
+          return extensions;
+        },
+        removeExtension(extensionId) {
+          removed.push(extensionId);
+          const index = extensions.findIndex(
+            (extension) => extension.id === extensionId,
+          );
+          if (index >= 0) {
+            extensions.splice(index, 1);
+          }
+        },
+      },
+    },
+    extensionRuntime: makeRuntime(),
+  });
+
+  assert.equal((await service.initialize()).state, "loaded");
+  provider = "none";
+  const status = await service.initialize();
+
+  assert.equal(status.state, "disabled");
+  assert.equal(status.restartRequired, false);
+  assert.deepEqual(removed, [BITWARDEN_ID]);
+});
+
+test("password manager service blocks provider switch until restart without unload", async () => {
+  let provider = "bitwarden";
+  const service = new PasswordManagerService({
+    configService: {
+      getConfigValue() {
+        return provider;
+      },
+    },
+    session: makeSession([{ id: BITWARDEN_ID }, { id: ONE_PASSWORD_ID }]),
+    extensionRuntime: makeRuntime(),
+  });
+
+  assert.equal((await service.initialize()).state, "loaded");
+  provider = "1password";
+  const status = await service.initialize();
+
+  assert.equal(status.provider, "1password");
+  assert.equal(status.state, "switch_restart_required");
+  assert.equal(status.restartRequired, true);
+  assert.equal(status.canOpen, false);
+  assert.match(status.message, /Restart Noctra to switch to 1Password/);
 });
 
 test("password manager service installs missing provider", async () => {
@@ -166,11 +233,10 @@ test("password manager service installs missing provider", async () => {
   assert.equal(installed[0].extensionId, BITWARDEN_ID);
   assert.equal(installed[0].options.provider.name, "bitwarden");
   assert.deepEqual(loaded, [BITWARDEN_ID]);
-  assert.deepEqual(statusChanges.map((item) => item.state), [
-    "installing",
-    "loading",
-    "loaded",
-  ]);
+  assert.deepEqual(
+    statusChanges.map((item) => item.state),
+    ["installing", "loading", "loaded"],
+  );
   assert.equal(
     notifications.notifications[0].code,
     "password_manager_extension_install_started",

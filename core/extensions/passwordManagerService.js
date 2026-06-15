@@ -38,6 +38,7 @@ function hasMethod(target, methodName) {
 
 function createStatus(provider, state, message = "") {
   const enabled = isPasswordManagerEnabled(provider.name);
+  const restartRequired = state.endsWith("_restart_required");
   return {
     provider: provider.name,
     label: provider.label,
@@ -45,6 +46,7 @@ function createStatus(provider, state, message = "") {
     state,
     extensionId: provider.id,
     enabled,
+    restartRequired,
     canOpen: enabled && state === "loaded",
     message,
   };
@@ -71,6 +73,7 @@ class PasswordManagerService {
     this.onStatusChange = onStatusChange;
     this.installAttemptedExtensionIds = new Set();
     this.initializeInFlight = null;
+    this.activeProvider = null;
     this.status = createStatus(
       resolvePasswordManagerProvider(PASSWORD_MANAGER_PROVIDER_IDS.NONE),
       "disabled",
@@ -107,6 +110,11 @@ class PasswordManagerService {
       getConfigProvider(this.configService),
     );
 
+    const lifecycleStatus = await this.resolveProviderLifecycle(provider);
+    if (lifecycleStatus) {
+      return lifecycleStatus;
+    }
+
     if (!isPasswordManagerEnabled(provider.name)) {
       return this.setStatus(provider, "disabled");
     }
@@ -125,11 +133,15 @@ class PasswordManagerService {
         this.setStatus(provider, "loading");
         await this.updateProviderExtensions(provider);
         await this.loadProviderExtension(provider);
+        this.activeProvider = provider;
         return this.setStatus(provider, "loaded");
       }
 
       if (!this.installer) {
-        return this.fail(provider, "Password manager extension is not installed.");
+        return this.fail(
+          provider,
+          "Password manager extension is not installed.",
+        );
       }
 
       if (this.installAttemptedExtensionIds.has(provider.id)) {
@@ -147,6 +159,7 @@ class PasswordManagerService {
       phase = "load";
       this.setStatus(provider, "loading");
       await this.loadProviderExtension(provider);
+      this.activeProvider = provider;
       return this.setStatus(provider, "loaded");
     } catch (error) {
       return this.fail(
@@ -162,6 +175,64 @@ class PasswordManagerService {
               : "password_manager_extension_failed",
         },
       );
+    }
+  }
+
+  async resolveProviderLifecycle(provider) {
+    if (!this.activeProvider || this.activeProvider.name === provider.name) {
+      return null;
+    }
+
+    const activeProvider = this.activeProvider;
+    const unloaded = await this.tryUnloadActiveProvider(activeProvider);
+    if (unloaded) {
+      this.activeProvider = null;
+      return null;
+    }
+
+    if (!isPasswordManagerEnabled(provider.name)) {
+      this.notifyWarning({
+        code: "password_manager_disable_restart_required",
+        message: `${activeProvider.label} remains loaded until Noctra restarts.`,
+      });
+      return this.setStatus(
+        provider,
+        "disabled_restart_required",
+        `${activeProvider.label} remains loaded until Noctra restarts.`,
+      );
+    }
+
+    this.notifyWarning({
+      code: "password_manager_switch_restart_required",
+      message: `Restart Noctra to switch from ${activeProvider.label} to ${provider.label}.`,
+    });
+    return this.setStatus(
+      provider,
+      "switch_restart_required",
+      `${activeProvider.label} remains loaded until Noctra restarts. Restart Noctra to switch to ${provider.label}.`,
+    );
+  }
+
+  async tryUnloadActiveProvider(provider) {
+    const extensionsApi = this.session?.extensions;
+    if (
+      !provider?.id ||
+      !extensionsApi ||
+      typeof extensionsApi.removeExtension !== "function"
+    ) {
+      return false;
+    }
+
+    try {
+      await extensionsApi.removeExtension(provider.id);
+      return !this.hasInstalledExtension(provider.id);
+    } catch (error) {
+      this.notifyWarning({
+        code: "password_manager_extension_unload_failed",
+        message: `${provider.label} could not be unloaded without restarting Noctra.`,
+        detail: sanitizeFailureMessage(error, "Extension unload failed."),
+      });
+      return false;
     }
   }
 
@@ -227,7 +298,9 @@ class PasswordManagerService {
 
   async loadProviderExtension(provider) {
     if (typeof this.loadExtension === "function") {
-      const extension = await this.loadExtension(provider, { session: this.session });
+      const extension = await this.loadExtension(provider, {
+        session: this.session,
+      });
       await this.startProviderServiceWorker(provider, extension);
       return extension;
     }

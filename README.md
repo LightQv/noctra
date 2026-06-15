@@ -162,8 +162,7 @@ Extension-enabled builds include `electron-chrome-extensions@4.9.0`, which Noctr
 
 1. [ ] **Enhance modern browser behavior**
    - [ ] Embedded ad-blocker (enable/disable through config.yml)
-   - [ ] User-facing global extension support (install/enable/disable lifecycle)
-   - [ ] Plugin system for Noctra-native features (API + sandbox boundaries)
+   - [ ] Curated extension catalog with modal-based install/enable/disable lifecycle for Noctra-approved extensions only
    - [ ] Web compatibility layer improvements (site quirks, auth flows, clipboard/permissions parity)
 
 2. [ ] **CLI support** — Basic actions: open, quit, focus, list-window, list-session, change workspace, search, and more.

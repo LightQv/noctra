@@ -32,6 +32,10 @@ function popLeaderNumeric(state, now) {
   state.leaderLastKeyTime = now;
 }
 
+function touchLeaderSession(state, now) {
+  state.leaderLastKeyTime = now;
+}
+
 function resetSequenceBuffers(state) {
   state.keyBuffer = "";
   state.countBuffer = "";
@@ -56,6 +60,7 @@ module.exports = {
   popLeaderPath,
   appendLeaderNumeric,
   popLeaderNumeric,
+  touchLeaderSession,
   resetSequenceBuffers,
   appendCountDigit,
   appendKeyBuffer,

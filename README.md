@@ -6,7 +6,7 @@ A keyboard-first browser shell with a Neovim-style workflow.
 
 _Current version:_ `0.0.3-alpha`
 
-[About](#about) · [Installation](#installation) · [Documentation](#documentation) · [Contributing](#contributing) · [Roadmap](#roadmap)
+[About](#about) · [Installation](#installation) · [Documentation](#documentation) · [Contributing](#contributing) · [License](#license) · [Roadmap](#roadmap)
 
 </div>
 
@@ -83,18 +83,18 @@ xdg-mime default noctra.desktop x-scheme-handler/https
 
 #### Config sections
 
-| Section                 | Purpose                                   |
-| ----------------------- | ----------------------------------------- |
-| `global.input`          | Leader key and sequence timeout           |
-| `global.ui`             | Shell UI toggles and panel behavior       |
-| `global.theme`          | App and content appearance                |
+| Section                 | Purpose                                              |
+| ----------------------- | ---------------------------------------------------- |
+| `global.input`          | Leader key and sequence timeout                      |
+| `global.ui`             | Shell UI toggles and panel behavior                  |
+| `global.theme`          | App and content appearance                           |
 | `keymap`                | User key mappings (`normal`/`mod`/`search`/`leader`) |
-| `global.editor`         | Editable buffer behavior                  |
-| `global.split`          | Split layout ratios and divider behavior  |
-| `global.window`         | Initial window bounds and maximized state |
-| `global.storage`        | File locations for persisted data         |
-| `global.notifications`  | Toast and persistence behavior            |
-| `global.opening_buffer` | Startup mode and dashboard settings       |
+| `global.editor`         | Editable buffer behavior                             |
+| `global.split`          | Split layout ratios and divider behavior             |
+| `global.window`         | Initial window bounds and maximized state            |
+| `global.storage`        | File locations for persisted data                    |
+| `global.notifications`  | Toast and persistence behavior                       |
+| `global.opening_buffer` | Startup mode and dashboard settings                  |
 
 #### Persisted data
 
@@ -122,6 +122,7 @@ Apply config changes at runtime with `:config-reload`.
 - [Keybindings](docs/keybindings.md)
 - [Commands](docs/commands.md)
 - [Configuration](docs/configuration.md)
+- [Password Managers](docs/password-managers.md)
 
 ### Deep Dive
 
@@ -149,14 +150,19 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution princ
 
 ---
 
+## License
+
+Noctra source code is licensed under the MIT License. See [LICENSE](LICENSE).
+
+Extension-enabled builds include `electron-chrome-extensions@4.9.0`, which Noctra uses under GPL-3.0 through the selected GPL-compatible distribution path. These builds are not MIT-only distributions. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled notices and third-party licensing details.
+
+---
+
 ## Roadmap
 
 1. [ ] **Enhance modern browser behavior**
-   - [ ] Right-click context menu (link/image/open-in-new-buffer actions)
-   - [ ] In-page search with `/` in active web buffer
-   - [ ] Password manager support (1Password / Bitwarden extension compatibility)
-   - [ ] Embeded ad-blocker (enable/disable through config.yml)
-   - [ ] Global extension support (install/enable/disable lifecycle)
+   - [ ] Embedded ad-blocker (enable/disable through config.yml)
+   - [ ] User-facing global extension support (install/enable/disable lifecycle)
    - [ ] Plugin system for Noctra-native features (API + sandbox boundaries)
    - [ ] Web compatibility layer improvements (site quirks, auth flows, clipboard/permissions parity)
 

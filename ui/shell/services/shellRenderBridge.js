@@ -8,6 +8,20 @@ const {
 } = require("../../../core/adapters/renderer/shellPatchTransport");
 const { DEFAULT_THEME, toCssVars } = require("../../theme");
 
+function getLiveWindowWebContents(windowRef) {
+  if (!windowRef || typeof windowRef.isDestroyed !== "function") {
+    return windowRef && windowRef.webContents ? windowRef.webContents : null;
+  }
+  if (windowRef.isDestroyed()) {
+    return null;
+  }
+  const webContents = windowRef.webContents;
+  if (!webContents || typeof webContents.isDestroyed !== "function") {
+    return webContents || null;
+  }
+  return webContents.isDestroyed() ? null : webContents;
+}
+
 function renderTablineBridge(snapshot) {
   this.pendingTablineSnapshot = snapshot;
   if (!this.window || !this.shellHostReady) return;
@@ -81,9 +95,11 @@ function updateSplitDividerBridge(splitStatus = {}) {
 
   this.splitDividerState = { visible, offsetPx };
   if (!this.window || !this.shellHostReady) return;
+  const webContents = getLiveWindowWebContents(this.window);
+  if (!webContents) return;
 
   pushShellPatch(
-    this.window.webContents,
+    webContents,
     `
       (function updateSplitDivider() {
         const divider = document.getElementById('split-divider');
@@ -124,9 +140,11 @@ function renderUrllineBridge(model = { panes: [] }) {
   this.urllineModel =
     model && typeof model === "object" ? model : { panes: [] };
   if (!this.window || !this.shellHostReady) return;
+  const webContents = getLiveWindowWebContents(this.window);
+  if (!webContents) return;
 
   renderShellUrlline(
-    this.window.webContents,
+    webContents,
     this.urllineModel,
     this.urllineActions,
     this.currentTheme,
@@ -137,9 +155,11 @@ function renderLoadinglineBridge(model = { panes: [] }) {
   this.loadinglineModel =
     model && typeof model === "object" ? model : { panes: [] };
   if (!this.window || !this.shellHostReady) return;
+  const webContents = getLiveWindowWebContents(this.window);
+  if (!webContents) return;
 
   renderShellLoadingline(
-    this.window.webContents,
+    webContents,
     this.loadinglineModel,
     this.currentTheme,
   );
@@ -150,6 +170,7 @@ module.exports = {
   setThemeBridge,
   updateSplitDividerBridge,
   applyThemeToWebContentsBridge,
+  getLiveWindowWebContents,
   renderUrllineBridge,
   renderLoadinglineBridge,
 };

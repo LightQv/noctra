@@ -1,4 +1,5 @@
 const {
+  SURFACE_ROLES,
   getSurfaceRole,
   isTrustedInternalRole,
   isAllowedTrustedSurfaceUrl,
@@ -8,7 +9,93 @@ const {
   buildSafeDownloadPath,
   resolveDownloadDecision,
 } = require("../../security/downloadPolicy");
+const { isExtensionInternalUrl } = require("../../security/urlPolicy");
+const {
+  isKnownManagedExtensionUrl,
+} = require("../../extensions/managedExtensionRegistry");
 const downloadsService = require("../../downloads/service");
+
+const KNOWN_EXTENSION_PERMISSION_DECISIONS = Object.freeze({
+  clipboardRead: "unsupported",
+  clipboardSanitizedWrite: "unsupported",
+  media: "unsupported",
+  geolocation: "unsupported",
+  notifications: "unsupported",
+  midiSysex: "unsupported",
+  pointerLock: "unsupported",
+  fullscreen: "unsupported",
+  openExternal: "unsupported",
+  hid: "unsupported",
+  serial: "unsupported",
+  bluetooth: "unsupported",
+});
+
+function getWebContentsUrl(webContents) {
+  if (!webContents || typeof webContents.getURL !== "function") {
+    return "";
+  }
+
+  return webContents.getURL() || "";
+}
+
+function resolvePermissionDecision({
+  webContents,
+  permission,
+  requestingUrl,
+} = {}) {
+  const role = getSurfaceRole(webContents);
+  const url =
+    typeof requestingUrl === "string" && requestingUrl
+      ? requestingUrl
+      : getWebContentsUrl(webContents);
+  const knownManagedExtension =
+    role === SURFACE_ROLES.EXTENSION && isKnownManagedExtensionUrl(url);
+
+  if (knownManagedExtension) {
+    return {
+      allow: false,
+      role,
+      reason:
+        KNOWN_EXTENSION_PERMISSION_DECISIONS[permission] ||
+        "known_extension_permission_unsupported",
+      knownManagedExtension: true,
+    };
+  }
+
+  return {
+    allow: false,
+    role,
+    reason:
+      role === SURFACE_ROLES.EXTENSION
+        ? "unknown_extension_permission_denied"
+        : "permission_denied_by_default",
+    knownManagedExtension: false,
+  };
+}
+
+function isExtensionChildWindowNavigation(contents, url) {
+  if (!contents || !isExtensionInternalUrl(url)) {
+    return false;
+  }
+
+  if (
+    typeof contents.getType === "function" &&
+    contents.getType() !== "window"
+  ) {
+    return false;
+  }
+
+  if (typeof contents.getOwnerBrowserWindow !== "function") {
+    return false;
+  }
+
+  const ownerWindow = contents.getOwnerBrowserWindow();
+  return Boolean(
+    ownerWindow &&
+    typeof ownerWindow.getParentWindow === "function" &&
+    ownerWindow.getParentWindow(),
+  );
+}
 
 function registerSessionSecurityPolicy({
   session,
@@ -21,10 +108,43 @@ function registerSessionSecurityPolicy({
   }
 
   const defaultSession = session.defaultSession;
-  defaultSession.setPermissionCheckHandler(() => false);
+  defaultSession.setPermissionCheckHandler(
+    (webContents, permission, requestingUrl) => {
+      const decision = resolvePermissionDecision({
+        webContents,
+        permission,
+        requestingUrl,
+      });
+      return decision.allow;
+    },
+  );
   defaultSession.setPermissionRequestHandler(
-    (_webContents, _permission, callback) => {
-      callback(false);
+    (webContents, permission, callback, details = {}) => {
+      const decision = resolvePermissionDecision({
+        webContents,
+        permission,
+        requestingUrl: details.requestingUrl || details.securityOrigin,
+      });
+      if (
+        decision.knownManagedExtension &&
+        notificationsService &&
+        typeof notificationsService.notify === "function"
+      ) {
+        notificationsService.notify({
+          severity: "info",
+          code: "security_extension_permission_unsupported",
+          message: "Extension permission request denied by policy",
+          source: "security",
+          context: {
+            permission,
+            role: decision.role,
+            reason: decision.reason,
+          },
+          toast: false,
+          persist: false,
+        });
+      }
+      callback(decision.allow);
     },
   );
 
@@ -153,6 +273,7 @@ function registerWebContentsSecurityPolicy({
   app,
   isAllowedNavigationUrl,
   notificationsService,
+  openExtensionWindowUrl,
 }) {
   if (!app || typeof app.on !== "function") {
     return;
@@ -161,6 +282,17 @@ function registerWebContentsSecurityPolicy({
   app.on("web-contents-created", (_event, contents) => {
     contents.setWindowOpenHandler(({ url }) => {
       const role = getSurfaceRole(contents);
+      if (
+        role === SURFACE_ROLES.EXTENSION &&
+        typeof url === "string" &&
+        url.length &&
+        isAllowedNavigationUrl(url) &&
+        typeof openExtensionWindowUrl === "function"
+      ) {
+        openExtensionWindowUrl(url);
+        return { action: "deny" };
+      }
+
       if (typeof url === "string" && url.length) {
         notificationsService.notify({
           severity: "info",
@@ -195,6 +327,14 @@ function registerWebContentsSecurityPolicy({
         return;
       }
 
+      if (role === SURFACE_ROLES.EXTENSION && isKnownManagedExtensionUrl(url)) {
+        return;
+      }
+
+      if (isExtensionChildWindowNavigation(contents, url)) {
+        return;
+      }
+
       event.preventDefault();
       notificationsService.notify({
         severity: "info",
@@ -212,4 +352,5 @@ function registerWebContentsSecurityPolicy({
 module.exports = {
   registerSessionSecurityPolicy,
   registerWebContentsSecurityPolicy,
+  resolvePermissionDecision,
 };

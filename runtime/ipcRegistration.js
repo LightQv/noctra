@@ -36,6 +36,7 @@ function registerRuntimeIpc({
   registerIpcContracts,
   notificationsService,
   clipboard,
+  passwordManagerService,
 }) {
   const isTrustedIpcSender = (
     event,
@@ -179,6 +180,10 @@ function registerRuntimeIpc({
     uiShell.updateStatuslineMode(getStatuslineModeLabel());
   };
 
+  const onOpenPasswordManager = () => {
+    dispatch(win, { type: INTENTS.PASSWORD_MANAGER_OPEN }, state);
+  };
+
   const onTabActivate = (event, payload) => {
     const bufferId = payload.id;
     buffers.switchTo(bufferId);
@@ -252,15 +257,12 @@ function registerRuntimeIpc({
     let template = [];
 
     if (zone === "tabline" && target === "tab" && Number.isInteger(tabId)) {
-      const index = buffers.buffers.findIndex(
-        (buffer) => buffer.id === tabId,
-      );
+      const index = buffers.buffers.findIndex((buffer) => buffer.id === tabId);
       const tabBuffer = index >= 0 ? buffers.buffers[index] : null;
       const runtimeSnapshot = {
         tabIndex: index,
         isFirst: index === 0,
-        isLast:
-          index >= 0 && index === buffers.buffers.length - 1,
+        isLast: index >= 0 && index === buffers.buffers.length - 1,
         isSplitEnabled:
           buffers.isSplitEnabled() && buffers.split.mode === "regular",
         buffer: tabBuffer,
@@ -385,6 +387,10 @@ function registerRuntimeIpc({
 
   const onSettingsSave = async (event, payload) => {
     const activeBuffer = buffers.getActive();
+    const previousPasswordManagerProvider = configService.getConfigValue(
+      "browser.password_manager.provider",
+      "none",
+    );
     const configPath =
       activeBuffer &&
       activeBuffer.isEditable &&
@@ -398,6 +404,28 @@ function registerRuntimeIpc({
       }
       const config = configService.reloadConfig();
       applyReloadedConfig(config, { refreshLayout: true });
+      const nextPasswordManagerProvider = configService.getConfigValue(
+        "browser.password_manager.provider",
+        "none",
+      );
+      if (
+        previousPasswordManagerProvider !== nextPasswordManagerProvider &&
+        passwordManagerService &&
+        typeof passwordManagerService.initialize === "function"
+      ) {
+        passwordManagerService.initialize().catch((error) => {
+          notificationsService.notify({
+            severity: "warning",
+            code: "password_manager_reload_failed",
+            message:
+              error && error.message
+                ? error.message
+                : "Password manager failed to reload after config change.",
+            source: "runtime.ipcRegistration",
+            persist: false,
+          });
+        });
+      }
       return { ok: true };
     } catch (error) {
       return { ok: false, error: error.message };
@@ -465,6 +493,11 @@ function registerRuntimeIpc({
       "ui-shell:open-downloads",
       SURFACE_ROLES.TRUSTED_SHELL,
       onOpenDownloads,
+    ),
+    "ui-shell:open-password-manager": withEventBoundary(
+      "ui-shell:open-password-manager",
+      SURFACE_ROLES.TRUSTED_SHELL,
+      onOpenPasswordManager,
     ),
     "ui-shell:tab-activate": withEventBoundary(
       "ui-shell:tab-activate",

@@ -48,6 +48,9 @@ function createBuffer(manager, url = "about:blank", options = {}) {
   manager.buffers.push(buffer);
   attachView(manager.window, buffer.view);
   manager.reindexBuffers();
+  if (typeof manager.registerBufferWithExtensionRuntime === "function") {
+    manager.registerBufferWithExtensionRuntime(buffer);
+  }
 
   if (activate || manager.activeIndex < 0) {
     manager.activeIndex = manager.buffers.length - 1;
@@ -66,6 +69,10 @@ function createBuffer(manager, url = "about:blank", options = {}) {
 
 function rememberClosedBuffer(manager, buffer, index) {
   if (!buffer) {
+    return;
+  }
+
+  if (buffer.kind === "extension") {
     return;
   }
 
@@ -131,6 +138,9 @@ function closeBuffer(manager, id = null) {
   if (index === -1) return null;
 
   rememberClosedBuffer(manager, target, index);
+  if (typeof manager.removeBufferFromExtensionRuntime === "function") {
+    manager.removeBufferFromExtensionRuntime(target);
+  }
   manager.buffers.splice(index, 1);
 
   detachView(manager.window, target.view);
@@ -198,6 +208,9 @@ function reopenLastClosed(manager) {
   manager.buffers.splice(insertIndex, 0, buffer);
   attachView(manager.window, buffer.view);
   manager.reindexBuffers();
+  if (typeof manager.registerBufferWithExtensionRuntime === "function") {
+    manager.registerBufferWithExtensionRuntime(buffer);
+  }
   manager.activeIndex = insertIndex;
   manager.focusedPane = "left";
   manager.reconcileSplitSources();
@@ -221,6 +234,9 @@ function closeLeftOfActive(manager) {
   const removed = manager.buffers.splice(0, manager.activeIndex);
   for (const buffer of removed) {
     rememberClosedBuffer(manager, buffer, 0);
+    if (typeof manager.removeBufferFromExtensionRuntime === "function") {
+      manager.removeBufferFromExtensionRuntime(buffer);
+    }
     detachView(manager.window, buffer.view);
     if (manager.split.rightPaneSourceBuffer === buffer) {
       manager.split.rightPaneSourceBuffer = null;
@@ -249,6 +265,9 @@ function closeRightOfActive(manager) {
   const removed = manager.buffers.splice(manager.activeIndex + 1);
   for (const buffer of removed) {
     rememberClosedBuffer(manager, buffer, manager.activeIndex + 1);
+    if (typeof manager.removeBufferFromExtensionRuntime === "function") {
+      manager.removeBufferFromExtensionRuntime(buffer);
+    }
     detachView(manager.window, buffer.view);
     if (manager.split.rightPaneSourceBuffer === buffer) {
       manager.split.rightPaneSourceBuffer = null;
@@ -289,6 +308,9 @@ function createManyBuffers(manager, urlEntries) {
 
   for (const { buffer } of created) {
     attachView(manager.window, buffer.view);
+    if (typeof manager.registerBufferWithExtensionRuntime === "function") {
+      manager.registerBufferWithExtensionRuntime(buffer);
+    }
   }
 
   manager.layoutViews();
@@ -311,6 +333,9 @@ function closeAllLeftOf(manager, index) {
   const removed = manager.buffers.splice(0, index);
   for (const buffer of removed) {
     rememberClosedBuffer(manager, buffer, 0);
+    if (typeof manager.removeBufferFromExtensionRuntime === "function") {
+      manager.removeBufferFromExtensionRuntime(buffer);
+    }
     detachView(manager.window, buffer.view);
     if (manager.split.rightPaneSourceBuffer === buffer) {
       manager.split.rightPaneSourceBuffer = null;
@@ -356,6 +381,9 @@ function closeAllRightOf(manager, index) {
   const removed = manager.buffers.splice(index + 1);
   for (const buffer of removed) {
     rememberClosedBuffer(manager, buffer, index + 1);
+    if (typeof manager.removeBufferFromExtensionRuntime === "function") {
+      manager.removeBufferFromExtensionRuntime(buffer);
+    }
     detachView(manager.window, buffer.view);
     if (manager.split.rightPaneSourceBuffer === buffer) {
       manager.split.rightPaneSourceBuffer = null;
@@ -396,6 +424,9 @@ function closeAllBuffers(manager) {
 
   for (const buffer of manager.buffers) {
     rememberClosedBuffer(manager, buffer, 0);
+    if (typeof manager.removeBufferFromExtensionRuntime === "function") {
+      manager.removeBufferFromExtensionRuntime(buffer);
+    }
     detachView(manager.window, buffer.view);
     buffer.destroy();
   }
@@ -417,6 +448,7 @@ function closeAllBuffers(manager) {
 function duplicateBuffer(manager, id) {
   const target = manager.buffers.find((buffer) => buffer.id === id) || null;
   if (!target) return null;
+  if (target.kind === "extension") return null;
 
   const hasVirtualDocument = Boolean(
     target.virtualDocument &&

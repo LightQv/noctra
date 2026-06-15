@@ -5,6 +5,7 @@ const {
   closeBuffer,
   closeAllLeftOf,
   closeAllRightOf,
+  closeAllBuffers,
 } = require("../../browser/services/bufferLifecycleService");
 
 function makeMockBuffer(tag) {
@@ -23,6 +24,7 @@ function makeMockManager(buffers = [], activeIndex = -1) {
   const notifications = [];
   let focusActiveCount = 0;
   let openConfiguredCount = 0;
+  const extensionRemoved = [];
 
   const manager = {
     buffers: buffers.slice(),
@@ -62,8 +64,18 @@ function makeMockManager(buffers = [], activeIndex = -1) {
     notify(event) {
       notifications.push(event);
     },
+    removeBufferFromExtensionRuntime(buffer) {
+      extensionRemoved.push(buffer);
+      return true;
+    },
+    registerBufferWithExtensionRuntime() {
+      return true;
+    },
     getNotifications() {
       return notifications;
+    },
+    getExtensionRemoved() {
+      return extensionRemoved;
     },
     getFocusActiveCount() {
       return focusActiveCount;
@@ -89,6 +101,17 @@ test("closeBuffer calls focusActive when last buffer is closed", () => {
   assert.equal(manager.getFocusActiveCount(), 1, "focusActive must be called when opening dashboard");
 });
 
+test("closeBuffer removes closed buffer from extension runtime", () => {
+  const b1 = makeMockBuffer("a");
+  const b2 = makeMockBuffer("b");
+  const manager = makeMockManager([b1, b2], 0);
+  manager.reindexBuffers();
+
+  closeBuffer(manager, b1.id);
+
+  assert.deepEqual(manager.getExtensionRemoved(), [b1]);
+});
+
 test("closeAllLeftOf opens configured buffer and focuses when all buffers removed", () => {
   const b1 = makeMockBuffer("a");
   const b2 = makeMockBuffer("b");
@@ -98,6 +121,17 @@ test("closeAllLeftOf opens configured buffer and focuses when all buffers remove
   assert.equal(manager.getActive().tag, "configured");
   assert.equal(manager.getOpenConfiguredCount(), 1);
   assert.equal(manager.getFocusActiveCount(), 1, "focusActive must be called when opening dashboard");
+});
+
+test("closeAllBuffers removes all buffers from extension runtime", () => {
+  const b1 = makeMockBuffer("a");
+  const b2 = makeMockBuffer("b");
+  const manager = makeMockManager([b1, b2], 0);
+  manager.reindexBuffers();
+
+  closeAllBuffers(manager);
+
+  assert.deepEqual(manager.getExtensionRemoved(), [b1, b2]);
 });
 
 test("closeAllLeftOf opens configured buffer and focuses when all buffers removed", () => {

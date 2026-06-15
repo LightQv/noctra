@@ -16,6 +16,14 @@ const uiShellApi = {
   openDownloads() {
     ipcRenderer.send("ui-shell:open-downloads");
   },
+  openPasswordManager() {
+    ipcRenderer.send("ui-shell:open-password-manager");
+  },
+  tablineAction(action) {
+    if (action === "open-password-manager") {
+      ipcRenderer.send("ui-shell:open-password-manager");
+    }
+  },
   activateTab(id) {
     ipcRenderer.send("ui-shell:tab-activate", { id });
   },

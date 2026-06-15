@@ -81,7 +81,9 @@ function recordVisit({
   if (
     safeUrl.startsWith("about:") ||
     safeUrl.startsWith("data:") ||
-    safeUrl.startsWith("noctra://")
+    safeUrl.startsWith("noctra://") ||
+    safeUrl.startsWith("chrome-extension://") ||
+    safeUrl.startsWith("crx://")
   ) {
     return;
   }
@@ -152,6 +154,12 @@ function updateLatestTitleForUrl(url, title) {
   if (typeof title !== "string" || !title.trim()) return;
 
   const targetUrl = url.trim();
+  if (
+    targetUrl.startsWith("chrome-extension://") ||
+    targetUrl.startsWith("crx://")
+  ) {
+    return;
+  }
   const nextTitle = title.trim();
   const history = readHistoryObject();
   const orderedDates = sortDateKeysDesc(Object.keys(history));

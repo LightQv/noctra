@@ -1,4 +1,4 @@
-const { BrowserView } = require("electron");
+const { BrowserView, session } = require("electron");
 const { EventEmitter } = require("events");
 const { getConfigValue } = require("../core/config/service");
 const { buildOpeningBufferSpec } = require("../core/opening/buffer");
@@ -46,6 +46,7 @@ class Buffer extends EventEmitter {
       nodeIntegration: false,
       sandbox: true,
       webviewTag: false,
+      session: options.session || session.defaultSession,
     };
 
     if (
@@ -70,6 +71,11 @@ class Buffer extends EventEmitter {
     this.title = "[No title]";
     this.faviconUrl = "";
     this.kind = options.kind || "web";
+    this.extension = options.extension || null;
+    this.displayUrl =
+      typeof options.displayUrl === "string" && options.displayUrl.trim()
+        ? options.displayUrl.trim()
+        : "";
     this.isEditable = this.kind === "editable";
     this.contentUiOptions = {
       widthPx: 6,
@@ -268,7 +274,7 @@ class Buffer extends EventEmitter {
     this.url = url;
     this.virtualUrl = "";
     this.virtualDocument = null;
-    this.title = getUrlDisplayTitle(url);
+    this.title = this.displayUrl || getUrlDisplayTitle(url);
     this.faviconUrl = "";
     this.webContents.loadURL(url);
     this.emit("updated", { kind: "metadata" });
@@ -389,6 +395,7 @@ class Buffer extends EventEmitter {
       id: this.id,
       title: this.title,
       url: this.url,
+      displayUrl: this.displayUrl || this.url,
       faviconUrl: this.faviconUrl,
       isActive,
       kind: this.kind,

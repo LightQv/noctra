@@ -43,6 +43,7 @@ class UiShellManager {
     this.whichKeyOverlayReady = false;
     this.whichKeyVisible = false;
     this.whichKeyModel = { prefix: "<leader>", entries: [] };
+    this.whichKeyPage = 0;
     this.whichKeyHideTimer = null;
     this.whichKeyShowTimer = null;
     this.whichKeyPendingTimeoutMs = 1200;

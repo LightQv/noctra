@@ -7,10 +7,12 @@ const { registerRuntimeIpc } = require("../../runtime/ipcRegistration");
 function createRuntimeHarness() {
   const notifications = [];
   const registered = { events: {}, handlers: {} };
-  const sideEffects = { switchedTo: null };
+  const sideEffects = { switchedTo: null, dispatched: [] };
   const win = { webContents: {}, on() {} };
   const trustedSender = win.webContents;
   const trustedSettingsSender = {};
+  const untrustedSender = {};
+  const extensionSender = {};
   const trustedEvent = {
     sender: trustedSender,
     senderFrame: { url: "noctra://shell" },
@@ -18,6 +20,14 @@ function createRuntimeHarness() {
   const trustedSettingsEvent = {
     sender: trustedSettingsSender,
     senderFrame: { url: "noctra://settings/config.yml" },
+  };
+  const untrustedEvent = {
+    sender: untrustedSender,
+    senderFrame: { url: "https://example.com" },
+  };
+  const extensionEvent = {
+    sender: extensionSender,
+    senderFrame: { url: "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup.html" },
   };
 
   registerRuntimeIpc({
@@ -39,8 +49,13 @@ function createRuntimeHarness() {
         editableFilePath: "/tmp/config.yml",
       }),
     },
-    dispatch: () => {},
-    INTENTS: { CLOSE_BUFFER: "CLOSE_BUFFER" },
+    dispatch: (_win, intent) => {
+      sideEffects.dispatched.push(intent);
+    },
+    INTENTS: {
+      CLOSE_BUFFER: "CLOSE_BUFFER",
+      PASSWORD_MANAGER_OPEN: "PASSWORD_MANAGER_OPEN",
+    },
     uiShell: { updateStatuslineMode: () => {} },
     sidepanelController: { unfocus: () => {} },
     webContentsActions: {
@@ -49,11 +64,16 @@ function createRuntimeHarness() {
       reload: () => {},
     },
     getSurfaceRole: (sender) =>
-      sender === trustedSettingsSender ? "trusted:settings" : "trusted:shell",
+      sender === trustedSettingsSender
+        ? "trusted:settings"
+        : sender === extensionSender
+          ? "extension"
+          : "trusted:shell",
     isAllowedTrustedSurfaceUrl: () => true,
     SURFACE_ROLES: {
       TRUSTED_SHELL: "trusted:shell",
       TRUSTED_SETTINGS: "trusted:settings",
+      EXTENSION: "extension",
     },
     performWindowAction: () => {},
     setEditorFocused: () => {},
@@ -87,6 +107,8 @@ function createRuntimeHarness() {
     sideEffects,
     trustedEvent,
     trustedSettingsEvent,
+    untrustedEvent,
+    extensionEvent,
   };
 }
 
@@ -149,6 +171,58 @@ test("ui-shell:context-menu accepts valid urlline payload", () => {
 test("settings:editor-open-search accepts empty payload", () => {
   const result = validateIpcPayload("settings:editor-open-search", undefined);
   assert.equal(result.ok, true);
+});
+
+test("ui-shell:open-password-manager accepts empty or null payload", () => {
+  assert.equal(
+    validateIpcPayload("ui-shell:open-password-manager", undefined).ok,
+    true,
+  );
+  assert.equal(
+    validateIpcPayload("ui-shell:open-password-manager", null).ok,
+    true,
+  );
+  assert.equal(
+    validateIpcPayload("ui-shell:open-password-manager", {}).ok,
+    true,
+  );
+});
+
+test("ui-shell:open-password-manager rejects non-empty payload", () => {
+  const result = validateIpcPayload("ui-shell:open-password-manager", {
+    provider: "bitwarden",
+  });
+
+  assert.equal(result.ok, false);
+});
+
+test("ui-shell:open-password-manager dispatches intent from trusted shell only", () => {
+  const harness = createRuntimeHarness();
+
+  harness.registered.events["ui-shell:open-password-manager"](
+    harness.trustedEvent,
+    undefined,
+  );
+  assert.deepEqual(harness.sideEffects.dispatched.at(-1), {
+    type: "PASSWORD_MANAGER_OPEN",
+  });
+
+  harness.registered.events["ui-shell:open-password-manager"](
+    harness.untrustedEvent,
+    undefined,
+  );
+  assert.equal(harness.sideEffects.dispatched.length, 1);
+});
+
+test("extension-role sender cannot open password manager IPC", () => {
+  const harness = createRuntimeHarness();
+
+  harness.registered.events["ui-shell:open-password-manager"](
+    harness.extensionEvent,
+    undefined,
+  );
+
+  assert.equal(harness.sideEffects.dispatched.length, 0);
 });
 
 test("ui-shell:context-menu rejects invalid zone", () => {

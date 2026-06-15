@@ -16,6 +16,9 @@ function createSmokeScenarios({
   getStatuslineModeLabel,
   updateTablineOptions,
   updateUrllineRender,
+  passwordManagerService,
+  passwordManagerOverlayController,
+  extensionRuntime,
 }) {
   let smokeUiCadenceProbe = null;
 
@@ -261,6 +264,103 @@ function createSmokeScenarios({
     }
   }
 
+  async function runPasswordManagerProviderSmokeScenario() {
+    const failures = [];
+    const fail = (message) => failures.push(message);
+    const log = (...args) => {
+      if (process.env.NOCTRA_SMOKE_PASSWORD_MANAGER_DEBUG === "1") {
+        console.error("[noctra:smoke] password-manager-provider", ...args);
+      }
+    };
+    if (
+      !passwordManagerService ||
+      typeof passwordManagerService.getStatus !== "function"
+    ) {
+      fail("password manager service unavailable");
+    } else {
+      const timeoutMs = Number.isFinite(
+        Number(process.env.NOCTRA_SMOKE_PASSWORD_MANAGER_TIMEOUT_MS),
+      )
+        ? Number(process.env.NOCTRA_SMOKE_PASSWORD_MANAGER_TIMEOUT_MS)
+        : 45000;
+      await waitForCondition(
+        () => {
+          const status = passwordManagerService.getStatus();
+          log("status", status.state, status.canOpen, status.message || "");
+          return status.state === "loaded" || status.state === "failed";
+        },
+        {
+          timeoutMs,
+          intervalMs: 250,
+          description: "password manager loaded or failed status",
+        },
+      ).catch((error) => fail(error.message));
+
+      const status = passwordManagerService.getStatus();
+      if (status.state !== "loaded" || status.canOpen !== true) {
+        fail(
+          `password manager not loaded: ${status.state} ${status.message || ""}`.trim(),
+        );
+      } else if (process.env.NOCTRA_SMOKE_PASSWORD_MANAGER_OPEN === "1") {
+        log("opening popup");
+        await passwordManagerService.open();
+        log("popup open returned");
+        await sleep(750);
+        if (
+          passwordManagerOverlayController &&
+          typeof passwordManagerOverlayController.close === "function"
+        ) {
+          passwordManagerOverlayController.close({ restoreFocus: false });
+          log("popup close requested");
+        }
+        const openStatus = passwordManagerService.getStatus();
+        if (openStatus.state !== "loaded" || openStatus.canOpen !== true) {
+          fail(
+            `password manager popup failed: ${openStatus.state} ${openStatus.message || ""}`.trim(),
+          );
+        }
+      }
+
+      if (process.env.NOCTRA_SMOKE_PASSWORD_MANAGER_WINDOWS === "1") {
+        if (!extensionRuntime || typeof extensionRuntime.createWindow !== "function") {
+          fail("extension runtime window callbacks unavailable");
+        } else {
+          const safeUrl = "https://example.com/";
+          await extensionRuntime.createWindow({ type: "normal", url: safeUrl });
+          const bufferList = Array.isArray(buffers.buffers) ? buffers.buffers : [];
+          const safeBuffer = bufferList.find(
+            (buffer) => buffer && buffer.url === safeUrl,
+          );
+          if (!safeBuffer || safeBuffer.kind !== "web") {
+            fail("extension-created safe web tab did not open as web buffer");
+          }
+
+          const extensionId = status.extensionId;
+          const popoutUrl = `chrome-extension://${extensionId}/popup/index.html?uilocation=popout#/tabs/vault`;
+          await extensionRuntime.createWindow({ type: "popup", url: popoutUrl });
+          const popoutBuffer = bufferList.find(
+            (buffer) => buffer && buffer.url === popoutUrl,
+          );
+          if (
+            !popoutBuffer ||
+            popoutBuffer.kind !== "extension" ||
+            popoutBuffer.extension?.id !== extensionId
+          ) {
+            fail("managed-extension popout did not open as extension buffer");
+          }
+        }
+      }
+    }
+
+    if (failures.length > 0) {
+      console.error(
+        "[noctra:smoke] password-manager-provider scenario failed",
+        failures.join(" | "),
+      );
+      process.exitCode = 1;
+    }
+  }
+
   function setupSmokeUiCadenceProbe() {
     if (
       process.env.NOCTRA_SMOKE_TEST !== "1" ||
@@ -340,6 +440,7 @@ function createSmokeScenarios({
       "devtools-lifecycle": runDevtoolsLifecycleSmokeScenario,
       "session-lifecycle": runSessionLifecycleSmokeScenario,
       "focus-lifecycle": runFocusLifecycleSmokeScenario,
+      "password-manager-provider": runPasswordManagerProviderSmokeScenario,
       "context-menu": async () => {
         const { buildWebContextMenuTemplate } = require("../core/adapters/platform/contextMenuBuilder");
         const { buildUIShellContextMenuTemplate } = require("../core/adapters/platform/contextMenuBuilder");

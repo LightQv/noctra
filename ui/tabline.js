@@ -22,6 +22,53 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function normalizePasswordManagerAction(action = {}) {
+  const status =
+    action.status && typeof action.status === "object" ? action.status : action;
+  const provider =
+    typeof status.provider === "string" ? status.provider : "none";
+  const enabled = Boolean(status.enabled) && provider !== "none";
+
+  if (!enabled) {
+    return null;
+  }
+
+  const state = typeof status.state === "string" ? status.state : "disabled";
+  const label =
+    typeof status.label === "string" && status.label.trim().length > 0
+      ? status.label.trim()
+      : "Password manager";
+  const canOpen = Boolean(status.canOpen);
+  const message =
+    typeof status.message === "string" && status.message.trim().length > 0
+      ? status.message.trim()
+      : "";
+  const icon =
+    typeof action.icon === "string" && action.icon.trim().length > 0
+      ? action.icon.trim()
+      : "󰌆";
+  const shortcutLabel =
+    typeof action.shortcutLabel === "string" &&
+    action.shortcutLabel.trim().length > 0
+      ? action.shortcutLabel.trim()
+      : "<leader> p | :pm";
+  const titleByState = {
+    installing: `Installing ${label}`,
+    loading: `Loading ${label}`,
+    loaded: `Open ${label} (${shortcutLabel})`,
+    failed: message || `${label} unavailable`,
+    disabled_restart_required: message || `${label} disabled after restart`,
+    switch_restart_required: message || `${label} switch requires restart`,
+  };
+
+  return {
+    label,
+    icon,
+    disabled: !canOpen,
+    title: titleByState[state] || `${label} unavailable`,
+  };
+}
+
 function renderTabline(
   webContents,
   snapshot,
@@ -38,7 +85,8 @@ function renderTabline(
   const palette = {
     shellBackground: theme.shellBackground || DEFAULT_THEME.shellBackground,
     borderColor: theme.borderColor || DEFAULT_THEME.borderColor,
-    borderStrongColor: theme.borderStrongColor || DEFAULT_THEME.borderStrongColor,
+    borderStrongColor:
+      theme.borderStrongColor || DEFAULT_THEME.borderStrongColor,
     textColor: theme.textColor || DEFAULT_THEME.textColor,
     mutedTextColor: theme.mutedTextColor || DEFAULT_THEME.mutedTextColor,
     elevatedBackground:
@@ -137,6 +185,9 @@ function renderTabline(
     actions.newTab.shortcutLabel.trim().length > 0
       ? actions.newTab.shortcutLabel
       : "b | :tab | :tabnew";
+  const passwordManagerAction = normalizePasswordManagerAction(
+    actions.passwordManager,
+  );
 
   const controlsMarkup = showCustomControls
     ? `<div class="window-controls"><button class="window-btn" data-window-action="minimize" type="button" aria-label="Minimize">-</button><button class="window-btn" data-window-action="toggleMaximize" type="button" aria-label="${maximizeLabel}">${maximizeIcon}</button><button class="window-btn is-close" data-window-action="close" type="button" aria-label="Close">X</button></div>`
@@ -146,11 +197,21 @@ function renderTabline(
     `${newTabLabel} (${newTabShortcut})`,
   )}" aria-label="${escapeHtml(newTabLabel)}"><span class="tab-new-icon">${escapeHtml(newTabIcon)}</span></button>`;
 
+  const passwordManagerMarkup = passwordManagerAction
+    ? `<button class="tabline-action-btn" type="button" data-tabline-action="open-password-manager" title="${escapeHtml(
+        passwordManagerAction.title,
+      )}" aria-label="${escapeHtml(passwordManagerAction.title)}"${
+        passwordManagerAction.disabled ? " disabled" : ""
+      }><span class="tabline-action-icon">${escapeHtml(
+        passwordManagerAction.icon,
+      )}</span></button>`
+    : "";
+
   const rightActionsMarkup = `<div class="tabline-actions"><button class="tabline-action-btn" type="button" data-tabline-action="open-downloads" title="${escapeHtml(
     `${downloadsLabel} (${downloadsShortcut})`,
   )}" aria-label="Open downloads"><span class="tabline-action-icon">${escapeHtml(
     downloadsIcon,
-  )}</span></button><button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
+  )}</span></button>${passwordManagerMarkup}<button class="tabline-action-btn" type="button" data-tabline-action="open-settings" title="${escapeHtml(
     `${configLabel} (${configShortcut})`,
   )}" aria-label="Open config"><span class="tabline-action-icon">${escapeHtml(
     configIcon,
@@ -193,6 +254,9 @@ function renderTabline(
             }
             if (tablineAction === 'open-downloads' && window.uiShell && typeof window.uiShell.openDownloads === 'function') {
               window.uiShell.openDownloads();
+            }
+            if (tablineAction === 'open-password-manager' && window.uiShell && typeof window.uiShell.tablineAction === 'function') {
+              window.uiShell.tablineAction('open-password-manager');
             }
             return;
           }
@@ -369,6 +433,13 @@ function renderTabline(
 
       root.querySelectorAll('[data-tabline-action="open-downloads"] .tabline-action-icon').forEach((icon) => {
         icon.style.fontSize = '12px';
+      });
+
+      root.querySelectorAll('.tabline-action-btn:disabled').forEach((button) => {
+        Object.assign(button.style, {
+          opacity: '0.55',
+          cursor: 'not-allowed',
+        });
       });
 
       root.querySelectorAll('.window-btn').forEach((button) => {

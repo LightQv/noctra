@@ -64,3 +64,15 @@ test("download policy resolves prompt and allow decisions", () => {
   assert.equal(promptDecision.action, "prompt");
   assert.equal(allowDecision.action, "allow");
 });
+
+test("download policy governs extension surfaces as untrusted", () => {
+  assert.equal(isTrustedInternalRole(SURFACE_ROLES.EXTENSION), false);
+
+  const decision = resolveDownloadDecision({
+    role: SURFACE_ROLES.EXTENSION,
+    isTrustedInternalRole,
+    config: { policy: "prompt", allow_trusted_surfaces: false },
+  });
+
+  assert.equal(decision.action, "prompt");
+});

@@ -1,5 +1,8 @@
 const { defaultConfig } = require("./defaults");
 const { normalizeTrustedHosts } = require("../security/urlPolicy");
+const {
+  normalizePasswordManagerProviderName,
+} = require("../extensions/passwordManagerProviders");
 
 const ACTION_IDS = new Set([
   "scroll_down",
@@ -41,6 +44,7 @@ const ACTION_IDS = new Set([
   "downloads_toggle",
   "downloads_toggle_focus",
   "downloads_live_modal",
+  "password_manager_open",
   "telescope_open_history",
   "telescope_open_bookmarks",
   "telescope_open_buffers",
@@ -232,6 +236,13 @@ function normalizeLeaderNode(node, fallbackLabel = "Leader Group") {
   return normalized;
 }
 
+function mergeLeaderTrees(defaultTree, userTree) {
+  return {
+    ...(isPlainObject(defaultTree) ? defaultTree : {}),
+    ...(isPlainObject(userTree) ? userTree : {}),
+  };
+}
+
 function normalizeDiscreteKeymap(inputMap, defaultMap) {
   const normalized = { ...(isPlainObject(defaultMap) ? defaultMap : {}) };
   if (!isPlainObject(inputMap)) {
@@ -357,7 +368,10 @@ function normalizeConfig(rawConfig) {
     children: userLeaderTree,
   });
   if (normalizedUserLeaderNode && normalizedUserLeaderNode.children) {
-    normalized.keymap.leader = normalizedUserLeaderNode.children;
+    normalized.keymap.leader = mergeLeaderTrees(
+      defaults.keymap.leader,
+      normalizedUserLeaderNode.children,
+    );
   } else {
     normalized.keymap.leader = defaults.keymap.leader;
   }
@@ -660,6 +674,13 @@ function normalizeConfig(rawConfig) {
         normalized.browser.downloads.auto_open =
           input.browser.downloads.auto_open;
       }
+    }
+
+    if (isPlainObject(input.browser.password_manager)) {
+      normalized.browser.password_manager.provider =
+        normalizePasswordManagerProviderName(
+          input.browser.password_manager.provider,
+        );
     }
   }
 

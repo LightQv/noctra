@@ -1,0 +1,15 @@
+const CHROME_EXTENSION_LICENSES = Object.freeze({
+  GPL_3: "GPL-3.0",
+});
+
+const CHROME_EXTENSION_DISTRIBUTION_LICENSE = CHROME_EXTENSION_LICENSES.GPL_3;
+
+function resolveChromeExtensionLicense() {
+  return CHROME_EXTENSION_DISTRIBUTION_LICENSE;
+}
+
+module.exports = {
+  CHROME_EXTENSION_DISTRIBUTION_LICENSE,
+  CHROME_EXTENSION_LICENSES,
+  resolveChromeExtensionLicense,
+};

@@ -49,6 +49,9 @@ function bootstrapWindowRuntime({
   applyBrowserLanguagePreference,
   persistSessionSnapshot,
   clipboard,
+  passwordManagerService,
+  passwordManagerOverlayController,
+  extensionRuntime,
 }) {
   const DEFAULT_CASCADE_OFFSET_PX = 28;
 
@@ -161,8 +164,11 @@ function bootstrapWindowRuntime({
       : [];
 
   if (existingWindows.length > 0) {
-    const focusedWindow = existingWindows.find((windowRef) => windowRef.isFocused());
-    const sourceWindow = focusedWindow || existingWindows[existingWindows.length - 1];
+    const focusedWindow = existingWindows.find((windowRef) =>
+      windowRef.isFocused(),
+    );
+    const sourceWindow =
+      focusedWindow || existingWindows[existingWindows.length - 1];
 
     let sourceBounds = sourceWindow.getBounds();
     if (
@@ -242,6 +248,7 @@ function bootstrapWindowRuntime({
     registerIpcContracts,
     notificationsService,
     clipboard,
+    passwordManagerService,
   });
 
   buffers.init(win);
@@ -318,6 +325,9 @@ function bootstrapWindowRuntime({
     getStatuslineModeLabel,
     updateTablineOptions,
     updateUrllineRender,
+    passwordManagerService,
+    passwordManagerOverlayController,
+    extensionRuntime,
   });
   smokeScenarios.setupSmokeUiCadenceProbe();
   notificationsService.setToastHandler((toast) => {
@@ -408,6 +418,13 @@ function bootstrapWindowRuntime({
     }
 
     if (change.kind === "visit" && change.url) {
+      const sourceBuffer = buffers.buffers.find(
+        (buffer) => buffer && buffer.id === change.sourceBufferId,
+      );
+      if (sourceBuffer?.kind === "extension") {
+        return;
+      }
+
       const normalizedUrl = normalizeHistoryUrl(change.url);
       if (!normalizedUrl) {
         return;
@@ -440,6 +457,13 @@ function bootstrapWindowRuntime({
     }
 
     if (change.kind === "title-updated" && change.url && change.title) {
+      const sourceBuffer = buffers.buffers.find(
+        (buffer) => buffer && buffer.id === change.sourceBufferId,
+      );
+      if (sourceBuffer?.kind === "extension") {
+        return;
+      }
+
       const normalizedUrl = normalizeHistoryUrl(change.url);
       if (!normalizedUrl) {
         return;

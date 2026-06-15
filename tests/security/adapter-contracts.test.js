@@ -7,6 +7,7 @@ const {
 const {
   registerSessionSecurityPolicy,
   registerWebContentsSecurityPolicy,
+  resolvePermissionDecision,
 } = require("../../core/adapters/platform/securityPolicy");
 const {
   createPanelRenderTransport,
@@ -97,7 +98,7 @@ test("ipc registry registers and unregisters events and handlers symmetrically",
   ]);
 });
 
-test("session security policy enforces deny-all permission handlers", () => {
+test("session security policy enforces explicit permission handlers", () => {
   const sessionState = {
     checkHandler: null,
     requestHandler: null,
@@ -200,6 +201,88 @@ test("session security policy enforces deny-all permission handlers", () => {
   );
 });
 
+test("permission policy denies web and known extension permissions explicitly", () => {
+  const webContents = {
+    getURL: () => "https://example.test",
+  };
+  const extensionContents = {
+    getURL: () =>
+      "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup.html",
+  };
+  markSurfaceRole(extensionContents, SURFACE_ROLES.EXTENSION);
+
+  assert.deepEqual(
+    resolvePermissionDecision({ webContents, permission: "notifications" }),
+    {
+      allow: false,
+      role: SURFACE_ROLES.UNTRUSTED_WEB,
+      reason: "permission_denied_by_default",
+      knownManagedExtension: false,
+    },
+  );
+  assert.deepEqual(
+    resolvePermissionDecision({
+      webContents: extensionContents,
+      permission: "notifications",
+    }),
+    {
+      allow: false,
+      role: SURFACE_ROLES.EXTENSION,
+      reason: "unsupported",
+      knownManagedExtension: true,
+    },
+  );
+});
+
+test("session permission handler reports known extension denials safely", () => {
+  const sessionState = {};
+  const notifications = [];
+  registerSessionSecurityPolicy({
+    session: {
+      defaultSession: {
+        setPermissionCheckHandler(handler) {
+          sessionState.checkHandler = handler;
+        },
+        setPermissionRequestHandler(handler) {
+          sessionState.requestHandler = handler;
+        },
+        on() {},
+      },
+    },
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+  const extensionContents = {
+    getURL: () =>
+      "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup.html",
+  };
+  markSurfaceRole(extensionContents, SURFACE_ROLES.EXTENSION);
+
+  let allowed = null;
+  sessionState.requestHandler(
+    extensionContents,
+    "notifications",
+    (decision) => {
+      allowed = decision;
+    },
+  );
+
+  assert.equal(allowed, false);
+  assert.equal(notifications.length, 1);
+  assert.equal(
+    notifications[0].code,
+    "security_extension_permission_unsupported",
+  );
+  assert.deepEqual(notifications[0].context, {
+    permission: "notifications",
+    role: SURFACE_ROLES.EXTENSION,
+    reason: "unsupported",
+  });
+});
+
 test("webContents security policy blocks window open and denied navigation", () => {
   const notifications = [];
   let webContentsCreatedListener = null;
@@ -270,6 +353,185 @@ test("webContents security policy blocks window open and denied navigation", () 
   assert.equal(notifications.length, 2);
   assert.equal(notifications[0].code, "security_window_open_blocked");
   assert.equal(notifications[1].code, "security_navigation_blocked");
+});
+
+test("webContents security policy routes safe extension window open", () => {
+  const notifications = [];
+  const openedUrls = [];
+  let webContentsCreatedListener = null;
+  const app = {
+    on(eventName, listener) {
+      if (eventName === "web-contents-created") {
+        webContentsCreatedListener = listener;
+      }
+    },
+  };
+
+  registerWebContentsSecurityPolicy({
+    app,
+    isAllowedNavigationUrl: (url) => url === "https://bitwarden.com/terms/",
+    openExtensionWindowUrl(url) {
+      openedUrls.push(url);
+    },
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+
+  let windowOpenHandler = null;
+  const extensionContents = {
+    setWindowOpenHandler(listener) {
+      windowOpenHandler = listener;
+    },
+    on() {},
+  };
+  markSurfaceRole(extensionContents, SURFACE_ROLES.EXTENSION);
+  webContentsCreatedListener({}, extensionContents);
+
+  const allowedDecision = windowOpenHandler({
+    url: "https://bitwarden.com/terms/",
+  });
+  assert.deepEqual(allowedDecision, { action: "deny" });
+  assert.deepEqual(openedUrls, ["https://bitwarden.com/terms/"]);
+  assert.equal(notifications.length, 0);
+
+  const blockedDecision = windowOpenHandler({
+    url: "chrome-extension://abc/options.html",
+  });
+  assert.deepEqual(blockedDecision, { action: "deny" });
+  assert.deepEqual(openedUrls, ["https://bitwarden.com/terms/"]);
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].code, "security_window_open_blocked");
+});
+
+test("webContents security policy allows extension child popup navigation only", () => {
+  let webContentsCreatedListener = null;
+  const notifications = [];
+  const app = {
+    on(eventName, listener) {
+      if (eventName === "web-contents-created") {
+        webContentsCreatedListener = listener;
+      }
+    },
+  };
+
+  registerWebContentsSecurityPolicy({
+    app,
+    isAllowedNavigationUrl: () => false,
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+
+  const captureNavigate = (contents) => {
+    let listener = null;
+    contents.setWindowOpenHandler = () => {};
+    contents.on = (eventName, nextListener) => {
+      if (eventName === "will-navigate") {
+        listener = nextListener;
+      }
+    };
+    webContentsCreatedListener({}, contents);
+    return listener;
+  };
+
+  const childPopupContents = {
+    getType: () => "window",
+    getOwnerBrowserWindow: () => ({
+      getParentWindow: () => ({ id: 1 }),
+    }),
+  };
+  const popupNavigate = captureNavigate(childPopupContents);
+  let prevented = false;
+  popupNavigate(
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "chrome-extension://abc/popup.html",
+  );
+  assert.equal(prevented, false);
+
+  const normalContents = {
+    getType: () => "browserView",
+    getOwnerBrowserWindow: () => ({
+      getParentWindow: () => null,
+    }),
+  };
+  const normalNavigate = captureNavigate(normalContents);
+  prevented = false;
+  normalNavigate(
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "chrome-extension://abc/popup.html",
+  );
+  assert.equal(prevented, true);
+  assert.equal(notifications.at(-1).code, "security_navigation_blocked");
+});
+
+test("webContents security policy allows known provider extension buffers", () => {
+  let webContentsCreatedListener = null;
+  const notifications = [];
+  const app = {
+    on(eventName, listener) {
+      if (eventName === "web-contents-created") {
+        webContentsCreatedListener = listener;
+      }
+    },
+  };
+
+  registerWebContentsSecurityPolicy({
+    app,
+    isAllowedNavigationUrl: () => false,
+    notificationsService: {
+      notify(entry) {
+        notifications.push(entry);
+      },
+    },
+  });
+
+  let navigate = null;
+  const extensionBufferContents = {
+    setWindowOpenHandler() {},
+    on(eventName, listener) {
+      if (eventName === "will-navigate") {
+        navigate = listener;
+      }
+    },
+  };
+  markSurfaceRole(extensionBufferContents, SURFACE_ROLES.EXTENSION);
+  webContentsCreatedListener({}, extensionBufferContents);
+
+  let prevented = false;
+  navigate(
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup/index.html",
+  );
+  assert.equal(prevented, false);
+
+  prevented = false;
+  navigate(
+    {
+      preventDefault() {
+        prevented = true;
+      },
+    },
+    "chrome-extension://unknownextensionid/options.html",
+  );
+  assert.equal(prevented, true);
+  assert.equal(notifications.at(-1).code, "security_navigation_blocked");
 });
 
 test("webContents security policy blocks remote navigation for trusted surfaces", () => {
@@ -437,7 +699,10 @@ test("web mode sync service binds, requests sync, and unbinds safely", async () 
   onBeforeMouseEvent(null, { type: "mouseDown" });
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(syncCalls.length >= 2, true);
-  assert.equal(syncCalls.some((entry) => entry.reason === "mouse-event"), true);
+  assert.equal(
+    syncCalls.some((entry) => entry.reason === "mouse-event"),
+    true,
+  );
 
   const onDidNavigateInPage = listeners.get("did-navigate-in-page");
   assert.equal(typeof onDidNavigateInPage, "function");

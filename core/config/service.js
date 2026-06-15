@@ -207,9 +207,6 @@ function addThemeComments(yamlText) {
       output.push(
         "  # bitwarden/1password auto-install Chrome extensions when enabled.",
       );
-      output.push(
-        "  # Local validation requires NOCTRA_CHROME_EXTENSIONS_LICENSE.",
-      );
     }
 
     if (/^ {2}opening_buffer:\s*$/.test(line)) {

@@ -115,11 +115,8 @@ const {
   createChromeWebStoreInstaller,
 } = require("./core/extensions/chromeWebStoreInstaller");
 const {
-  resolveChromeExtensionLicense,
-} = require("./core/extensions/chromeExtensionLicense");
-const {
-  PASSWORD_MANAGER_PROVIDERS,
-} = require("./core/extensions/passwordManagerProviders");
+  getManagedExtensionIds,
+} = require("./core/extensions/managedExtensionRegistry");
 const {
   createPasswordManagerOverlayController,
 } = require("./ui/shell/services/passwordManagerOverlayController");
@@ -1280,7 +1277,6 @@ function createWindow() {
     bufferManager: buffers,
     getBrowserWindow: () => context.win,
     notificationsService,
-    license: resolveChromeExtensionLicense(),
     isAppQuitting: () => isAppQuitting,
     onActionPopupCreated: (popup) =>
       passwordManagerOverlayController.handlePopupCreated(popup),
@@ -1291,9 +1287,7 @@ function createWindow() {
     webStore: loadElectronChromeWebStore(),
     session: session.defaultSession,
     extensionsPath: getExtensionStorePath(),
-    allowlist: Object.values(PASSWORD_MANAGER_PROVIDERS)
-      .map((provider) => provider.id)
-      .filter(Boolean),
+    allowlist: getManagedExtensionIds(),
     autoUpdate: false,
     loadExtensions: false,
   });

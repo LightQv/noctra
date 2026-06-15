@@ -21,7 +21,7 @@ This document tracks the implementation plan for password-manager support throug
 - Password-manager button is hidden when provider is `none`.
 - Password-manager button is visible but disabled while extension is installing, loading, failed, or otherwise unavailable.
 - Password-manager button is enabled only when the selected extension is loaded and can open its action popup.
-- Public release requires resolving the `electron-chrome-extensions` license situation.
+- Public releases that include Chrome extension support follow the GPL-compatible `electron-chrome-extensions` distribution path.
 
 ## Non-Goals
 
@@ -42,11 +42,11 @@ This document tracks the implementation plan for password-manager support throug
 
 `electron-chrome-extensions` is GPL-3 / Patron licensed. Noctra will follow the GPL-compatible distribution path for public releases that include Chrome extension support. No Patron/proprietary license path is planned.
 
-Local validation/runtime note: Noctra passes `NOCTRA_CHROME_EXTENSIONS_LICENSE` through to `electron-chrome-extensions` only when it is one of the package-supported license strings: `GPL-3.0` or `Patron-License-2020-11-19`. Without this explicit env var, the extension runtime falls back to no-op and real provider validation cannot pass.
+Runtime note: `electron-chrome-extensions` requires an explicit constructor license value. Noctra always passes `GPL-3.0` because the project selected the GPL-compatible distribution path. There is no user-facing license environment variable.
 
 Validation isolation note: set `NOCTRA_USER_DATA_DIR` during M14 smoke/manual checks so Chrome Web Store downloads, extension state, cookies, and extension storage are isolated from the normal Noctra profile.
 
-Release blocker todo:
+Release posture todo:
 
 - [x] Decide GPL-compatible distribution path.
 - [ ] Document GPL-compatible extension-support posture in release notes.
@@ -127,18 +127,20 @@ UI rules:
 
 ## Architecture Overview
 
-Add three small extension-specific modules and keep `main.js` orchestration thin.
+Add small extension-specific modules and keep `main.js` orchestration thin.
 
 Proposed files:
 
 - `core/extensions/passwordManagerProviders.js`
+- `core/extensions/managedExtensionRegistry.js`
 - `core/extensions/chromeExtensionRuntime.js`
 - `core/extensions/passwordManagerService.js`
 - `ui/shell/services/passwordManagerOverlayController.js`
 
 Responsibilities:
 
-- Provider registry resolves provider metadata and validates names.
+- Generic managed-extension registry resolves extension metadata and validates known extension IDs.
+- Password-manager provider registry is the first consumer of the managed-extension registry.
 - Chrome extension runtime adapts Noctra buffers/windows to `electron-chrome-extensions` tab/window APIs.
 - Password manager service owns selected-provider install/load/status lifecycle.
 - UI overlay controller owns popup placement, visibility, dismissal, and focus restore.
@@ -605,21 +607,21 @@ Smoke/manual tests:
 CI target:
 
 - [x] `npm run lint`
-- [ ] `npm run format:check`
+- [x] `npm run format:check`
 - [x] `npm run check:intents`
 - [x] `npm run check:security-baseline`
 - [x] `npm test`
-- [ ] `npm run ci:test` before merge/release.
+- [x] `npm run ci:test` before merge/release.
 
-CI note: `npm run format:check` currently fails on pre-existing `README.md` formatting, unrelated to password-manager work. Changed plan docs pass targeted Prettier checks.
+CI note: full M13 check targets have passed. Changed plan docs also pass targeted Prettier checks.
 
 ## Milestone 14: Real Provider Validation
 
 Prerequisite:
 
-- [x] Add explicit local validation license hook via `NOCTRA_CHROME_EXTENSIONS_LICENSE`.
+- [x] Pass the selected GPL-compatible license to `electron-chrome-extensions` without user-facing env configuration.
 - [x] Add `NOCTRA_USER_DATA_DIR` profile isolation for smoke/manual provider checks.
-- [x] Run provider checks with `NOCTRA_CHROME_EXTENSIONS_LICENSE=GPL-3.0` in isolated local smoke profiles. This does not resolve public distribution licensing.
+- [x] Run provider checks in isolated local smoke profiles. Public distribution uses the selected GPL-compatible license posture.
 
 Bitwarden checklist:
 
@@ -644,8 +646,8 @@ Bitwarden M14 result: isolated smoke installed Bitwarden `2026.5.1` from Chrome 
 - [x] Loads after app restart.
 - [x] Popup opens centered.
 - [ ] Native app bridge behavior is known.
-- [x] User can log in or clear limitation is documented.
-- [x] Autofill behavior is known.
+- [ ] User can log in or clear limitation is documented.
+- [ ] Autofill behavior is known.
 - [x] Any unsupported APIs are documented.
 - [x] Path to stable support is listed.
 
@@ -653,21 +655,24 @@ Bitwarden M14 result: isolated smoke installed Bitwarden `2026.5.1` from Chrome 
 
 ## Milestone 15: Packaging
 
-Goal: ensure extension support works outside dev mode.
+Goal: ensure generic managed Chrome extension support works outside dev mode. Bitwarden is the stable validation fixture for this pass; 1Password remains experimental and can be retested later.
 
 Todos:
 
 - [ ] Verify packaged app includes `electron-chrome-extensions/preload` or equivalent copied file.
-- [ ] Verify packaged app can install selected provider.
-- [ ] Verify packaged app can load installed provider after restart.
+- [ ] Verify packaged app can install selected managed extension provider.
+- [ ] Verify packaged app can load installed managed extension provider after restart.
 - [ ] Verify extension storage persists across restart.
+- [ ] Verify extension action popup opens.
+- [ ] Verify extension-created safe web tabs open as normal buffers.
+- [ ] Verify known managed-extension popouts open as transient extension buffers.
 - [ ] Verify no dev-only absolute paths are used.
 - [ ] Verify signed/unsigned macOS behavior if relevant.
 - [x] Add packaging notes to release checklist.
 
 Exit criteria:
 
-- [ ] `npm run make` output can use Bitwarden popup.
+- [ ] `npm run make` output can use managed extension action popup with Bitwarden as stable fixture.
 - [ ] No missing preload/resource errors in packaged app.
 - [x] Public release checklist includes license gate.
 

@@ -1,7 +1,15 @@
+const {
+  MANAGED_EXTENSION_CATEGORIES,
+  MANAGED_EXTENSION_IDS,
+  getManagedExtensionsByCategory,
+  resolveManagedExtensionByExtensionId,
+  resolveManagedExtensionByExtensionUrl,
+} = require("./managedExtensionRegistry");
+
 const PASSWORD_MANAGER_PROVIDER_IDS = Object.freeze({
   NONE: "none",
-  BITWARDEN: "bitwarden",
-  ONE_PASSWORD: "1password",
+  BITWARDEN: MANAGED_EXTENSION_IDS.BITWARDEN,
+  ONE_PASSWORD: MANAGED_EXTENSION_IDS.ONE_PASSWORD,
 });
 
 const PASSWORD_MANAGER_PROVIDERS = Object.freeze({
@@ -9,20 +17,14 @@ const PASSWORD_MANAGER_PROVIDERS = Object.freeze({
     id: null,
     name: PASSWORD_MANAGER_PROVIDER_IDS.NONE,
     label: "None",
+    category: MANAGED_EXTENSION_CATEGORIES.PASSWORD_MANAGER,
     support: "disabled",
   }),
-  [PASSWORD_MANAGER_PROVIDER_IDS.BITWARDEN]: Object.freeze({
-    id: "nngceckbapebfimnlniiiahkandclblb",
-    name: PASSWORD_MANAGER_PROVIDER_IDS.BITWARDEN,
-    label: "Bitwarden",
-    support: "stable",
-  }),
-  [PASSWORD_MANAGER_PROVIDER_IDS.ONE_PASSWORD]: Object.freeze({
-    id: "aeblfdkhhhdcdjpifhhbdiojplfjncoa",
-    name: PASSWORD_MANAGER_PROVIDER_IDS.ONE_PASSWORD,
-    label: "1Password",
-    support: "experimental",
-  }),
+  ...Object.fromEntries(
+    getManagedExtensionsByCategory(
+      MANAGED_EXTENSION_CATEGORIES.PASSWORD_MANAGER,
+    ).map((provider) => [provider.name, provider]),
+  ),
 });
 
 function normalizePasswordManagerProviderName(value) {
@@ -43,33 +45,17 @@ function resolvePasswordManagerProvider(value) {
 }
 
 function resolvePasswordManagerProviderByExtensionId(extensionId) {
-  if (typeof extensionId !== "string" || !extensionId.trim()) {
-    return null;
-  }
-
-  const normalizedId = extensionId.trim();
-  return (
-    Object.values(PASSWORD_MANAGER_PROVIDERS).find(
-      (provider) => provider && provider.id === normalizedId,
-    ) || null
-  );
+  const provider = resolveManagedExtensionByExtensionId(extensionId);
+  return provider && provider.category === MANAGED_EXTENSION_CATEGORIES.PASSWORD_MANAGER
+    ? provider
+    : null;
 }
 
 function resolvePasswordManagerProviderByExtensionUrl(rawUrl) {
-  if (typeof rawUrl !== "string" || !rawUrl.trim()) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(rawUrl.trim());
-    if (parsed.protocol !== "chrome-extension:") {
-      return null;
-    }
-
-    return resolvePasswordManagerProviderByExtensionId(parsed.hostname);
-  } catch {
-    return null;
-  }
+  const provider = resolveManagedExtensionByExtensionUrl(rawUrl);
+  return provider && provider.category === MANAGED_EXTENSION_CATEGORIES.PASSWORD_MANAGER
+    ? provider
+    : null;
 }
 
 function isKnownPasswordManagerExtensionUrl(rawUrl) {

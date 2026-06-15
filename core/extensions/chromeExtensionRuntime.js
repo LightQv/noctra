@@ -3,8 +3,12 @@ const {
   validateNavigableUrl,
 } = require("../security/urlPolicy");
 const {
-  resolvePasswordManagerProviderByExtensionUrl,
-} = require("./passwordManagerProviders");
+  resolveManagedExtension,
+  resolveManagedExtensionByExtensionUrl,
+} = require("./managedExtensionRegistry");
+const {
+  resolveChromeExtensionLicense,
+} = require("./chromeExtensionLicense");
 const { SURFACE_ROLES } = require("../security/surfaceTrust");
 
 function hasLiveWebContents(buffer) {
@@ -63,19 +67,20 @@ function resolveExtensionCreatedUrl(rawUrl) {
 }
 
 function resolveExtensionBufferOptions(rawUrl) {
-  const provider = resolvePasswordManagerProviderByExtensionUrl(rawUrl);
-  if (!provider || !provider.id) {
+  const extension = resolveManagedExtensionByExtensionUrl(rawUrl);
+  if (!extension || !extension.id) {
     return null;
   }
 
   return {
     kind: "extension",
     surfaceRole: SURFACE_ROLES.EXTENSION,
-    displayUrl: provider.label,
+    displayUrl: extension.label,
     extension: {
-      id: provider.id,
-      provider: provider.name,
-      label: provider.label,
+      id: extension.id,
+      provider: extension.name,
+      category: extension.category,
+      label: extension.label,
     },
   };
 }
@@ -113,7 +118,7 @@ class ChromeExtensionRuntime {
     bufferManager,
     getBrowserWindow,
     notificationsService = null,
-    license = null,
+    license = resolveChromeExtensionLicense(),
     handleCrxProtocol = true,
     onActionPopupCreated = null,
     isAppQuitting = null,
@@ -354,13 +359,7 @@ class ChromeExtensionRuntime {
 }
 
 function resolvePasswordManagerProviderSafe(providerName) {
-  try {
-    return require("./passwordManagerProviders").resolvePasswordManagerProvider(
-      providerName,
-    );
-  } catch {
-    return { id: "" };
-  }
+  return resolveManagedExtension(providerName) || { id: "" };
 }
 
 function createChromeExtensionRuntime(options = {}) {

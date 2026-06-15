@@ -11,8 +11,8 @@ const {
 } = require("../../security/downloadPolicy");
 const { isExtensionInternalUrl } = require("../../security/urlPolicy");
 const {
-  isKnownPasswordManagerExtensionUrl,
-} = require("../../extensions/passwordManagerProviders");
+  isKnownManagedExtensionUrl,
+} = require("../../extensions/managedExtensionRegistry");
 const downloadsService = require("../../downloads/service");
 
 function isExtensionChildWindowNavigation(contents, url) {
@@ -235,7 +235,7 @@ function registerWebContentsSecurityPolicy({
 
       if (
         role === SURFACE_ROLES.EXTENSION &&
-        isKnownPasswordManagerExtensionUrl(url)
+        isKnownManagedExtensionUrl(url)
       ) {
         return;
       }

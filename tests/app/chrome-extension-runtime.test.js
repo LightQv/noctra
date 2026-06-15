@@ -374,6 +374,7 @@ test("extension popup createWindow opens known provider as extension buffer", as
   assert.deepEqual(manager.created[0].options.extension, {
     id: "nngceckbapebfimnlniiiahkandclblb",
     provider: "bitwarden",
+    category: "password-manager",
     label: "Bitwarden",
   });
   assert.deepEqual(calls.selectTab, [manager.created[0].buffer.webContents]);
@@ -388,6 +389,7 @@ test("extension popup createWindow opens known provider as extension buffer", as
   assert.deepEqual(manager.created[1].options.extension, {
     id: "aeblfdkhhhdcdjpifhhbdiojplfjncoa",
     provider: "1password",
+    category: "password-manager",
     label: "1Password",
   });
 });

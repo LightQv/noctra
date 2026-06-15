@@ -45,9 +45,9 @@ Use this checklist before publishing a new Noctra release.
 
 - [ ] Run `npm run make` locally and verify the app launches from `out/make/`.
 - [ ] Confirm app icon appears correctly on macOS and Linux.
-- [ ] Verify packaged app can install selected password-manager provider.
-- [ ] Verify packaged app can load installed password-manager provider after restart.
-- [ ] Verify password-manager extension storage persists across restart.
+- [ ] Verify packaged app can install selected managed extension provider.
+- [ ] Verify packaged app can load installed managed extension provider after restart.
+- [ ] Verify managed extension storage persists across restart.
 - [ ] Verify packaged app has no missing Chrome extension preload/resource errors.
 - [ ] If distributing a signed macOS build, confirm signing credentials are configured (see below).
 

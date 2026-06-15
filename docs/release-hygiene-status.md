@@ -28,8 +28,9 @@ This page tracks the current OSS guardrails that must stay green for release rea
 - URL policy defaults allow local HTTP developer workflows while blocking non-local HTTP unless allowlisted.
 - Trusted surfaces have narrowed navigation controls.
 - Download governance is explicit deny/prompt/allow with trusted-surface opt-in disabled by default.
-- Password-manager support is extension-backed. Noctra does not store or log credentials, and extension surfaces use `SURFACE_ROLES.EXTENSION` without trusted Noctra IPC/preload access.
-- Known provider extension popouts use transient extension buffers that are excluded from history, bookmarks, session restore, closed-buffer reopen, and duplicate-buffer actions.
+- Chrome extension support is managed through a generic extension registry. Password-manager support is the first consumer.
+- Noctra does not store or log credentials, and extension surfaces use `SURFACE_ROLES.EXTENSION` without trusted Noctra IPC/preload access.
+- Known managed-extension popouts use transient extension buffers that are excluded from history, bookmarks, session restore, closed-buffer reopen, and duplicate-buffer actions.
 
 ## Extension License Posture
 

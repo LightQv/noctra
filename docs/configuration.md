@@ -136,9 +136,8 @@ browser:
   - `1password`: use 1Password, experimental target.
 - Invalid provider values normalize to `none`.
 - Noctra does not store, inspect, sync, or log passwords. The selected extension owns credential handling.
-- Real Chrome extension runtime validation requires `NOCTRA_CHROME_EXTENSIONS_LICENSE` to be set to a license accepted by `electron-chrome-extensions`: `GPL-3.0` or `Patron-License-2020-11-19`.
 - Smoke/manual validation can set `NOCTRA_USER_DATA_DIR` to isolate Electron profile data and installed extensions from the normal Noctra profile.
-- Public distribution still requires resolving the `electron-chrome-extensions` license gate before enabling this feature in a release.
+- Chrome extension support uses the GPL-compatible distribution path for `electron-chrome-extensions`; release notes and notices must reflect that when extension support is included.
 
 Example:
 

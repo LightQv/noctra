@@ -8,6 +8,12 @@ const {
   normalizePasswordManagerProviderName,
   resolvePasswordManagerProvider,
 } = require("../../core/extensions/passwordManagerProviders");
+const {
+  MANAGED_EXTENSION_CATEGORIES,
+  getManagedExtensionIds,
+  resolveManagedExtension,
+  resolveManagedExtensionByExtensionUrl,
+} = require("../../core/extensions/managedExtensionRegistry");
 
 test("password manager defaults to none", () => {
   const config = normalizeConfig({});
@@ -71,6 +77,7 @@ test("password manager provider registry resolves stable metadata", () => {
   assert.equal(provider.name, PASSWORD_MANAGER_PROVIDER_IDS.BITWARDEN);
   assert.equal(provider.id, "nngceckbapebfimnlniiiahkandclblb");
   assert.equal(provider.label, "Bitwarden");
+  assert.equal(provider.category, MANAGED_EXTENSION_CATEGORIES.PASSWORD_MANAGER);
   assert.equal(provider.support, "stable");
 });
 
@@ -87,4 +94,18 @@ test("password manager provider names normalize safely", () => {
   assert.equal(normalizePasswordManagerProviderName(null), "none");
   assert.equal(normalizePasswordManagerProviderName(""), "none");
   assert.equal(normalizePasswordManagerProviderName(" BITWARDEN "), "bitwarden");
+});
+
+test("managed extension registry resolves known extension URLs generically", () => {
+  const extension = resolveManagedExtensionByExtensionUrl(
+    "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup/index.html",
+  );
+
+  assert.equal(extension.name, "bitwarden");
+  assert.equal(extension.category, MANAGED_EXTENSION_CATEGORIES.PASSWORD_MANAGER);
+  assert.deepEqual(getManagedExtensionIds(), [
+    "nngceckbapebfimnlniiiahkandclblb",
+    "aeblfdkhhhdcdjpifhhbdiojplfjncoa",
+  ]);
+  assert.equal(resolveManagedExtension("1PASSWORD").label, "1Password");
 });

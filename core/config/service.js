@@ -144,7 +144,10 @@ function addThemeComments(yamlText) {
       inOpeningBufferSection = false;
     }
 
-    if (/^ {2}[a-zA-Z0-9_]+:\s*$/.test(line)) {
+    if (
+      /^ {2}[a-zA-Z0-9_]+:\s*$/.test(line) &&
+      !inBrowserSection
+    ) {
       inThemeSection = false;
       inOpeningBufferSection = false;
       inBrowserSection = false;

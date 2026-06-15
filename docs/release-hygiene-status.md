@@ -28,6 +28,16 @@ This page tracks the current OSS guardrails that must stay green for release rea
 - URL policy defaults allow local HTTP developer workflows while blocking non-local HTTP unless allowlisted.
 - Trusted surfaces have narrowed navigation controls.
 - Download governance is explicit deny/prompt/allow with trusted-surface opt-in disabled by default.
+- Password-manager support is extension-backed. Noctra does not store or log credentials, and extension surfaces use `SURFACE_ROLES.EXTENSION` without trusted Noctra IPC/preload access.
+- Known provider extension popouts use transient extension buffers that are excluded from history, bookmarks, session restore, closed-buffer reopen, and duplicate-buffer actions.
+
+## Extension License Posture
+
+- Public releases that include Chrome extension support must follow the GPL-compatible distribution path for `electron-chrome-extensions@4.9.0`.
+- No Patron/proprietary license path is planned.
+- Release notes and bundled notices must not present extension-enabled builds as MIT-only distributions.
+- `electron-chrome-web-store@0.13.0` remains part of dependency/license review for provider auto-install support.
+- `electron-chrome-context-menu` is not part of the current first stable pass; extension context-menu merge is deferred until after password-manager packaging and user-facing docs are complete.
 
 ## Maintainer expectations
 

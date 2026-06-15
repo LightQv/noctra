@@ -26,6 +26,14 @@ Use this checklist before publishing a new Noctra release.
 - [ ] Confirm download governance (`will-download` deny/prompt/allow) behavior matches policy.
 - [ ] Run `npm audit --audit-level=high` (blocking on high severity findings).
 
+## Extension License Gate
+
+- [ ] If release includes Chrome extension support, follow the GPL-compatible distribution path for `electron-chrome-extensions`.
+- [ ] Include GPL-3 notice for `electron-chrome-extensions@4.9.0` in release notes or bundled notices.
+- [ ] Include `electron-chrome-web-store@0.13.0` in dependency/license review.
+- [ ] Ensure release notes do not describe the distributed app as MIT-only when GPL-covered extension support is included.
+- [ ] Confirm source availability and redistribution terms satisfy GPL-compatible distribution requirements.
+
 ## Documentation sync
 
 - [ ] `INTENTS.md` matches `core/intents.js`.
@@ -37,6 +45,10 @@ Use this checklist before publishing a new Noctra release.
 
 - [ ] Run `npm run make` locally and verify the app launches from `out/make/`.
 - [ ] Confirm app icon appears correctly on macOS and Linux.
+- [ ] Verify packaged app can install selected password-manager provider.
+- [ ] Verify packaged app can load installed password-manager provider after restart.
+- [ ] Verify password-manager extension storage persists across restart.
+- [ ] Verify packaged app has no missing Chrome extension preload/resource errors.
 - [ ] If distributing a signed macOS build, confirm signing credentials are configured (see below).
 
 ## Create release

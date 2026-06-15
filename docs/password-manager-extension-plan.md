@@ -15,7 +15,7 @@ This document tracks the implementation plan for password-manager support throug
 - Password handling is extension-backed, not Noctra-backed.
 - Noctra stores only provider configuration and extension runtime state.
 - Provider selection auto-installs the matching extension.
-- Extension-created tabs open as normal Noctra buffers.
+- Extension-created safe web tabs open as normal Noctra buffers; known provider popouts open as visible transient extension buffers.
 - Bitwarden is the first stable target.
 - 1Password starts as experimental, but architecture must support making it stable later.
 - Password-manager button is hidden when provider is `none`.
@@ -40,7 +40,7 @@ This document tracks the implementation plan for password-manager support throug
 
 ## License Gate
 
-`electron-chrome-extensions` is GPL-3 / Patron licensed. Noctra is MIT. Private development can proceed, but public distribution must resolve this before release.
+`electron-chrome-extensions` is GPL-3 / Patron licensed. Noctra will follow the GPL-compatible distribution path for public releases that include Chrome extension support. No Patron/proprietary license path is planned.
 
 Local validation/runtime note: Noctra passes `NOCTRA_CHROME_EXTENSIONS_LICENSE` through to `electron-chrome-extensions` only when it is one of the package-supported license strings: `GPL-3.0` or `Patron-License-2020-11-19`. Without this explicit env var, the extension runtime falls back to no-op and real provider validation cannot pass.
 
@@ -48,10 +48,10 @@ Validation isolation note: set `NOCTRA_USER_DATA_DIR` during M14 smoke/manual ch
 
 Release blocker todo:
 
-- [ ] Decide GPL compatibility or obtain Patron/proprietary license.
-- [ ] Document final license decision in release notes.
-- [ ] Update `docs/release-checklist.md` with extension-support license gate.
-- [ ] Update dependency/license review before public release.
+- [x] Decide GPL-compatible distribution path.
+- [ ] Document GPL-compatible extension-support posture in release notes.
+- [x] Update `docs/release-checklist.md` with extension-support license gate.
+- [x] Update dependency/license posture before public release.
 
 ## Config Contract
 
@@ -234,7 +234,7 @@ Callbacks to implement:
 - `createTab(details)` creates normal Noctra buffer with `details.url || "about:blank"`.
 - `selectTab(webContents, browserWindow)` switches to matching Noctra buffer.
 - `removeTab(webContents, browserWindow)` closes matching Noctra buffer.
-- `createWindow(details)` opens `details.url` as normal Noctra buffer in current/last window and returns the owning `BrowserWindow`.
+- `createWindow(details)` opens safe web URLs as normal Noctra buffers, opens known provider popup internals as visible transient extension buffers, and returns the owning `BrowserWindow`.
 - `removeWindow(browserWindow)` closes only extension-created window/buffer state when safe; otherwise no-op with warning.
 - `assignTabDetails(details, webContents)` fills safe tab metadata only.
 
@@ -253,8 +253,8 @@ Exit criteria:
 
 - [x] Every web buffer can be represented as a Chrome extension tab.
 - [x] `chrome.tabs.query({ active: true })` can resolve active Noctra buffer.
-- [x] Extension-created tabs are normal Noctra buffers.
-- [x] Runtime module does not know password-manager provider policy.
+- [x] Extension-created safe web tabs are normal Noctra buffers; known provider popouts are visible transient extension buffers.
+- [x] Runtime module applies provider-generic extension URL policy from the provider registry, with no Bitwarden-specific branch.
 
 ## Milestone 4: Password Manager Service
 
@@ -503,13 +503,15 @@ Exit criteria:
 
 Goal: support extension context-menu entries when needed by providers.
 
+Status: deferred until after Milestones 15 and 16. Bitwarden registers context-menu entries such as `Autofill login`, `Copy username`, `Copy password`, and `Generate password (copied)`, but popup autofill, inline autofill, and extension popout buffers cover the first stable Bitwarden pass. Resume M11 after packaging and user-facing docs are complete.
+
 Dependency:
 
 - `electron-chrome-context-menu`
 
 Todos:
 
-- [ ] Inspect Bitwarden/1Password context-menu needs.
+- [x] Inspect Bitwarden/1Password context-menu needs.
 - [ ] Merge `extensions.getContextMenuItems(webContents, params)` into existing web context menu.
 - [ ] Keep Noctra context-menu isolation rules.
 - [ ] Do not expose Noctra privileged actions through extension callbacks.
@@ -547,7 +549,7 @@ Todos:
 - [x] Add tests for untrusted extension sender rejection.
 - [x] Add tests for session snapshot exclusion.
 
-Implementation note: extension-created `chrome-extension://`, `crx://`, and otherwise unsafe URLs are converted to `about:blank` before opening as normal Noctra buffers. Session snapshots and restores exclude `chrome-extension://` and `crx://` entries so extension internals are never reopened accidentally.
+Implementation note: extension-created safe web URLs open as normal Noctra buffers. Known provider `chrome-extension://<provider-id>/...` popup windows open as visible transient Noctra buffers with `kind: "extension"`, `SURFACE_ROLES.EXTENSION`, no trusted Noctra preload/IPC, and provider-derived friendly labels such as `Bitwarden`. Extension buffers are excluded from history, bookmarks, session snapshots, closed-buffer reopen, and duplicate-buffer actions. Unknown extension internals, `crx://`, and otherwise unsafe URLs remain blocked or sanitized to `about:blank`.
 
 Exit criteria:
 
@@ -597,8 +599,8 @@ Smoke/manual tests:
 - [x] Open popup from key button.
 - [x] Open popup from command/keymap.
 - [x] Close popup with Escape.
-- [ ] Close popup by changing active buffer/window if required.
-- [ ] Verify no privileged IPC exposed to active web page.
+- [x] Close popup by changing active buffer/window if required.
+- [x] Verify no privileged IPC exposed to active web page.
 
 CI target:
 
@@ -630,10 +632,10 @@ Bitwarden checklist:
 - [x] User can log in.
 - [x] User can unlock vault.
 - [x] Autofill works on a normal login page.
-- [ ] Extension-created tabs open as normal Noctra buffers.
-- [ ] Offline restart with already-installed extension works.
+- [x] Extension-created tabs open as normal Noctra buffers; known provider popouts open as visible extension buffers.
+- [x] Offline restart with already-installed extension works.
 
-Bitwarden M14 result: isolated smoke installed Bitwarden `2026.5.1` from Chrome Web Store under `Extensions/nngceckbapebfimnlniiiahkandclblb/2026.5.1_0`, and restart finds the installed extension. Electron emitted unsupported permission warnings for `contextMenus`, `sidePanel`, `webNavigation`, `notifications`, and `privacy`. Noctra fixed the popup navigation blocker by allowing `chrome-extension://` navigation only for child extension popup windows; the popup open path no longer produces `ERR_FAILED (-2)` or `SIGSEGV` in smoke. A minimal Electron repro showed fresh install can make explicit `session.serviceWorkers.startWorkerForScope("chrome-extension://<id>/")` reject with `Failed to start service worker`, while the provider action popup still opens; restarting and directly loading the installed extension lets the same explicit worker start resolve. Noctra treats explicit MV3 worker start failure as a low-severity best-effort signal, not an initialization failure, because Electron may already manage the extension worker lifecycle. Manual validation confirmed login, unlock, popup autofill, and inline selector behavior on semantically valid login fields. The inline selector depends on normal password-manager form semantics such as `type`, `name`, `autocomplete`, placeholder/label text, and nearby password fields; fields without those hints may not show suggestions even though popup autofill works. A shutdown-time `Object has been destroyed` crash in shell urlline rendering was fixed by guarding destroyed shell windows/webContents. Extension-created tabs, offline restart with already-installed extension, and a focused no-credential-log review still require manual validation.
+Bitwarden M14 result: isolated smoke installed Bitwarden `2026.5.1` from Chrome Web Store under `Extensions/nngceckbapebfimnlniiiahkandclblb/2026.5.1_0`, and restart finds the installed extension. Offline restart with the already-installed extension works. Electron emitted unsupported permission warnings for `contextMenus`, `sidePanel`, `webNavigation`, `notifications`, and `privacy`. Noctra fixed the popup navigation blocker by allowing controlled extension popup surfaces; the popup open path no longer produces `ERR_FAILED (-2)` or `SIGSEGV` in smoke. A minimal Electron repro showed fresh install can make explicit `session.serviceWorkers.startWorkerForScope("chrome-extension://<id>/")` reject with `Failed to start service worker`, while the provider action popup still opens; restarting and directly loading the installed extension lets the same explicit worker start resolve. Noctra treats explicit MV3 worker start failure as a low-severity best-effort signal, not an initialization failure, because Electron may already manage the extension worker lifecycle. Manual validation confirmed login, unlock, popup autofill, inline selector behavior on semantically valid login fields, external extension-created links opening as normal buffers, and Bitwarden popout opening as a visible transient extension buffer. The inline selector depends on normal password-manager form semantics such as `type`, `name`, `autocomplete`, placeholder/label text, and nearby password fields; fields without those hints may not show suggestions even though popup autofill works. A shutdown-time `Object has been destroyed` crash in shell urlline rendering was fixed by guarding destroyed shell windows/webContents. A focused log review during login/unlock/autofill found no credential-looking data emitted by Noctra.
 
 1Password experimental checklist:
 
@@ -661,13 +663,13 @@ Todos:
 - [ ] Verify extension storage persists across restart.
 - [ ] Verify no dev-only absolute paths are used.
 - [ ] Verify signed/unsigned macOS behavior if relevant.
-- [ ] Add packaging notes to release checklist.
+- [x] Add packaging notes to release checklist.
 
 Exit criteria:
 
 - [ ] `npm run make` output can use Bitwarden popup.
 - [ ] No missing preload/resource errors in packaged app.
-- [ ] Public release checklist includes license gate.
+- [x] Public release checklist includes license gate.
 
 ## Milestone 16: Documentation
 
@@ -696,7 +698,7 @@ Documentation todos:
 - [ ] Explain troubleshooting for install failure.
 - [ ] Explain troubleshooting for popup failure.
 - [ ] Explain troubleshooting for autofill failure.
-- [ ] Document public-release license blocker.
+- [x] Document public-release GPL-compatible license posture.
 
 ## Follow-Up Plan: Popup UX, Which-Key, And Trust Review
 
@@ -802,8 +804,9 @@ Noctra protections already in place:
 - Extension popup/content receives no Noctra privileged preload.
 - Extension surfaces use `SURFACE_ROLES.EXTENSION`, not trusted shell/settings roles.
 - Extension senders are rejected by trusted shell/settings IPC checks.
-- Normal buffers block `chrome-extension://` internals.
+- Normal buffers block `chrome-extension://` internals, while known provider popout pages use transient `kind: "extension"` buffers.
 - Session snapshots exclude `chrome-extension://` and `crx://` URLs.
+- Extension buffers are excluded from history, bookmarks, session restore, closed-buffer reopen, and duplicate-buffer actions.
 - Browser surfaces preserve `sandbox: true`, `contextIsolation: true`, and `nodeIntegration: false`.
 
 Residual risks:
@@ -812,23 +815,23 @@ Residual risks:
 - Some Chrome APIs are unsupported in Electron and produce provider warnings.
 - Provider behavior may differ from Firefox/Chrome, especially around background workers, native messaging, and autofill.
 - Extension updates come from Chrome Web Store and run inside Noctra's Electron extension environment.
-- Public release remains blocked until `electron-chrome-extensions` GPL-3 / Patron license decision is resolved.
+- Public release must follow the selected GPL-compatible distribution path for `electron-chrome-extensions`.
 
 Recommendation before using a main Bitwarden vault:
 
-- [ ] Validate with a test Bitwarden account first.
+- [x] Validate with a test Bitwarden account first.
 - [x] Confirm login works.
 - [x] Confirm unlock works.
 - [x] Confirm autofill works on a normal login page.
-- [ ] Confirm no credential-looking data appears in Noctra logs during login/unlock/autofill.
-- [ ] Confirm extension-created tabs open as normal Noctra buffers or are safely blocked/sanitized.
-- [ ] Confirm restart/offline behavior with installed extension.
-- [ ] Reassess whether the remaining trust in `electron-chrome-extensions` is acceptable for main-vault use.
+- [x] Confirm no credential-looking data appears in Noctra logs during login/unlock/autofill.
+- [x] Confirm extension-created tabs open as normal Noctra buffers or visible transient extension buffers.
+- [x] Confirm restart/offline behavior with installed extension.
+- [x] Reassess whether the remaining trust in `electron-chrome-extensions` is acceptable for main-vault use.
 
 Decision rule:
 
-- Until the checklist is green, use a test vault only.
-- After the checklist is green, main-vault use still means accepting the extra trust in Electron extension compatibility glue compared with Firefox/Chrome.
+- The Bitwarden checklist is green for the first stable pass.
+- Main-vault use still means accepting the extra trust in Electron extension compatibility glue compared with Firefox/Chrome.
 
 ## Implementation Order
 
@@ -849,6 +852,7 @@ Use this order to keep changes reviewable:
 13. 1Password experimental validation.
 14. Packaging validation.
 15. Documentation and release checklist updates.
+16. Resume optional extension context-menu merge if provider UX needs it.
 
 ## Definition Of Done For First Stable Bitwarden Pass
 
@@ -856,13 +860,13 @@ Use this order to keep changes reviewable:
 - [x] Bitwarden loads after install and app restart.
 - [x] Password-manager button appears disabled until loaded.
 - [x] Password-manager button opens real Bitwarden popup once loaded.
-- [ ] Extension-created tabs open as normal Noctra buffers.
+- [x] Extension-created tabs open as normal Noctra buffers or visible transient extension buffers.
 - [x] Autofill works on common login forms.
-- [ ] Noctra does not store or log credentials.
+- [x] Noctra does not store or log credentials.
 - [x] Extension popup has no trusted Noctra IPC access.
 - [x] Session snapshots exclude extension internals.
 - [x] Tests cover config, service, UI state, IPC, and security boundaries.
-- [ ] License blocker is documented before public release.
+- [x] License blocker is documented before public release.
 
 ## Definition Of Done For 1Password Stable Later
 

@@ -1,10 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { addMissingDefaults } = require("../../core/config/service");
+const {
+  syncSupportedConfigDefaults,
+} = require("../../core/config/service");
 
 test("adds missing default entries without overwriting existing values", () => {
-  const config = addMissingDefaults(
+  const config = syncSupportedConfigDefaults(
     {
       global: {
         ui: {
@@ -32,8 +34,8 @@ test("adds missing default entries without overwriting existing values", () => {
   assert.deepEqual(config.global.ui.new_entry, { enabled: true });
 });
 
-test("preserves unknown user config keys", () => {
-  const config = addMissingDefaults(
+test("removes unsupported user config keys", () => {
+  const config = syncSupportedConfigDefaults(
     {
       custom_plugin: {
         enabled: true,
@@ -48,12 +50,12 @@ test("preserves unknown user config keys", () => {
     },
   );
 
-  assert.deepEqual(config.custom_plugin, { enabled: true });
+  assert.equal(config.custom_plugin, undefined);
   assert.equal(config.global.input.leader_key, "Space");
 });
 
 test("does not replace malformed existing values during file sync", () => {
-  const config = addMissingDefaults(
+  const config = syncSupportedConfigDefaults(
     {
       global: "broken",
     },
@@ -79,9 +81,54 @@ test("clones added defaults so source defaults are not mutated", () => {
       },
     },
   };
-  const config = addMissingDefaults({}, defaults);
+  const config = syncSupportedConfigDefaults({}, defaults);
 
   config.global.ui.loadingline.enabled = false;
 
   assert.equal(defaults.global.ui.loadingline.enabled, true);
+});
+
+test("preserves dynamic keymap entries", () => {
+  const config = syncSupportedConfigDefaults(
+    {
+      keymap: {
+        normal: {
+          x: "reload_page",
+        },
+        search: {
+          z: "search_next",
+        },
+        leader: {
+          custom: {
+            label: "Custom",
+            action: "reload_page",
+          },
+        },
+      },
+    },
+    {
+      keymap: {
+        normal: {
+          j: "scroll_down",
+        },
+        search: {
+          n: "search_next",
+        },
+        leader: {},
+      },
+    },
+  );
+
+  assert.deepEqual(config.keymap.normal, {
+    x: "reload_page",
+    j: "scroll_down",
+  });
+  assert.deepEqual(config.keymap.search, {
+    z: "search_next",
+    n: "search_next",
+  });
+  assert.deepEqual(config.keymap.leader.custom, {
+    label: "Custom",
+    action: "reload_page",
+  });
 });

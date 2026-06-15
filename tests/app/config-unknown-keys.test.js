@@ -28,3 +28,11 @@ test("deduplicates unknown key warnings input", () => {
     result.diagnostics.unknownKeys.length,
   );
 });
+
+test("does not flag dynamic search key mappings as unknown", () => {
+  const result = normalizeConfigWithDiagnostics({
+    keymap: { search: { z: "search_next" } },
+  });
+
+  assert.deepEqual(result.diagnostics.unknownKeys, []);
+});

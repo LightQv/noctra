@@ -705,7 +705,11 @@ function collectUnknownConfigKeys(
   for (const key of Object.keys(rawNode)) {
     const nextPath = pathKey ? `${pathKey}.${key}` : key;
     if (!schemaKeys.has(key)) {
-      if (pathKey === "keymap.normal" || pathKey === "keymap.mod") {
+      if (
+        pathKey === "keymap.normal" ||
+        pathKey === "keymap.mod" ||
+        pathKey === "keymap.search"
+      ) {
         continue;
       }
       if (isLeaderNodePath(pathKey)) {

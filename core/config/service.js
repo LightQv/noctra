@@ -14,7 +14,7 @@ const CONFIG_POLICY =
 
 let cachedConfig = normalizeConfig(defaultConfig);
 
-function emitUnknownKeyWarning(unknownKeys = []) {
+function emitCleanedKeyWarning(unknownKeys = []) {
   if (!Array.isArray(unknownKeys) || unknownKeys.length === 0) {
     return;
   }
@@ -22,8 +22,8 @@ function emitUnknownKeyWarning(unknownKeys = []) {
   const dedupedKeys = [...new Set(unknownKeys)];
   notificationsService.notify({
     severity: "warning",
-    code: "config_unknown_keys_detected",
-    message: "Unsupported config keys were ignored",
+    code: "config_unsupported_keys_cleaned",
+    message: "Unsupported config keys were cleaned by Noctra",
     source: "core.config",
     context: {
       path: CONFIG_FILE_PATH,
@@ -53,22 +53,60 @@ function cloneConfigValue(value) {
   return value;
 }
 
-function addMissingDefaults(inputNode, defaultsNode = defaultConfig) {
+function allowsDynamicConfigKeys(pathKey) {
+  return (
+    pathKey === "keymap.normal" ||
+    pathKey === "keymap.mod" ||
+    pathKey === "keymap.search" ||
+    pathKey === "keymap.leader" ||
+    pathKey.startsWith("keymap.leader.")
+  );
+}
+
+function syncSupportedConfigDefaults(
+  inputNode,
+  defaultsNode = defaultConfig,
+  pathKey = "",
+) {
+  if (allowsDynamicConfigKeys(pathKey)) {
+    if (!isPlainObject(defaultsNode)) {
+      return inputNode === undefined ? cloneConfigValue(defaultsNode) : inputNode;
+    }
+
+    const output = isPlainObject(inputNode) ? cloneConfigValue(inputNode) : {};
+    for (const [key, defaultValue] of Object.entries(defaultsNode)) {
+      if (!Object.prototype.hasOwnProperty.call(output, key)) {
+        output[key] = cloneConfigValue(defaultValue);
+      }
+    }
+
+    return output;
+  }
+
   if (!isPlainObject(defaultsNode)) {
     return inputNode === undefined ? cloneConfigValue(defaultsNode) : inputNode;
   }
 
-  const output = isPlainObject(inputNode) ? cloneConfigValue(inputNode) : {};
+  const inputObject = isPlainObject(inputNode) ? inputNode : {};
+  const output = {};
 
   for (const [key, defaultValue] of Object.entries(defaultsNode)) {
-    if (!Object.prototype.hasOwnProperty.call(output, key)) {
+    const nextPath = pathKey ? `${pathKey}.${key}` : key;
+    if (!Object.prototype.hasOwnProperty.call(inputObject, key)) {
       output[key] = cloneConfigValue(defaultValue);
       continue;
     }
 
-    if (isPlainObject(defaultValue) && isPlainObject(output[key])) {
-      output[key] = addMissingDefaults(output[key], defaultValue);
+    if (isPlainObject(defaultValue) && isPlainObject(inputObject[key])) {
+      output[key] = syncSupportedConfigDefaults(
+        inputObject[key],
+        defaultValue,
+        nextPath,
+      );
+      continue;
     }
+
+    output[key] = cloneConfigValue(inputObject[key]);
   }
 
   return output;
@@ -253,7 +291,8 @@ function serializeConfig(configObject) {
 }
 
 function syncConfigFile(rawConfig) {
-  const merged = addMissingDefaults(rawConfig, defaultConfig);
+  const normalized = normalizeConfigWithDiagnostics(rawConfig);
+  const merged = syncSupportedConfigDefaults(rawConfig, defaultConfig);
   const nextText = serializeConfig(merged);
 
   try {
@@ -266,6 +305,7 @@ function syncConfigFile(rawConfig) {
   }
 
   fs.writeFileSync(CONFIG_FILE_PATH, nextText, "utf8");
+  emitCleanedKeyWarning(normalized.diagnostics.unknownKeys);
 }
 
 function writeDefaultConfig() {
@@ -367,7 +407,6 @@ function loadConfig() {
     syncConfigFile(nextRawConfig);
     const normalized = normalizeConfigWithDiagnostics(nextRawConfig);
     cachedConfig = normalized.config;
-    emitUnknownKeyWarning(normalized.diagnostics.unknownKeys);
     notificationsService.notify({
       severity: "info",
       code: "config_loaded",
@@ -388,7 +427,6 @@ function loadConfig() {
         syncConfigFile(nextRawConfig);
         const normalized = normalizeConfigWithDiagnostics(nextRawConfig);
         cachedConfig = normalized.config;
-        emitUnknownKeyWarning(normalized.diagnostics.unknownKeys);
         notificationsService.notify({
           severity: "warning",
           code: "config_loaded_repaired",
@@ -631,7 +669,7 @@ module.exports = {
   getConfig,
   getConfigPath,
   getConfigValue,
-  addMissingDefaults,
+  syncSupportedConfigDefaults,
   updateThemeMode,
   updateBrowserLanguage,
   updateCopySelectionToClipboard,

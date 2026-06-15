@@ -36,6 +36,7 @@ This page tracks the current OSS guardrails that must stay green for release rea
 
 - Public releases that include Chrome extension support must follow the GPL-compatible distribution path for `electron-chrome-extensions@4.9.0`.
 - No Patron/proprietary license path is planned.
+- `THIRD_PARTY_NOTICES.md`, the Noctra MIT `LICENSE`, and `licenses/electron-chrome-extensions/LICENSE-GPL` are packaged as release resources.
 - Release notes and bundled notices must not present extension-enabled builds as MIT-only distributions.
 - `electron-chrome-web-store@0.13.0` remains part of dependency/license review for provider auto-install support.
 - `electron-chrome-context-menu` is not part of the current first stable pass; extension context-menu merge is deferred until after password-manager packaging and user-facing docs are complete.

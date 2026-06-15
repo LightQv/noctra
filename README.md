@@ -6,7 +6,7 @@ A keyboard-first browser shell with a Neovim-style workflow.
 
 _Current version:_ `0.0.3-alpha`
 
-[About](#about) · [Installation](#installation) · [Documentation](#documentation) · [Contributing](#contributing) · [Roadmap](#roadmap)
+[About](#about) · [Installation](#installation) · [Documentation](#documentation) · [Contributing](#contributing) · [License](#license) · [Roadmap](#roadmap)
 
 </div>
 
@@ -146,6 +146,14 @@ Apply config changes at runtime with `:config-reload`.
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, contribution principles, commit style, and pull request guidelines.
+
+---
+
+## License
+
+Noctra source code is licensed under the MIT License. See [LICENSE](LICENSE).
+
+Extension-enabled builds include `electron-chrome-extensions@4.9.0`, which Noctra uses under GPL-3.0 through the selected GPL-compatible distribution path. These builds are not MIT-only distributions. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled notices and third-party licensing details.
 
 ---
 

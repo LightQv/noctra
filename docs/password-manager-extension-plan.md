@@ -38,18 +38,20 @@ This document tracks the implementation plan for password-manager support throug
 - `electron-chrome-web-store`: install/update provider extensions from Chrome Web Store.
 - `electron-chrome-context-menu`: optional later phase for extension context-menu items.
 
-## License Gate
+## Extension License Posture
 
 `electron-chrome-extensions` is GPL-3 / Patron licensed. Noctra will follow the GPL-compatible distribution path for public releases that include Chrome extension support. No Patron/proprietary license path is planned.
 
 Runtime note: `electron-chrome-extensions` requires an explicit constructor license value. Noctra always passes `GPL-3.0` because the project selected the GPL-compatible distribution path. There is no user-facing license environment variable.
+
+Release notice note: extension-enabled builds bundle `THIRD_PARTY_NOTICES.md`, the Noctra MIT `LICENSE`, and `licenses/electron-chrome-extensions/LICENSE-GPL` as package resources. Release notes must mention that Chrome extension support uses `electron-chrome-extensions@4.9.0` under GPL-3.0 and must not describe extension-enabled builds as MIT-only distributions.
 
 Validation isolation note: set `NOCTRA_USER_DATA_DIR` during M14 smoke/manual checks so Chrome Web Store downloads, extension state, cookies, and extension storage are isolated from the normal Noctra profile.
 
 Release posture todo:
 
 - [x] Decide GPL-compatible distribution path.
-- [ ] Document GPL-compatible extension-support posture in release notes.
+- [x] Document GPL-compatible extension-support posture in release notices.
 - [x] Update `docs/release-checklist.md` with extension-support license gate.
 - [x] Update dependency/license posture before public release.
 
@@ -703,7 +705,7 @@ Documentation todos:
 - [ ] Explain troubleshooting for install failure.
 - [ ] Explain troubleshooting for popup failure.
 - [ ] Explain troubleshooting for autofill failure.
-- [x] Document public-release GPL-compatible license posture.
+- [x] Document public-release GPL-compatible license posture and bundled notices.
 
 ## Follow-Up Plan: Popup UX, Which-Key, And Trust Review
 
@@ -871,7 +873,7 @@ Use this order to keep changes reviewable:
 - [x] Extension popup has no trusted Noctra IPC access.
 - [x] Session snapshots exclude extension internals.
 - [x] Tests cover config, service, UI state, IPC, and security boundaries.
-- [x] License blocker is documented before public release.
+- [x] GPL-compatible release posture and bundled notices are documented before public release.
 
 ## Definition Of Done For 1Password Stable Later
 

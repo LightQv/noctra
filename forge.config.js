@@ -12,6 +12,11 @@ module.exports = {
     executableName: "noctra",
     // Cross-platform icon path (Forge appends the correct extension per platform)
     icon: path.resolve(__dirname, "assets/icons/icon"),
+    extraResource: [
+      path.resolve(__dirname, "LICENSE"),
+      path.resolve(__dirname, "THIRD_PARTY_NOTICES.md"),
+      path.resolve(__dirname, "licenses"),
+    ],
     // macOS Info.plist extensions — register as a browser handler
     extendInfo: {
       CFBundleName: "Noctra",

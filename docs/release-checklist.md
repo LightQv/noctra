@@ -29,7 +29,8 @@ Use this checklist before publishing a new Noctra release.
 ## Extension License Gate
 
 - [ ] If release includes Chrome extension support, follow the GPL-compatible distribution path for `electron-chrome-extensions`.
-- [ ] Include GPL-3 notice for `electron-chrome-extensions@4.9.0` in release notes or bundled notices.
+- [ ] Confirm `THIRD_PARTY_NOTICES.md`, `LICENSE`, and `licenses/electron-chrome-extensions/LICENSE-GPL` are bundled in release artifacts.
+- [ ] Include GPL-3 notice for `electron-chrome-extensions@4.9.0` in release notes.
 - [ ] Include `electron-chrome-web-store@0.13.0` in dependency/license review.
 - [ ] Ensure release notes do not describe the distributed app as MIT-only when GPL-covered extension support is included.
 - [ ] Confirm source availability and redistribution terms satisfy GPL-compatible distribution requirements.

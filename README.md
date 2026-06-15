@@ -161,11 +161,8 @@ Extension-enabled builds include `electron-chrome-extensions@4.9.0`, which Noctr
 ## Roadmap
 
 1. [ ] **Enhance modern browser behavior**
-   - [ ] Right-click context menu (link/image/open-in-new-buffer actions)
-   - [ ] In-page search with `/` in active web buffer
-   - [ ] Password manager support (1Password / Bitwarden extension compatibility)
-   - [ ] Embeded ad-blocker (enable/disable through config.yml)
-   - [ ] Global extension support (install/enable/disable lifecycle)
+   - [ ] Embedded ad-blocker (enable/disable through config.yml)
+   - [ ] User-facing global extension support (install/enable/disable lifecycle)
    - [ ] Plugin system for Noctra-native features (API + sandbox boundaries)
    - [ ] Web compatibility layer improvements (site quirks, auth flows, clipboard/permissions parity)
 

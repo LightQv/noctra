@@ -1,5 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 
 const {
   syncSupportedConfigDefaults,
@@ -131,4 +135,44 @@ test("preserves dynamic keymap entries", () => {
     label: "Custom",
     action: "reload_page",
   });
+});
+
+test("default config includes password-manager provider comments", () => {
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "noctra-config-"));
+
+  try {
+    execFileSync(
+      process.execPath,
+      ["-e", "require('./core/config/service').initConfig()"],
+      {
+        cwd: path.join(__dirname, "../.."),
+        env: {
+          ...process.env,
+          HOME: tempHome,
+          USERPROFILE: tempHome,
+          NOCTRA_CONFIG_POLICY: "customizable",
+        },
+      },
+    );
+
+    const configText = fs.readFileSync(
+      path.join(tempHome, ".config", "noctra", "config.yml"),
+      "utf8",
+    );
+
+    assert.match(
+      configText,
+      /# Extension-backed password manager\. Noctra stores no passwords\./,
+    );
+    assert.match(
+      configText,
+      /# provider: none \| bitwarden \| 1password \(1password is experimental\)/,
+    );
+    assert.match(
+      configText,
+      /# bitwarden\/1password auto-install Chrome extensions when enabled\./,
+    );
+  } finally {
+    fs.rmSync(tempHome, { force: true, recursive: true });
+  }
 });

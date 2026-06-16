@@ -84,9 +84,9 @@ function makeMockBuffers(buffersArray = []) {
       subscribers.add(listener);
       return () => subscribers.delete(listener);
     },
-    notifySubscribers() {
+    notifySubscribers(change = {}) {
       for (const listener of subscribers) {
-        listener();
+        listener(null, null, change);
       }
     },
   };
@@ -178,7 +178,7 @@ test("subscribe callback attaches listeners to new buffers", () => {
 
   const b1 = makeMockBuffer(1);
   buffers.buffers.push(b1);
-  buffers.notifySubscribers();
+  buffers.notifySubscribers({ kind: "structure" });
 
   assert.equal(b1.webContents.getListenerCount("context-menu"), 1);
 });
@@ -204,7 +204,7 @@ test("subscribe callback removes listeners from removed buffers", () => {
   assert.equal(b1.webContents.getListenerCount("context-menu"), 1);
 
   buffers.buffers.splice(0, 1); // remove b1
-  buffers.notifySubscribers();
+  buffers.notifySubscribers({ kind: "structure" });
 
   assert.equal(b1.webContents.getListenerCount("context-menu"), 0, "removed buffer listener must be cleaned up");
   assert.equal(b2.webContents.getListenerCount("context-menu"), 1, "remaining buffer keeps listener");

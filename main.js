@@ -1736,7 +1736,11 @@ function createWindow() {
     });
   }
   appMenu.sync();
-  buffers.subscribe(() => appMenu.rebuild());
+  buffers.subscribe((_snapshot, _active, change = {}) => {
+    if (change.activeChanged || change.kind === "structure") {
+      appMenu.rebuild();
+    }
+  });
 
   app
     .getFileIcon(os.homedir(), { size: "small" })

@@ -376,6 +376,13 @@ function bootstrapWindowRuntime({
     if (!active) return;
 
     const activeChanged = Boolean(change.activeChanged);
+    const changeKind = typeof change.kind === "string" ? change.kind : "metadata";
+
+    if (changeKind === "loading" && !activeChanged) {
+      updateUrllineRender();
+      updateLoadinglineRender();
+      return;
+    }
 
     uiShell.renderTabline(snapshot);
     const urllineModel = buffers.getUrllineRenderModel();

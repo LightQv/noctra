@@ -327,18 +327,18 @@ class ChromeExtensionRuntime {
     }
   }
 
-  openActionPopup(providerName) {
+  openActionPopup(extensionName) {
     if (typeof this.extensions.openActionPopup === "function") {
-      return this.extensions.openActionPopup(providerName);
+      return this.extensions.openActionPopup(extensionName);
     }
 
-    const provider = resolvePasswordManagerProviderSafe(providerName);
+    const extension = resolveManagedExtensionSafe(extensionName);
     const browserAction = this.extensions.api?.browserAction;
     const activeTab =
       this.extensions.ctx?.store?.getActiveTabOfCurrentWindow?.();
     const browserWindow = this.getBrowserWindow();
     if (
-      provider.id &&
+      extension.id &&
       browserAction &&
       typeof browserAction.activateClick === "function" &&
       activeTab &&
@@ -349,7 +349,7 @@ class ChromeExtensionRuntime {
       const anchorSize = 64;
       browserAction.activateClick({
         eventType: "click",
-        extensionId: provider.id,
+        extensionId: extension.id,
         tabId: activeTab.id,
         anchorRect: {
           x: Math.max(0, width - anchorSize),
@@ -373,8 +373,8 @@ class ChromeExtensionRuntime {
   }
 }
 
-function resolvePasswordManagerProviderSafe(providerName) {
-  return resolveManagedExtension(providerName) || { id: "" };
+function resolveManagedExtensionSafe(extensionName) {
+  return resolveManagedExtension(extensionName) || { id: "" };
 }
 
 function createChromeExtensionRuntime(options = {}) {

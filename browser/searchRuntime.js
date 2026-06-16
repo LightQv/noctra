@@ -5,8 +5,6 @@ const SEARCH_VIEWPORT_TARGET_RATIO = 0.36;
 const SEARCH_VIEWPORT_MARGIN_PX = 16;
 const SEARCH_HIGHLIGHT_ACTIVE_NAME = "noctra-search-active";
 const SEARCH_HIGHLIGHT_PASSIVE_NAME = "noctra-search-passive";
-const SEARCH_RENDER_MODE_OVERLAY = "overlay";
-const SEARCH_RENDER_MODE_CSS_HIGHLIGHT = "css-highlight";
 const SEARCH_MIN_MATCH_DIMENSION_PX = 1;
 
 function buildSearchRuntimeBootstrapScript() {

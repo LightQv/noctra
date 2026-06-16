@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/icons/icon-dark_512.png" alt="Noctra app icon" width="96">
+
 # NOCTRA
 
 A keyboard-first browser shell with a Neovim-style workflow.

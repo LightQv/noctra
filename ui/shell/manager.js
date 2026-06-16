@@ -96,9 +96,13 @@ class UiShellManager {
     this.loadinglineLeftView = null;
     this.loadinglineLeftReady = false;
     this.loadinglineLeftVisible = false;
+    this.loadinglineLeftBoundsKey = "";
+    this.loadinglineLeftRenderKey = "";
     this.loadinglineRightView = null;
     this.loadinglineRightReady = false;
     this.loadinglineRightVisible = false;
+    this.loadinglineRightBoundsKey = "";
+    this.loadinglineRightRenderKey = "";
     this.windowChrome = {
       platform: process.platform,
       useNativeControls: process.platform === "darwin",
@@ -138,6 +142,7 @@ class UiShellManager {
     this.initializeSelectionModalView();
     this.initializeTelescopeView();
     this.initializeStatuslineView();
+    this.initializeLoadinglineOverlayViews();
     this.initializeToastOverlayView();
     this.initializeDownloadsModalView();
     this.initializeBackdropOverlayView();
@@ -360,9 +365,11 @@ class UiShellManager {
     const rightModel =
       panes.find((pane) => pane && pane.pane === "right") || null;
 
-    this.renderLoadinglinePane("left", leftModel);
-    this.renderLoadinglinePane("right", rightModel);
-    this.syncOverlayStack();
+    const leftResult = this.renderLoadinglinePane("left", leftModel);
+    const rightResult = this.renderLoadinglinePane("right", rightModel);
+    if (leftResult.visibilityChanged || rightResult.visibilityChanged) {
+      this.syncOverlayStack();
+    }
   }
 
   initializeLoadinglineOverlayViews() {
@@ -399,8 +406,17 @@ class UiShellManager {
     const isRight = pane === "right";
     const view = isRight ? this.loadinglineRightView : this.loadinglineLeftView;
     const ready = isRight ? this.loadinglineRightReady : this.loadinglineLeftReady;
+    const visibleKey = isRight
+      ? "loadinglineRightVisible"
+      : "loadinglineLeftVisible";
+    const boundsKey = isRight
+      ? "loadinglineRightBoundsKey"
+      : "loadinglineLeftBoundsKey";
+    const renderKey = isRight
+      ? "loadinglineRightRenderKey"
+      : "loadinglineLeftRenderKey";
     if (!view || !ready || !view.webContents || view.webContents.isDestroyed()) {
-      return;
+      return { visibilityChanged: false };
     }
 
     const isLoading = Boolean(paneModel?.isLoading);
@@ -413,13 +429,15 @@ class UiShellManager {
     );
     const showLine = Boolean(paneModel) && (isLoading || progress === 1);
     if (!showLine) {
-      view.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
-      if (isRight) {
-        this.loadinglineRightVisible = false;
-      } else {
-        this.loadinglineLeftVisible = false;
+      const wasVisible = Boolean(this[visibleKey]);
+      const hiddenBoundsKey = "-10000:-10000:1:1";
+      if (this[boundsKey] !== hiddenBoundsKey) {
+        view.setBounds({ x: -10000, y: -10000, width: 1, height: 1 });
+        this[boundsKey] = hiddenBoundsKey;
       }
-      return;
+      this[visibleKey] = false;
+      this[renderKey] = "hidden";
+      return { visibilityChanged: wasVisible };
     }
 
     const x = Number.isFinite(paneModel?.x) ? Math.max(0, Math.floor(paneModel.x)) : 0;
@@ -430,12 +448,24 @@ class UiShellManager {
       ? Math.max(1, Math.floor(paneModel.width))
       : 1;
     const mainColor = this.currentTheme.mainColor || DEFAULT_THEME.mainColor;
-    view.setBounds({ x, y, width, height: 2 });
-    if (isRight) {
-      this.loadinglineRightVisible = true;
-    } else {
-      this.loadinglineLeftVisible = true;
+    const nextBoundsKey = `${x}:${y}:${width}:2`;
+    if (this[boundsKey] !== nextBoundsKey) {
+      view.setBounds({ x, y, width, height: 2 });
+      this[boundsKey] = nextBoundsKey;
     }
+    const wasVisible = Boolean(this[visibleKey]);
+    this[visibleKey] = true;
+
+    const nextRenderKey = JSON.stringify({
+      color: mainColor,
+      indeterminate,
+      isLoading,
+      progress,
+    });
+    if (this[renderKey] === nextRenderKey) {
+      return { visibilityChanged: !wasVisible };
+    }
+    this[renderKey] = nextRenderKey;
 
     view.webContents
       .executeJavaScript(
@@ -477,6 +507,7 @@ class UiShellManager {
       `,
       )
       .catch(() => {});
+    return { visibilityChanged: !wasVisible };
   }
 
   setUrllineActions(actions = {}) {

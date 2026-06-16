@@ -93,6 +93,11 @@ function updateSplitDividerBridge(splitStatus = {}) {
     ? Math.max(0, Math.floor(divider.offsetPx))
     : 0;
 
+  const currentState = this.splitDividerState || {};
+  if (currentState.visible === visible && currentState.offsetPx === offsetPx) {
+    return;
+  }
+
   this.splitDividerState = { visible, offsetPx };
   if (!this.window || !this.shellHostReady) return;
   const webContents = getLiveWindowWebContents(this.window);

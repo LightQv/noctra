@@ -60,6 +60,7 @@ class ManagedExtensionService {
     this.installAttemptedExtensionIds = new Set();
     this.initializeInFlight = null;
     this.activeExtension = null;
+    this.shutdownInFlight = null;
     this.status = createStatus(initialExtension, "disabled");
   }
 
@@ -204,6 +205,37 @@ class ManagedExtensionService {
           "Extension unload failed.",
         ),
       });
+      return false;
+    }
+  }
+
+  async shutdown() {
+    if (this.shutdownInFlight) {
+      return this.shutdownInFlight;
+    }
+
+    this.shutdownInFlight = this.runShutdown().finally(() => {
+      this.shutdownInFlight = null;
+    });
+    return this.shutdownInFlight;
+  }
+
+  async runShutdown() {
+    const activeExtension = this.activeExtension;
+    const extensionsApi = this.session?.extensions;
+    if (
+      !activeExtension?.id ||
+      !extensionsApi ||
+      typeof extensionsApi.removeExtension !== "function"
+    ) {
+      return false;
+    }
+
+    try {
+      await extensionsApi.removeExtension(activeExtension.id);
+      this.activeExtension = null;
+      return true;
+    } catch {
       return false;
     }
   }

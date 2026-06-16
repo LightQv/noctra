@@ -522,3 +522,72 @@ test("password manager service fails when popup cannot open", async () => {
     "password_manager_extension_failed",
   );
 });
+
+test("password manager service shutdown unloads active provider", async () => {
+  const extensions = [{ id: BITWARDEN_ID }];
+  const removed = [];
+  const service = new PasswordManagerService({
+    configService: makeConfigService("bitwarden"),
+    session: {
+      extensions: {
+        getAllExtensions() {
+          return extensions;
+        },
+        removeExtension(extensionId) {
+          removed.push(extensionId);
+          const index = extensions.findIndex(
+            (extension) => extension.id === extensionId,
+          );
+          if (index >= 0) {
+            extensions.splice(index, 1);
+          }
+        },
+      },
+    },
+    extensionRuntime: makeRuntime(),
+  });
+
+  await service.initialize();
+  const unloaded = await service.shutdown();
+
+  assert.equal(unloaded, true);
+  assert.deepEqual(removed, [BITWARDEN_ID]);
+  assert.equal(service.activeProvider, null);
+});
+
+test("password manager service shutdown is no-op when disabled", async () => {
+  const service = new PasswordManagerService({
+    configService: makeConfigService("none"),
+    session: makeSession([]),
+    extensionRuntime: makeRuntime(),
+  });
+
+  const status = await service.initialize();
+
+  assert.equal(status.state, "disabled");
+  assert.equal(await service.shutdown(), false);
+});
+
+test("password manager service shutdown suppresses unload failures", async () => {
+  const notifications = makeNotifications();
+  const service = new PasswordManagerService({
+    configService: makeConfigService("bitwarden"),
+    session: {
+      extensions: {
+        getAllExtensions: () => [{ id: BITWARDEN_ID }],
+        removeExtension() {
+          throw new Error("Cannot unload");
+        },
+      },
+    },
+    extensionRuntime: makeRuntime(),
+    notificationsService: notifications,
+  });
+
+  await service.initialize();
+  const unloaded = await service.shutdown();
+
+  assert.equal(unloaded, false);
+  assert.equal(service.activeProvider.id, BITWARDEN_ID);
+  assert.equal(notifications.notifications.length, 0);
+});

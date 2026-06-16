@@ -8,7 +8,7 @@ test("cat page renders generic content by default", () => {
   assert.match(html, /<h1>Standby<\/h1>/);
   assert.doesNotMatch(html, /Tip: open <code>noctra:\/\/cat<\/code> any time\./);
   assert.equal((html.match(/<p>/g) || []).length, 1);
-  assert.match(html, /,;.=\.\.\`_\.\.=\.,&#39; -&#39;/);
+  assert.match(html, /,;.=\.\.`_\.\.=\.,&#39; -&#39;/);
 });
 
 test("cat page renders failure details when provided", () => {

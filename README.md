@@ -23,7 +23,7 @@ It runs on Electron with the Chromium engine, treats tabs as buffers, and keeps 
 - `COMMAND` — run explicit commands (`:open`, `:tabnew`, `:buffer`, `:session save`, ...)
 - `SEARCH` — run in-page search flows (`/`, `n`, `N`, hints)
 
-Noctra is early-stage and actively evolving. Core browsing and modal workflows are usable, defaults are Vim-like with configurable leader mappings, and security checks are part of the standard CI gate. Commands, mappings, and APIs can still change between versions.
+Noctra is early-stage and actively evolving. Core browsing and modal workflows are usable, defaults are Vim-like with configurable leader mappings, and security checks are part of the local release gate. Commands, mappings, and APIs can still change between versions.
 
 ---
 
@@ -38,6 +38,7 @@ Prebuilt releases are available on the [Releases](https://github.com/LightQv/noc
 | Linux    | `.deb`   | Install with `sudo dpkg -i noctra_*.deb`.                                    |
 | Linux    | `.rpm`   | Install with `sudo rpm -i noctra_*.rpm`.                                     |
 | Linux    | AppImage | Run directly, then integrate once with `./Noctra-*.AppImage --integrate`.    |
+| Linux    | `.zip`   | Portable archive.                                                            |
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/LightQv/noctra/main/scripts/install.sh | bash
@@ -86,6 +87,7 @@ xdg-mime default noctra.desktop x-scheme-handler/https
 | Section                 | Purpose                                              |
 | ----------------------- | ---------------------------------------------------- |
 | `global.input`          | Leader key and sequence timeout                      |
+| `global.whichkey`       | Leader helper overlay behavior                       |
 | `global.ui`             | Shell UI toggles and panel behavior                  |
 | `global.theme`          | App and content appearance                           |
 | `keymap`                | User key mappings (`normal`/`mod`/`search`/`leader`) |
@@ -95,6 +97,7 @@ xdg-mime default noctra.desktop x-scheme-handler/https
 | `global.storage`        | File locations for persisted data                    |
 | `global.notifications`  | Toast and persistence behavior                       |
 | `global.opening_buffer` | Startup mode and dashboard settings                  |
+| `browser`               | Web language, search, downloads, and password manager |
 
 #### Persisted data
 

@@ -75,3 +75,18 @@ test("split divider skips duplicate shell patches", () => {
     "split divider should still cache changed state before patching",
   );
 });
+
+test("primary shell surfaces skip duplicate renderer patches", () => {
+  const bridgeSource = readProjectFile("ui/shell/services/shellRenderBridge.js");
+  const managerSource = readProjectFile("ui/shell/manager.js");
+  const auxSource = readProjectFile("ui/shell/services/auxOverlayController.js");
+
+  assert.match(bridgeSource, /this\.tablineRenderKey === nextRenderKey/);
+  assert.match(bridgeSource, /this\.urllineRenderKey === nextRenderKey/);
+  assert.match(managerSource, /this\.statuslineScrollRenderKey = ""/);
+  assert.match(auxSource, /this\.statuslineModeRenderKey === nextRenderKey/);
+  assert.match(
+    auxSource,
+    /this\.statuslineSplitIndicatorRenderKey === nextRenderKey/,
+  );
+});

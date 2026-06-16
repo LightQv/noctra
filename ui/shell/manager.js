@@ -79,7 +79,12 @@ class UiShellManager {
       visible: false,
       focusedPane: "left",
     };
+    this.statuslineModeRenderKey = "";
+    this.statuslineScrollRenderKey = "";
+    this.statuslineSearchCountRenderKey = "";
+    this.statuslineSplitIndicatorRenderKey = "";
     this.pendingTablineSnapshot = [];
+    this.tablineRenderKey = "";
     this.tablineRenderTimer = null;
     this.splitDividerState = {
       visible: false,
@@ -92,6 +97,7 @@ class UiShellManager {
     };
     this.urllineActions = {};
     this.urllineModel = { panes: [] };
+    this.urllineRenderKey = "";
     this.loadinglineModel = { panes: [] };
     this.loadinglineLeftView = null;
     this.loadinglineLeftReady = false;

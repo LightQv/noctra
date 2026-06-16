@@ -8,7 +8,6 @@ function wireWindowLifecycle({
   configService,
   persistSessionSnapshot,
   webContentsActions,
-  state,
 }) {
   const syncWindowChrome = () => {
     uiShell.setWindowChrome({
@@ -81,9 +80,21 @@ function wireWindowLifecycle({
   });
 
   let statusPollInFlight = false;
-  const statusPoller = setInterval(() => {
+  let requestedStatusPollTimer = null;
+
+  const readActiveScrollPercent = () => {
+    if (!win || win.isDestroyed()) {
+      return;
+    }
+    if (typeof win.isFocused === "function" && !win.isFocused()) {
+      return;
+    }
+    if (typeof win.isMinimized === "function" && win.isMinimized()) {
+      return;
+    }
+
     const activeBuffer = buffers.getActive();
-    if (!activeBuffer || state.mode === "COMMAND") {
+    if (!activeBuffer) {
       return;
     }
 
@@ -111,7 +122,22 @@ function wireWindowLifecycle({
       .finally(() => {
         statusPollInFlight = false;
       });
-  }, 200);
+  };
+
+  const requestScrollStatusUpdate = (delayMs = 16) => {
+    if (requestedStatusPollTimer) {
+      clearTimeout(requestedStatusPollTimer);
+    }
+
+    requestedStatusPollTimer = setTimeout(() => {
+      requestedStatusPollTimer = null;
+      readActiveScrollPercent();
+    }, Math.max(0, Number(delayMs) || 0));
+  };
+
+  const statusPoller = setInterval(() => {
+    readActiveScrollPercent();
+  }, 900);
 
   win.on("close", () => {
     persistSessionSnapshot();
@@ -123,8 +149,16 @@ function wireWindowLifecycle({
       clearTimeout(persistWindowBoundsTimer);
       persistWindowBoundsTimer = null;
     }
+    if (requestedStatusPollTimer) {
+      clearTimeout(requestedStatusPollTimer);
+      requestedStatusPollTimer = null;
+    }
     clearInterval(statusPoller);
   });
+
+  return {
+    requestScrollStatusUpdate,
+  };
 }
 
 module.exports = {

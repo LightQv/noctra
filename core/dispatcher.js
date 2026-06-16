@@ -335,6 +335,7 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     notificationsService: localNotificationsService = notificationsService,
     downloadsModal: localDownloadsModal = null,
     passwordManagerService: localPasswordManagerService = null,
+    requestScrollStatusUpdate = () => {},
   } = runtimeDeps;
 
   const deps = {
@@ -367,6 +368,7 @@ function createIntentHandlers(dispatch, runtimeDeps = {}) {
     reloadReloadableBuffers: () => reloadReloadableBuffers(runtimeDeps),
     quitCurrentWindowOrApp,
     getActiveBookmarkCandidate: () => getActiveBookmarkCandidate(localBuffers),
+    requestScrollStatusUpdate,
     webContentsActions,
   };
 

@@ -350,7 +350,7 @@ function bootstrapWindowRuntime({
   updateUrllineRender();
   updateLoadinglineRender();
 
-  wireWindowLifecycle({
+  const lifecycleRuntime = wireWindowLifecycle({
     win,
     uiShell,
     buffers,
@@ -416,6 +416,10 @@ function bootstrapWindowRuntime({
       uiShell.syncOverlayStack();
     } else if (uiShell.isCommandVisible()) {
       uiShell.keepCommandOverlayAboveContentViews();
+    }
+
+    if (activeChanged || change.kind === "pane-interaction") {
+      lifecycleRuntime?.requestScrollStatusUpdate?.(16);
     }
 
     if (change.kind === "pane-interaction" && sidepanelController.isFocused()) {
@@ -517,7 +521,11 @@ function bootstrapWindowRuntime({
     nativeTheme.removeListener("updated", onNativeThemeUpdated);
   });
 
-  return { win, smokeScenarios };
+  return {
+    win,
+    smokeScenarios,
+    requestScrollStatusUpdate: lifecycleRuntime?.requestScrollStatusUpdate,
+  };
 }
 
 module.exports = {

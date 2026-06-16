@@ -1385,6 +1385,7 @@ function createWindow() {
     }
   };
 
+  let requestScrollStatusUpdate = () => {};
   const dispatch = createDispatcher({
     buffers,
     uiShell,
@@ -1395,6 +1396,7 @@ function createWindow() {
     notificationsService,
     passwordManagerService,
     applyThemeAcrossWindows,
+    requestScrollStatusUpdate: (...args) => requestScrollStatusUpdate(...args),
   });
   context.dispatch = dispatch;
 
@@ -1563,6 +1565,9 @@ function createWindow() {
 
   context.win = runtime.win;
   context.smokeScenarios = runtime.smokeScenarios;
+  if (typeof runtime.requestScrollStatusUpdate === "function") {
+    requestScrollStatusUpdate = runtime.requestScrollStatusUpdate;
+  }
   passwordManagerService.initialize().catch((error) => {
     notificationsService.notify({
       severity: "warning",

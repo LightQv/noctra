@@ -1,8 +1,5 @@
 const { renderTabline } = require("../../tabline");
-const {
-  renderUrlline: renderShellUrlline,
-  renderLoadingline: renderShellLoadingline,
-} = require("../../urlline");
+const { renderUrlline: renderShellUrlline } = require("../../urlline");
 const {
   pushShellPatch,
 } = require("../../../core/adapters/renderer/shellPatchTransport");
@@ -183,20 +180,6 @@ function renderUrllineBridge(model = { panes: [] }) {
   );
 }
 
-function renderLoadinglineBridge(model = { panes: [] }) {
-  this.loadinglineModel =
-    model && typeof model === "object" ? model : { panes: [] };
-  if (!this.window || !this.shellHostReady) return;
-  const webContents = getLiveWindowWebContents(this.window);
-  if (!webContents) return;
-
-  renderShellLoadingline(
-    webContents,
-    this.loadinglineModel,
-    this.currentTheme,
-  );
-}
-
 module.exports = {
   renderTablineBridge,
   setThemeBridge,
@@ -205,5 +188,4 @@ module.exports = {
   getLiveWindowWebContents,
   createRenderKey,
   renderUrllineBridge,
-  renderLoadinglineBridge,
 };

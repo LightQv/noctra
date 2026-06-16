@@ -90,3 +90,30 @@ test("primary shell surfaces skip duplicate renderer patches", () => {
     /this\.statuslineSplitIndicatorRenderKey === nextRenderKey/,
   );
 });
+
+test("loadingline uses BrowserView overlay path only", () => {
+  const bridgeSource = readProjectFile("ui/shell/services/shellRenderBridge.js");
+  const urllineSource = readProjectFile("ui/urlline.js");
+  const managerSource = readProjectFile("ui/shell/manager.js");
+
+  assert.doesNotMatch(
+    bridgeSource,
+    /renderLoadinglineBridge|renderShellLoadingline/,
+    "shell render bridge should not expose legacy loadingline DOM bridge",
+  );
+  assert.doesNotMatch(
+    urllineSource,
+    /renderLoadingline|buildLoadinglinePaneMarkup|__ui_shell_loadingline__|ui-shell-loadingline/,
+    "urlline module should not contain legacy loadingline DOM renderer",
+  );
+  assert.match(
+    managerSource,
+    /createOverlayBrowserView\(LOADINGLINE_OVERLAY_HTML\)/,
+    "manager should keep loadingline BrowserView overlay creation",
+  );
+  assert.match(
+    managerSource,
+    /renderLoadinglinePane\("left", leftModel\)/,
+    "manager should keep pane-specific BrowserView rendering",
+  );
+});

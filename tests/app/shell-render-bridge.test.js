@@ -4,7 +4,6 @@ const assert = require("node:assert/strict");
 const {
   createRenderKey,
   getLiveWindowWebContents,
-  renderLoadinglineBridge,
   renderTablineBridge,
   renderUrllineBridge,
   updateSplitDividerBridge,
@@ -22,7 +21,6 @@ test("shell render bridge skips destroyed BrowserWindow", () => {
   };
 
   assert.doesNotThrow(() => renderUrllineBridge.call(context, { panes: [] }));
-  assert.doesNotThrow(() => renderLoadinglineBridge.call(context, { panes: [] }));
   assert.doesNotThrow(() => updateSplitDividerBridge.call(context, {}));
 });
 

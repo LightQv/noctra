@@ -1,4 +1,7 @@
 const {
+  ManagedExtensionService,
+} = require("./managedExtensionService");
+const {
   PASSWORD_MANAGER_PROVIDER_IDS,
   isPasswordManagerEnabled,
   resolvePasswordManagerProvider,
@@ -19,23 +22,6 @@ function getConfigProvider(configService) {
   return PASSWORD_MANAGER_PROVIDER_IDS.NONE;
 }
 
-function sanitizeFailureMessage(error, fallback) {
-  if (!error || typeof error.message !== "string") {
-    return fallback;
-  }
-
-  const message = error.message.trim();
-  if (!message) {
-    return fallback;
-  }
-
-  return message.slice(0, 180);
-}
-
-function hasMethod(target, methodName) {
-  return target && typeof target[methodName] === "function";
-}
-
 function createStatus(provider, state, message = "") {
   const enabled = isPasswordManagerEnabled(provider.name);
   const restartRequired = state.endsWith("_restart_required");
@@ -52,417 +38,54 @@ function createStatus(provider, state, message = "") {
   };
 }
 
-class PasswordManagerService {
-  constructor({
-    configService,
-    session = null,
-    extensionRuntime = null,
-    notificationsService = null,
-    installer = null,
-    loadExtension = null,
-    updateExtensions = null,
-    onStatusChange = null,
-  } = {}) {
-    this.configService = configService;
-    this.session = session;
-    this.extensionRuntime = extensionRuntime;
-    this.notificationsService = notificationsService;
-    this.installer = installer;
-    this.loadExtension = loadExtension;
-    this.updateExtensions = updateExtensions;
-    this.onStatusChange = onStatusChange;
-    this.installAttemptedExtensionIds = new Set();
-    this.initializeInFlight = null;
-    this.activeProvider = null;
-    this.status = createStatus(
-      resolvePasswordManagerProvider(PASSWORD_MANAGER_PROVIDER_IDS.NONE),
-      "disabled",
-    );
-  }
+const PASSWORD_MANAGER_MESSAGES = Object.freeze({
+  runtimeUnavailable: "Chrome extension runtime is unavailable.",
+  notInstalled: "Password manager extension is not installed.",
+  retryInstall:
+    "Password manager extension is not installed. Restart Noctra or change provider to retry installation.",
+  initializeFailed: "Password manager extension failed to initialize.",
+  invalidInstaller: "Password manager installer is invalid.",
+  serviceWorkerStartSkipped:
+    "Password manager background worker explicit start was skipped; popup support may still work.",
+  serviceWorkerStartFailed:
+    "Password manager background worker failed to start.",
+  popupUnavailable: "Password manager popup is unavailable.",
+});
 
-  getStatus() {
-    return { ...this.status };
-  }
+const PASSWORD_MANAGER_CODES = Object.freeze({
+  installFailed: "password_manager_extension_install_failed",
+  extensionFailed: "password_manager_extension_failed",
+  disableRestartRequired: "password_manager_disable_restart_required",
+  switchRestartRequired: "password_manager_switch_restart_required",
+  unloadFailed: "password_manager_extension_unload_failed",
+  serviceWorkerStartFailed: "password_manager_service_worker_start_failed",
+  installStarted: "password_manager_extension_install_started",
+  updateFailed: "password_manager_extension_update_failed",
+});
 
-  setStatus(provider, state, message = "") {
-    this.status = createStatus(provider, state, message);
-
-    if (typeof this.onStatusChange === "function") {
-      this.onStatusChange(this.getStatus());
-    }
-
-    return this.getStatus();
-  }
-
-  async initialize() {
-    if (this.initializeInFlight) {
-      return this.initializeInFlight;
-    }
-
-    this.initializeInFlight = this.runInitialize().finally(() => {
-      this.initializeInFlight = null;
-    });
-    return this.initializeInFlight;
-  }
-
-  async runInitialize() {
-    const provider = resolvePasswordManagerProvider(
-      getConfigProvider(this.configService),
-    );
-
-    const lifecycleStatus = await this.resolveProviderLifecycle(provider);
-    if (lifecycleStatus) {
-      return lifecycleStatus;
-    }
-
-    if (!isPasswordManagerEnabled(provider.name)) {
-      return this.setStatus(provider, "disabled");
-    }
-
-    if (!this.extensionRuntime || this.extensionRuntime.enabled === false) {
-      return this.fail(provider, "Chrome extension runtime is unavailable.");
-    }
-
-    let phase = "startup";
-
-    try {
-      await this.initializeInstaller(provider);
-
-      if (this.hasInstalledExtension(provider.id)) {
-        phase = "load";
-        this.setStatus(provider, "loading");
-        await this.updateProviderExtensions(provider);
-        await this.loadProviderExtension(provider);
-        this.activeProvider = provider;
-        return this.setStatus(provider, "loaded");
-      }
-
-      if (!this.installer) {
-        return this.fail(
-          provider,
-          "Password manager extension is not installed.",
-        );
-      }
-
-      if (this.installAttemptedExtensionIds.has(provider.id)) {
-        return this.fail(
-          provider,
-          "Password manager extension is not installed. Restart Noctra or change provider to retry installation.",
-        );
-      }
-
-      phase = "install";
-      this.installAttemptedExtensionIds.add(provider.id);
-      this.setStatus(provider, "installing");
-      this.notifyInstallStarted(provider);
-      await this.installProviderExtension(provider);
-      phase = "load";
-      this.setStatus(provider, "loading");
-      await this.loadProviderExtension(provider);
-      this.activeProvider = provider;
-      return this.setStatus(provider, "loaded");
-    } catch (error) {
-      return this.fail(
-        provider,
-        sanitizeFailureMessage(
-          error,
-          "Password manager extension failed to initialize.",
-        ),
-        {
-          code:
-            phase === "install"
-              ? "password_manager_extension_install_failed"
-              : "password_manager_extension_failed",
-        },
-      );
-    }
-  }
-
-  async resolveProviderLifecycle(provider) {
-    if (!this.activeProvider || this.activeProvider.name === provider.name) {
-      return null;
-    }
-
-    const activeProvider = this.activeProvider;
-    const unloaded = await this.tryUnloadActiveProvider(activeProvider);
-    if (unloaded) {
-      this.activeProvider = null;
-      return null;
-    }
-
-    if (!isPasswordManagerEnabled(provider.name)) {
-      this.notifyWarning({
-        code: "password_manager_disable_restart_required",
-        message: `${activeProvider.label} remains loaded until Noctra restarts.`,
-      });
-      return this.setStatus(
-        provider,
-        "disabled_restart_required",
-        `${activeProvider.label} remains loaded until Noctra restarts.`,
-      );
-    }
-
-    this.notifyWarning({
-      code: "password_manager_switch_restart_required",
-      message: `Restart Noctra to switch from ${activeProvider.label} to ${provider.label}.`,
-    });
-    return this.setStatus(
-      provider,
-      "switch_restart_required",
-      `${activeProvider.label} remains loaded until Noctra restarts. Restart Noctra to switch to ${provider.label}.`,
-    );
-  }
-
-  async tryUnloadActiveProvider(provider) {
-    const extensionsApi = this.session?.extensions;
-    if (
-      !provider?.id ||
-      !extensionsApi ||
-      typeof extensionsApi.removeExtension !== "function"
-    ) {
-      return false;
-    }
-
-    try {
-      await extensionsApi.removeExtension(provider.id);
-      return !this.hasInstalledExtension(provider.id);
-    } catch (error) {
-      this.notifyWarning({
-        code: "password_manager_extension_unload_failed",
-        message: `${provider.label} could not be unloaded without restarting Noctra.`,
-        detail: sanitizeFailureMessage(error, "Extension unload failed."),
-      });
-      return false;
-    }
-  }
-
-  async initializeInstaller(provider) {
-    if (!hasMethod(this.installer, "initialize")) {
-      return null;
-    }
-
-    return this.installer.initialize({ provider, session: this.session });
-  }
-
-  getInstalledExtensions() {
-    const extensionsApi = this.session?.extensions;
-    if (
-      !extensionsApi ||
-      typeof extensionsApi.getAllExtensions !== "function"
-    ) {
-      return [];
-    }
-
-    const extensions = extensionsApi.getAllExtensions();
-    return Array.isArray(extensions) ? extensions : [];
-  }
-
-  hasInstalledExtension(extensionId) {
-    if (!extensionId) {
-      return false;
-    }
-
-    if (
-      this.getInstalledExtensions().some(
-        (extension) => extension && extension.id === extensionId,
-      )
-    ) {
-      return true;
-    }
-
-    if (hasMethod(this.installer, "hasInstalledExtension")) {
-      return this.installer.hasInstalledExtension(extensionId);
-    }
-
-    return false;
-  }
-
-  async installProviderExtension(provider) {
-    if (!this.installer) {
-      return null;
-    }
-
-    if (typeof this.installer === "function") {
-      return this.installer(provider.id, { provider, session: this.session });
-    }
-
-    if (typeof this.installer.installExtension === "function") {
-      return this.installer.installExtension(provider.id, {
-        provider,
-        session: this.session,
-      });
-    }
-
-    throw new TypeError("Password manager installer is invalid.");
-  }
-
-  async loadProviderExtension(provider) {
-    if (typeof this.loadExtension === "function") {
-      const extension = await this.loadExtension(provider, {
-        session: this.session,
-      });
-      await this.startProviderServiceWorker(provider, extension);
-      return extension;
-    }
-
-    if (hasMethod(this.installer, "loadExtension")) {
-      const extension = await this.installer.loadExtension(provider.id, {
-        provider,
-        session: this.session,
-      });
-      await this.startProviderServiceWorker(provider, extension);
-      return extension;
-    }
-
-    return null;
-  }
-
-  async startProviderServiceWorker(provider, extension) {
-    const manifest = extension?.manifest || extension;
-    if (
-      manifest?.manifest_version !== 3 ||
-      !manifest?.background?.service_worker ||
-      !this.session?.serviceWorkers ||
-      typeof this.session.serviceWorkers.startWorkerForScope !== "function"
-    ) {
-      return null;
-    }
-
-    try {
-      return await this.session.serviceWorkers.startWorkerForScope(
-        `chrome-extension://${provider.id}/`,
-      );
-    } catch (error) {
-      this.notifyWarning({
-        severity: "info",
-        code: "password_manager_service_worker_start_failed",
-        message:
-          "Password manager background worker explicit start was skipped; popup support may still work.",
-        detail: sanitizeFailureMessage(
-          error,
-          "Password manager background worker failed to start.",
-        ),
-      });
-      return null;
-    }
-  }
-
-  async updateProviderExtensions(provider) {
-    try {
-      if (typeof this.updateExtensions === "function") {
-        return await this.updateExtensions({ provider, session: this.session });
-      }
-
-      if (hasMethod(this.installer, "updateExtensions")) {
-        return await this.installer.updateExtensions({
-          provider,
-          session: this.session,
-        });
-      }
-    } catch (error) {
-      this.notifyUpdateFailed(provider, error);
-    }
-
-    return null;
-  }
-
-  notifyInstallStarted(provider) {
-    if (!hasMethod(this.notificationsService, "notify")) {
-      return;
-    }
-
-    this.notificationsService.notify({
-      severity: "info",
-      code: "password_manager_extension_install_started",
-      message: `Installing ${provider.label} extension.`,
+class PasswordManagerService extends ManagedExtensionService {
+  constructor(options = {}) {
+    super({
+      ...options,
+      getConfiguredExtension: (configService) =>
+        resolvePasswordManagerProvider(getConfigProvider(configService)),
+      isExtensionEnabled: isPasswordManagerEnabled,
+      createStatus,
+      initialExtension: resolvePasswordManagerProvider(
+        PASSWORD_MANAGER_PROVIDER_IDS.NONE,
+      ),
+      messages: PASSWORD_MANAGER_MESSAGES,
+      codes: PASSWORD_MANAGER_CODES,
       source: "passwordManagerService",
-      persist: false,
     });
   }
 
-  notifyUpdateFailed(provider, error) {
-    if (!hasMethod(this.notificationsService, "notify")) {
-      return;
-    }
-
-    this.notificationsService.notify({
-      severity: "warning",
-      code: "password_manager_extension_update_failed",
-      message: `${provider.label} update failed; using installed extension if available.`,
-      source: "passwordManagerService",
-      context: {
-        message: sanitizeFailureMessage(error, "Extension update failed."),
-      },
-      persist: false,
-    });
+  get activeProvider() {
+    return this.activeExtension;
   }
 
-  notifyWarning({ severity = "warning", code, message, detail }) {
-    if (!hasMethod(this.notificationsService, "notify")) {
-      return;
-    }
-
-    this.notificationsService.notify({
-      severity,
-      code,
-      message,
-      source: "passwordManagerService",
-      context: detail ? { message: detail } : undefined,
-      toast: false,
-      persist: false,
-    });
-  }
-
-  fail(provider, message, options = {}) {
-    const status = this.setStatus(provider, "failed", message);
-
-    if (hasMethod(this.notificationsService, "notify")) {
-      this.notificationsService.notify({
-        severity: "warning",
-        code: options.code || "password_manager_extension_failed",
-        message,
-        source: "passwordManagerService",
-        persist: false,
-      });
-    }
-
-    return status;
-  }
-
-  async open() {
-    const status = this.getStatus();
-    if (!status.canOpen) {
-      return status;
-    }
-
-    if (
-      !this.extensionRuntime ||
-      typeof this.extensionRuntime.openActionPopup !== "function"
-    ) {
-      return this.fail(
-        resolvePasswordManagerProvider(status.provider),
-        "Password manager popup is unavailable.",
-      );
-    }
-
-    let opened = false;
-    try {
-      opened = await this.extensionRuntime.openActionPopup(status.provider);
-    } catch (error) {
-      return this.fail(
-        resolvePasswordManagerProvider(status.provider),
-        sanitizeFailureMessage(error, "Password manager popup is unavailable."),
-      );
-    }
-
-    if (opened === false) {
-      return this.fail(
-        resolvePasswordManagerProvider(status.provider),
-        "Password manager popup is unavailable.",
-      );
-    }
-
-    return this.getStatus();
+  set activeProvider(provider) {
+    this.activeExtension = provider;
   }
 }
 

@@ -160,6 +160,8 @@ let entryIcons = null;
 let pendingUrls = [];
 const windowContexts = new Map();
 let isAppQuitting = false;
+let extensionShutdownComplete = false;
+let extensionShutdownInFlight = null;
 
 function loadElectronChromeExtensionsClass() {
   try {
@@ -200,6 +202,68 @@ function loadElectronChromeWebStore() {
 function getLastWindowContext() {
   const values = Array.from(windowContexts.values());
   return values.length > 0 ? values[values.length - 1] : null;
+}
+
+async function shutdownManagedExtensionsForQuit() {
+  if (extensionShutdownComplete) {
+    return true;
+  }
+
+  if (extensionShutdownInFlight) {
+    return extensionShutdownInFlight;
+  }
+
+  extensionShutdownInFlight = runManagedExtensionShutdown().finally(() => {
+    extensionShutdownInFlight = null;
+  });
+  return extensionShutdownInFlight;
+}
+
+async function runManagedExtensionShutdown() {
+  const shutdownTasks = [];
+  const seenServices = new Set();
+
+  for (const context of windowContexts.values()) {
+    const service = context.passwordManagerService;
+    if (
+      service &&
+      !seenServices.has(service) &&
+      typeof service.shutdown === "function"
+    ) {
+      seenServices.add(service);
+      shutdownTasks.push(service.shutdown());
+    }
+  }
+
+  const extensionsApi = session.defaultSession?.extensions;
+  if (extensionsApi && typeof extensionsApi.removeExtension === "function") {
+    for (const extensionId of getManagedExtensionIds()) {
+      shutdownTasks.push(removeManagedExtensionForQuit(extensionsApi, extensionId));
+    }
+  }
+
+  await Promise.allSettled(shutdownTasks);
+  extensionShutdownComplete = true;
+  return true;
+}
+
+async function removeManagedExtensionForQuit(extensionsApi, extensionId) {
+  if (!extensionId) {
+    return false;
+  }
+
+  try {
+    if (typeof extensionsApi.getExtension === "function") {
+      const extension = extensionsApi.getExtension(extensionId);
+      if (!extension) {
+        return false;
+      }
+    }
+    await extensionsApi.removeExtension(extensionId);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function extractHttpUrlFromArgv(argv = []) {
@@ -1804,8 +1868,16 @@ app.on("open-url", (event, url) => {
   handleOpenUrl(url);
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
   isAppQuitting = true;
+  if (extensionShutdownComplete) {
+    return;
+  }
+
+  event.preventDefault();
+  shutdownManagedExtensionsForQuit().finally(() => {
+    app.quit();
+  });
 });
 
 app.on("will-quit", () => {

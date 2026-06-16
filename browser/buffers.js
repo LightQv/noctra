@@ -115,7 +115,7 @@ class Buffer extends EventEmitter {
           return;
         }
         this.loadingState.progress = next;
-        this.emit("updated", { kind: "metadata" });
+        this.emit("updated", { kind: "loading" });
       }, 120);
     };
 
@@ -172,7 +172,7 @@ class Buffer extends EventEmitter {
       this.loadingState.isLoading = true;
       this.loadingState.progress = null;
       this.loadingState.indeterminate = true;
-      this.emit("updated", { kind: "metadata" });
+      this.emit("updated", { kind: "loading" });
     });
 
     this.webContents.on("dom-ready", () => {
@@ -196,7 +196,7 @@ class Buffer extends EventEmitter {
       }
       this.loadingState.progress = 1;
       this.loadingState.indeterminate = false;
-      this.emit("updated", { kind: "metadata" });
+      this.emit("updated", { kind: "loading" });
     });
 
     this.webContents.on("did-stop-loading", () => {
@@ -204,7 +204,7 @@ class Buffer extends EventEmitter {
       this.loadingState.isLoading = false;
       this.loadingState.progress = null;
       this.loadingState.indeterminate = false;
-      this.emit("updated", { kind: "metadata" });
+      this.emit("updated", { kind: "loading" });
     });
 
     this.webContents.on("did-fail-load", () => {
@@ -212,7 +212,7 @@ class Buffer extends EventEmitter {
       this.loadingState.isLoading = false;
       this.loadingState.progress = null;
       this.loadingState.indeterminate = false;
-      this.emit("updated", { kind: "metadata" });
+      this.emit("updated", { kind: "loading" });
     });
 
     this.webContents.on(

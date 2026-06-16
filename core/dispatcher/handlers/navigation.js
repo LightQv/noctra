@@ -6,31 +6,49 @@ function createNavigationHandlers(deps) {
     notificationsService,
     buildSearchUrl,
     normalizeUrl,
+    requestScrollStatusUpdate = () => {},
     webContentsActions,
   } = deps;
+
+  const refreshScrollStatusAfterScroll = () => {
+    requestScrollStatusUpdate(16);
+  };
 
   return {
     [INTENTS.SCROLL]: ({ intent }) => {
       const buf = buffers.getActive();
       webContentsActions
         .scrollByIntent(buf.webContents, intent.direction, intent.amount)
+        .finally(refreshScrollStatusAfterScroll)
         .catch(() => {});
     },
     [INTENTS.SCROLL_TOP]: () => {
       const buf = buffers.getActive();
-      webContentsActions.scrollTop(buf.webContents).catch(() => {});
+      webContentsActions
+        .scrollTop(buf.webContents)
+        .finally(refreshScrollStatusAfterScroll)
+        .catch(() => {});
     },
     [INTENTS.SCROLL_BOTTOM]: () => {
       const buf = buffers.getActive();
-      webContentsActions.scrollBottom(buf.webContents).catch(() => {});
+      webContentsActions
+        .scrollBottom(buf.webContents)
+        .finally(refreshScrollStatusAfterScroll)
+        .catch(() => {});
     },
     [INTENTS.PAGE_DOWN]: () => {
       const buf = buffers.getActive();
-      webContentsActions.pageDown(buf.webContents).catch(() => {});
+      webContentsActions
+        .pageDown(buf.webContents)
+        .finally(refreshScrollStatusAfterScroll)
+        .catch(() => {});
     },
     [INTENTS.PAGE_UP]: () => {
       const buf = buffers.getActive();
-      webContentsActions.pageUp(buf.webContents).catch(() => {});
+      webContentsActions
+        .pageUp(buf.webContents)
+        .finally(refreshScrollStatusAfterScroll)
+        .catch(() => {});
     },
     [INTENTS.NAV_BACK]: ({ intent }) => {
       let buf = buffers.getActive();

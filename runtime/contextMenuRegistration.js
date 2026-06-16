@@ -165,7 +165,11 @@ function registerWebContextMenu({
 
   attachAll();
 
-  const unsubscribe = buffers.subscribe(() => {
+  const unsubscribe = buffers.subscribe((_snapshot, _active, change = {}) => {
+    if (!change.activeChanged && change.kind !== "structure") {
+      return;
+    }
+
     attachAll();
 
     const currentIds = new Set();

@@ -1,8 +1,5 @@
 const { renderTabline } = require("../../tabline");
-const {
-  renderUrlline: renderShellUrlline,
-  renderLoadingline: renderShellLoadingline,
-} = require("../../urlline");
+const { renderUrlline: renderShellUrlline } = require("../../urlline");
 const {
   pushShellPatch,
 } = require("../../../core/adapters/renderer/shellPatchTransport");
@@ -22,6 +19,15 @@ function getLiveWindowWebContents(windowRef) {
   return webContents.isDestroyed() ? null : webContents;
 }
 
+function createRenderKey(value) {
+  return JSON.stringify(value, (_key, entry) => {
+    if (typeof entry === "function") {
+      return undefined;
+    }
+    return entry;
+  });
+}
+
 function renderTablineBridge(snapshot) {
   this.pendingTablineSnapshot = snapshot;
   if (!this.window || !this.shellHostReady) return;
@@ -30,16 +36,26 @@ function renderTablineBridge(snapshot) {
   this.tablineRenderTimer = setTimeout(() => {
     this.tablineRenderTimer = null;
     if (!this.window || this.window.isDestroyed()) return;
+    const renderOptions = {
+      ...this.tablineOptions,
+      urllineVisible: Boolean(this.urllineModel?.panes?.length),
+    };
+    const nextRenderKey = createRenderKey({
+      snapshot: this.pendingTablineSnapshot,
+      chrome: this.windowChrome,
+      actions: this.tablineActions,
+      theme: this.currentTheme,
+      options: renderOptions,
+    });
+    if (this.tablineRenderKey === nextRenderKey) return;
+    this.tablineRenderKey = nextRenderKey;
     renderTabline(
       this.window.webContents,
       this.pendingTablineSnapshot,
       this.windowChrome,
       this.tablineActions,
       this.currentTheme,
-      {
-        ...this.tablineOptions,
-        urllineVisible: Boolean(this.urllineModel?.panes?.length),
-      },
+      renderOptions,
     );
   }, 16);
 }
@@ -93,6 +109,11 @@ function updateSplitDividerBridge(splitStatus = {}) {
     ? Math.max(0, Math.floor(divider.offsetPx))
     : 0;
 
+  const currentState = this.splitDividerState || {};
+  if (currentState.visible === visible && currentState.offsetPx === offsetPx) {
+    return;
+  }
+
   this.splitDividerState = { visible, offsetPx };
   if (!this.window || !this.shellHostReady) return;
   const webContents = getLiveWindowWebContents(this.window);
@@ -143,24 +164,18 @@ function renderUrllineBridge(model = { panes: [] }) {
   const webContents = getLiveWindowWebContents(this.window);
   if (!webContents) return;
 
+  const nextRenderKey = createRenderKey({
+    model: this.urllineModel,
+    actions: this.urllineActions,
+    theme: this.currentTheme,
+  });
+  if (this.urllineRenderKey === nextRenderKey) return;
+  this.urllineRenderKey = nextRenderKey;
+
   renderShellUrlline(
     webContents,
     this.urllineModel,
     this.urllineActions,
-    this.currentTheme,
-  );
-}
-
-function renderLoadinglineBridge(model = { panes: [] }) {
-  this.loadinglineModel =
-    model && typeof model === "object" ? model : { panes: [] };
-  if (!this.window || !this.shellHostReady) return;
-  const webContents = getLiveWindowWebContents(this.window);
-  if (!webContents) return;
-
-  renderShellLoadingline(
-    webContents,
-    this.loadinglineModel,
     this.currentTheme,
   );
 }
@@ -171,6 +186,6 @@ module.exports = {
   updateSplitDividerBridge,
   applyThemeToWebContentsBridge,
   getLiveWindowWebContents,
+  createRenderKey,
   renderUrllineBridge,
-  renderLoadinglineBridge,
 };

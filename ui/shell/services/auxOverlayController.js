@@ -483,6 +483,9 @@ function computeSelectionModalHeight(model = null) {
 function updateStatuslineMode(mode) {
   this.statuslineMode = String(mode || "NORMAL");
   if (!this.statuslineView || !this.statuslineReady) return;
+  const nextRenderKey = JSON.stringify({ mode: this.statuslineMode });
+  if (this.statuslineModeRenderKey === nextRenderKey) return;
+  this.statuslineModeRenderKey = nextRenderKey;
   pushShellPatch(
     this.statuslineView.webContents,
     `
@@ -501,6 +504,9 @@ function updateStatuslineScroll(percent) {
     : 0;
   this.statuslineScroll = Math.round(normalized);
   if (!this.statuslineView || !this.statuslineReady) return;
+  const nextRenderKey = JSON.stringify({ scroll: this.statuslineScroll });
+  if (this.statuslineScrollRenderKey === nextRenderKey) return;
+  this.statuslineScrollRenderKey = nextRenderKey;
   pushShellPatch(
     this.statuslineView.webContents,
     `
@@ -519,6 +525,9 @@ function updateStatuslineSearchCount(model = {}) {
   const index = Number.isFinite(model.index) ? Math.max(0, Math.floor(model.index)) : 0;
   const total = Number.isFinite(model.total) ? Math.max(0, Math.floor(model.total)) : 0;
   if (!this.statuslineView || !this.statuslineReady) return;
+  const nextRenderKey = JSON.stringify({ mode, active, index, total });
+  if (this.statuslineSearchCountRenderKey === nextRenderKey) return;
+  this.statuslineSearchCountRenderKey = nextRenderKey;
   pushShellPatch(
     this.statuslineView.webContents,
     `
@@ -648,6 +657,13 @@ function updateStatuslineSplitIndicator(splitStatus = {}) {
   const focusedPane = splitStatus.focusedPane === "right" ? "right" : "left";
   this.statuslineSplitIndicator = { visible: enabledRegularSplit, focusedPane };
   if (!this.statuslineView || !this.statuslineReady) return;
+  const nextRenderKey = JSON.stringify({
+    ...this.statuslineSplitIndicator,
+    focusedColor: this.currentTheme.mainColor,
+    mutedColor: this.currentTheme.mutedTextColor,
+  });
+  if (this.statuslineSplitIndicatorRenderKey === nextRenderKey) return;
+  this.statuslineSplitIndicatorRenderKey = nextRenderKey;
 
   pushShellPatch(
     this.statuslineView.webContents,

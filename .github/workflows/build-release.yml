@@ -74,7 +74,7 @@ jobs:
             console.log('Version bump valid: $CURRENT → $NEW');
           "
 
-      - name: Bump version in package.json and README.md
+      - name: Bump version in package.json, package-lock.json, and README.md
         id: bump
         run: |
           VERSION="${{ github.event.inputs.version }}"
@@ -90,6 +90,14 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           pkg.version = version;
           fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+
+          const lockPath = 'package-lock.json';
+          const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+          lock.version = version;
+          if (lock.packages && lock.packages['']) {
+            lock.packages[''].version = version;
+          }
+          fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
 
           const readmePath = 'README.md';
           const readme = fs.readFileSync(readmePath, 'utf8');
@@ -124,20 +132,22 @@ jobs:
       - name: Create draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: ${{ github.event.inputs.notes }}
         run: |
           TAG="${{ steps.bump.outputs.tag }}"
           VERSION="${{ github.event.inputs.version }}"
+          PRERELEASE_ARGS=()
           if echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-'; then
-            PRERELEASE="--prerelease"
+            PRERELEASE_ARGS=(--prerelease)
             echo "Detected pre-release version: $VERSION"
           else
-            PRERELEASE=""
             echo "Detected stable version: $VERSION"
           fi
+          printf '%s' "$RELEASE_NOTES" > release-notes.md
           gh release create "$TAG" \
             --title "Noctra $VERSION" \
-            --notes "${{ github.event.inputs.notes }}" \
-            $PRERELEASE \
+            --notes-file release-notes.md \
+            "${PRERELEASE_ARGS[@]}" \
             --draft
 
   build-macos:

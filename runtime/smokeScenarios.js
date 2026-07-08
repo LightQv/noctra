@@ -190,6 +190,25 @@ function createSmokeScenarios({
       },
       { timeoutMs: 3000, description: "devtools split open" },
     ).catch((error) => fail(error.message));
+
+    dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
+    await waitForCondition(
+      () => {
+        const status = buffers.getSplitStatus();
+        return Boolean(status && !status.enabled && status.mode === "regular");
+      },
+      { timeoutMs: 3000, description: "devtools split hidden on new tab" },
+    ).catch((error) => fail(error.message));
+
+    dispatch(win, { type: INTENTS.BUFFER_PREV }, state);
+    await waitForCondition(
+      () => {
+        const status = buffers.getSplitStatus();
+        return Boolean(status && status.enabled && status.mode === "devtools");
+      },
+      { timeoutMs: 3000, description: "devtools split restored on owner tab" },
+    ).catch((error) => fail(error.message));
+
     dispatch(win, { type: INTENTS.SPLIT_CLOSE_RIGHT }, state);
     await waitForCondition(
       () => {

@@ -358,9 +358,16 @@ if (!hasSingleInstanceLock) {
 
 app.on("second-instance", (_event, argv) => {
   const nextUrl = extractHttpUrlFromArgv(argv);
-  createWindow();
   if (nextUrl) {
     handleOpenUrl(nextUrl);
+    return;
+  }
+
+  const context = getLastWindowContext();
+  if (context && context.win && !context.win.isDestroyed()) {
+    bringWindowToFront(context.win);
+  } else {
+    createWindow();
   }
 });
 
@@ -841,6 +848,7 @@ function handleRawInput(context, event, input) {
     } else {
       dispatch(win, { type: INTENTS.NEW_BUFFER }, state);
     }
+    buffers.focusActive();
     if (appMenu) appMenu.sync();
     return;
   }
@@ -1286,13 +1294,56 @@ function normalizeHistoryUrl(rawUrl) {
   }
 }
 
+function getUrlPolicyConfig() {
+  return {
+    allowHttpPrivateLan: Boolean(
+      configService.getConfigValue("browser.allow_http_private_lan", true),
+    ),
+    trustedHttpHosts: configService.getConfigValue(
+      "browser.trusted_http_hosts",
+      [],
+    ),
+  };
+}
+
+function bringWindowToFront(win) {
+  if (!win || win.isDestroyed()) return;
+  if (typeof win.isMinimized === "function" && win.isMinimized()) {
+    win.restore();
+  }
+  if (typeof win.show === "function") {
+    win.show();
+  }
+  if (process.platform === "darwin" && typeof app.focus === "function") {
+    app.focus({ steal: true });
+  }
+  if (typeof win.focus === "function") {
+    win.focus();
+  }
+}
+
 function handleOpenUrl(url) {
-  const context = getLastWindowContext();
+  let context = getLastWindowContext();
   if (!context || !context.win || context.win.isDestroyed()) {
-    pendingUrls.push(url);
+    if (app.isReady()) {
+      createWindow();
+      context = getLastWindowContext();
+    }
+
+    if (!context || !context.win || context.win.isDestroyed()) {
+      pendingUrls.push(url);
+      return;
+    }
+  }
+
+  const validation = validateNavigableUrl(url, getUrlPolicyConfig());
+  if (!validation.ok) {
     return;
   }
-  context.dispatch(context.win, { type: INTENTS.OPEN_URL, url }, context.state);
+
+  bringWindowToFront(context.win);
+  context.buffers.create(validation.url, { activate: true });
+  context.buffers.focusActive();
 }
 
 function createWindow() {

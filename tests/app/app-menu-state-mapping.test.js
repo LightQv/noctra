@@ -150,7 +150,7 @@ function createDeps(overrides = {}) {
     state: createMockState(overrides.mode),
     buffers: createMockBuffers(overrides),
     sidepanelController: createMockSidepanelController(overrides),
-    dispatch: () => {},
+    dispatch: overrides.dispatch || (() => {}),
     INTENTS,
     app: mockApp,
     dialog: mockDialog,
@@ -323,6 +323,38 @@ test("menu items reflect disabled state based on context", () => {
 
   assert.equal(navBack.enabled, false);
   assert.equal(navForward.enabled, false);
+});
+
+test("edit menu exposes hard reload accelerator", () => {
+  const active = createMockBuffer(1, "Test", false);
+  const dispatched = [];
+  active.webContents = {
+    navigationHistory: {
+      canGoBack: () => false,
+      canGoForward: () => false,
+    },
+    isDestroyed: () => false,
+  };
+
+  const deps = createDeps({
+    buffers: [active],
+    active,
+    dispatch: (_win, intent) => dispatched.push(intent),
+  });
+  const appMenu = createAppMenu(deps);
+  appMenu.sync();
+
+  const editMenu = lastMenuTemplate.find((m) => m.label === "Edit");
+  const hardReload = editMenu.submenu.find(
+    (item) => item.label === "Hard Reload Page",
+  );
+
+  assert.equal(hardReload.accelerator, "CmdOrCtrl+Shift+R");
+  hardReload.click();
+  assert.deepEqual(dispatched[0], {
+    type: INTENTS.RELOAD_PAGE,
+    ignoreCache: true,
+  });
 });
 
 test("edit menu starts with native text editing roles", () => {

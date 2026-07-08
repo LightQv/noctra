@@ -719,6 +719,17 @@ function createAppMenu({
           enabled: snapshot.canReload,
           click: () => dispatchAndSync(win, { type: INTENTS.RELOAD_PAGE }, state),
         },
+        {
+          label: "Hard Reload Page",
+          accelerator: "CmdOrCtrl+Shift+R",
+          enabled: snapshot.canReload,
+          click: () =>
+            dispatchAndSync(
+              win,
+              { type: INTENTS.RELOAD_PAGE, ignoreCache: true },
+              state,
+            ),
+        },
         { type: "separator" },
         {
           label: snapshot.copySelectionEnabled

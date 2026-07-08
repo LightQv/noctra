@@ -858,6 +858,24 @@ test("devtools host opens and closes split devtools safely", () => {
   ]);
 });
 
+test("devtools host ignores destroyed devtools view", () => {
+  const calls = [];
+  openSplitDevtools({
+    targetWebContents: {
+      isDestroyed: () => false,
+      setDevToolsWebContents: () => calls.push("set"),
+      openDevTools: () => calls.push("open"),
+    },
+    devtoolsView: {
+      webContents: {
+        isDestroyed: () => true,
+      },
+    },
+  });
+
+  assert.deepEqual(calls, []);
+});
+
 test("webContents observer reads selection and binds lifecycle hooks", async () => {
   const listeners = new Map();
   const calls = [];

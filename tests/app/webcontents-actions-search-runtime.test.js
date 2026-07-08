@@ -8,6 +8,7 @@ const {
   searchRuntimeStart,
   searchRuntimeClear,
   sendSearchRuntimeCommand,
+  reloadIgnoringCache,
 } = require("../../core/adapters/platform/webContentsActions");
 
 function createWebContentsStub() {
@@ -59,6 +60,18 @@ function createWebContentsStub() {
     },
   };
 }
+
+test("reloadIgnoringCache bypasses cache on usable webContents", () => {
+  let calls = 0;
+  reloadIgnoringCache({
+    isDestroyed: () => false,
+    reloadIgnoringCache: () => {
+      calls += 1;
+    },
+  });
+
+  assert.equal(calls, 1);
+});
 
 function createWebContentsWithoutBody() {
   const context = {

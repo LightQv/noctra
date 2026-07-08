@@ -8,6 +8,7 @@ const {
   openDevtoolsSplit,
   closeDevtoolsSplit,
   syncDevtoolsTargetToLeftBuffer,
+  closeBufferDevtools,
 } = require("./services/devtoolsController");
 const {
   openVerticalSplit,
@@ -139,8 +140,15 @@ class BufferManager {
     }
 
     if (openingBufferSpec.kind === "virtual") {
-      const buffer = this.create(null, options);
+      const buffer = this.create(null, {
+        ...options,
+        deferInitialLayout: options.activate !== false,
+      });
       buffer.loadVirtualDocument(openingBufferSpec.document);
+      if (options.activate !== false) {
+        this.layoutViews();
+        this.notify({ kind: "structure", activeChanged: true });
+      }
       return buffer;
     }
 
@@ -593,6 +601,10 @@ class BufferManager {
 
   closeDevtoolsSplit() {
     return closeDevtoolsSplit(this);
+  }
+
+  closeBufferDevtools(buffer) {
+    return closeBufferDevtools(this, buffer);
   }
 
   syncDevtoolsTargetToLeftBuffer() {

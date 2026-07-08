@@ -74,7 +74,11 @@ function createNavigationHandlers(deps) {
         buf = buffers.getBuffers().find((b) => b.id === intent.bufferId) || buf;
       }
       if (buf && buf.webContents) {
-        webContentsActions.reload(buf.webContents);
+        if (intent.ignoreCache) {
+          webContentsActions.reloadIgnoringCache(buf.webContents);
+        } else {
+          webContentsActions.reload(buf.webContents);
+        }
       }
     },
     [INTENTS.OPEN_URL]: ({ intent }) => {

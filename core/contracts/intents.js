@@ -89,6 +89,7 @@ const INTENT_PAYLOAD_CONTRACTS = {
   }),
   [INTENTS.RELOAD_PAGE]: withBaseFields({
     bufferId: optional(validateInteger),
+    ignoreCache: optional(validateBoolean),
   }),
   [INTENTS.OPEN_URL]: withBaseFields({
     url: validateString,

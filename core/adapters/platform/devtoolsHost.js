@@ -12,7 +12,14 @@ function createDevtoolsView() {
 }
 
 function openSplitDevtools({ targetWebContents, devtoolsView }) {
-  if (!targetWebContents || targetWebContents.isDestroyed() || !devtoolsView) {
+  if (
+    !targetWebContents ||
+    targetWebContents.isDestroyed() ||
+    !devtoolsView ||
+    !devtoolsView.webContents ||
+    (typeof devtoolsView.webContents.isDestroyed === "function" &&
+      devtoolsView.webContents.isDestroyed())
+  ) {
     return;
   }
   targetWebContents.setDevToolsWebContents(devtoolsView.webContents);

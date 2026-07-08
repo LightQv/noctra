@@ -57,13 +57,17 @@ function createBuffer(manager, url = "about:blank", options = {}) {
     manager.focusedPane = "left";
   }
 
-  manager.layoutViews();
-
   if (url) {
     buffer.load(url);
   }
 
-  manager.notify({ kind: "structure", activeChanged: activate });
+  if (!options.deferInitialLayout) {
+    manager.layoutViews();
+  }
+
+  if (!options.deferInitialLayout) {
+    manager.notify({ kind: "structure", activeChanged: activate });
+  }
   return buffer;
 }
 
@@ -140,6 +144,9 @@ function closeBuffer(manager, id = null) {
   rememberClosedBuffer(manager, target, index);
   if (typeof manager.removeBufferFromExtensionRuntime === "function") {
     manager.removeBufferFromExtensionRuntime(target);
+  }
+  if (typeof manager.closeBufferDevtools === "function") {
+    manager.closeBufferDevtools(target);
   }
   manager.buffers.splice(index, 1);
 
@@ -237,6 +244,9 @@ function closeLeftOfActive(manager) {
     if (typeof manager.removeBufferFromExtensionRuntime === "function") {
       manager.removeBufferFromExtensionRuntime(buffer);
     }
+    if (typeof manager.closeBufferDevtools === "function") {
+      manager.closeBufferDevtools(buffer);
+    }
     detachView(manager.window, buffer.view);
     if (manager.split.rightPaneSourceBuffer === buffer) {
       manager.split.rightPaneSourceBuffer = null;
@@ -267,6 +277,9 @@ function closeRightOfActive(manager) {
     rememberClosedBuffer(manager, buffer, manager.activeIndex + 1);
     if (typeof manager.removeBufferFromExtensionRuntime === "function") {
       manager.removeBufferFromExtensionRuntime(buffer);
+    }
+    if (typeof manager.closeBufferDevtools === "function") {
+      manager.closeBufferDevtools(buffer);
     }
     detachView(manager.window, buffer.view);
     if (manager.split.rightPaneSourceBuffer === buffer) {
@@ -336,6 +349,9 @@ function closeAllLeftOf(manager, index) {
     if (typeof manager.removeBufferFromExtensionRuntime === "function") {
       manager.removeBufferFromExtensionRuntime(buffer);
     }
+    if (typeof manager.closeBufferDevtools === "function") {
+      manager.closeBufferDevtools(buffer);
+    }
     detachView(manager.window, buffer.view);
     if (manager.split.rightPaneSourceBuffer === buffer) {
       manager.split.rightPaneSourceBuffer = null;
@@ -384,6 +400,9 @@ function closeAllRightOf(manager, index) {
     if (typeof manager.removeBufferFromExtensionRuntime === "function") {
       manager.removeBufferFromExtensionRuntime(buffer);
     }
+    if (typeof manager.closeBufferDevtools === "function") {
+      manager.closeBufferDevtools(buffer);
+    }
     detachView(manager.window, buffer.view);
     if (manager.split.rightPaneSourceBuffer === buffer) {
       manager.split.rightPaneSourceBuffer = null;
@@ -426,6 +445,9 @@ function closeAllBuffers(manager) {
     rememberClosedBuffer(manager, buffer, 0);
     if (typeof manager.removeBufferFromExtensionRuntime === "function") {
       manager.removeBufferFromExtensionRuntime(buffer);
+    }
+    if (typeof manager.closeBufferDevtools === "function") {
+      manager.closeBufferDevtools(buffer);
     }
     detachView(manager.window, buffer.view);
     buffer.destroy();

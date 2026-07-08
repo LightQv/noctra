@@ -92,6 +92,11 @@ function reload(webContents) {
   webContents.reload();
 }
 
+function reloadIgnoringCache(webContents) {
+  if (!isUsableWebContents(webContents)) return;
+  webContents.reloadIgnoringCache();
+}
+
 function stop(webContents) {
   if (!isUsableWebContents(webContents)) return;
   webContents.stop();
@@ -284,6 +289,7 @@ module.exports = {
   goBack,
   goForward,
   reload,
+  reloadIgnoringCache,
   stop,
   detectFocusedEditable,
   readScrollPercent,

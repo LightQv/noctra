@@ -106,6 +106,14 @@ test("intent contracts accept valid payload", () => {
   assert.equal(result.ok, true);
 });
 
+test("intent contracts accept hard reload payload", () => {
+  const result = validateIntentPayload(INTENTS.RELOAD_PAGE, {
+    type: INTENTS.RELOAD_PAGE,
+    ignoreCache: true,
+  });
+  assert.equal(result.ok, true);
+});
+
 test("intent contracts reject missing required field", () => {
   const result = validateIntentPayload(INTENTS.OPEN_URL, {
     type: INTENTS.OPEN_URL,

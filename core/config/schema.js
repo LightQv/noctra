@@ -306,6 +306,9 @@ function normalizeConfig(rawConfig) {
   const windowSection = isPlainObject(inputGlobal.window)
     ? inputGlobal.window
     : null;
+  const sessionSection = isPlainObject(inputGlobal.session)
+    ? inputGlobal.session
+    : null;
   const openingBufferSection = isPlainObject(inputGlobal.opening_buffer)
     ? inputGlobal.opening_buffer
     : null;
@@ -584,6 +587,13 @@ function normalizeConfig(rawConfig) {
         0,
       ),
     );
+  }
+
+  if (isPlainObject(sessionSection)) {
+    if (typeof sessionSection.restore_on_startup === "boolean") {
+      normalizedGlobal.session.restore_on_startup =
+        sessionSection.restore_on_startup;
+    }
   }
 
   if (isPlainObject(openingBufferSection)) {

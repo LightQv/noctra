@@ -26,6 +26,7 @@ Apply config changes at runtime with `:config-reload`.
 - `global.storage`: file locations for persisted data
 - `global.notifications`: toast and persistence behavior
 - `global.window`: initial window bounds, maximized state, and cascade offset
+- `global.session`: startup restore behavior for saved session snapshots
 - `global.opening_buffer`: startup mode and dashboard settings
 - `keymap.normal`: user NORMAL-mode key mappings
 - `keymap.mod`: user Ctrl-modified key mappings
@@ -48,6 +49,8 @@ global:
   theme:
     mode: "auto"
     content_mode: "match"
+  session:
+    restore_on_startup: false
 
 keymap:
   leader:
@@ -189,6 +192,14 @@ By default:
 - `~/.config/noctra/bookmarks.yml`
 - `~/.config/noctra/sessions.yml`
 - `~/.config/noctra/notifications.yml`
+
+## Session startup restore
+
+- `global.session.restore_on_startup` controls whether Noctra restores the last restorable session when the app starts.
+- Default: `false`, which opens `global.opening_buffer`.
+- When `true`, Noctra reads `global.storage.sessions_file` and restores the saved buffers if possible.
+- Session snapshots are written on window close and by `:session save`.
+- If no restorable snapshot exists, startup falls back to `global.opening_buffer`.
 
 ## Safety and recovery
 

@@ -172,6 +172,15 @@ test("default config includes password-manager provider comments", () => {
       configText,
       /# bitwarden\/1password auto-install Chrome extensions when enabled\./,
     );
+    assert.match(configText, /# Session startup behavior/);
+    assert.match(
+      configText,
+      /# restore_on_startup=true restores the last saved\/auto-saved session when possible/,
+    );
+    assert.match(
+      configText,
+      /# Auto-restore last session on app startup: true \| false/,
+    );
   } finally {
     fs.rmSync(tempHome, { force: true, recursive: true });
   }

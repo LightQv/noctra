@@ -99,30 +99,30 @@ pick_asset() {
 
   case "$os" in
     darwin)
-      asset="$(asset_url_for "$json" '\\.dmg$')"
+      asset="$(asset_url_for "$json" '\.dmg$')"
       if [ -z "$asset" ]; then
-        asset="$(asset_url_for "$json" '\\.zip$')"
+        asset="$(asset_url_for "$json" '\.zip$')"
       fi
       ;;
     linux)
       case "$METHOD" in
         auto)
-          asset="$(asset_url_for "$json" '\\.deb$')"
+          asset="$(asset_url_for "$json" '\.deb$')"
           if [ -z "$asset" ]; then
-            asset="$(asset_url_for "$json" '\\.rpm$')"
+            asset="$(asset_url_for "$json" '\.rpm$')"
           fi
           if [ -z "$asset" ]; then
-            asset="$(asset_url_for "$json" '\\.AppImage$')"
+            asset="$(asset_url_for "$json" '\.AppImage$')"
           fi
           ;;
         deb)
-          asset="$(asset_url_for "$json" '\\.deb$')"
+          asset="$(asset_url_for "$json" '\.deb$')"
           ;;
         rpm)
-          asset="$(asset_url_for "$json" '\\.rpm$')"
+          asset="$(asset_url_for "$json" '\.rpm$')"
           ;;
         appimage)
-          asset="$(asset_url_for "$json" '\\.AppImage$')"
+          asset="$(asset_url_for "$json" '\.AppImage$')"
           ;;
         *)
           die "Invalid method '$METHOD'. Use auto|appimage|deb|rpm"
@@ -258,7 +258,7 @@ main() {
   log "Downloading $asset_name"
   curl -fsSL "$asset_url" -o "$asset_path"
 
-  checksums_url="$(asset_url_for "$json" 'checksums\\.txt$')"
+  checksums_url="$(asset_url_for "$json" 'checksums\.txt$')"
   [ -n "$checksums_url" ] || die "checksums.txt not found in release"
   curl -fsSL "$checksums_url" -o "$checksums_path"
 

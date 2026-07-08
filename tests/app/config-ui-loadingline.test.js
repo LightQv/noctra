@@ -21,3 +21,32 @@ test("loadingline enabled respects boolean override", () => {
 
   assert.equal(config.global.ui.loadingline.enabled, false);
 });
+
+test("session restore on startup defaults to disabled", () => {
+  const config = normalizeConfig({});
+  assert.equal(config.global.session.restore_on_startup, false);
+});
+
+test("session restore on startup respects boolean override", () => {
+  const config = normalizeConfig({
+    global: {
+      session: {
+        restore_on_startup: true,
+      },
+    },
+  });
+
+  assert.equal(config.global.session.restore_on_startup, true);
+});
+
+test("session restore on startup ignores non-boolean override", () => {
+  const config = normalizeConfig({
+    global: {
+      session: {
+        restore_on_startup: "true",
+      },
+    },
+  });
+
+  assert.equal(config.global.session.restore_on_startup, false);
+});

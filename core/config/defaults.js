@@ -140,6 +140,9 @@ const defaultConfig = {
       is_maximized: false,
       cascade_offset_px: 28,
     },
+    session: {
+      restore_on_startup: false,
+    },
     opening_buffer: {
       mode: "dashboard",
       url: "https://github.com/LightQv/noctra",

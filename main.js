@@ -1031,6 +1031,20 @@ function persistSessionSnapshot(context) {
   }
 }
 
+function restoreStartupSessionIfConfigured() {
+  if (!configService.getConfigValue("global.session.restore_on_startup", false)) {
+    return false;
+  }
+
+  const context = getLastWindowContext();
+  if (!context || !context.buffers) {
+    return false;
+  }
+
+  const snapshot = sessionService.readSessionSnapshot();
+  return context.buffers.restoreSessionSnapshot(snapshot);
+}
+
 function findLeaderSequencesForAction(leaderTree, targetAction, path = []) {
   if (!leaderTree || typeof leaderTree !== "object") {
     return [];
@@ -1850,6 +1864,7 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
+  restoreStartupSessionIfConfigured();
 
   // Process any URLs that arrived before the window was ready
   while (pendingUrls.length > 0) {

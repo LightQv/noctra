@@ -126,6 +126,7 @@ function addThemeComments(yamlText) {
   let inThemeSection = false;
   let inBrowserSection = false;
   let inOpeningBufferSection = false;
+  let inSessionSection = false;
   const actionIds = Object.keys(ACTION_BUILDERS).sort((left, right) =>
     left.localeCompare(right, undefined, { sensitivity: "base" }),
   );
@@ -142,6 +143,7 @@ function addThemeComments(yamlText) {
     ) {
       inThemeSection = false;
       inOpeningBufferSection = false;
+      inSessionSection = false;
     }
 
     if (
@@ -150,6 +152,7 @@ function addThemeComments(yamlText) {
     ) {
       inThemeSection = false;
       inOpeningBufferSection = false;
+      inSessionSection = false;
       inBrowserSection = false;
     }
 
@@ -274,8 +277,28 @@ function addThemeComments(yamlText) {
     if (/^ {2}opening_buffer:\s*$/.test(line)) {
       output.push("  # Startup page mode");
       inOpeningBufferSection = true;
+      inSessionSection = false;
       inThemeSection = false;
       inBrowserSection = false;
+    }
+
+    if (/^ {2}session:\s*$/.test(line)) {
+      output.push("  # Session startup behavior");
+      output.push(
+        "  # restore_on_startup=true restores the last saved/auto-saved session when possible",
+      );
+      output.push(
+        "  # false opens global.opening_buffer; missing snapshots also fall back to opening_buffer",
+      );
+      output.push("  # Snapshots are written on window close and by :session save");
+      inSessionSection = true;
+      inOpeningBufferSection = false;
+      inThemeSection = false;
+      inBrowserSection = false;
+    }
+
+    if (inSessionSection && /^ {4}restore_on_startup:\s*/.test(line)) {
+      output.push("    # Auto-restore last session on app startup: true | false");
     }
 
     if (inOpeningBufferSection && /^ {4}mode:\s*/.test(line)) {

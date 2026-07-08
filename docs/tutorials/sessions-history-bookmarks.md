@@ -16,6 +16,12 @@ Use sessions to snapshot and restore browsing context.
 
 - Run `:session restore`, or use `<leader> S r`.
 
+### Restore on startup
+
+- Set `global.session.restore_on_startup: true` to restore the last restorable session when Noctra starts.
+- Leave it `false` to open `global.opening_buffer` instead.
+- If no saved session exists, Noctra falls back to the opening buffer.
+
 ## History panel
 
 Use history commands:

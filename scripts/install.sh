@@ -159,6 +159,7 @@ verify_checksum() {
 install_macos() {
   asset_path="$1"
   asset_name="$(basename "$asset_path")"
+  install_target="/Applications/Noctra.app"
 
   if [[ "$asset_name" == *.dmg ]]; then
     mount_point="$(mktemp -d)"
@@ -167,11 +168,22 @@ install_macos() {
     app_source="$(find "$mount_point" -maxdepth 2 -name 'Noctra.app' | head -n 1 || true)"
     [ -n "$app_source" ] || die "Noctra.app not found in DMG"
 
-    if cp -R "$app_source" /Applications/Noctra.app 2>/dev/null; then
+    if [ -e "$install_target" ]; then
+      log "Removing existing Noctra.app from /Applications"
+      if ! rm -rf "$install_target" 2>/dev/null; then
+        if command -v sudo >/dev/null 2>&1; then
+          sudo rm -rf "$install_target"
+        else
+          die "Could not remove existing Noctra.app from /Applications"
+        fi
+      fi
+    fi
+
+    if cp -R "$app_source" "$install_target" 2>/dev/null; then
       log "Installed Noctra.app to /Applications"
     elif command -v sudo >/dev/null 2>&1; then
       log "Copying Noctra.app to /Applications with sudo"
-      sudo cp -R "$app_source" /Applications/Noctra.app
+      sudo cp -R "$app_source" "$install_target"
     else
       die "Could not copy Noctra.app to /Applications"
     fi
@@ -183,11 +195,11 @@ install_macos() {
     log "Archive path: $asset_path"
   fi
 
-  if [ -d /Applications/Noctra.app ]; then
-    if xattr -d com.apple.quarantine /Applications/Noctra.app 2>/dev/null; then
+  if [ -d "$install_target" ]; then
+    if xattr -d com.apple.quarantine "$install_target" 2>/dev/null; then
       log "Removed macOS quarantine attribute from /Applications/Noctra.app"
     elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-      sudo xattr -d com.apple.quarantine /Applications/Noctra.app || true
+      sudo xattr -d com.apple.quarantine "$install_target" || true
     else
       warn "Could not remove quarantine automatically. Run:"
       warn "xattr -d com.apple.quarantine /Applications/Noctra.app"

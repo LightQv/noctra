@@ -6,7 +6,7 @@
 
 A keyboard-first browser shell with a Neovim-style workflow.
 
-_Current version:_ `0.1.0`
+_Current version:_ `0.1.1`
 
 [About](#about) · [Installation](#installation) · [Documentation](#documentation) · [Contributing](#contributing) · [License](#license) · [Roadmap](#roadmap)
 
